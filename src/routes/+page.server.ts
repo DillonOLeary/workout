@@ -8,9 +8,18 @@ import type { Actions } from './$types';
  * use:enhance turns the round-trip into a fetch.
  */
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, cookies }) => {
 		const form = await request.formData();
 		const uid = uidFromPhone(String(form.get('phone') ?? ''));
+		// Flash cookie: the next load of /u/<uid> shows the bookmark banner
+		// once, then deletes it. Scoped to this user's path so it can't leak
+		// across ledgers.
+		cookies.set('ledger_welcome', '1', {
+			path: `/u/${uid}`,
+			maxAge: 300,
+			httpOnly: true,
+			sameSite: 'lax'
+		});
 		redirect(303, `/u/${uid}`);
 	}
 };

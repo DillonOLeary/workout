@@ -16,7 +16,13 @@
 			{ label: 'Ledger', href: `${base}/ledger` }
 		]}
 	/>
-	<div class="uidline">/u/{data.uid} — bookmark this URL, it is your login</div>
+	{#if data.showWelcome}
+		<div class="welcome" role="status">
+			<span class="caps">You're in</span>
+			Bookmark this page — <span class="mono">/u/{data.uid}</span> is your login. No password, no
+			recovery.
+		</div>
+	{/if}
 	{@render children()}
 </div>
 
@@ -30,13 +36,26 @@
 		flex-direction: column;
 		gap: 24px;
 	}
-	.uidline {
-		font-family: var(--font-mono);
-		font-size: 12px;
-		color: var(--ink-3);
-		text-align: center;
-		margin-top: -12px;
+	.welcome {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		background: var(--white);
+		border: var(--border-w) solid var(--ink);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-raised);
+		padding: 16px 20px;
+		font-size: 15px;
+		line-height: var(--leading-body);
 	}
+	.welcome .caps {
+		font-size: 12px;
+		font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+	}
+	.welcome .mono { font-family: var(--font-mono); background: var(--volt-tint); padding: 0 4px; border-radius: 4px; }
 	/* Room for the bottom-fixed tab bar on touch layouts */
 	@media (max-width: 640px) {
 		.shell { padding-bottom: 128px; }
