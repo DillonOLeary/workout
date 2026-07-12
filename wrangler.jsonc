@@ -1,0 +1,22 @@
+// Cloudflare Workers config. Committing this stops `wrangler deploy` from
+// auto-configuring (and rewriting build scripts) in CI.
+// Runtime env vars (DB, LEDGER_PEPPER) are set in the Cloudflare dashboard.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "ledger",
+	"compatibility_date": "2026-07-12",
+	// pg (TCP sockets) and node:crypto need Node compatibility
+	"compatibility_flags": ["nodejs_compat"],
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"observability": {
+		"enabled": true
+	},
+	// `npx wrangler deploy` runs this before uploading
+	"build": {
+		"command": "pnpm run build"
+	}
+}
