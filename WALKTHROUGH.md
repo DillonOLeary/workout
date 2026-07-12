@@ -200,5 +200,8 @@ reactivity is part of learning it.
    then append — through the decider or not? decide and defend it).
 4. **Stored projection.** Move `projectSessions` into a Pongo projection with
    `emmett-postgresql` and compare.
-5. **Deploy.** `pnpm add -D @sveltejs/adapter-vercel` (or node/netlify), set
-   `DB` + `LEDGER_PEPPER` in the platform env, ship it, bookmark your URL.
+5. **Deploy — done.** This runs on Cloudflare Workers via `adapter-cloudflare`
+   ([wrangler.jsonc](wrangler.jsonc)): the `nodejs_compat` flag gives `pg` its
+   TCP sockets and `node:crypto` its HMAC; `DB` + `LEDGER_PEPPER` live in the
+   Cloudflare dashboard; `keep_vars` stops deploys from wiping them.
+   Deploy by pushing to main (Workers Builds) or `npx wrangler deploy`.

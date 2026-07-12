@@ -5,6 +5,8 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "ledger",
 	"compatibility_date": "2026-07-12",
+	// Don't wipe dashboard-set vars (DB, LEDGER_PEPPER) on config-based deploys
+	"keep_vars": true,
 	// pg (TCP sockets) and node:crypto need Node compatibility
 	"compatibility_flags": ["nodejs_compat"],
 	"main": ".svelte-kit/cloudflare/_worker.js",
