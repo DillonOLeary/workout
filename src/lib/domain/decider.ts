@@ -1,0 +1,98 @@
+import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
+import type { LedgerCommand } from './commands';
+import type { LedgerEvent } from './events';
+
+/**
+ * The decider: the write-side of the app in three pure functions.
+ *
+ *   initialState()        — where every stream begins
+ *   evolve(state, event)  — how one recorded fact changes state
+ *   decide(command, state)— which new facts a request produces (or throws)
+ *
+ * Emmett's DeciderCommandHandler (src/lib/server/ledger.ts) glues them to the
+ * event store: read stream → fold with evolve → decide → append the result
+ * with optimistic concurrency. We never store this state — it is rebuilt
+ * from events on every command, which is the whole point.
+ *
+ * State holds only what the RULES need (is a session open? which plan is
+ * active?). Everything the UI needs lives in projections.ts instead.
+ */
+export type ActiveSession = { id: string; plan: string; day: string; setsLogged: number };
+
+export type LedgerState = {
+	activeSession: ActiveSession | null;
+	activePlanId: string | null;
+};
+
+export const initialState = (): LedgerState => ({ activeSession: null, activePlanId: null });
+
+export const evolve = (state: LedgerState, { type, data }: LedgerEvent): LedgerState => {
+	switch (type) {
+		case 'SessionStarted':
+			return {
+				...state,
+				activeSession: { id: data.session, plan: data.plan, day: data.day, setsLogged: 0 }
+			};
+		case 'SetLogged':
+			if (state.activeSession?.id !== data.session) return state;
+			return {
+				...state,
+				activeSession: { ...state.activeSession, setsLogged: state.activeSession.setsLogged + 1 }
+			};
+		case 'SessionFinished':
+			return state.activeSession?.id === data.session ? { ...state, activeSession: null } : state;
+		case 'PlanSelected':
+			return { ...state, activePlanId: data.plan };
+		case 'RunLogged':
+			return state;
+	}
+};
+
+export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[] => {
+	switch (command.type) {
+		case 'StartSession': {
+			if (state.activeSession)
+				throw new IllegalStateError('A session is already in progress — finish it first.');
+			const { sessionId, plan, day, at } = command.data;
+			return [{ type: 'SessionStarted', data: { session: sessionId, plan, day, at } }];
+		}
+
+		case 'LogSet': {
+			const { session, weight, reps } = command.data;
+			if (!state.activeSession || state.activeSession.id !== session)
+				throw new IllegalStateError('No session in progress — start one from Today.');
+			if (!Number.isFinite(weight) || weight < 0 || weight > 2000)
+				throw new ValidationError('Weight is out of range.');
+			if (!Number.isInteger(reps) || reps < 1 || reps > 100)
+				throw new ValidationError('Reps are out of range.');
+			return [{ type: 'SetLogged', data: command.data }];
+		}
+
+		case 'FinishSession': {
+			const s = state.activeSession;
+			if (!s) throw new IllegalStateError('No session in progress.');
+			// The command carries almost nothing; the event is enriched from state.
+			return [
+				{ type: 'SessionFinished', data: { session: s.id, plan: s.plan, day: s.day, at: command.data.at } }
+			];
+		}
+
+		case 'LogRun': {
+			const { minutes, at } = command.data;
+			if (!Number.isFinite(minutes) || minutes < 1 || minutes > 600)
+				throw new ValidationError('Run minutes must be between 1 and 600.');
+			return [{ type: 'RunLogged', data: { minutes: Math.round(minutes), at } }];
+		}
+
+		case 'SelectPlan': {
+			// Selecting the already-active plan records nothing: deciders may
+			// return zero events, which makes retries naturally idempotent.
+			if (state.activePlanId === command.data.plan) return [];
+			return [{ type: 'PlanSelected', data: { plan: command.data.plan, at: command.data.at } }];
+		}
+	}
+};
+
+/** Rebuild decision state from history — used by the UI to ask "is a session open?" */
+export const currentState = (events: LedgerEvent[]): LedgerState =>
+	events.reduce(evolve, initialState());

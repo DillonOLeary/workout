@@ -1,0 +1,47 @@
+/* LEDGER — color tokens */
+:root {
+  /* Base palette */
+  --ink: #1A1915;
+  --ink-2: #4A4840;
+  --ink-3: #7A776B;
+  --paper: #F4F1E6;
+  --paper-2: #ECE8D9;
+  --paper-3: #E2DDCB;
+  --white: #FFFFFF;
+
+  --volt: #C8F04B;
+  --volt-deep: #A8D32A;
+  --volt-tint: #EAF9C4;
+
+  --signal-green: #2E7D32;
+  --signal-red: #C43D2B;
+  --signal-amber: #B97F10;
+
+  /* Semantic aliases */
+  --text-body: var(--ink);
+  --text-muted: var(--ink-3);
+  --text-secondary: var(--ink-2);
+  --text-on-ink: var(--paper);
+  --text-on-volt: var(--ink);
+
+  --surface-page: var(--paper);
+  --surface-card: var(--white);
+  --surface-sunken: var(--paper-2);
+  --surface-inverse: var(--ink);
+
+  --action-primary: var(--ink);
+  --action-accent: var(--volt);
+  --action-accent-hover: var(--volt-deep);
+
+  --border-strong: var(--ink);
+  --border-soft: var(--paper-3);
+
+  --levelup: var(--volt);
+  --levelup-text: var(--ink);
+  --danger: var(--signal-red);
+  --success: var(--signal-green);
+  --warning: var(--signal-amber);
+
+  --focus-ring: var(--ink);
+  --focus-ring-offset: var(--volt);
+}

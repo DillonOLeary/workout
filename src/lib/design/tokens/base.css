@@ -1,0 +1,14 @@
+/* LEDGER — base element styles */
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--text-body);
+  background: var(--surface-page);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--volt-deep); }
+a:hover { background: var(--volt); text-decoration: none; }
+:focus-visible { outline: none; box-shadow: var(--focus-shadow); border-radius: var(--radius-sm); }
+::selection { background: var(--volt); color: var(--ink); }

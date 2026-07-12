@@ -1,0 +1,19 @@
+/* LEDGER — borders, radii, shadows */
+:root {
+  --border-w: 2px;
+  --border-w-heavy: 3px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Hard offset shadows — tactile, print-like. No blur on interactive elements. */
+  --shadow-raised: 0 3px 0 var(--ink);
+  --shadow-raised-lg: 0 5px 0 var(--ink);
+  --shadow-pressed: 0 1px 0 var(--ink);
+  --shadow-card: 0 2px 0 var(--paper-3);
+
+  /* Keyboard focus — thick double ring, always visible */
+  --focus-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--ink);
+}

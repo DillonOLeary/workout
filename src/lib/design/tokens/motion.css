@@ -1,0 +1,9 @@
+/* LEDGER — motion tokens */
+:root {
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 100ms; /* press feedback */
+  --dur-med: 180ms;  /* hovers, toggles */
+  --dur-slow: 320ms; /* reveals */
+}
+/* Press = physical: element translates down onto its shadow. No scaling tricks. */
