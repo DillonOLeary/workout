@@ -1,5 +1,5 @@
 import { DeciderCommandHandler, EmmettError } from '@event-driven-io/emmett';
-import { eventStore } from './eventStore';
+import { withEventStore } from './eventStore';
 import { decide, evolve, initialState } from '$lib/domain/decider';
 import type { LedgerCommand } from '$lib/domain/commands';
 import type { LedgerEvent } from '$lib/domain/events';
@@ -19,7 +19,18 @@ const handle = DeciderCommandHandler({ decide, evolve, initialState });
 export const streamName = (uid: string) => `ledger-${uid}`;
 
 export const executeCommand = (uid: string, command: LedgerCommand) =>
-	handle(eventStore, streamName(uid), command);
+	withEventStore((store) => handle(store, streamName(uid), command));
+
+/**
+ * Read the full history for projections, stripped to plain `{type, data}` so
+ * it serializes cleanly to the client (store metadata like bigint stream
+ * positions stays server-side).
+ */
+export const readLedgerEvents = (uid: string): Promise<LedgerEvent[]> =>
+	withEventStore(async (store) => {
+		const { events } = await store.readStream<LedgerEvent>(streamName(uid));
+		return events.map((e) => ({ type: e.type, data: e.data }) as LedgerEvent);
+	});
 
 /**
  * Run a command, translating domain rejections (IllegalStateError,
@@ -34,14 +45,4 @@ export const tryCommand = async (uid: string, command: LedgerCommand): Promise<s
 		if (e instanceof EmmettError) return e.message;
 		throw e;
 	}
-};
-
-/**
- * Read the full history for projections, stripped to plain `{type, data}` so
- * it serializes cleanly to the client (store metadata like bigint stream
- * positions stays server-side).
- */
-export const readLedgerEvents = async (uid: string): Promise<LedgerEvent[]> => {
-	const { events } = await eventStore.readStream<LedgerEvent>(streamName(uid));
-	return events.map((e) => ({ type: e.type, data: e.data }) as LedgerEvent);
 };

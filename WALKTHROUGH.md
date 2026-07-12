@@ -200,7 +200,21 @@ reactivity is part of learning it.
    then append — through the decider or not? decide and defend it).
 4. **Stored projection.** Move `projectSessions` into a Pongo projection with
    `emmett-postgresql` and compare.
-5. **Deploy — done.** This runs on Cloudflare Workers via `adapter-cloudflare`
+5. **Deploy — done (with a scar worth studying).** The first production bug
+   was platform-shaped: Workers forbid using a TCP socket opened during one
+   request from another request, and a `globalThis`-cached pg pool does
+   exactly that — the symptom is not an error but a HANG ("Worker's code had
+   hung and would never generate a response") on the load right after a form
+   action. The fix is per-request connection lifecycles:
+   [db.ts](src/lib/server/db.ts) `withClient` and
+   [eventStore.ts](src/lib/server/eventStore.ts) `withEventStore` open a
+   fresh `pg.Client` per unit of work in prod (Emmett takes it via
+   `connectionOptions: { client }`) and close it — awaited — before
+   returning; dev keeps cached singletons because a Node process owns its
+   sockets. Upgrades if latency ever matters: Cloudflare Hyperdrive (edge
+   pooler, keeps this code shape) or Neon's serverless driver (Postgres over
+   HTTP, no sockets at all).
+   This runs on Cloudflare Workers via `adapter-cloudflare`
    ([wrangler.jsonc](wrangler.jsonc)): the `nodejs_compat` flag gives `pg` its
    TCP sockets and `node:crypto` its HMAC; `DB` + `LEDGER_PEPPER` live in the
    Cloudflare dashboard; `keep_vars` stops deploys from wiping them.

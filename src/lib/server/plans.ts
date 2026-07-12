@@ -1,4 +1,4 @@
-import { pool } from './db';
+import { withClient } from './db';
 import { DEFAULT_PLANS } from '$lib/domain/plans';
 import type { Exercise, Plan } from '$lib/domain/types';
 
@@ -10,8 +10,8 @@ import type { Exercise, Plan } from '$lib/domain/types';
 let ready: Promise<void> | undefined;
 
 function ensureReady(): Promise<void> {
-	return (ready ??= (async () => {
-		await pool.query(
+	ready ??= withClient(async (db) => {
+		await db.query(
 			`create table if not exists ledger_plans (
 				id text primary key,
 				data jsonb not null,
@@ -22,7 +22,7 @@ function ensureReady(): Promise<void> {
 			// Shipped plans refresh their name/description/dayInfo on boot (so a
 			// rename in code reaches existing rows), but stored `days` win —
 			// mirroring the design's domain.js merge rule for default plans.
-			await pool.query(
+			await db.query(
 				`insert into ledger_plans (id, data) values ($1, $2)
 				 on conflict (id) do update set data = ledger_plans.data || jsonb_build_object(
 					'name', excluded.data->'name',
@@ -32,23 +32,31 @@ function ensureReady(): Promise<void> {
 				[plan.id, JSON.stringify(plan)]
 			);
 		}
-	})());
+	}).catch((e) => {
+		ready = undefined; // let the next request retry instead of caching the failure
+		throw e;
+	});
+	return ready;
 }
 
 export async function listPlans(): Promise<Plan[]> {
 	await ensureReady();
-	const { rows } = await pool.query<{ data: Plan }>(
-		'select data from ledger_plans order by created_at'
-	);
-	return rows.map((r) => r.data);
+	return withClient(async (db) => {
+		const { rows } = await db.query<{ data: Plan }>(
+			'select data from ledger_plans order by created_at'
+		);
+		return rows.map((r) => r.data);
+	});
 }
 
 export async function insertPlan(plan: Plan): Promise<void> {
 	await ensureReady();
-	await pool.query(
-		`insert into ledger_plans (id, data) values ($1, $2)
-		 on conflict (id) do update set data = excluded.data`,
-		[plan.id, JSON.stringify(plan)]
+	await withClient((db) =>
+		db.query(
+			`insert into ledger_plans (id, data) values ($1, $2)
+			 on conflict (id) do update set data = excluded.data`,
+			[plan.id, JSON.stringify(plan)]
+		)
 	);
 }
 
