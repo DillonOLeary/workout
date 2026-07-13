@@ -25,13 +25,6 @@
 	</div>
 	<main class="app-main" bind:this={mainEl}>
 		<div class="shell">
-			{#if data.showWelcome}
-				<div class="welcome" role="status">
-					<span class="caps">You're in</span>
-					This device stays signed in — no password, nothing to bookmark. Same phone number,
-					same ledger, on any device.
-				</div>
-			{/if}
 			{@render children()}
 			<footer class="signout">
 				<!-- plain form on purpose: works with zero JS, full-page nav to /login -->
@@ -98,26 +91,6 @@
 		.shell {
 			padding-bottom: 24px;
 		}
-	}
-
-	.welcome {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		background: var(--white);
-		border: var(--border-w) solid var(--ink);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-raised);
-		padding: 16px 20px;
-		font-size: 15px;
-		line-height: var(--leading-body);
-	}
-	.welcome .caps {
-		font-size: 12px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
 	}
 
 	/* rare action, quiet home: caps text at the end of the scroll */

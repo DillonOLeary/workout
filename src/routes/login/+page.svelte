@@ -11,7 +11,7 @@
 		<div>
 			<div class="wordmark">LEDGER</div>
 			<div class="underline"></div>
-			<p class="tagline">Track the work. The rule does the rest.</p>
+			<p class="tagline">Show up. Write it down.</p>
 		</div>
 
 		<form method="POST" use:enhance>

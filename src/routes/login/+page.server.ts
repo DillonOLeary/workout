@@ -14,13 +14,6 @@ export const actions: Actions = {
 		const uid = uidFromPhone(String(form.get('phone') ?? ''));
 		// the real login: a signed stay-signed-in cookie (see lib/server/auth.ts)
 		setAuthCookie(cookies, uid);
-		// flash cookie: the next page shows the welcome banner exactly once
-		cookies.set('ledger_welcome', '1', {
-			path: '/',
-			maxAge: 300,
-			httpOnly: true,
-			sameSite: 'lax'
-		});
 		redirect(303, '/');
 	}
 };

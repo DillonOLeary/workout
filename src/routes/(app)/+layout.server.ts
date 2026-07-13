@@ -11,13 +11,9 @@ import type { LayoutServerLoad } from './$types';
  * from the URL. Pages don't get "state" — they get the events and fold
  * whatever view they need with the pure functions in $lib/domain.
  */
-export const load: LayoutServerLoad = async ({ locals, cookies }) => {
+export const load: LayoutServerLoad = async ({ locals }) => {
 	const uid = locals.uid;
 	if (!uid) redirect(303, '/login');
-
-	// Read-and-delete: the welcome banner shows exactly once after login.
-	const showWelcome = cookies.get('ledger_welcome') === '1';
-	if (showWelcome) cookies.delete('ledger_welcome', { path: '/' });
 
 	const [plans, events] = await Promise.all([listPlans(), readLedgerEvents(uid)]);
 	return {
@@ -25,7 +21,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		plans,
 		events,
 		activePlanId: activePlanId(events) ?? plans[0]?.id ?? null,
-		activeSession: currentState(events).activeSession,
-		showWelcome
+		activeSession: currentState(events).activeSession
 	};
 };
