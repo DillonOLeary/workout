@@ -93,51 +93,63 @@
 	let restSec = $derived(lastLoggedAt ? Math.max(0, Math.floor((now - lastLoggedAt) / 1000)) : null);
 	const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-	let holdStartedAt = $state<number | null>(null);
-	let holdNow = $state(0);
-	// a stopped timer is "timed, not yet logged" — visually distinct from the
-	// idle target, so a logged set can't be mistaken for a paused stopwatch
-	let holdCaptured = $state(false);
-	let holdTarget = 0; // what the readout resets to after each logged set
+	// Timed holds (the Claude Design model): dial the TARGET on the stepper,
+	// start — the readout counts DOWN and logs itself at the bell. Drop early
+	// and "Done early" logs the seconds actually held.
+	let hold = $state<{ end: number; target: number } | null>(null);
+	let remaining = $state<number | null>(null);
 	$effect(() => {
-		if (holdStartedAt == null) return;
-		const t = setInterval(() => (holdNow = Date.now()), 250);
+		if (!hold) return;
+		const h = hold;
+		const t = setInterval(() => {
+			const r = Math.ceil((h.end - Date.now()) / 1000);
+			if (r <= 0) {
+				// the bell: the full target logs itself
+				hold = null;
+				remaining = null;
+				enqueue(h.target, h.target);
+			} else {
+				remaining = r;
+			}
+		}, 200);
 		return () => clearInterval(t);
 	});
-	let holdSec = $derived(
-		holdStartedAt != null ? Math.max(0, Math.floor((holdNow - holdStartedAt) / 1000)) : null
-	);
-	function toggleHold() {
-		if (holdStartedAt == null) {
-			holdNow = Date.now();
-			holdStartedAt = Date.now();
-			holdCaptured = false;
-		} else {
-			reps = Math.max(1, Math.floor((Date.now() - holdStartedAt) / 1000));
-			holdStartedAt = null;
-			holdCaptured = true;
-		}
-	}
+	const bumpTarget = (d: number) => {
+		if (!hold) reps = Math.max(10, reps + d);
+	};
 
 	function initFor(i: number) {
 		const e = exercises[i];
 		if (!e) return;
 		const prior = loggedThis.filter((s) => s.data.exercise === e.name);
-		if (e.bodyweight) {
-			// no weight axis — the count itself is what progresses
-			weight = 0;
-			reps = prior.length
-				? prior[prior.length - 1].data.reps
-				: suggestedCount(data.events, e, session.id);
-		} else {
-			weight = prior.length
-				? prior[prior.length - 1].data.weight
+		const priorLast = prior[prior.length - 1];
+		const timed = e.mode === 'seconds';
+		// weight: 0 for bodyweight; timed-weighted (med-ball plank) carries it
+		// silently — the hold stepper replaces the weight stepper on screen
+		weight = e.bodyweight
+			? 0
+			: priorLast
+				? priorLast.data.weight
 				: suggestedWeight(data.events, e, session.id);
-			reps = e.mode === 'seconds' ? e.lo : Math.min(e.lo + 2, e.hi);
+		if (timed) {
+			// target seconds: this session's last TARGET (a dropped hold
+			// shouldn't lower the next bell), else history, else the floor
+			if (priorLast) {
+				reps = priorLast.data.target ?? priorLast.data.reps;
+			} else if (e.bodyweight) {
+				reps = suggestedCount(data.events, e, session.id);
+			} else {
+				const entry = lastEntryFor(data.events, e.name, session.id);
+				reps = entry ? Math.max(...entry.reps) : e.lo;
+			}
+		} else if (e.bodyweight) {
+			reps = priorLast ? priorLast.data.reps : suggestedCount(data.events, e, session.id);
+		} else {
+			reps = Math.min(e.lo + 2, e.hi);
 		}
-		holdTarget = reps;
-		holdStartedAt = null;
-		holdCaptured = false;
+		inc = timed ? 15 : 5;
+		hold = null;
+		remaining = null;
 	}
 	initFor(initialEx);
 
@@ -152,10 +164,7 @@
 	const bump = (d: number) => (weight = Math.max(0, Math.round((weight + d) * 2) / 2));
 
 	/* ---------- the write path ---------- */
-	function logSetNow() {
-		if (performance.now() - lastPress < 350) return; // accidental double-tap
-		lastPress = performance.now();
-		if (holdStartedAt != null) toggleHold(); // stop the hold and capture it
+	function enqueue(count: number, target?: number) {
 		errMsg = null;
 		local.push({
 			key: crypto.randomUUID(),
@@ -166,23 +175,40 @@
 				day: session.day,
 				exercise: ex.name,
 				weight,
-				reps,
+				reps: count,
 				set: done + 1,
 				at: new Date().toISOString(),
-				...(isHold ? { unit: 's' as const } : {})
+				...(isHold ? { unit: 's' as const, ...(target !== undefined ? { target } : {}) } : {})
 			}
 		});
 		// instant feedback — the network is not invited to this part
 		flash = true;
 		setTimeout(() => (flash = false), 160);
 		navigator.vibrate?.(12);
-		if (isHold) {
-			// the logged set is done: back to a fresh target, not a "paused" time
-			reps = holdTarget;
-			holdCaptured = false;
-		}
 		if (done >= ex.sets && exI < exercises.length - 1) setTimeout(() => goTo(exI + 1), 280);
 		void pump();
+	}
+
+	function logSetNow() {
+		if (performance.now() - lastPress < 350) return; // accidental double-tap
+		lastPress = performance.now();
+		enqueue(reps);
+	}
+
+	/** timed: one button — ring in the hold, or log the early drop */
+	function startOrDone() {
+		if (performance.now() - lastPress < 350) return;
+		lastPress = performance.now();
+		if (hold) {
+			const held = Math.max(5, hold.target - Math.ceil((hold.end - Date.now()) / 1000));
+			const t = hold.target;
+			hold = null;
+			remaining = null;
+			enqueue(held, t);
+		} else {
+			remaining = reps;
+			hold = { end: Date.now() + reps * 1000, target: reps };
+		}
 	}
 
 	function pump(): Promise<void> {
@@ -280,16 +306,19 @@
 	function primaryAction() {
 		if (allDone) return void finishNow();
 		if (exDone) return goTo(exI + 1);
+		if (isHold) return startOrDone();
 		logSetNow();
 	}
 
 	function onKey(ev: KeyboardEvent) {
 		if (ev.key === 'ArrowUp') {
-			if (isBW) reps = reps + (isHold ? 5 : 1);
+			if (isHold) bumpTarget(inc);
+			else if (isBW) reps = reps + 1;
 			else bump(inc);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowDown') {
-			if (isBW) reps = Math.max(1, reps - (isHold ? 5 : 1));
+			if (isHold) bumpTarget(-inc);
+			else if (isBW) reps = Math.max(1, reps - 1);
 			else bump(-inc);
 			ev.preventDefault();
 		}
@@ -339,30 +368,53 @@
 					</div>
 					<div class="lg-setline">
 						{#if exDone}
-							<span><b>All {ex.sets} sets logged</b> · target {ex.lo}–{ex.hi}{isHold ? 's' : ' reps'}</span>
+							<span><b>All {ex.sets} {isHold ? 'holds' : 'sets'} logged</b>{isHold ? '' : ` · target ${ex.lo}–${ex.hi} reps`}</span>
+						{:else if isHold}
+							<span>Hold <b>{done + 1}</b> of {ex.sets} · {reps}s</span>
 						{:else}
-							<span>Set <b>{done + 1}</b> of {ex.sets} · target {ex.lo}–{ex.hi}{isHold ? 's' : ' reps'}</span>
+							<span>Set <b>{done + 1}</b> of {ex.sets} · target {ex.lo}–{ex.hi} reps</span>
 						{/if}
 					</div>
 					<div class="lg-last">
 						{last
-							? `LAST  ${isBW ? '' : `${last.weight} lb · `}${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
-							: isBW
-								? `First time — start at ${ex.lo}${isHold ? 's' : ' reps'}`
-								: 'First time — starting weight'}
+							? `LAST  ${isBW || isHold ? '' : `${last.weight} lb · `}${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
+							: isHold
+								? 'First time — hold to the bell'
+								: isBW
+									? `First time — start at ${ex.lo} reps`
+									: 'First time — starting weight'}
 					</div>
-					{#if loggedThis.length === 0}
-						<div class="lg-hint">Warm up — 5 easy minutes + one light set.</div>
-					{:else if allDone}
+					{#if allDone}
 						<div class="lg-hint">Done — stretch 5 min while you're warm.</div>
-					{:else if restSec !== null && restSec < 900 && holdStartedAt == null}
+					{:else if restSec !== null && restSec < 900 && !hold}
 						<!-- rest ends the moment work starts: hidden while a hold runs -->
 						<div class="lg-rest">REST {fmtClock(restSec)}</div>
 					{/if}
 				</div>
 
 				<div class="lg-block">
-					{#if !isBW}
+					{#if isHold}
+						<!-- the stepper IS the hold control: dial the bell, start, breathe -->
+						<p class="lg-lbl">{hold ? 'Holding' : 'Hold for'}</p>
+						<div class="lg-stepper">
+							<button type="button" class="lg-step" onclick={() => bumpTarget(-inc)} disabled={!!hold} aria-label="Shorter hold">−</button>
+							<div class="lg-readout" class:run={!!hold} aria-live="polite">
+								<span class="v">{hold ? remaining : reps}</span>
+								<span class="u">sec</span>
+							</div>
+							<button type="button" class="lg-step" onclick={() => bumpTarget(inc)} disabled={!!hold} aria-label="Longer hold">+</button>
+						</div>
+						<div class="lg-inc" role="group" aria-label="Seconds step size">
+							{#each [5, 15, 30] as v (v)}
+								<button type="button" aria-pressed={inc === v} onclick={() => (inc = v)}>{v}</button>
+							{/each}
+						</div>
+						<div class="lg-help">
+							{hold
+								? 'Logs itself at zero. Drop early — tap Done, the seconds count.'
+								: 'Tap start, get in position, breathe.'}
+						</div>
+					{:else if !isBW}
 						<p class="lg-lbl">Weight</p>
 						<div class="lg-stepper">
 							<button type="button" class="lg-step" onclick={() => bump(-inc)} aria-label="Decrease weight">−</button>
@@ -379,26 +431,7 @@
 						</div>
 					{/if}
 
-					{#if isHold}
-						<!-- one control, same grammar as the weight stepper: nudge or time -->
-						<div class="lg-reps">
-							<p class="lg-lbl">Hold</p>
-							<div class="lg-stepper">
-								<button type="button" class="lg-step sm" onclick={() => (reps = Math.max(1, reps - 5))} disabled={holdStartedAt != null} aria-label="Shorten hold">−5</button>
-								<button type="button" class="lg-hold" class:running={holdStartedAt != null} class:captured={holdCaptured && holdStartedAt == null} onclick={toggleHold}>
-									{holdStartedAt != null ? fmtClock(holdSec ?? 0) : `${reps}s`}
-									<span class="off">
-										{holdStartedAt != null
-											? 'tap to stop'
-											: holdCaptured
-												? 'timed — log set records it'
-												: 'target · tap to time the hold'}
-									</span>
-								</button>
-								<button type="button" class="lg-step sm" onclick={() => (reps = reps + 5)} disabled={holdStartedAt != null} aria-label="Lengthen hold">+5</button>
-							</div>
-						</div>
-					{:else if isBW}
+					{#if !isHold && isBW}
 						<!-- rounds/reps without a barbell: a stepper, not a grid -->
 						<div class="lg-reps">
 							<p class="lg-lbl">Reps</p>
@@ -411,7 +444,7 @@
 								<button type="button" class="lg-step" onclick={() => (reps = reps + 1)} aria-label="Increase reps">+</button>
 							</div>
 						</div>
-					{:else}
+					{:else if !isHold}
 						<div class="lg-reps">
 							<p class="lg-lbl">Reps{repChoices.indexOf(reps) === -1 ? ` — set to ${reps}` : ''}</p>
 							<div class="lg-repgrid" role="group" aria-label="Reps">
@@ -431,15 +464,29 @@
 			</main>
 
 			<p class="lg-khint">
-				<kbd>↑</kbd><kbd>↓</kbd> {isBW ? (isHold ? 'hold' : 'reps') : 'weight'} ·
-				<kbd>1</kbd>–<kbd>9</kbd> reps · <kbd>←</kbd><kbd>→</kbd>
-				exercise · <kbd>Enter</kbd> log set
+				{#if isHold}
+					<kbd>↑</kbd><kbd>↓</kbd> hold length · <kbd>←</kbd><kbd>→</kbd> pose ·
+					<kbd>Enter</kbd> start / done
+				{:else}
+					<kbd>↑</kbd><kbd>↓</kbd> {isBW ? 'reps' : 'weight'} · <kbd>1</kbd>–<kbd>9</kbd> reps ·
+					<kbd>←</kbd><kbd>→</kbd> exercise · <kbd>Enter</kbd> log set
+				{/if}
 			</p>
 			{#if errMsg ?? form?.message}<p class="lg-err">{errMsg ?? form?.message}</p>{/if}
 			<div class="lg-actions">
 				<button type="button" class="lg-nav" onclick={() => goTo(exI - 1)} disabled={exI === 0} aria-label="Previous exercise">‹</button>
 				<button type="button" class="lg-log" class:done={exDone && !allDone} onclick={primaryAction}>
-					{allDone ? 'Finish workout' : exDone ? 'Next exercise' : 'Log set'}
+					{allDone
+						? 'Finish workout'
+						: exDone
+							? isHold
+								? 'Next pose'
+								: 'Next exercise'
+							: isHold
+								? hold
+									? 'Done early'
+									: `Start ${reps}s hold`
+								: 'Log set'}
 				</button>
 				<button type="button" class="lg-nav" onclick={() => goTo(exI + 1)} disabled={exI === exercises.length - 1} aria-label="Next exercise">›</button>
 			</div>
@@ -529,13 +576,8 @@
 	.lg-inc button[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
 
 	.lg-reps { margin-top: 16px; }
-	/* bodyweight: no weight block above, so the count UI sits flush — and the
-	   hold timer grows into the reclaimed space (readable from the mat) */
+	/* bodyweight: no weight block above, so the count UI sits flush */
 	.lg-reps:first-child { margin-top: 0; }
-	.lg-reps:first-child .lg-hold {
-		min-height: clamp(140px, 24vh, 220px);
-		font-size: clamp(56px, 11vh, 96px);
-	}
 	.lg-repgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 	.lg-rep {
 		font-family: var(--font-mono); font-weight: 800; font-size: 30px; color: var(--ink);
@@ -544,18 +586,11 @@
 	}
 	.lg-rep[aria-pressed='true'] { background: var(--volt); box-shadow: var(--shadow-pressed); transform: translateY(2px); }
 	.lg-rep .off { display: block; font-family: var(--font-body); font-weight: 700; font-size: 9px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
-	.lg-hold {
-		width: 100%; min-height: var(--hit-xl);
-		font-family: var(--font-mono); font-weight: 800; font-size: 40px; color: var(--ink);
-		background: var(--white); border: 2px solid var(--ink); border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-raised); cursor: pointer; touch-action: manipulation;
-	}
-	.lg-step.sm { font-size: 24px; }
+	/* countdown running: the readout itself goes volt (design: log-screen.css) */
+	.lg-readout.run { background: var(--volt); }
 	.lg-step:disabled { opacity: 0.3; cursor: default; }
 	.lg-step:disabled:active { transform: none; box-shadow: var(--shadow-raised); }
-	.lg-hold.running { background: var(--volt); box-shadow: var(--shadow-pressed); transform: translateY(2px); }
-	.lg-hold.captured { background: var(--volt-tint); }
-	.lg-hold .off { display: block; font-family: var(--font-body); font-weight: 700; font-size: 10px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+	.lg-help { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 14px; }
 	.lg-repextra { display: flex; gap: 8px; margin-top: 8px; }
 	.lg-repextra button {
 		flex: 1; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink-2);

@@ -31,6 +31,8 @@ export type SetLogged = Event<
 		 * that matches what old events meant, so history replays unchanged.
 		 */
 		unit?: 'reps' | 's';
+		/** timed holds: the bell you aimed for (reps holds the seconds achieved) */
+		target?: number;
 	}
 >;
 

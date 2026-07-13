@@ -22,7 +22,8 @@ export const actions: Actions = {
 				reps: Number(form.get('reps')),
 				set: Number(form.get('set')),
 				at: new Date().toISOString(),
-				unit: form.get('unit') === 's' ? ('s' as const) : undefined
+				unit: form.get('unit') === 's' ? ('s' as const) : undefined,
+				target: form.get('target') ? Number(form.get('target')) : undefined
 			}
 		});
 		if (err) return fail(400, { message: err });
