@@ -346,7 +346,8 @@
 						<div class="lg-hint">Warm up — 5 easy minutes + one light set.</div>
 					{:else if allDone}
 						<div class="lg-hint">Done — stretch 5 min while you're warm.</div>
-					{:else if restSec !== null && restSec < 900}
+					{:else if restSec !== null && restSec < 900 && holdStartedAt == null}
+						<!-- rest ends the moment work starts: hidden while a hold runs -->
 						<div class="lg-rest">REST {fmtClock(restSec)}</div>
 					{/if}
 				</div>

@@ -68,7 +68,7 @@ export const DEFAULT_PLANS: Plan[] = [
 		runs: false,
 		dayInfo: {
 			'1': { title: 'Flow & Hold', desc: 'Sun salutations · chair · warrior II · plank · boat · bridge' },
-			'2': { title: 'Balance & Bend', desc: 'Tree · warrior III · low lunge · pigeon · fold · twist' }
+			'2': { title: 'Balance & Bend', desc: 'Sun salutations · tree · warrior III · low lunge · pigeon · fold · twist' }
 		},
 		days: {
 			'1': [
@@ -80,6 +80,8 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'Bridge Pose', equip: 'Mat', tag: 'Hip ext.', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true }
 			],
 			'2': [
+				// same movement, same targets as day 1 — one shared progression
+				{ name: 'Sun Salutation A', equip: 'One full round = 1 rep', tag: 'Flow', sets: 2, lo: 3, hi: 5, start: 0, inc: 1, bodyweight: true },
 				{ name: 'Tree Pose', equip: 'One set per side', tag: 'Balance', sets: 2, lo: 20, hi: 60, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
 				{ name: 'Warrior III', equip: 'One set per side', tag: 'Balance', sets: 2, lo: 15, hi: 30, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
 				{ name: 'Low Lunge', equip: 'One set per side', tag: 'Hip flexor', sets: 2, lo: 30, hi: 60, start: 0, inc: 10, mode: 'seconds', bodyweight: true },
