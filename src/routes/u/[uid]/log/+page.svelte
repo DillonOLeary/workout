@@ -69,10 +69,6 @@
 	// bodyweight ≠ seconds: the med-ball plank is a WEIGHTED hold. Weight UI
 	// keys off bodyweight; the hold timer keys off mode.
 	let isBW = $derived(!!ex?.bodyweight);
-	let holdChips = $derived.by(() => {
-		const mid = Math.round((ex.lo + ex.hi) / 2 / 5) * 5;
-		return [...new Set([ex.lo, mid, ex.hi])];
-	});
 	let done = $derived(loggedThis.filter((e) => e.data.exercise === ex.name).length);
 	// honest optimism: these sets are drawn, but the server hasn't confirmed yet
 	let pendingForEx = $derived(
@@ -371,18 +367,29 @@
 					{/if}
 
 					{#if isHold}
+						<!-- one control, same grammar as the weight stepper: nudge or time -->
 						<div class="lg-reps">
 							<p class="lg-lbl">Hold</p>
-							<button type="button" class="lg-hold" class:running={holdStartedAt != null} onclick={toggleHold}>
-								{holdStartedAt != null ? fmtClock(holdSec ?? 0) : `${reps}s`}
-								<span class="off">{holdStartedAt != null ? 'tap to stop' : 'tap to time the hold'}</span>
-							</button>
-							<div class="lg-repextra">
-								{#each holdChips as v (v)}
-									<button type="button" aria-pressed={reps === v && holdStartedAt == null} onclick={() => (reps = v)}>{v}s</button>
-								{/each}
-								<button type="button" onclick={() => (reps = Math.max(1, reps - 5))}>−5s</button>
-								<button type="button" onclick={() => (reps = reps + 5)}>+5s</button>
+							<div class="lg-stepper">
+								<button type="button" class="lg-step sm" onclick={() => (reps = Math.max(1, reps - 5))} disabled={holdStartedAt != null} aria-label="Shorten hold">−5</button>
+								<button type="button" class="lg-hold" class:running={holdStartedAt != null} onclick={toggleHold}>
+									{holdStartedAt != null ? fmtClock(holdSec ?? 0) : `${reps}s`}
+									<span class="off">{holdStartedAt != null ? 'tap to stop' : 'tap to time the hold'}</span>
+								</button>
+								<button type="button" class="lg-step sm" onclick={() => (reps = reps + 5)} disabled={holdStartedAt != null} aria-label="Lengthen hold">+5</button>
+							</div>
+						</div>
+					{:else if isBW}
+						<!-- rounds/reps without a barbell: a stepper, not a grid -->
+						<div class="lg-reps">
+							<p class="lg-lbl">Reps</p>
+							<div class="lg-stepper">
+								<button type="button" class="lg-step" onclick={() => (reps = Math.max(1, reps - 1))} aria-label="Decrease reps">−</button>
+								<div class="lg-readout" aria-live="polite">
+									<span class="v">{reps}</span>
+									<span class="u">reps</span>
+								</div>
+								<button type="button" class="lg-step" onclick={() => (reps = reps + 1)} aria-label="Increase reps">+</button>
 							</div>
 						</div>
 					{:else}
@@ -514,11 +521,14 @@
 	.lg-rep[aria-pressed='true'] { background: var(--volt); box-shadow: var(--shadow-pressed); transform: translateY(2px); }
 	.lg-rep .off { display: block; font-family: var(--font-body); font-weight: 700; font-size: 9px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); margin-top: 2px; }
 	.lg-hold {
-		width: 100%; min-height: 96px;
+		width: 100%; min-height: var(--hit-xl);
 		font-family: var(--font-mono); font-weight: 800; font-size: 40px; color: var(--ink);
 		background: var(--white); border: 2px solid var(--ink); border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-raised); cursor: pointer; touch-action: manipulation;
 	}
+	.lg-step.sm { font-size: 24px; }
+	.lg-step:disabled { opacity: 0.3; cursor: default; }
+	.lg-step:disabled:active { transform: none; box-shadow: var(--shadow-raised); }
 	.lg-hold.running { background: var(--volt); box-shadow: var(--shadow-pressed); transform: translateY(2px); }
 	.lg-hold .off { display: block; font-family: var(--font-body); font-weight: 700; font-size: 10px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
 	.lg-repextra { display: flex; gap: 8px; margin-top: 8px; }
