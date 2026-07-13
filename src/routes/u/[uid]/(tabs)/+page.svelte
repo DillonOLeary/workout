@@ -59,7 +59,13 @@
 <div class="col">
 	<div class="head">
 		<h1>Today</h1>
-		<Badge tone="neutral">{today}</Badge>
+		<span class="headbadges">
+			{#if plan.runs !== false}
+				<!-- runs live below the fold; this keeps them on the scoreboard -->
+				<Badge tone={minutes >= 150 ? 'levelup' : 'neutral'}>Run {minutes}/150</Badge>
+			{/if}
+			<Badge tone="neutral">{today}</Badge>
+		</span>
 	</div>
 
 	{#if form?.message}
@@ -132,10 +138,7 @@
 	{/if}
 
 	{#if plan.runs !== false}
-		<WeeklyProgress {minutes} />
-
-		<Card>
-			<div class="caps mb12">Log a run</div>
+		<WeeklyProgress {minutes}>
 			<form method="POST" action="?/logRun" use:enhance class="row gap16 wrap">
 				<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
 				<input type="hidden" name="minutes" value={runMin} />
@@ -143,13 +146,14 @@
 					Log run
 				</Button>
 			</form>
-		</Card>
+		</WeeklyProgress>
 	{/if}
 </div>
 
 <style>
 	.col { display: flex; flex-direction: column; gap: 20px; }
 	.head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+	.headbadges { display: flex; gap: 8px; align-items: center; }
 	h1 {
 		margin: 0;
 		font-family: var(--font-display);
@@ -164,7 +168,6 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 	}
-	.mb12 { margin-bottom: 12px; }
 	.title {
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);

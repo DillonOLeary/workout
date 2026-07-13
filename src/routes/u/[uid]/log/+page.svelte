@@ -529,8 +529,13 @@
 	.lg-inc button[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
 
 	.lg-reps { margin-top: 16px; }
-	/* bodyweight: no weight block above, so the count UI sits flush */
+	/* bodyweight: no weight block above, so the count UI sits flush — and the
+	   hold timer grows into the reclaimed space (readable from the mat) */
 	.lg-reps:first-child { margin-top: 0; }
+	.lg-reps:first-child .lg-hold {
+		min-height: clamp(140px, 24vh, 220px);
+		font-size: clamp(56px, 11vh, 96px);
+	}
 	.lg-repgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 	.lg-rep {
 		font-family: var(--font-mono); font-weight: 800; font-size: 30px; color: var(--ink);

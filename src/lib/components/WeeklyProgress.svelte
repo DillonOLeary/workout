@@ -1,5 +1,7 @@
 <script lang="ts">
-	let { minutes }: { minutes: number } = $props();
+	import type { Snippet } from 'svelte';
+
+	let { minutes, children }: { minutes: number; children?: Snippet } = $props();
 
 	const TARGET = 150; // WHO weekly minimum; 300 is the stretch top
 	let pct = $derived(Math.min(100, (minutes / TARGET) * 100));
@@ -21,6 +23,9 @@
 			{TARGET - minutes} min to go this week
 		{/if}
 	</div>
+	{#if children}
+		<div class="extra">{@render children()}</div>
+	{/if}
 </div>
 
 <style>
@@ -58,4 +63,5 @@
 	.fill.full { border-right: none; }
 	.status { margin-top: 10px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
 	.up { background: var(--volt); padding: 0 5px; border-radius: 4px; font-weight: var(--weight-bold); }
+	.extra { margin-top: 16px; }
 </style>

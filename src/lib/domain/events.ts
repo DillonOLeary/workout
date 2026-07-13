@@ -40,13 +40,20 @@ export type SessionFinished = Event<
 >;
 
 /**
- * The event-sourced "delete": nothing is ever removed from the stream — a
- * strike is itself a fact, appended like any other. Projections exclude
- * struck sessions; the raw history keeps them forever.
+ * The event-sourced "delete": nothing leaves the stream — removal is itself
+ * a fact, appended like any other. Projections exclude removed items; the
+ * raw history keeps them forever.
+ *
+ * (This event was born as `SessionStruck`. The rename to match the UI's
+ * ubiquitous language is handled by upcastLedgerEvent below — old events
+ * keep their stored name forever and are translated at read time.)
  */
-export type SessionStruck = Event<'SessionStruck', { session: string; at: string }>;
+export type SessionRemoved = Event<'SessionRemoved', { session: string; at: string }>;
 
 export type RunLogged = Event<'RunLogged', { minutes: number; at: string }>;
+
+/** Runs carry no id — their `at` timestamp is their natural identity. */
+export type RunRemoved = Event<'RunRemoved', { run: string; at: string }>;
 
 export type PlanSelected = Event<'PlanSelected', { plan: string; at: string }>;
 
@@ -54,6 +61,20 @@ export type LedgerEvent =
 	| SessionStarted
 	| SetLogged
 	| SessionFinished
-	| SessionStruck
+	| SessionRemoved
 	| RunLogged
+	| RunRemoved
 	| PlanSelected;
+
+/**
+ * The upcaster: translates retired event names into current ones as events
+ * are read. The stream itself is never rewritten — `SessionStruck` rows stay
+ * `SessionStruck` in Postgres forever; every reader (decider fold and
+ * projections alike) sees only the current vocabulary. Add a line here each
+ * time the ubiquitous language moves on.
+ */
+export function upcastLedgerEvent(e: { type: string; data: unknown }): LedgerEvent {
+	if (e.type === 'SessionStruck')
+		return { type: 'SessionRemoved', data: e.data } as SessionRemoved;
+	return e as LedgerEvent;
+}

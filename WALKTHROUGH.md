@@ -208,7 +208,12 @@ patterns worth studying:
   ([events.ts](src/lib/domain/events.ts)): planks became seconds-based by
   ADDING an optional `unit?: 'reps' | 's'` field whose absence means what old
   events always meant. Never repurpose an existing field — history must
-  replay unchanged forever.
+  replay unchanged forever. And when a NAME retires (`SessionStruck` became
+  `SessionRemoved` to match the UI's ubiquitous language), an **upcaster**
+  translates old events at read time: `upcastLedgerEvent` runs at both read
+  boundaries — `readLedgerEvents` for projections, the top of `evolve` for
+  the decider fold — so `SessionStruck` rows stay in Postgres forever while
+  no living code knows the old word.
 - **Shallow routing** (`replaceState` from `$app/navigation`): the current
   exercise lives in the URL (`/log?ex=2`) so refresh keeps your place, but no
   server load runs and no history entries pile up.

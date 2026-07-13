@@ -2,7 +2,7 @@ import { DeciderCommandHandler, EmmettError } from '@event-driven-io/emmett';
 import { withEventStore } from './eventStore';
 import { decide, evolve, initialState } from '$lib/domain/decider';
 import type { LedgerCommand } from '$lib/domain/commands';
-import type { LedgerEvent } from '$lib/domain/events';
+import { upcastLedgerEvent, type LedgerEvent } from '$lib/domain/events';
 
 /**
  * DeciderCommandHandler is the whole event-sourcing write loop in one call:
@@ -37,7 +37,9 @@ export const executeCommand = (uid: string, command: LedgerCommand) =>
 export const readLedgerEvents = (uid: string): Promise<LedgerEvent[]> =>
 	withEventStore(async (store) => {
 		const { events } = await store.readStream<LedgerEvent>(streamName(uid));
-		return events.map((e) => ({ type: e.type, data: e.data }) as LedgerEvent);
+		// upcast at the read boundary: projections and the UI only ever see
+		// the current event vocabulary, whatever names the stream stores
+		return events.map((e) => upcastLedgerEvent({ type: e.type, data: e.data }));
 	});
 
 /**

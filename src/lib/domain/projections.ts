@@ -1,4 +1,4 @@
-import type { LedgerEvent } from './events';
+import type { LedgerEvent, RunLogged } from './events';
 import type { Exercise, Plan } from './types';
 
 /**
@@ -33,15 +33,15 @@ export function fmtDate(iso: string): string {
 }
 
 /**
- * Sessions newest-first, each with its logged rows. Struck sessions are
+ * Sessions newest-first, each with its logged rows. Removed sessions are
  * excluded HERE, and only here — every consumer (lastEntryFor, nextDay,
  * earnedIncrease, the Ledger tab) goes through this fold, so one exclusion
  * makes the whole app behave as if the workout never happened, while the
  * events themselves stay in the stream.
  */
 export function projectSessions(events: LedgerEvent[]): SessionView[] {
-	const struck = new Set(
-		events.filter((e) => e.type === 'SessionStruck').map((e) => e.data.session)
+	const removed = new Set(
+		events.filter((e) => e.type === 'SessionRemoved').map((e) => e.data.session)
 	);
 	const map = new Map<string, SessionView>();
 	for (const e of events) {
@@ -71,14 +71,20 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 		}
 	}
 	return Array.from(map.values())
-		.filter((s) => !struck.has(s.id))
+		.filter((s) => !removed.has(s.id))
 		.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-/** Runs newest-first. */
+/** RunRemoved events point at a run's `at` timestamp — its natural id. */
+function removedRunSet(events: LedgerEvent[]): Set<string> {
+	return new Set(events.filter((e) => e.type === 'RunRemoved').map((e) => e.data.run));
+}
+
+/** Runs newest-first, removed ones excluded. */
 export function projectRuns(events: LedgerEvent[]): RunView[] {
+	const removed = removedRunSet(events);
 	return events
-		.filter((e) => e.type === 'RunLogged')
+		.filter((e): e is RunLogged => e.type === 'RunLogged' && !removed.has(e.data.at))
 		.map((e) => ({ at: e.data.at, dateLabel: fmtDate(e.data.at), minutes: e.data.minutes }))
 		.sort((a, b) => b.at.localeCompare(a.at));
 }
@@ -151,9 +157,9 @@ export function nextDay(events: LedgerEvent[], plan: Plan): string {
 /** Run minutes in the trailing 7 days (WHO 150–300 target). */
 export function weekRunMinutes(events: LedgerEvent[]): number {
 	const cutoff = Date.now() - 7 * 86400000;
-	return events
-		.filter((e) => e.type === 'RunLogged' && new Date(e.data.at).getTime() > cutoff)
-		.reduce((sum, e) => sum + (e.type === 'RunLogged' ? e.data.minutes : 0), 0);
+	return projectRuns(events)
+		.filter((r) => new Date(r.at).getTime() > cutoff)
+		.reduce((sum, r) => sum + r.minutes, 0);
 }
 
 /** Display title for a day: dayInfo title if present, else "Workout X". */

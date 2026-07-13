@@ -13,13 +13,13 @@
 
 	let { data, form }: PageProps = $props();
 
-	// two-tap arm before striking — same pattern as Finish on the gym floor
-	let striking = $state<string | null>(null);
-	let strikeTimer: ReturnType<typeof setTimeout> | undefined;
-	function armStrike(id: string) {
-		striking = id;
-		clearTimeout(strikeTimer);
-		strikeTimer = setTimeout(() => (striking = null), 3000);
+	// two-tap arm before removing — same pattern as Finish on the gym floor
+	let removing = $state<string | null>(null);
+	let removeTimer: ReturnType<typeof setTimeout> | undefined;
+	function armRemove(id: string) {
+		removing = id;
+		clearTimeout(removeTimer);
+		removeTimer = setTimeout(() => (removing = null), 3000);
 	}
 
 	// The Ledger tab is the event stream made human-readable. Sessions and
@@ -68,6 +68,16 @@
 					<span class="date">{en.r.dateLabel}</span>
 					<span class="runlbl">Run</span>
 					<span class="runmin">{en.r.minutes} min</span>
+					<form method="POST" action="?/removeRun" use:enhance>
+						<input type="hidden" name="run" value={en.r.at} />
+						{#if removing === en.r.at}
+							<button type="submit" class="remove armed">Remove?</button>
+						{:else}
+							<button type="button" class="remove" onclick={() => armRemove(en.r.at)}>
+								Remove
+							</button>
+						{/if}
+					</form>
 				</div>
 			</Card>
 		{:else}
@@ -77,13 +87,13 @@
 					<span class="sessbadges">
 						{#if !en.s.finished}<Badge tone="warning">In progress</Badge>{/if}
 						<Badge tone="neutral">{dayTitle(planById(en.s.plan), en.s.day)}</Badge>
-						<form method="POST" action="?/strike" use:enhance>
+						<form method="POST" action="?/remove" use:enhance>
 							<input type="hidden" name="session" value={en.s.id} />
-							{#if striking === en.s.id}
-								<button type="submit" class="strike armed">Strike?</button>
+							{#if removing === en.s.id}
+								<button type="submit" class="remove armed">Remove?</button>
 							{:else}
-								<button type="button" class="strike" onclick={() => armStrike(en.s.id)}>
-									Strike
+								<button type="button" class="remove" onclick={() => armRemove(en.s.id)}>
+									Remove
 								</button>
 							{/if}
 						</form>
@@ -155,8 +165,8 @@
 	.empty { font-size: 16px; color: var(--ink-2); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
 
-	/* the event-sourced delete: strike the line, keep the history */
-	.strike {
+	/* the event-sourced delete: the word is plain, the red waits for intent */
+	.remove {
 		min-height: 32px;
 		padding: 0 12px;
 		background: transparent;
@@ -170,8 +180,8 @@
 		color: var(--ink-3);
 		cursor: pointer;
 	}
-	.strike:hover { color: var(--danger); border-color: var(--danger); }
-	.strike.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
+	.remove:hover { color: var(--danger); border-color: var(--danger); }
+	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
 	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; }
 	.runlbl { font-weight: var(--weight-bold); }

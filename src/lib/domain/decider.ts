@@ -1,6 +1,6 @@
 import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
-import type { LedgerEvent } from './events';
+import { upcastLedgerEvent, type LedgerEvent } from './events';
 
 /**
  * The decider: the write-side of the app in three pure functions.
@@ -29,20 +29,28 @@ export type ActiveSession = {
 export type LedgerState = {
 	activeSession: ActiveSession | null;
 	activePlanId: string | null;
-	/** every session id ever started — StrikeSession must refuse unknown ids */
+	/** every session id ever started — RemoveSession must refuse unknown ids */
 	sessions: Record<string, true>;
-	/** already struck — striking twice is a no-op, not an error */
-	struck: Record<string, true>;
+	/** already removed — removing twice is a no-op, not an error */
+	removedSessions: Record<string, true>;
+	/** every run's `at` timestamp (its natural id) — for RemoveRun */
+	runs: Record<string, true>;
+	removedRuns: Record<string, true>;
 };
 
 export const initialState = (): LedgerState => ({
 	activeSession: null,
 	activePlanId: null,
 	sessions: {},
-	struck: {}
+	removedSessions: {},
+	runs: {},
+	removedRuns: {}
 });
 
-export const evolve = (state: LedgerState, { type, data }: LedgerEvent): LedgerState => {
+export const evolve = (state: LedgerState, event: LedgerEvent): LedgerState => {
+	// The store replays RAW history — retired event names included — so the
+	// upcaster runs here, at the fold boundary, before any rule sees the event.
+	const { type, data } = upcastLedgerEvent(event);
 	switch (type) {
 		case 'SessionStarted':
 			return {
@@ -71,17 +79,19 @@ export const evolve = (state: LedgerState, { type, data }: LedgerEvent): LedgerS
 			};
 		case 'SessionFinished':
 			return state.activeSession?.id === data.session ? { ...state, activeSession: null } : state;
-		case 'SessionStruck':
+		case 'SessionRemoved':
 			return {
 				...state,
-				struck: { ...state.struck, [data.session]: true },
-				// striking an in-progress session also abandons it
+				removedSessions: { ...state.removedSessions, [data.session]: true },
+				// removing an in-progress session also abandons it
 				activeSession: state.activeSession?.id === data.session ? null : state.activeSession
 			};
 		case 'PlanSelected':
 			return { ...state, activePlanId: data.plan };
 		case 'RunLogged':
-			return state;
+			return { ...state, runs: { ...state.runs, [data.at]: true } };
+		case 'RunRemoved':
+			return { ...state, removedRuns: { ...state.removedRuns, [data.run]: true } };
 	}
 };
 
@@ -121,12 +131,19 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			];
 		}
 
-		case 'StrikeSession': {
+		case 'RemoveSession': {
 			const { session, at } = command.data;
 			if (!state.sessions[session])
 				throw new IllegalStateError('No such session in this ledger.');
-			if (state.struck[session]) return []; // already struck — idempotent
-			return [{ type: 'SessionStruck', data: { session, at } }];
+			if (state.removedSessions[session]) return []; // already removed — idempotent
+			return [{ type: 'SessionRemoved', data: { session, at } }];
+		}
+
+		case 'RemoveRun': {
+			const { run, at } = command.data;
+			if (!state.runs[run]) throw new IllegalStateError('No such run in this ledger.');
+			if (state.removedRuns[run]) return [];
+			return [{ type: 'RunRemoved', data: { run, at } }];
 		}
 
 		case 'LogRun': {
