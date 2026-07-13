@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import {
@@ -10,7 +11,16 @@
 	} from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
-	let { data }: PageProps = $props();
+	let { data, form }: PageProps = $props();
+
+	// two-tap arm before striking — same pattern as Finish on the gym floor
+	let striking = $state<string | null>(null);
+	let strikeTimer: ReturnType<typeof setTimeout> | undefined;
+	function armStrike(id: string) {
+		striking = id;
+		clearTimeout(strikeTimer);
+		strikeTimer = setTimeout(() => (striking = null), 3000);
+	}
 
 	// The Ledger tab is the event stream made human-readable. Sessions and
 	// runs are the story; plan switches are footnotes (see below).
@@ -43,6 +53,10 @@
 		</a>
 	</div>
 
+	{#if form?.message}
+		<p class="err">{form.message}</p>
+	{/if}
+
 	{#if entries.length === 0}
 		<Card><div class="empty">Nothing logged yet. Start Workout A.</div></Card>
 	{/if}
@@ -63,6 +77,16 @@
 					<span class="sessbadges">
 						{#if !en.s.finished}<Badge tone="warning">In progress</Badge>{/if}
 						<Badge tone="neutral">{dayTitle(planById(en.s.plan), en.s.day)}</Badge>
+						<form method="POST" action="?/strike" use:enhance>
+							<input type="hidden" name="session" value={en.s.id} />
+							{#if striking === en.s.id}
+								<button type="submit" class="strike armed">Strike?</button>
+							{:else}
+								<button type="button" class="strike" onclick={() => armStrike(en.s.id)}>
+									Strike
+								</button>
+							{/if}
+						</form>
 					</span>
 				</div>
 				{#each en.s.rows as row (row.exercise)}
@@ -129,6 +153,25 @@
 	.export:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
 	.empty { font-size: 16px; color: var(--ink-2); }
+	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
+
+	/* the event-sourced delete: strike the line, keep the history */
+	.strike {
+		min-height: 32px;
+		padding: 0 12px;
+		background: transparent;
+		border: 1px solid var(--border-soft);
+		border-radius: var(--radius-pill);
+		font-family: var(--font-body);
+		font-size: 12px;
+		font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+		cursor: pointer;
+	}
+	.strike:hover { color: var(--danger); border-color: var(--danger); }
+	.strike.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
 	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; }
 	.runlbl { font-weight: var(--weight-bold); }

@@ -32,8 +32,17 @@ export function fmtDate(iso: string): string {
 	});
 }
 
-/** Sessions newest-first, each with its logged rows. */
+/**
+ * Sessions newest-first, each with its logged rows. Struck sessions are
+ * excluded HERE, and only here — every consumer (lastEntryFor, nextDay,
+ * earnedIncrease, the Ledger tab) goes through this fold, so one exclusion
+ * makes the whole app behave as if the workout never happened, while the
+ * events themselves stay in the stream.
+ */
 export function projectSessions(events: LedgerEvent[]): SessionView[] {
+	const struck = new Set(
+		events.filter((e) => e.type === 'SessionStruck').map((e) => e.data.session)
+	);
 	const map = new Map<string, SessionView>();
 	for (const e of events) {
 		if (e.type === 'SessionStarted') {
@@ -61,7 +70,9 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 			if (s) s.finished = true;
 		}
 	}
-	return Array.from(map.values()).sort((a, b) => b.at.localeCompare(a.at));
+	return Array.from(map.values())
+		.filter((s) => !struck.has(s.id))
+		.sort((a, b) => b.at.localeCompare(a.at));
 }
 
 /** Runs newest-first. */

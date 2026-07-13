@@ -30,8 +30,16 @@ export type LogSet = Command<
 
 export type FinishSession = Command<'FinishSession', { at: string }>;
 
+export type StrikeSession = Command<'StrikeSession', { session: string; at: string }>;
+
 export type LogRun = Command<'LogRun', { minutes: number; at: string }>;
 
 export type SelectPlan = Command<'SelectPlan', { plan: string; at: string }>;
 
-export type LedgerCommand = StartSession | LogSet | FinishSession | LogRun | SelectPlan;
+export type LedgerCommand =
+	| StartSession
+	| LogSet
+	| FinishSession
+	| StrikeSession
+	| LogRun
+	| SelectPlan;

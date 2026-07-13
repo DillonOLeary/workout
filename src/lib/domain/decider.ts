@@ -29,15 +29,25 @@ export type ActiveSession = {
 export type LedgerState = {
 	activeSession: ActiveSession | null;
 	activePlanId: string | null;
+	/** every session id ever started — StrikeSession must refuse unknown ids */
+	sessions: Record<string, true>;
+	/** already struck — striking twice is a no-op, not an error */
+	struck: Record<string, true>;
 };
 
-export const initialState = (): LedgerState => ({ activeSession: null, activePlanId: null });
+export const initialState = (): LedgerState => ({
+	activeSession: null,
+	activePlanId: null,
+	sessions: {},
+	struck: {}
+});
 
 export const evolve = (state: LedgerState, { type, data }: LedgerEvent): LedgerState => {
 	switch (type) {
 		case 'SessionStarted':
 			return {
 				...state,
+				sessions: { ...state.sessions, [data.session]: true },
 				activeSession: {
 					id: data.session,
 					plan: data.plan,
@@ -61,6 +71,13 @@ export const evolve = (state: LedgerState, { type, data }: LedgerEvent): LedgerS
 			};
 		case 'SessionFinished':
 			return state.activeSession?.id === data.session ? { ...state, activeSession: null } : state;
+		case 'SessionStruck':
+			return {
+				...state,
+				struck: { ...state.struck, [data.session]: true },
+				// striking an in-progress session also abandons it
+				activeSession: state.activeSession?.id === data.session ? null : state.activeSession
+			};
 		case 'PlanSelected':
 			return { ...state, activePlanId: data.plan };
 		case 'RunLogged':
@@ -102,6 +119,14 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			return [
 				{ type: 'SessionFinished', data: { session: s.id, plan: s.plan, day: s.day, at: command.data.at } }
 			];
+		}
+
+		case 'StrikeSession': {
+			const { session, at } = command.data;
+			if (!state.sessions[session])
+				throw new IllegalStateError('No such session in this ledger.');
+			if (state.struck[session]) return []; // already struck — idempotent
+			return [{ type: 'SessionStruck', data: { session, at } }];
 		}
 
 		case 'LogRun': {

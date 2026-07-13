@@ -224,6 +224,11 @@ patterns worth studying:
 1. **Corrections, the event-sourced way.** Add a `SetCorrected` event
    (retract/assert — never mutate `SetLogged`). Touch: `events.ts`,
    `commands.ts`, `decide`/`evolve`, and make `projectSessions` apply it.
+   A worked example now exists: `SessionStruck` (the Ledger's "Strike"
+   button) — deleting a workout appends a fact instead of removing one,
+   the decider's state tracks known/struck ids to refuse nonsense and
+   no-op repeats, and one exclusion inside `projectSessions` makes every
+   downstream view (progression, next-day, history) forget it at once.
 2. **Rest timer.** 90s countdown on the gym floor after each logged set —
    your first `$effect` (start it in `enhanceLog`, clean it up properly).
 3. **Import.** `export/+server.ts` dumps events; write the reverse (validate,

@@ -39,8 +39,21 @@ export type SessionFinished = Event<
 	{ session: string; plan: string; day: string; at: string }
 >;
 
+/**
+ * The event-sourced "delete": nothing is ever removed from the stream — a
+ * strike is itself a fact, appended like any other. Projections exclude
+ * struck sessions; the raw history keeps them forever.
+ */
+export type SessionStruck = Event<'SessionStruck', { session: string; at: string }>;
+
 export type RunLogged = Event<'RunLogged', { minutes: number; at: string }>;
 
 export type PlanSelected = Event<'PlanSelected', { plan: string; at: string }>;
 
-export type LedgerEvent = SessionStarted | SetLogged | SessionFinished | RunLogged | PlanSelected;
+export type LedgerEvent =
+	| SessionStarted
+	| SetLogged
+	| SessionFinished
+	| SessionStruck
+	| RunLogged
+	| PlanSelected;
