@@ -22,7 +22,7 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'Chest Press', equip: 'Multi-press machine', tag: 'Horiz. push', sets: 3, lo: 8, hi: 12, start: 30, inc: 5 },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', sets: 3, lo: 8, hi: 12, start: 90, inc: 10 },
 				{ name: 'DB Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 40, inc: 5 },
-				{ name: 'Plank + Med-ball Core', equip: 'Mat / Med ball', tag: 'Core', sets: 3, lo: 8, hi: 12, start: 10, inc: 5 }
+				{ name: 'Plank + Med-ball Core', equip: 'Mat / Med ball', tag: 'Core', sets: 3, lo: 30, hi: 60, start: 10, inc: 5, mode: 'seconds' }
 			],
 			B: [
 				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 53, inc: 9 },

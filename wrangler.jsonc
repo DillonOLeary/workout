@@ -17,6 +17,14 @@
 	"observability": {
 		"enabled": true
 	},
+	// Edge connection pooler: per-request pg connects hit Hyperdrive (~ms)
+	// instead of a fresh TLS handshake to Neon. See src/hooks.server.ts.
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			"id": "7d60b374c6434905a51c6ed070b9d3f8"
+		}
+	],
 	// `npx wrangler deploy` runs this before uploading
 	"build": {
 		"command": "pnpm run build"

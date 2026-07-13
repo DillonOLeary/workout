@@ -12,8 +12,8 @@
 
 	let { data }: PageProps = $props();
 
-	// The Ledger tab is the event stream made human-readable: three
-	// projections, merged and sorted newest-first.
+	// The Ledger tab is the event stream made human-readable. Sessions and
+	// runs are the story; plan switches are footnotes (see below).
 	let sessions = $derived(projectSessions(data.events));
 	let runs = $derived(projectRuns(data.events));
 	let switches = $derived(projectPlanSwitches(data.events));
@@ -21,10 +21,13 @@
 	let entries = $derived(
 		[
 			...sessions.map((s) => ({ at: s.at, kind: 'session' as const, s })),
-			...runs.map((r) => ({ at: r.at, kind: 'run' as const, r })),
-			...switches.map((w) => ({ at: w.at, kind: 'switch' as const, w }))
+			...runs.map((r) => ({ at: r.at, kind: 'run' as const, r }))
 		].sort((a, b) => b.at.localeCompare(a.at))
 	);
+
+	const PAGE = 20;
+	let shown = $state(PAGE);
+	let visible = $derived(entries.slice(0, shown));
 
 	const exByName = (name: string) =>
 		data.plans.flatMap((p) => Object.values(p.days).flat()).find((e) => e.name === name);
@@ -44,15 +47,8 @@
 		<Card><div class="empty">Nothing logged yet. Start Workout A.</div></Card>
 	{/if}
 
-	{#each entries as en (en.kind + en.at + (en.kind === 'session' ? en.s.id : ''))}
-		{#if en.kind === 'switch'}
-			<Card>
-				<div class="line">
-					<span class="date">{en.w.dateLabel}</span>
-					<span class="switchtext">Switched plan → <b>{planName(en.w.plan)}</b></span>
-				</div>
-			</Card>
-		{:else if en.kind === 'run'}
+	{#each visible as en (en.kind + en.at + (en.kind === 'session' ? en.s.id : ''))}
+		{#if en.kind === 'run'}
 			<Card>
 				<div class="line">
 					<span class="date">{en.r.dateLabel}</span>
@@ -72,18 +68,37 @@
 				{#each en.s.rows as row (row.exercise)}
 					{@const ex = exByName(row.exercise)}
 					{@const lvl = ex ? earnedIncrease({ weight: row.weight, reps: row.reps }, ex) : false}
+					{@const hold = ex?.mode === 'seconds'}
 					<div class="sessrow">
 						<span class="exname">
 							{row.exercise}
 							{#if lvl}<span class="uppill">↑</span>{/if}
 						</span>
 						<span class="w">{row.weight} lb</span>
-						<span class="reps">{row.reps.join(' · ')}</span>
+						<span class="reps">{row.reps.map((r) => (hold ? `${r}s` : r)).join(' · ')}</span>
 					</div>
 				{/each}
 			</Card>
 		{/if}
 	{/each}
+
+	{#if entries.length > shown}
+		<button type="button" class="more" onclick={() => (shown += PAGE)}>
+			Show more — {entries.length - shown} older
+		</button>
+	{/if}
+
+	{#if switches.length}
+		<details class="switches">
+			<summary>{switches.length} plan {switches.length === 1 ? 'change' : 'changes'}</summary>
+			{#each switches as w (w.at)}
+				<div class="switchline">
+					<span class="date">{w.dateLabel}</span>
+					<span class="switchtext">Switched plan → <b>{planName(w.plan)}</b></span>
+				</div>
+			{/each}
+		</details>
+	{/if}
 </div>
 
 <style>
@@ -116,7 +131,6 @@
 	.empty { font-size: 16px; color: var(--ink-2); }
 	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; }
-	.switchtext { font-size: 15px; color: var(--ink-2); }
 	.runlbl { font-weight: var(--weight-bold); }
 	.runmin { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; }
 
@@ -149,4 +163,50 @@
 	}
 	.w { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; }
 	.reps { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); }
+
+	.more {
+		min-height: var(--hit-min);
+		padding: 0 22px;
+		font-family: var(--font-body);
+		font-weight: var(--weight-bold);
+		font-size: var(--text-md);
+		color: var(--ink);
+		background: var(--white);
+		border: var(--border-w) solid var(--ink);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-raised);
+		cursor: pointer;
+	}
+	.more:hover { background: var(--volt-tint); }
+	.more:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
+
+	/* Plan switches: recorded honestly, displayed quietly */
+	.switches summary {
+		list-style: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		cursor: pointer;
+		font-size: 12px;
+		font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+		border-radius: var(--radius-sm);
+		padding: 0 4px;
+	}
+	.switches summary::-webkit-details-marker { display: none; }
+	.switches summary::before { content: '▸'; }
+	.switches[open] summary::before { content: '▾'; }
+	.switches summary:hover { color: var(--ink); background: var(--volt-tint); }
+	.switchline {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 4px;
+		border-top: 1px solid var(--border-soft);
+	}
+	.switchtext { font-size: 15px; color: var(--ink-2); }
 </style>

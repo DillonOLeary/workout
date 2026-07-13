@@ -24,6 +24,7 @@ export type LogSet = Command<
 		reps: number;
 		set: number;
 		at: string;
+		unit?: 'reps' | 's';
 	}
 >;
 

@@ -9,12 +9,15 @@ export type Exercise = {
 	equip: string;
 	tag: string;
 	sets: number;
+	/** lo/hi are reps — or seconds, when mode is 'seconds' (timed holds) */
 	lo: number;
 	hi: number;
 	/** starting weight (lb) for a first-ever session */
 	start: number;
 	/** smallest increment to add on a level-up */
 	inc: number;
+	/** absent = 'reps'. 'seconds' = timed hold (plank): log seconds, not reps */
+	mode?: 'reps' | 'seconds';
 };
 
 export type DayInfo = { title: string; desc?: string };

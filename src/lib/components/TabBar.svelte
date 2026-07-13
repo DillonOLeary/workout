@@ -19,6 +19,8 @@
 </nav>
 
 <style>
+	/* Placement (top on wide, bottom on touch) is the app shell's job —
+	   the bar itself is just an in-flow pill. */
 	.tabbar {
 		display: flex;
 		gap: 4px;
@@ -27,9 +29,6 @@
 		border: var(--border-w) solid var(--ink);
 		border-radius: var(--radius-pill);
 		box-shadow: var(--shadow-raised);
-		position: sticky;
-		top: 12px;
-		z-index: 10;
 	}
 	.tab {
 		flex: 1;
@@ -46,15 +45,4 @@
 	}
 	.tab:hover { background: var(--volt-tint); color: var(--ink); }
 	.tab.active { background: var(--ink); color: var(--paper); }
-
-	/* Touch layouts: the bar drops to the thumb zone */
-	@media (max-width: 640px) {
-		.tabbar {
-			position: fixed;
-			top: auto;
-			bottom: calc(12px + env(safe-area-inset-bottom));
-			left: 16px;
-			right: 16px;
-		}
-	}
 </style>

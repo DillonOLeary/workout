@@ -19,16 +19,12 @@ function ensureReady(): Promise<void> {
 			)`
 		);
 		for (const plan of DEFAULT_PLANS) {
-			// Shipped plans refresh their name/description/dayInfo on boot (so a
-			// rename in code reaches existing rows), but stored `days` win —
-			// mirroring the design's domain.js merge rule for default plans.
+			// Shipped plans are code-owned: refresh the whole row on boot so
+			// renames AND exercise changes (e.g. plank going seconds-based)
+			// reach existing databases. Custom plans (other ids) are untouched.
 			await db.query(
 				`insert into ledger_plans (id, data) values ($1, $2)
-				 on conflict (id) do update set data = ledger_plans.data || jsonb_build_object(
-					'name', excluded.data->'name',
-					'description', excluded.data->'description',
-					'dayInfo', excluded.data->'dayInfo'
-				 )`,
+				 on conflict (id) do update set data = excluded.data`,
 				[plan.id, JSON.stringify(plan)]
 			);
 		}

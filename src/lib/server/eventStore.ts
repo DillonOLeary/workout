@@ -4,7 +4,7 @@ import {
 	type PostgresEventStore
 } from '@event-driven-io/emmett-postgresql';
 import { dev } from '$app/environment';
-import { connectionString } from './db';
+import { connectionString, currentConnectionString } from './db';
 
 /**
  * The event store IS the database of record: `emt_messages` (every event ever
@@ -32,9 +32,10 @@ export async function withEventStore<T>(
 		const store = (g.__ledgerEventStore ??= getPostgreSQLEventStore(connectionString));
 		return fn(store);
 	}
-	const client = new pg.Client({ connectionString });
+	const cs = currentConnectionString();
+	const client = new pg.Client({ connectionString: cs });
 	await client.connect();
-	const store = getPostgreSQLEventStore(connectionString, {
+	const store = getPostgreSQLEventStore(cs, {
 		schema: { autoMigration: 'None' },
 		connectionOptions: { client }
 	});

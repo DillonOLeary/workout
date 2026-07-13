@@ -21,7 +21,8 @@ export const actions: Actions = {
 				weight: Number(form.get('weight')),
 				reps: Number(form.get('reps')),
 				set: Number(form.get('set')),
-				at: new Date().toISOString()
+				at: new Date().toISOString(),
+				unit: form.get('unit') === 's' ? ('s' as const) : undefined
 			}
 		});
 		if (err) return fail(400, { message: err });

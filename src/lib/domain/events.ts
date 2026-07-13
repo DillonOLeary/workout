@@ -21,9 +21,16 @@ export type SetLogged = Event<
 		day: string;
 		exercise: string;
 		weight: number;
+		/** the count — reps, or seconds held when unit is 's' */
 		reps: number;
 		set: number;
 		at: string;
+		/**
+		 * Self-describing unit; absent means reps. Schema evolution rule:
+		 * never repurpose an old field's meaning — ADD a field with a default
+		 * that matches what old events meant, so history replays unchanged.
+		 */
+		unit?: 'reps' | 's';
 	}
 >;
 

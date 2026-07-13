@@ -12,6 +12,19 @@ const cs = env.DB;
 if (!cs) throw new Error('Missing DB env var — put your Neon connection string in .env.local');
 export const connectionString: string = cs;
 
+/**
+ * On Cloudflare, hooks.server.ts swaps in Hyperdrive's connection string
+ * (an edge-local pooler: per-request connects become ~ms instead of a full
+ * TLS handshake to Neon). Everywhere else this stays env.DB.
+ */
+let runtimeCs: string | undefined;
+export function setRuntimeConnectionString(value: string | undefined) {
+	if (value) runtimeCs = value;
+}
+export function currentConnectionString(): string {
+	return runtimeCs ?? connectionString;
+}
+
 /** The one query method both pg.Pool and pg.Client provide. */
 export type Queryable = {
 	query<R extends pg.QueryResultRow = pg.QueryResultRow>(
@@ -40,7 +53,7 @@ export async function withClient<T>(fn: (db: Queryable) => Promise<T>): Promise<
 		const pool = (g.__ledgerPool ??= new pg.Pool({ connectionString, max: 5 }));
 		return fn(pool);
 	}
-	const client = new pg.Client({ connectionString });
+	const client = new pg.Client({ connectionString: currentConnectionString() });
 	await client.connect();
 	try {
 		return await fn(client);

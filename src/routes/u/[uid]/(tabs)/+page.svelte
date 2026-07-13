@@ -99,7 +99,7 @@
 						<span class="exname">{ex.name}</span>
 						<span class="exnums">
 							{#if up}<span class="uppill">↑</span>{/if}
-							{w} lb · {ex.sets}×{ex.lo}–{ex.hi}
+							{w} lb · {ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''}
 						</span>
 					</div>
 				{/each}

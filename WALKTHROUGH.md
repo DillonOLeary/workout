@@ -189,6 +189,36 @@ One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 *can't* change while you're on the floor. Knowing when you *don't* want
 reactivity is part of learning it.
 
+## 4½. Lessons from the first real workout
+
+The first gym session produced a feedback batch; three of the fixes are
+patterns worth studying:
+
+- **Optimistic UI over an event store**
+  ([log/+page.svelte](src/routes/u/[uid]/log/+page.svelte)): "Log set" appends
+  to a client-side `$state` queue and the screen updates in the same frame;
+  a single-flight `pump()` POSTs queued sets in order in the background, and
+  no invalidation runs mid-session. The safety net is in the DOMAIN, not the
+  UI: the decider treats a duplicate `(exercise, set)` as a zero-event no-op,
+  so ambiguous network retries are idempotent, and Emmett's
+  `retry: { onVersionConflict: true }` absorbs concurrent appends. Exiting the
+  screen drains the queue, then `goto(..., { invalidateAll: true })` restores
+  server truth.
+- **Schema evolution without migration**
+  ([events.ts](src/lib/domain/events.ts)): planks became seconds-based by
+  ADDING an optional `unit?: 'reps' | 's'` field whose absence means what old
+  events always meant. Never repurpose an existing field — history must
+  replay unchanged forever.
+- **Shallow routing** (`replaceState` from `$app/navigation`): the current
+  exercise lives in the URL (`/log?ex=2`) so refresh keeps your place, but no
+  server load runs and no history entries pile up.
+- **The locked app shell**
+  ([(tabs)/+layout.svelte](src/routes/u/[uid]/(tabs)/+layout.svelte)), stolen
+  from the cabin site: on mobile the document itself never scrolls (html/body
+  `overflow: hidden`), only an inner `<main>` does, and the tab bar is a plain
+  flex child at the bottom — `position: fixed` bars slide when mobile browsers
+  collapse their toolbars; an in-flow bar in a locked frame cannot.
+
 ## 5. Exercises
 
 1. **Corrections, the event-sourced way.** Add a `SetCorrected` event
@@ -211,9 +241,14 @@ reactivity is part of learning it.
    fresh `pg.Client` per unit of work in prod (Emmett takes it via
    `connectionOptions: { client }`) and close it — awaited — before
    returning; dev keeps cached singletons because a Node process owns its
-   sockets. Upgrades if latency ever matters: Cloudflare Hyperdrive (edge
-   pooler, keeps this code shape) or Neon's serverless driver (Postgres over
-   HTTP, no sockets at all).
+   sockets. The latency cost of those per-request connects is paid for by
+   **Hyperdrive** ([wrangler.jsonc](wrangler.jsonc) binding +
+   [hooks.server.ts](src/hooks.server.ts)): an edge-local pooler, so a fresh
+   connect is ~ms while the real Neon connections stay warm at Cloudflare.
+   One landmine found the hard way: Hyperdrive's SELECT cache (default 60s)
+   served **stale event streams** right after a write — cache-invalidation
+   semantics and "the stream is the truth" are incompatible, so caching is
+   disabled on the config (`wrangler hyperdrive update <id> --caching-disabled`).
    This runs on Cloudflare Workers via `adapter-cloudflare`
    ([wrangler.jsonc](wrangler.jsonc)): the `nodejs_compat` flag gives `pg` its
    TCP sockets and `node:crypto` its HMAC; `DB` + `LEDGER_PEPPER` live in the

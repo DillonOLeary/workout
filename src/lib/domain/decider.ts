@@ -17,7 +17,14 @@ import type { LedgerEvent } from './events';
  * State holds only what the RULES need (is a session open? which plan is
  * active?). Everything the UI needs lives in projections.ts instead.
  */
-export type ActiveSession = { id: string; plan: string; day: string; setsLogged: number };
+export type ActiveSession = {
+	id: string;
+	plan: string;
+	day: string;
+	setsLogged: number;
+	/** per-exercise counts — lets LogSet treat duplicate set numbers as no-ops */
+	setsByExercise: Record<string, number>;
+};
 
 export type LedgerState = {
 	activeSession: ActiveSession | null;
@@ -31,13 +38,26 @@ export const evolve = (state: LedgerState, { type, data }: LedgerEvent): LedgerS
 		case 'SessionStarted':
 			return {
 				...state,
-				activeSession: { id: data.session, plan: data.plan, day: data.day, setsLogged: 0 }
+				activeSession: {
+					id: data.session,
+					plan: data.plan,
+					day: data.day,
+					setsLogged: 0,
+					setsByExercise: {}
+				}
 			};
 		case 'SetLogged':
 			if (state.activeSession?.id !== data.session) return state;
 			return {
 				...state,
-				activeSession: { ...state.activeSession, setsLogged: state.activeSession.setsLogged + 1 }
+				activeSession: {
+					...state.activeSession,
+					setsLogged: state.activeSession.setsLogged + 1,
+					setsByExercise: {
+						...state.activeSession.setsByExercise,
+						[data.exercise]: (state.activeSession.setsByExercise[data.exercise] ?? 0) + 1
+					}
+				}
 			};
 		case 'SessionFinished':
 			return state.activeSession?.id === data.session ? { ...state, activeSession: null } : state;
@@ -58,13 +78,20 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 		}
 
 		case 'LogSet': {
-			const { session, weight, reps } = command.data;
+			const { session, exercise, weight, reps, set, unit } = command.data;
 			if (!state.activeSession || state.activeSession.id !== session)
 				throw new IllegalStateError('No session in progress — start one from Today.');
 			if (!Number.isFinite(weight) || weight < 0 || weight > 2000)
 				throw new ValidationError('Weight is out of range.');
-			if (!Number.isInteger(reps) || reps < 1 || reps > 100)
+			if (unit === 's') {
+				if (!Number.isInteger(reps) || reps < 1 || reps > 600)
+					throw new ValidationError('Hold time is out of range.');
+			} else if (!Number.isInteger(reps) || reps < 1 || reps > 100) {
 				throw new ValidationError('Reps are out of range.');
+			}
+			// Duplicate set number = this set already landed (a retried request
+			// or a double-press). Recording nothing makes retries idempotent.
+			if (set <= (state.activeSession.setsByExercise[exercise] ?? 0)) return [];
 			return [{ type: 'SetLogged', data: command.data }];
 		}
 

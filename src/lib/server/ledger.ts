@@ -13,7 +13,15 @@ import type { LedgerEvent } from '$lib/domain/events';
  *      (optimistic concurrency: a concurrent write makes the append fail
  *      instead of silently clobbering)
  */
-const handle = DeciderCommandHandler({ decide, evolve, initialState });
+// retry.onVersionConflict: a concurrent append (second device) makes Emmett
+// re-read the stream and re-run decide up to 3 times. Safe because decide is
+// idempotent — a duplicate LogSet folds to zero events on the re-decide.
+const handle = DeciderCommandHandler({
+	decide,
+	evolve,
+	initialState,
+	retry: { onVersionConflict: true }
+});
 
 /** One stream per user — the whole training history is one ledger. */
 export const streamName = (uid: string) => `ledger-${uid}`;

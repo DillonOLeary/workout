@@ -17,6 +17,9 @@
 	let shownDay = $derived(plan.days[day] ? day : dayKeys[0]);
 
 	let json = $state('');
+
+	// Switching plans is history (a PlanSelected event) — make it deliberate.
+	let confirming = $state<string | null>(null);
 </script>
 
 <div class="col">
@@ -40,14 +43,31 @@
 				{#each data.plans as p (p.id)}
 					<form method="POST" action="?/select" use:enhance>
 						<input type="hidden" name="plan" value={p.id} />
-						<button type="submit" class="plancard" class:active={p.id === plan.id} aria-pressed={p.id === plan.id}>
-							<span class="planhead">
-								<span class="planname">{p.name}</span>
-								{#if p.id === plan.id}<Badge tone="levelup">Active</Badge>{/if}
-							</span>
-							{#if p.description}<span class="plandesc">{p.description}</span>{/if}
-							<span class="plansched">{p.schedule}</span>
-						</button>
+						<div class="plancard" class:active={p.id === plan.id}>
+							<button
+								type="button"
+								class="planbody"
+								aria-pressed={p.id === plan.id}
+								disabled={p.id === plan.id}
+								onclick={() => (confirming = confirming === p.id ? null : p.id)}
+							>
+								<span class="planhead">
+									<span class="planname">{p.name}</span>
+									{#if p.id === plan.id}<Badge tone="levelup">Active</Badge>{/if}
+								</span>
+								{#if p.description}<span class="plandesc">{p.description}</span>{/if}
+								<span class="plansched">{p.schedule}</span>
+							</button>
+							{#if confirming === p.id && p.id !== plan.id}
+								<div class="confirmrow">
+									<span class="confirmtext">Switch to this plan? It goes in the ledger.</span>
+									<div class="confirmbtns">
+										<Button variant="accent" type="submit">Switch</Button>
+										<Button variant="ghost" type="button" onclick={() => (confirming = null)}>Cancel</Button>
+									</div>
+								</div>
+							{/if}
+						</div>
 					</form>
 				{/each}
 			</div>
@@ -71,7 +91,7 @@
 					<div class="exname">{ex.name}</div>
 					<div class="exequip">{ex.equip}</div>
 				</div>
-				<span class="exnums">{ex.sets}×{ex.lo}–{ex.hi} · +{ex.inc}</span>
+				<span class="exnums">{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''} · +{ex.inc}</span>
 			</div>
 		{/each}
 	</Card>
@@ -137,21 +157,39 @@
 	.plans { display: flex; flex-direction: column; gap: 12px; }
 	.plancard {
 		width: 100%;
+		background: var(--white);
+		border: var(--border-w) solid var(--border-soft);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-card);
+	}
+	.plancard.active { border-color: var(--ink); box-shadow: var(--shadow-raised); }
+	.planbody {
+		width: 100%;
 		text-align: left;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
 		cursor: pointer;
-		background: var(--white);
+		background: transparent;
+		border: none;
 		padding: 16px 20px;
-		border: var(--border-w) solid var(--border-soft);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-card);
 		font: inherit;
 		color: var(--ink);
+		border-radius: var(--radius-lg);
 	}
-	.plancard.active { border-color: var(--ink); box-shadow: var(--shadow-raised); }
-	.plancard:hover { background: var(--volt-tint); }
+	.planbody:disabled { cursor: default; }
+	.planbody:not(:disabled):hover { background: var(--volt-tint); }
+	.confirmrow {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 12px;
+		padding: 12px 20px 16px;
+		border-top: 1px solid var(--border-soft);
+	}
+	.confirmtext { font-size: var(--text-sm); color: var(--ink-2); font-weight: var(--weight-bold); }
+	.confirmbtns { display: flex; gap: 8px; }
 	.planhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 	.planname { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 20px; }
 	.plandesc { font-size: var(--text-sm); color: var(--ink-2); line-height: 1.45; }
