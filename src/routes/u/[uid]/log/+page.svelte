@@ -536,7 +536,6 @@
 		flex: 1; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink-2);
 		background: var(--white); border: 2px solid var(--paper-3); border-radius: var(--radius-md); min-height: 44px; cursor: pointer;
 	}
-	.lg-repextra button[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
 
 	.lg-khint { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); text-align: center; padding: 8px 16px 6px; line-height: 1.7; margin: 0; }
 	.lg-khint kbd { background: var(--white); border: 1px solid var(--paper-3); border-radius: 5px; padding: 1px 6px; color: var(--ink); }
