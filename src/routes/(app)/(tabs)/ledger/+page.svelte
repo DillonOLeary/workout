@@ -48,7 +48,7 @@
 <div class="col">
 	<div class="head">
 		<h1>Ledger</h1>
-		<a class="export" href={`/u/${data.uid}/export`} download="training-ledger-events.json">
+		<a class="export" href="/export" download="training-ledger-events.json">
 			Export JSON
 		</a>
 	</div>

@@ -300,7 +300,7 @@
 		exiting = true;
 		await drain();
 		// we skipped all invalidation during the session, so Today must reload
-		await goto(`/u/${data.uid}`, { invalidateAll: true });
+		await goto('/', { invalidateAll: true });
 	}
 
 	function primaryAction() {

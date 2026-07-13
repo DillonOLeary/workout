@@ -35,8 +35,9 @@ Secrets live in `.env.local` (git-ignored), read at runtime via
 `$env/dynamic/private`:
 
 - `DB` — your Neon connection string
-- `LEDGER_PEPPER` — HMAC secret that turns phone numbers into `/u/<id>` URLs
-  ([src/lib/server/uid.ts](src/lib/server/uid.ts))
+- `LEDGER_PEPPER` — HMAC secret that turns phone numbers into account ids
+  ([src/lib/server/uid.ts](src/lib/server/uid.ts)) and signs the
+  stay-signed-in cookie ([src/lib/server/auth.ts](src/lib/server/auth.ts))
 
 Run it: `pnpm dev` → http://localhost:5173
 
@@ -143,17 +144,21 @@ Routing is the filesystem:
 ```
 src/routes/
 ├─ +layout.svelte                 global CSS import, favicon
-├─ +page.svelte / +page.server.ts login → HMAC → redirect /u/<id>
-└─ u/[uid]/                       [uid] = route param
-   ├─ +layout.server.ts           ONE load for all pages below: plans + events
-   ├─ (tabs)/                     layout GROUP — shares UI, adds nothing to URL
-   │  ├─ +layout.svelte           the TabBar shell
-   │  ├─ +page.svelte             Today        (/u/x)
-   │  ├─ plan/+page.svelte        The Plan     (/u/x/plan)
-   │  └─ ledger/+page.svelte      Ledger       (/u/x/ledger)
-   ├─ log/+page.svelte            gym floor — OUTSIDE the group: no tab bar
-   └─ export/+server.ts           GET endpoint: the stream as a JSON download
+├─ login/                         phone → HMAC id → signed stay-signed-in cookie
+└─ (app)/                         layout GROUP — every page inside requires the cookie
+   ├─ +layout.server.ts           ONE load for all pages: plans + events (uid from locals)
+   ├─ (tabs)/                     nested group — the TabBar shell
+   │  ├─ +page.svelte             Today        (/)
+   │  ├─ plan/+page.svelte        The Plan     (/plan)
+   │  └─ ledger/+page.svelte      Ledger       (/ledger)
+   ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)
+   └─ export/+server.ts           GET /export: the stream as a JSON download
 ```
+
+Identity never rides in the URL: [hooks.server.ts](src/hooks.server.ts) verifies
+a signed, HttpOnly cookie on every request into `locals.uid` and re-issues it
+(sliding 400-day expiry — sign in once per device, stay signed in). Sharing a
+link shares nothing; the retired `/u/<id>` capability URLs 301 to /login.
 
 Things to notice:
 

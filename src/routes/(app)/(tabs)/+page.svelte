@@ -92,7 +92,7 @@
 			<div class="title">{dayTitle(floorPlan, session.day)}</div>
 			<div class="mono-sub">{sessionSets} of {sessionTotal} sets</div>
 			<div class="row gap12 wrap">
-				<a class="resume" href={`/u/${data.uid}/log`}>Resume</a>
+				<a class="resume" href="/log">Resume</a>
 				<form method="POST" action="?/finish" use:enhance class="grow">
 					<Button variant="secondary" size="lg" type="submit" style="width: 100%">Finish now</Button>
 				</form>

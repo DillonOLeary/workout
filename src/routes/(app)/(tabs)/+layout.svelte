@@ -6,7 +6,6 @@
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	let base = $derived(`/u/${data.uid}`);
 	let mainEl = $state<HTMLElement>();
 	// the document doesn't scroll (locked shell) — reset the inner scroller
 	afterNavigate(() => mainEl?.scrollTo({ top: 0 }));
@@ -17,9 +16,9 @@
 		<div class="tabwrap-inner">
 			<TabBar
 				tabs={[
-					{ label: 'Today', href: base },
-					{ label: 'The Plan', href: `${base}/plan` },
-					{ label: 'Ledger', href: `${base}/ledger` }
+					{ label: 'Today', href: '/' },
+					{ label: 'The Plan', href: '/plan' },
+					{ label: 'Ledger', href: '/ledger' }
 				]}
 			/>
 		</div>
@@ -29,8 +28,8 @@
 			{#if data.showWelcome}
 				<div class="welcome" role="status">
 					<span class="caps">You're in</span>
-					Bookmark this page — <span class="mono">/u/{data.uid}</span> is your login. No password,
-					no recovery.
+					This device stays signed in — no password, nothing to bookmark. Same phone number,
+					same ledger, on any device.
 				</div>
 			{/if}
 			{@render children()}
@@ -114,5 +113,4 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 	}
-	.welcome .mono { font-family: var(--font-mono); background: var(--volt-tint); padding: 0 4px; border-radius: 4px; }
 </style>

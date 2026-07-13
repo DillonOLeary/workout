@@ -26,8 +26,9 @@ DB=postgres://…            # Neon connection string
 LEDGER_PEPPER=…            # any random secret; HMACs phone numbers into /u/<id> URLs
 ```
 
-Log in with a phone number (no password — the number becomes a private URL;
-bookmark it). Empty phone → `/u/demo` sandbox.
+Log in with a phone number — no password; a signed cookie keeps the device
+signed in, and the same number reaches the same ledger from any device.
+Empty phone → the shared demo sandbox.
 
 ## Layout
 

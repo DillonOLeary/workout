@@ -19,7 +19,7 @@
 			<Button variant="accent" size="lg" type="submit" style="width: 100%">Enter</Button>
 		</form>
 
-		<p class="foot">No password. Your number becomes a private URL — bookmark it.</p>
+		<p class="foot">No password. Your number is your key — this device stays signed in.</p>
 	</div>
 </div>
 
