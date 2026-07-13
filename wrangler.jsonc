@@ -10,6 +10,12 @@
 	// pg (TCP sockets) and node:crypto need Node compatibility
 	"compatibility_flags": ["nodejs_compat"],
 	"main": ".svelte-kit/cloudflare/_worker.js",
+	// ledger.* is the real address; workout.* stays attached so old links
+	// still resolve — hooks.server.ts 301s them across, path intact.
+	"routes": [
+		{ "pattern": "ledger.dillonoleary.com", "custom_domain": true },
+		{ "pattern": "workout.dillonoleary.com", "custom_domain": true }
+	],
 	"assets": {
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
