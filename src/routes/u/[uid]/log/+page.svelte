@@ -635,7 +635,6 @@
 		.lg-step { min-height: var(--hit-lg); font-size: 32px; }
 		.lg-readout .v { font-size: clamp(36px, 9vh, 52px); }
 		.lg-rep { min-height: var(--hit-min); font-size: 24px; }
-		.lg-hold { min-height: var(--hit-lg); font-size: 32px; }
 		.lg-inc button, .lg-repextra button { min-height: 38px; }
 		.lg-khint { display: none; }
 		.lg-actions { grid-template-columns: 64px 1fr 64px; }
