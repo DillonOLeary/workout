@@ -33,6 +33,12 @@
 				</div>
 			{/if}
 			{@render children()}
+			<footer class="signout">
+				<!-- plain form on purpose: works with zero JS, full-page nav to /login -->
+				<form method="POST" action="/logout">
+					<button type="submit">Sign out</button>
+				</form>
+			</footer>
 		</div>
 	</main>
 </div>
@@ -113,4 +119,24 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 	}
+
+	/* rare action, quiet home: caps text at the end of the scroll */
+	.signout { display: flex; justify-content: center; margin-top: 8px; }
+	.signout button {
+		min-height: 44px;
+		padding: 0 16px;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		font-family: var(--font-body);
+		font-size: 11px;
+		font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-color: var(--border-soft);
+	}
+	.signout button:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
 </style>

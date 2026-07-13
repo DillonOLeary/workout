@@ -34,6 +34,10 @@ export function setAuthCookie(cookies: Cookies, uid: string) {
 	});
 }
 
+export function clearAuthCookie(cookies: Cookies) {
+	cookies.delete(COOKIE, { path: '/' });
+}
+
 /** Returns the uid if the cookie is present and untampered, else null. */
 export function verifyAuthCookie(cookies: Cookies): string | null {
 	const value = cookies.get(COOKIE);
