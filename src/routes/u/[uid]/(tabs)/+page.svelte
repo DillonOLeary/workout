@@ -68,7 +68,15 @@
 
 	{#if earned.length}
 		<Banner tone="levelup">
-			↑ Level up — {earned.map((ex) => `add ${ex.inc} lb to ${ex.name}`).join(', ')}.
+			↑ Level up — {earned
+				.map((ex) =>
+					ex.bodyweight
+						? ex.mode === 'seconds'
+							? `add ${ex.inc}s to ${ex.name}`
+							: `add ${ex.inc} ${ex.inc === 1 ? 'rep' : 'reps'} to ${ex.name}`
+						: `add ${ex.inc} lb to ${ex.name}`
+				)
+				.join(', ')}.
 		</Banner>
 	{/if}
 
@@ -99,7 +107,7 @@
 						<span class="exname">{ex.name}</span>
 						<span class="exnums">
 							{#if up}<span class="uppill">↑</span>{/if}
-							{w} lb · {ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''}
+							{#if !ex.bodyweight}{w} lb · {/if}{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''}
 						</span>
 					</div>
 				{/each}
@@ -123,18 +131,20 @@
 		</Card>
 	{/if}
 
-	<WeeklyProgress {minutes} />
+	{#if plan.runs !== false}
+		<WeeklyProgress {minutes} />
 
-	<Card>
-		<div class="caps mb12">Log a run</div>
-		<form method="POST" action="?/logRun" use:enhance class="row gap16 wrap">
-			<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
-			<input type="hidden" name="minutes" value={runMin} />
-			<Button variant="secondary" size="lg" type="submit" style="flex: 1; min-width: 140px">
-				Log run
-			</Button>
-		</form>
-	</Card>
+		<Card>
+			<div class="caps mb12">Log a run</div>
+			<form method="POST" action="?/logRun" use:enhance class="row gap16 wrap">
+				<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
+				<input type="hidden" name="minutes" value={runMin} />
+				<Button variant="secondary" size="lg" type="submit" style="flex: 1; min-width: 140px">
+					Log run
+				</Button>
+			</form>
+		</Card>
+	{/if}
 </div>
 
 <style>

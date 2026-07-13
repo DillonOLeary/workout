@@ -2,7 +2,7 @@
 	import { deserialize, enhance } from '$app/forms';
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { dayTitle, lastEntryFor, suggestedWeight } from '$lib/domain/projections';
+	import { dayTitle, lastEntryFor, suggestedCount, suggestedWeight } from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
 	import type { PageProps } from './$types';
 
@@ -66,6 +66,13 @@
 
 	let ex = $derived(exercises[exI]);
 	let isHold = $derived(ex?.mode === 'seconds');
+	// bodyweight ≠ seconds: the med-ball plank is a WEIGHTED hold. Weight UI
+	// keys off bodyweight; the hold timer keys off mode.
+	let isBW = $derived(!!ex?.bodyweight);
+	let holdChips = $derived.by(() => {
+		const mid = Math.round((ex.lo + ex.hi) / 2 / 5) * 5;
+		return [...new Set([ex.lo, mid, ex.hi])];
+	});
 	let done = $derived(loggedThis.filter((e) => e.data.exercise === ex.name).length);
 	// honest optimism: these sets are drawn, but the server hasn't confirmed yet
 	let pendingForEx = $derived(
@@ -114,10 +121,18 @@
 		const e = exercises[i];
 		if (!e) return;
 		const prior = loggedThis.filter((s) => s.data.exercise === e.name);
-		weight = prior.length
-			? prior[prior.length - 1].data.weight
-			: suggestedWeight(data.events, e, session.id);
-		reps = e.mode === 'seconds' ? e.lo : Math.min(e.lo + 2, e.hi);
+		if (e.bodyweight) {
+			// no weight axis — the count itself is what progresses
+			weight = 0;
+			reps = prior.length
+				? prior[prior.length - 1].data.reps
+				: suggestedCount(data.events, e, session.id);
+		} else {
+			weight = prior.length
+				? prior[prior.length - 1].data.weight
+				: suggestedWeight(data.events, e, session.id);
+			reps = e.mode === 'seconds' ? e.lo : Math.min(e.lo + 2, e.hi);
+		}
 		holdStartedAt = null;
 	}
 	initFor(initialEx);
@@ -260,8 +275,15 @@
 	}
 
 	function onKey(ev: KeyboardEvent) {
-		if (ev.key === 'ArrowUp') { bump(inc); ev.preventDefault(); }
-		else if (ev.key === 'ArrowDown') { bump(-inc); ev.preventDefault(); }
+		if (ev.key === 'ArrowUp') {
+			if (isBW) reps = reps + (isHold ? 5 : 1);
+			else bump(inc);
+			ev.preventDefault();
+		} else if (ev.key === 'ArrowDown') {
+			if (isBW) reps = Math.max(1, reps - (isHold ? 5 : 1));
+			else bump(-inc);
+			ev.preventDefault();
+		}
 		else if (ev.key === 'ArrowRight') { goTo(Math.min(exercises.length - 1, exI + 1)); ev.preventDefault(); }
 		else if (ev.key === 'ArrowLeft') { goTo(Math.max(0, exI - 1)); ev.preventDefault(); }
 		else if (ev.key === 'Enter') { primaryAction(); ev.preventDefault(); }
@@ -315,8 +337,10 @@
 					</div>
 					<div class="lg-last">
 						{last
-							? `LAST  ${last.weight} lb · ${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
-							: 'First time — starting weight'}
+							? `LAST  ${isBW ? '' : `${last.weight} lb · `}${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
+							: isBW
+								? `First time — start at ${ex.lo}${isHold ? 's' : ' reps'}`
+								: 'First time — starting weight'}
 					</div>
 					{#if loggedThis.length === 0}
 						<div class="lg-hint">Warm up — 5 easy minutes + one light set.</div>
@@ -328,20 +352,22 @@
 				</div>
 
 				<div class="lg-block">
-					<p class="lg-lbl">Weight</p>
-					<div class="lg-stepper">
-						<button type="button" class="lg-step" onclick={() => bump(-inc)} aria-label="Decrease weight">−</button>
-						<div class="lg-readout" aria-live="polite">
-							<span class="v">{fmtW}</span>
-							<span class="u">lb</span>
+					{#if !isBW}
+						<p class="lg-lbl">Weight</p>
+						<div class="lg-stepper">
+							<button type="button" class="lg-step" onclick={() => bump(-inc)} aria-label="Decrease weight">−</button>
+							<div class="lg-readout" aria-live="polite">
+								<span class="v">{fmtW}</span>
+								<span class="u">lb</span>
+							</div>
+							<button type="button" class="lg-step" onclick={() => bump(inc)} aria-label="Increase weight">+</button>
 						</div>
-						<button type="button" class="lg-step" onclick={() => bump(inc)} aria-label="Increase weight">+</button>
-					</div>
-					<div class="lg-inc" role="group" aria-label="Weight step size">
-						{#each [2.5, 5, 10] as v (v)}
-							<button type="button" aria-pressed={inc === v} onclick={() => (inc = v)}>{v}</button>
-						{/each}
-					</div>
+						<div class="lg-inc" role="group" aria-label="Weight step size">
+							{#each [2.5, 5, 10] as v (v)}
+								<button type="button" aria-pressed={inc === v} onclick={() => (inc = v)}>{v}</button>
+							{/each}
+						</div>
+					{/if}
 
 					{#if isHold}
 						<div class="lg-reps">
@@ -351,7 +377,7 @@
 								<span class="off">{holdStartedAt != null ? 'tap to stop' : 'tap to time the hold'}</span>
 							</button>
 							<div class="lg-repextra">
-								{#each [30, 45, 60] as v (v)}
+								{#each holdChips as v (v)}
 									<button type="button" aria-pressed={reps === v && holdStartedAt == null} onclick={() => (reps = v)}>{v}s</button>
 								{/each}
 								<button type="button" onclick={() => (reps = Math.max(1, reps - 5))}>−5s</button>
@@ -378,7 +404,8 @@
 			</main>
 
 			<p class="lg-khint">
-				<kbd>↑</kbd><kbd>↓</kbd> weight · <kbd>1</kbd>–<kbd>9</kbd> reps · <kbd>←</kbd><kbd>→</kbd>
+				<kbd>↑</kbd><kbd>↓</kbd> {isBW ? (isHold ? 'hold' : 'reps') : 'weight'} ·
+				<kbd>1</kbd>–<kbd>9</kbd> reps · <kbd>←</kbd><kbd>→</kbd>
 				exercise · <kbd>Enter</kbd> log set
 			</p>
 			{#if errMsg ?? form?.message}<p class="lg-err">{errMsg ?? form?.message}</p>{/if}
@@ -475,6 +502,8 @@
 	.lg-inc button[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
 
 	.lg-reps { margin-top: 16px; }
+	/* bodyweight: no weight block above, so the count UI sits flush */
+	.lg-reps:first-child { margin-top: 0; }
 	.lg-repgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 	.lg-rep {
 		font-family: var(--font-mono); font-weight: 800; font-size: 30px; color: var(--ink);

@@ -37,7 +37,7 @@ export const DEFAULT_PLANS: Plan[] = [
 		id: 'her-12-v1',
 		name: 'Full Range of Motion',
 		description:
-			'Deep-ROM lifts at 8–15 reps. Strength and flexibility, for performance in all positions. Runs stay with Coach Bennett — log the minutes after.',
+			'Deep-ROM lifts at 8–15 reps. Strength through the full range of motion — mobility you can load. Runs stay with Coach Bennett — log the minutes after.',
 		schedule: 'Lift 2–3×/week · NRC guided runs 1–2×/week',
 		dayInfo: {
 			'1': { title: 'Get Low', desc: 'Deep squat · push · pull · hinge' },
@@ -56,6 +56,36 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'Seated Row', equip: 'Row machine', tag: 'Horiz. pull', sets: 3, lo: 8, hi: 15, start: 40, inc: 10 },
 				{ name: 'Leg Curl', equip: 'Leg curl machine', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 40, inc: 10 },
 				{ name: 'DB Glute Bridge', equip: 'Dumbbell', tag: 'Hip ext.', sets: 3, lo: 10, hi: 15, start: 25, inc: 5 }
+			]
+		}
+	},
+	{
+		id: 'yoga-2day-v1',
+		name: 'Hold Steady',
+		description:
+			'Two-day bodyweight yoga rotation, about 30 minutes on a mat. Nothing to load, nothing to rack — progress is measured in seconds. Same rule as the iron: top of the range on every set → hold it longer next time.',
+		schedule: 'Flow 2–3×/week · mat only',
+		runs: false,
+		dayInfo: {
+			'1': { title: 'Flow & Hold', desc: 'Sun salutations · chair · warrior II · plank · boat · bridge' },
+			'2': { title: 'Balance & Bend', desc: 'Tree · warrior III · low lunge · pigeon · fold · twist' }
+		},
+		days: {
+			'1': [
+				{ name: 'Sun Salutation A', equip: 'One full round = 1 rep', tag: 'Flow', sets: 2, lo: 3, hi: 5, start: 0, inc: 1, bodyweight: true },
+				{ name: 'Chair Pose', equip: 'Mat', tag: 'Squat', sets: 3, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
+				{ name: 'Warrior II', equip: 'One set per side', tag: 'Lunge', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
+				{ name: 'Forearm Plank', equip: 'Mat', tag: 'Core', sets: 3, lo: 20, hi: 60, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
+				{ name: 'Boat Pose', equip: 'Mat', tag: 'Core', sets: 3, lo: 15, hi: 30, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
+				{ name: 'Bridge Pose', equip: 'Mat', tag: 'Hip ext.', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true }
+			],
+			'2': [
+				{ name: 'Tree Pose', equip: 'One set per side', tag: 'Balance', sets: 2, lo: 20, hi: 60, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
+				{ name: 'Warrior III', equip: 'One set per side', tag: 'Balance', sets: 2, lo: 15, hi: 30, start: 0, inc: 5, mode: 'seconds', bodyweight: true },
+				{ name: 'Low Lunge', equip: 'One set per side', tag: 'Hip flexor', sets: 2, lo: 30, hi: 60, start: 0, inc: 10, mode: 'seconds', bodyweight: true },
+				{ name: 'Pigeon Pose', equip: 'One set per side', tag: 'Hip', sets: 2, lo: 30, hi: 60, start: 0, inc: 10, mode: 'seconds', bodyweight: true },
+				{ name: 'Seated Forward Fold', equip: 'Mat', tag: 'Hamstrings', sets: 2, lo: 30, hi: 60, start: 0, inc: 10, mode: 'seconds', bodyweight: true },
+				{ name: 'Supine Twist', equip: 'One set per side', tag: 'Spine', sets: 2, lo: 30, hi: 60, start: 0, inc: 10, mode: 'seconds', bodyweight: true }
 			]
 		}
 	}

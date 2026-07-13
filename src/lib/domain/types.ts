@@ -18,6 +18,12 @@ export type Exercise = {
 	inc: number;
 	/** absent = 'reps'. 'seconds' = timed hold (plank): log seconds, not reps */
 	mode?: 'reps' | 'seconds';
+	/**
+	 * absent = weighted. Bodyweight exercises (yoga poses) have no weight
+	 * axis: progression moves the COUNT instead — `inc` means "+inc seconds"
+	 * (or reps), and `start` should be 0.
+	 */
+	bodyweight?: boolean;
 };
 
 export type DayInfo = { title: string; desc?: string };
@@ -29,4 +35,6 @@ export type Plan = {
 	schedule: string;
 	dayInfo?: Record<string, DayInfo>;
 	days: Record<string, Exercise[]>;
+	/** absent = true. false hides all running UI while this plan is active. */
+	runs?: boolean;
 };

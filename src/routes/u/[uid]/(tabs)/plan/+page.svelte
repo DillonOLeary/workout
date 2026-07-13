@@ -91,7 +91,7 @@
 					<div class="exname">{ex.name}</div>
 					<div class="exequip">{ex.equip}</div>
 				</div>
-				<span class="exnums">{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''} · +{ex.inc}</span>
+				<span class="exnums">{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''} · +{ex.inc}{ex.bodyweight && ex.mode === 'seconds' ? 's' : ''}</span>
 			</div>
 		{/each}
 	</Card>
@@ -99,7 +99,9 @@
 	<Card>
 		<div class="badges">
 			<Badge tone="neutral">{plan.schedule}</Badge>
-			<Badge tone="neutral">150–300 min run/week</Badge>
+			{#if plan.runs !== false}
+				<Badge tone="neutral">150–300 min run/week</Badge>
+			{/if}
 		</div>
 	</Card>
 

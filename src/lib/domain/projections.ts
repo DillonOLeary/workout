@@ -115,6 +115,19 @@ export function suggestedWeight(events: LedgerEvent[], ex: Exercise, excludeSess
 	return earnedIncrease(entry, ex) ? entry.weight + ex.inc : entry.weight;
 }
 
+/**
+ * Bodyweight twin of suggestedWeight: the progressible axis is the count
+ * itself (seconds or reps). Best of last session, +inc if earned; never
+ * below lo, capped at the decider's validation ceilings.
+ */
+export function suggestedCount(events: LedgerEvent[], ex: Exercise, excludeSession?: string): number {
+	const entry = lastEntryFor(events, ex.name, excludeSession);
+	if (!entry) return ex.lo;
+	const best = Math.max(...entry.reps);
+	const next = earnedIncrease(entry, ex) ? best + ex.inc : best;
+	return Math.min(Math.max(ex.lo, next), ex.mode === 'seconds' ? 600 : 100);
+}
+
 /** Which day is due next: alternate from the most recent finished session. */
 export function nextDay(events: LedgerEvent[], plan: Plan): string {
 	const dayKeys = Object.keys(plan.days);

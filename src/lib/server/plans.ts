@@ -61,15 +61,21 @@ export function parsePlan(json: string): Plan {
 	const p = JSON.parse(json) as Partial<Plan>;
 	if (!p.id || !p.name || !p.days) throw new Error('needs id, name, days');
 	if (typeof p.id !== 'string' || typeof p.name !== 'string') throw new Error('id and name must be strings');
+	if (p.runs !== undefined && typeof p.runs !== 'boolean') throw new Error('runs must be a boolean');
 	const days = p.days as Record<string, Exercise[]>;
 	if (typeof days !== 'object' || !Object.keys(days).length) throw new Error('days must be a non-empty object');
 	for (const [day, exercises] of Object.entries(days)) {
 		if (!Array.isArray(exercises) || !exercises.length) throw new Error(`day "${day}" needs a non-empty exercise list`);
 		for (const ex of exercises) {
 			if (!ex.name) throw new Error(`exercise in day "${day}" is missing a name`);
-			for (const k of ['sets', 'lo', 'hi', 'start', 'inc'] as const) {
+			// bodyweight exercises have no weight axis — start is optional (0)
+			const required = ex.bodyweight === true
+				? (['sets', 'lo', 'hi', 'inc'] as const)
+				: (['sets', 'lo', 'hi', 'start', 'inc'] as const);
+			for (const k of required) {
 				if (typeof ex[k] !== 'number') throw new Error(`"${ex.name}" needs numeric ${k}`);
 			}
+			if (ex.bodyweight === true && typeof ex.start !== 'number') ex.start = 0;
 		}
 	}
 	return { schedule: '', ...p } as Plan;

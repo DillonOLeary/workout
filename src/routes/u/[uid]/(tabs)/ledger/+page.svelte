@@ -74,7 +74,7 @@
 							{row.exercise}
 							{#if lvl}<span class="uppill">↑</span>{/if}
 						</span>
-						<span class="w">{row.weight} lb</span>
+						<span class="w">{ex?.bodyweight ? 'BW' : `${row.weight} lb`}</span>
 						<span class="reps">{row.reps.map((r) => (hold ? `${r}s` : r)).join(' · ')}</span>
 					</div>
 				{/each}
