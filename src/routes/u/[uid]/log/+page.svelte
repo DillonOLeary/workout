@@ -67,6 +67,11 @@
 	let ex = $derived(exercises[exI]);
 	let isHold = $derived(ex?.mode === 'seconds');
 	let done = $derived(loggedThis.filter((e) => e.data.exercise === ex.name).length);
+	// honest optimism: these sets are drawn, but the server hasn't confirmed yet
+	let pendingForEx = $derived(
+		optimistic.filter((p) => p.status !== 'confirmed' && p.data.exercise === ex.name).length
+	);
+	let syncing = $derived(local.some((p) => p.status !== 'confirmed'));
 	let allDone = $derived(loggedThis.length >= totalSets);
 	let exDone = $derived(done >= ex.sets);
 	let last = $derived(lastEntryFor(data.events, ex.name, session.id));
@@ -279,13 +284,18 @@
 			<button type="button" class="lg-finish" class:armed={finishArmed} onclick={finishNow} disabled={finishing}>
 				{finishing ? 'Saving…' : finishArmed ? 'Finish?' : 'Finish'}
 			</button>
-			<span class="lg-where">Ex {exI + 1} / {exercises.length}</span>
+			<span class="lg-where">{syncing ? 'saving · ' : ''}Ex {exI + 1} / {exercises.length}</span>
 		</div>
 
 		{#if ex}
 			<div class="lg-rail" aria-hidden="true">
 				{#each Array.from({ length: ex.sets }), i}
-					<div class="seg" class:done={i < done} class:now={i === done}></div>
+					<div
+						class="seg"
+						class:done={i < done - pendingForEx}
+						class:pending={i >= done - pendingForEx && i < done}
+						class:now={i === done}
+					></div>
 				{/each}
 			</div>
 
@@ -424,6 +434,8 @@
 	.lg-rail { display: flex; gap: 4px; padding: 4px 16px 10px; }
 	.lg-rail .seg { height: 8px; flex: 1; border-radius: 4px; background: var(--paper-3); border: 1px solid var(--paper-3); transition: background var(--dur-med) var(--ease-snap); }
 	.lg-rail .seg.done { background: var(--volt); border-color: var(--ink); }
+	/* logged locally, not yet confirmed by the server — tinted, not solid */
+	.lg-rail .seg.pending { background: var(--volt-tint); border-color: var(--volt-deep); }
 	.lg-rail .seg.now { background: var(--white); border-color: var(--ink); }
 
 	.lg-main { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 16px; overflow-y: auto; }
