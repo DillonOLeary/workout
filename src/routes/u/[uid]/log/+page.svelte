@@ -95,6 +95,10 @@
 
 	let holdStartedAt = $state<number | null>(null);
 	let holdNow = $state(0);
+	// a stopped timer is "timed, not yet logged" — visually distinct from the
+	// idle target, so a logged set can't be mistaken for a paused stopwatch
+	let holdCaptured = $state(false);
+	let holdTarget = 0; // what the readout resets to after each logged set
 	$effect(() => {
 		if (holdStartedAt == null) return;
 		const t = setInterval(() => (holdNow = Date.now()), 250);
@@ -107,9 +111,11 @@
 		if (holdStartedAt == null) {
 			holdNow = Date.now();
 			holdStartedAt = Date.now();
+			holdCaptured = false;
 		} else {
 			reps = Math.max(1, Math.floor((Date.now() - holdStartedAt) / 1000));
 			holdStartedAt = null;
+			holdCaptured = true;
 		}
 	}
 
@@ -129,7 +135,9 @@
 				: suggestedWeight(data.events, e, session.id);
 			reps = e.mode === 'seconds' ? e.lo : Math.min(e.lo + 2, e.hi);
 		}
+		holdTarget = reps;
 		holdStartedAt = null;
+		holdCaptured = false;
 	}
 	initFor(initialEx);
 
@@ -168,6 +176,11 @@
 		flash = true;
 		setTimeout(() => (flash = false), 160);
 		navigator.vibrate?.(12);
+		if (isHold) {
+			// the logged set is done: back to a fresh target, not a "paused" time
+			reps = holdTarget;
+			holdCaptured = false;
+		}
 		if (done >= ex.sets && exI < exercises.length - 1) setTimeout(() => goTo(exI + 1), 280);
 		void pump();
 	}
@@ -372,9 +385,15 @@
 							<p class="lg-lbl">Hold</p>
 							<div class="lg-stepper">
 								<button type="button" class="lg-step sm" onclick={() => (reps = Math.max(1, reps - 5))} disabled={holdStartedAt != null} aria-label="Shorten hold">−5</button>
-								<button type="button" class="lg-hold" class:running={holdStartedAt != null} onclick={toggleHold}>
+								<button type="button" class="lg-hold" class:running={holdStartedAt != null} class:captured={holdCaptured && holdStartedAt == null} onclick={toggleHold}>
 									{holdStartedAt != null ? fmtClock(holdSec ?? 0) : `${reps}s`}
-									<span class="off">{holdStartedAt != null ? 'tap to stop' : 'tap to time the hold'}</span>
+									<span class="off">
+										{holdStartedAt != null
+											? 'tap to stop'
+											: holdCaptured
+												? 'timed — log set records it'
+												: 'target · tap to time the hold'}
+									</span>
 								</button>
 								<button type="button" class="lg-step sm" onclick={() => (reps = reps + 5)} disabled={holdStartedAt != null} aria-label="Lengthen hold">+5</button>
 							</div>
@@ -530,6 +549,7 @@
 	.lg-step:disabled { opacity: 0.3; cursor: default; }
 	.lg-step:disabled:active { transform: none; box-shadow: var(--shadow-raised); }
 	.lg-hold.running { background: var(--volt); box-shadow: var(--shadow-pressed); transform: translateY(2px); }
+	.lg-hold.captured { background: var(--volt-tint); }
 	.lg-hold .off { display: block; font-family: var(--font-body); font-weight: 700; font-size: 10px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
 	.lg-repextra { display: flex; gap: 8px; margin-top: 8px; }
 	.lg-repextra button {
