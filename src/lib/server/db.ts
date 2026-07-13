@@ -7,22 +7,21 @@ import { env } from '$env/dynamic/private';
  * in dev; Cloudflare injects dashboard vars in prod). We deliberately avoid
  * `$env/static/private`, which would inline the connection string — password
  * and all — into the build output.
- */
-const cs = env.DB;
-if (!cs) throw new Error('Missing DB env var — put your Neon connection string in .env.local');
-export const connectionString: string = cs;
-
-/**
- * On Cloudflare, hooks.server.ts swaps in Hyperdrive's connection string
- * (an edge-local pooler: per-request connects become ~ms instead of a full
- * TLS handshake to Neon). Everywhere else this stays env.DB.
+ *
+ * Resolution is LAZY — never at module load. SvelteKit's post-build analyse
+ * step imports every server module in an environment with no env vars; a
+ * module-scope `throw` here broke every CI build until it moved into the
+ * function. On Cloudflare, hooks.server.ts swaps in Hyperdrive's connection
+ * string (edge pooler: per-request connects become ~ms).
  */
 let runtimeCs: string | undefined;
 export function setRuntimeConnectionString(value: string | undefined) {
 	if (value) runtimeCs = value;
 }
 export function currentConnectionString(): string {
-	return runtimeCs ?? connectionString;
+	const cs = runtimeCs ?? env.DB;
+	if (!cs) throw new Error('Missing DB env var — put your Neon connection string in .env.local');
+	return cs;
 }
 
 /** The one query method both pg.Pool and pg.Client provide. */
@@ -50,7 +49,10 @@ const g = globalThis as typeof globalThis & { __ledgerPool?: pg.Pool };
  */
 export async function withClient<T>(fn: (db: Queryable) => Promise<T>): Promise<T> {
 	if (dev) {
-		const pool = (g.__ledgerPool ??= new pg.Pool({ connectionString, max: 5 }));
+		const pool = (g.__ledgerPool ??= new pg.Pool({
+			connectionString: currentConnectionString(),
+			max: 5
+		}));
 		return fn(pool);
 	}
 	const client = new pg.Client({ connectionString: currentConnectionString() });

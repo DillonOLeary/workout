@@ -4,7 +4,7 @@ import {
 	type PostgresEventStore
 } from '@event-driven-io/emmett-postgresql';
 import { dev } from '$app/environment';
-import { connectionString, currentConnectionString } from './db';
+import { currentConnectionString } from './db';
 
 /**
  * The event store IS the database of record: `emt_messages` (every event ever
@@ -29,7 +29,7 @@ export async function withEventStore<T>(
 	fn: (store: PostgresEventStore) => Promise<T>
 ): Promise<T> {
 	if (dev) {
-		const store = (g.__ledgerEventStore ??= getPostgreSQLEventStore(connectionString));
+		const store = (g.__ledgerEventStore ??= getPostgreSQLEventStore(currentConnectionString()));
 		return fn(store);
 	}
 	const cs = currentConnectionString();
