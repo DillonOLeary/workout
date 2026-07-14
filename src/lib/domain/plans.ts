@@ -12,6 +12,7 @@ export const DEFAULT_PLANS: Plan[] = [
 		description:
 			'Full-body A/B on dumbbells, kettlebells and machines. The calendar is empty; Mon / Wed / Fri isn’t. Currently accepting all opportunities to pick things up and put them down.',
 		schedule: 'Lift Mon / Wed / Fri · Run 3×/week',
+		runTarget: 90,
 		dayInfo: {
 			A: { title: 'Squat & Shove', desc: 'Squat · push · pull · hinge · core' },
 			B: { title: 'Hinge & Haul', desc: 'Hinge · press · row · legs' }
@@ -39,6 +40,7 @@ export const DEFAULT_PLANS: Plan[] = [
 		description:
 			'Deep-ROM lifts at 8–15 reps. Strength through the full range of motion — mobility you can load. Runs stay with Coach Bennett — log the minutes after.',
 		schedule: 'Lift 2–3×/week · NRC guided runs 1–2×/week',
+		runTarget: 60,
 		dayInfo: {
 			'1': { title: 'Get Low', desc: 'Deep squat · push · pull · hinge' },
 			'2': { title: 'Bridge Club', desc: 'Lunge · press · row · curl · bridge — squeeze and pause at the top' }

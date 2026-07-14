@@ -37,4 +37,6 @@ export type Plan = {
 	days: Record<string, Exercise[]>;
 	/** absent = true. false hides all running UI while this plan is active. */
 	runs?: boolean;
+	/** weekly run-minute goal for the meter/badge; absent = 150 */
+	runTarget?: number;
 };

@@ -1,11 +1,14 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	let { minutes, children }: { minutes: number; children?: Snippet } = $props();
+	let {
+		minutes,
+		target = 150,
+		children
+	}: { minutes: number; target?: number; children?: Snippet } = $props();
 
-	const TARGET = 150; // WHO weekly minimum; 300 is the stretch top
-	let pct = $derived(Math.min(100, (minutes / TARGET) * 100));
-	let onTarget = $derived(minutes >= TARGET);
+	let pct = $derived(Math.min(100, (minutes / target) * 100));
+	let onTarget = $derived(minutes >= target);
 </script>
 
 <div class="wp">
@@ -13,14 +16,14 @@
 		<span class="lbl">Running — this week</span>
 		<span class="num">{minutes}<span class="unit"> min</span></span>
 	</div>
-	<div class="track" role="meter" aria-valuemin={0} aria-valuemax={TARGET} aria-valuenow={Math.min(minutes, TARGET)} aria-label="Weekly run minutes">
+	<div class="track" role="meter" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(minutes, target)} aria-label="Weekly run minutes">
 		<div class="fill" class:full={onTarget} style="width: {pct}%"></div>
 	</div>
 	<div class="status">
 		{#if onTarget}
-			<span class="up">↑</span> On target — {minutes} of 150–300 min
+			<span class="up">↑</span> On target — {minutes} of {target} min
 		{:else}
-			{TARGET - minutes} min to go this week
+			{target - minutes} min to go this week
 		{/if}
 	</div>
 	{#if children}

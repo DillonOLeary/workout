@@ -62,6 +62,8 @@ export function parsePlan(json: string): Plan {
 	if (!p.id || !p.name || !p.days) throw new Error('needs id, name, days');
 	if (typeof p.id !== 'string' || typeof p.name !== 'string') throw new Error('id and name must be strings');
 	if (p.runs !== undefined && typeof p.runs !== 'boolean') throw new Error('runs must be a boolean');
+	if (p.runTarget !== undefined && (typeof p.runTarget !== 'number' || p.runTarget <= 0))
+		throw new Error('runTarget must be a positive number of minutes');
 	const days = p.days as Record<string, Exercise[]>;
 	if (typeof days !== 'object' || !Object.keys(days).length) throw new Error('days must be a non-empty object');
 	for (const [day, exercises] of Object.entries(days)) {

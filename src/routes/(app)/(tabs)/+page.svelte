@@ -47,6 +47,7 @@
 	);
 
 	let minutes = $derived(weekRunMinutes(data.events));
+	let runTarget = $derived(plan.runTarget ?? 150);
 	let runMin = $state(30);
 
 	const today = new Date().toLocaleDateString('en-US', {
@@ -62,7 +63,7 @@
 		<span class="headbadges">
 			{#if plan.runs !== false}
 				<!-- runs live below the fold; this keeps them on the scoreboard -->
-				<Badge tone={minutes >= 150 ? 'levelup' : 'neutral'}>Run {minutes}/150</Badge>
+				<Badge tone={minutes >= runTarget ? 'levelup' : 'neutral'}>Run {minutes}/{runTarget}</Badge>
 			{/if}
 			<Badge tone="neutral">{today}</Badge>
 		</span>
@@ -138,7 +139,7 @@
 	{/if}
 
 	{#if plan.runs !== false}
-		<WeeklyProgress {minutes}>
+		<WeeklyProgress {minutes} target={runTarget}>
 			<form method="POST" action="?/logRun" use:enhance class="row gap16 wrap">
 				<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
 				<input type="hidden" name="minutes" value={runMin} />
