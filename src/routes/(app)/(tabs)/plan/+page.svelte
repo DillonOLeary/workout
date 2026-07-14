@@ -100,7 +100,7 @@
 		<div class="badges">
 			<Badge tone="neutral">{plan.schedule}</Badge>
 			{#if plan.runs !== false}
-				<Badge tone="neutral">150–300 min run/week</Badge>
+				<Badge tone="neutral">{plan.runTarget ?? 150} min run/week</Badge>
 			{/if}
 		</div>
 	</Card>
