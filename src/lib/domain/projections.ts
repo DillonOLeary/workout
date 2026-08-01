@@ -106,18 +106,28 @@ export function activePlanId(events: LedgerEvent[]): string | null {
 	return null;
 }
 
+/** Every logged entry for an exercise, newest first (excluding a session id). */
+export function historyFor(
+	events: LedgerEvent[],
+	exercise: string,
+	excludeSession?: string
+): LastEntry[] {
+	const out: LastEntry[] = [];
+	for (const s of projectSessions(events)) {
+		if (s.id === excludeSession) continue;
+		const row = s.rows.find((r) => r.exercise === exercise);
+		if (row && row.reps.length) out.push({ weight: row.weight, reps: row.reps, dateLabel: s.dateLabel });
+	}
+	return out;
+}
+
 /** Most recent logged entry for an exercise (excluding a given session id). */
 export function lastEntryFor(
 	events: LedgerEvent[],
 	exercise: string,
 	excludeSession?: string
 ): LastEntry | null {
-	for (const s of projectSessions(events)) {
-		if (s.id === excludeSession) continue;
-		const row = s.rows.find((r) => r.exercise === exercise);
-		if (row && row.reps.length) return { weight: row.weight, reps: row.reps, dateLabel: s.dateLabel };
-	}
-	return null;
+	return historyFor(events, exercise, excludeSession)[0] ?? null;
 }
 
 /** The one rule: all sets at/above the top of the range → earned an increase. */
@@ -125,11 +135,68 @@ export function earnedIncrease(entry: { weight: number; reps: number[] } | null,
 	return !!entry && entry.reps.length >= ex.sets && entry.reps.every((r) => r >= ex.hi);
 }
 
-/** Weight to preload next session: last weight, +inc if earned, else start. */
-export function suggestedWeight(events: LedgerEvent[], ex: Exercise, excludeSession?: string): number {
+/** Consecutive stalls at the current weight before the ledger backs you off. */
+export const STALL_LIMIT = 3;
+
+/**
+ * How many sessions in a row sat at the SAME weight without earning the
+ * increase. Counting back from the top and stopping at the first different
+ * weight is what makes a deload self-limiting: once the load drops, the new
+ * weight is a fresh streak, so a stubborn lift steps down once and rebuilds
+ * rather than spiralling.
+ */
+export function stallStreak(events: LedgerEvent[], ex: Exercise, excludeSession?: string): number {
+	const history = historyFor(events, ex.name, excludeSession);
+	const top = history[0];
+	if (!top || earnedIncrease(top, ex)) return 0;
+	let n = 0;
+	for (const entry of history) {
+		if (entry.weight !== top.weight || earnedIncrease(entry, ex)) break;
+		n++;
+	}
+	return n;
+}
+
+/**
+ * A stall deload: ~10% off, snapped to whole `inc` steps so the result is
+ * still loadable (every weight is start + n·inc, so start + (n−k)·inc is a
+ * plate/bell that exists), at least one full step, never below start.
+ */
+export function deloadWeight(weight: number, ex: Exercise): number {
+	const steps = Math.max(1, Math.round((weight * 0.1) / ex.inc));
+	return Math.max(ex.start, weight - steps * ex.inc);
+}
+
+export type LoadReason = 'start' | 'increase' | 'hold' | 'deload';
+export type LoadSuggestion = { weight: number; reason: LoadReason; stalls: number };
+
+/**
+ * The full progression decision, with its reason — the rule can now move a
+ * weight DOWN. Without a deload path the ledger only ever held or added, so a
+ * lift you could no longer complete came back at the same load forever; the
+ * only ways out were grinding it or quietly stopping.
+ */
+export function nextLoad(
+	events: LedgerEvent[],
+	ex: Exercise,
+	excludeSession?: string
+): LoadSuggestion {
 	const entry = lastEntryFor(events, ex.name, excludeSession);
-	if (!entry) return ex.start;
-	return earnedIncrease(entry, ex) ? entry.weight + ex.inc : entry.weight;
+	if (!entry) return { weight: ex.start, reason: 'start', stalls: 0 };
+	if (earnedIncrease(entry, ex))
+		return { weight: entry.weight + ex.inc, reason: 'increase', stalls: 0 };
+	const stalls = stallStreak(events, ex, excludeSession);
+	if (stalls >= STALL_LIMIT) {
+		const down = deloadWeight(entry.weight, ex);
+		// already at the floor — nothing to give back, so it's still a hold
+		if (down < entry.weight) return { weight: down, reason: 'deload', stalls };
+	}
+	return { weight: entry.weight, reason: 'hold', stalls };
+}
+
+/** Weight to preload next session. */
+export function suggestedWeight(events: LedgerEvent[], ex: Exercise, excludeSession?: string): number {
+	return nextLoad(events, ex, excludeSession).weight;
 }
 
 /**
@@ -154,7 +221,8 @@ export function nextDay(events: LedgerEvent[], plan: Plan): string {
 	return dayKeys[(i + 1) % dayKeys.length];
 }
 
-/** Run minutes in the trailing 7 days (WHO 150–300 target). */
+/** Run minutes in the trailing 7 days — compared against the plan's runTarget,
+ *  which is per-plan (90 for Open to Work), not a fixed WHO figure. */
 export function weekRunMinutes(events: LedgerEvent[]): number {
 	const cutoff = Date.now() - 7 * 86400000;
 	return projectRuns(events)

@@ -15,7 +15,7 @@ export const DEFAULT_PLANS: Plan[] = [
 		runTarget: 90,
 		dayInfo: {
 			A: { title: 'Squat & Shove', desc: 'Squat · push · pull · hinge · core' },
-			B: { title: 'Hinge & Haul', desc: 'Hinge · press · row · legs' }
+			B: { title: 'Hinge & Haul', desc: 'Hinge · press · row · lunge · core' }
 		},
 		days: {
 			A: [
@@ -29,8 +29,14 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 53, inc: 9 },
 				{ name: 'Shoulder Press', equip: 'Multi-press machine', tag: 'Vert. push', sets: 3, lo: 8, hi: 12, start: 25, inc: 5 },
 				{ name: 'Seated Row', equip: 'Row machine', tag: 'Horiz. pull', sets: 3, lo: 8, hi: 12, start: 80, inc: 10 },
-				{ name: 'Leg Extension', equip: 'Leg ext. machine', tag: 'Quads', sets: 3, lo: 10, hi: 15, start: 70, inc: 10 },
-				{ name: 'Leg Curl', equip: 'Leg curl machine', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 60, inc: 10 }
+				// A knee-dominant compound, not the leg-extension machine it replaces:
+				// day B had no squat pattern, and nothing in the plan was single-leg
+				// — which matters most for someone running three times a week.
+				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', sets: 3, lo: 8, hi: 12, start: 20, inc: 5 },
+				{ name: 'Leg Curl', equip: 'Leg curl machine', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 60, inc: 10 },
+				// Day A's plank resists extension; this resists lateral flexion, so the
+				// two days cover different core vectors instead of B covering none.
+				{ name: 'Side Plank', equip: 'One set per side', tag: 'Core', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true }
 			]
 		}
 	},

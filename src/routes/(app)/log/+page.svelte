@@ -2,7 +2,14 @@
 	import { deserialize, enhance } from '$app/forms';
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { dayTitle, lastEntryFor, suggestedCount, suggestedWeight } from '$lib/domain/projections';
+	import {
+		STALL_LIMIT,
+		dayTitle,
+		lastEntryFor,
+		nextLoad,
+		suggestedCount,
+		suggestedWeight
+	} from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
 	import type { PageProps } from './$types';
 
@@ -78,6 +85,9 @@
 	let allDone = $derived(loggedThis.length >= totalSets);
 	let exDone = $derived(done >= ex.sets);
 	let last = $derived(lastEntryFor(data.events, ex.name, session.id));
+	// the reasoning behind the preloaded weight, so a drop is never silent —
+	// an unexplained lighter bar reads as a bug, which is worse than no deload
+	let load = $derived(ex && !ex.bodyweight ? nextLoad(data.events, ex, session.id) : null);
 	let repChoices = $derived([ex.lo, ex.lo + 1, ex.lo + 2, ex.lo + 3, ex.lo + 4]);
 	let fmtW = $derived(Number.isInteger(weight) ? String(weight) : weight.toFixed(1));
 
@@ -384,6 +394,18 @@
 									? `First time — start at ${ex.lo} reps`
 									: 'First time — starting weight'}
 					</div>
+					<!-- only before this exercise's first set: after that the stepper carries
+					     the session's own weight and the suggestion no longer describes it -->
+					{#if load && done === 0 && load.reason === 'deload'}
+						<div class="lg-hint">
+							Stalled {load.stalls}× at {last?.weight} lb — backed off to {load.weight}. Build it back.
+						</div>
+					{:else if load && done === 0 && load.stalls >= STALL_LIMIT}
+						<!-- stalled past the limit but reason is still 'hold' — already at the floor -->
+						<div class="lg-hint">Stalled {load.stalls}× at the starting weight.</div>
+					{:else if load && done === 0 && load.stalls === STALL_LIMIT - 1}
+						<div class="lg-hint">Stalled {load.stalls}× here — miss again and it backs off.</div>
+					{/if}
 					{#if allDone}
 						<div class="lg-hint">Done — stretch 5 min while you're warm.</div>
 					{:else if restSec !== null && restSec < 900 && !hold}

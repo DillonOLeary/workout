@@ -11,7 +11,7 @@
 		earnedIncrease,
 		lastEntryFor,
 		nextDay,
-		suggestedWeight,
+		nextLoad,
 		weekRunMinutes
 	} from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
@@ -31,6 +31,15 @@
 			plan.days[d]
 				.filter((ex) => earnedIncrease(lastEntryFor(data.events, ex.name, session?.id), ex))
 				.map((ex) => ({ ...ex, day: d }))
+		)
+	);
+
+	// the mirror of `earned`: lifts the rule is stepping DOWN after a stall run
+	let backedOff = $derived(
+		dayKeys.flatMap((d) =>
+			plan.days[d]
+				.map((ex) => ({ ex, load: nextLoad(data.events, ex, session?.id) }))
+				.filter((x) => x.load.reason === 'deload')
 		)
 	);
 
@@ -87,6 +96,14 @@
 		</Banner>
 	{/if}
 
+	{#if backedOff.length}
+		<Banner tone="backoff">
+			↓ Backing off — {backedOff
+				.map((x) => `${x.ex.name} to ${x.load.weight} lb after ${x.load.stalls} stalls`)
+				.join(', ')}. Build it back.
+		</Banner>
+	{/if}
+
 	{#if session}
 		<Card interactive>
 			<div class="caps">In progress</div>
@@ -108,13 +125,12 @@
 			{/if}
 			<div class="exlist">
 				{#each plan.days[due] as ex (ex.name)}
-					{@const w = suggestedWeight(data.events, ex)}
-					{@const up = earnedIncrease(lastEntryFor(data.events, ex.name), ex)}
+					{@const load = nextLoad(data.events, ex)}
 					<div class="exrow">
 						<span class="exname">{ex.name}</span>
 						<span class="exnums">
-							{#if up}<span class="uppill">↑</span>{/if}
-							{#if !ex.bodyweight}{w} lb · {/if}{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''}
+							{#if load.reason === 'increase'}<span class="uppill">↑</span>{:else if load.reason === 'deload'}<span class="downpill">↓</span>{/if}
+							{#if !ex.bodyweight}{load.weight} lb · {/if}{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''}
 						</span>
 					</div>
 				{/each}
@@ -187,6 +203,7 @@
 	.exname { font-weight: var(--weight-bold); }
 	.exnums { font-family: var(--font-mono); white-space: nowrap; }
 	.uppill { background: var(--volt); padding: 0 5px; border-radius: 4px; margin-right: 6px; }
+	.downpill { border: 1px solid var(--ink-3); color: var(--ink-2); padding: 0 4px; border-radius: 4px; margin-right: 6px; }
 	.alts { margin-top: 10px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); }
 

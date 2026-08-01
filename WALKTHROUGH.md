@@ -114,9 +114,11 @@ folds, each answering one question from the same events:
 
 - `projectSessions` → the Ledger tab's history cards
 - `nextDay` → which workout is due (alternate from last finished session)
-- `suggestedWeight` + `earnedIncrease` → the progression rule ("all sets at the
-  top of the range → add the smallest increment")
-- `weekRunMinutes` → the 150–300 min WHO bar
+- `nextLoad` + `earnedIncrease` → the progression rule ("all sets at the top of
+  the range → add the smallest increment"), and `stallStreak` + `deloadWeight`
+  → its downward half ("three sessions stuck at one weight → step back ~10%")
+- `weekRunMinutes` → run minutes in the trailing 7 days, against the plan's
+  own `runTarget`
 - `activePlanId` → last `PlanSelected` wins
 
 Even "is a session open?" is a projection (`currentState(events).activeSession`

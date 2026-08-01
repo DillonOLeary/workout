@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	let { tone = 'levelup', children }: { tone?: 'levelup'; children: Snippet } = $props();
+	let { tone = 'levelup', children }: { tone?: 'levelup' | 'backoff'; children: Snippet } = $props();
 </script>
 
 <div class="banner {tone}">{@render children()}</div>
@@ -17,4 +17,6 @@
 		box-shadow: var(--shadow-raised);
 	}
 	.banner.levelup { background: var(--volt); color: var(--ink); }
+	/* a back-off is neither a win nor an alarm — quieter than volt on purpose */
+	.banner.backoff { background: var(--white); color: var(--ink); }
 </style>
