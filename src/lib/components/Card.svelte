@@ -20,4 +20,10 @@
 	/* Cards that matter get the full ink treatment */
 	.card.interactive { border-color: var(--ink); box-shadow: var(--shadow-raised); }
 	.card.pad { padding: 24px; }
+	@media (max-width: 900px) {
+		.card.pad { padding: 16px; }
+	}
+	@media (max-height: 700px) {
+		.card.pad { padding: 12px; }
+	}
 </style>

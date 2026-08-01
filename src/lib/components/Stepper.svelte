@@ -56,4 +56,7 @@
 	}
 	.v { font-family: var(--font-mono); font-weight: 800; font-size: var(--text-data); align-self: center; }
 	.u { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); align-self: center; }
+	@media (max-height: 700px) {
+		.step { min-height: 48px; }
+	}
 </style>

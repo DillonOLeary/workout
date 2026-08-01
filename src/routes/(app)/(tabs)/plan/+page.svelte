@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
@@ -15,6 +14,9 @@
 	// Which day's exercises are expanded — pure client state, no server involved
 	let day = $state('');
 	let shownDay = $derived(plan.days[day] ? day : dayKeys[0]);
+
+	// everything except the one already shown in full above
+	let others = $derived(data.plans.filter((p) => p.id !== plan.id));
 
 	let json = $state('');
 
@@ -31,13 +33,11 @@
 
 	<Card pad={false}>
 		<div class="planhead-row">
-			<span class="activename">{plan.name}</span>
-			<span class="badges">
-				<Badge tone="neutral">{plan.schedule}</Badge>
-				{#if plan.runs !== false}
-					<Badge tone="neutral">{plan.runTarget ?? 150} min run/week</Badge>
-				{/if}
-			</span>
+			<div class="activename">{plan.name}</div>
+			<!-- one line, not two stacked pills that each wrap on a phone -->
+			<div class="activemeta">
+				{plan.schedule}{plan.runs !== false ? ` · ${plan.runTarget ?? 150} min/wk` : ''}
+			</div>
 		</div>
 		<div class="dayhead">
 			<div class="chips">
@@ -63,53 +63,51 @@
 				</span>
 			</div>
 		{/each}
-	</Card>
-
-	<Card interactive>
-		<div class="caps mb8">The one rule</div>
-		<div class="rule">
-			Hit every set at the top of the range → <span class="hl">take the next size up</span> next time.
-		</div>
-		<div class="ruledown">
-			Stall three sessions at one weight → it backs off about 10%, and you build it back. Both ways land on weights the rack actually has.
+		<!-- The rule belongs INSIDE the plan, under the exercises it governs.
+		     As a sibling card it read as an unrelated fact about the app. -->
+		<div class="rulebox">
+			<div class="caps mb8">How it progresses</div>
+			<div class="rule">
+				Hit every set at the top of the range → <span class="hl">take the next size up</span> next time.
+			</div>
+			<div class="ruledown">
+				Stall three sessions at one weight → it backs off about 10%, and you build it back.
+				Both ways land on weights the rack actually has.
+			</div>
 		</div>
 	</Card>
 
 	<!-- the case for the plans, one tap from the plans themselves -->
-	<Card>
-		<div class="caps mb8">Why this works</div>
-		<p class="whytext">
-			30–60 minutes of strength work a week is associated with a <b>10–17% lower risk of
-			all-cause mortality</b>, independently of cardio — and past about an hour a week the
-			curve flattens. You don’t need to train to failure, machines aren’t cheating, and
-			soreness isn’t the scoreboard.
-		</p>
-		<a class="whylink" href="/why">Read the cited case, and the fundamentals →</a>
-	</Card>
+	<a class="whycard" href="/why">
+		<span class="caps">Why this works</span>
+		<span class="whytext">
+			30–60 min of strength work a week is linked to a <b>10–17% lower risk of all-cause
+			mortality</b>, independent of cardio. You don’t need to train to failure, machines
+			aren’t cheating, and soreness isn’t the scoreboard.
+		</span>
+		<span class="whygo">Read the cited case, and the fundamentals →</span>
+	</a>
 
-	{#if data.plans.length > 1}
-		<div>
-			<div class="caps mb8">Switch plan</div>
+	<!-- Alternatives to the plan above, not siblings of it: folded away, because
+	     switching is a once-in-a-while act and three full cards drowned the page. -->
+	{#if others.length}
+		<details class="disclosure">
+			<summary>Other plans ({others.length})</summary>
 			<div class="plans">
-				{#each data.plans as p (p.id)}
+				{#each others as p (p.id)}
 					<form method="POST" action="?/select" use:enhance>
 						<input type="hidden" name="plan" value={p.id} />
-						<div class="plancard" class:active={p.id === plan.id}>
+						<div class="plancard">
 							<button
 								type="button"
 								class="planbody"
-								aria-pressed={p.id === plan.id}
-								disabled={p.id === plan.id}
 								onclick={() => (confirming = confirming === p.id ? null : p.id)}
 							>
-								<span class="planhead">
-									<span class="planname">{p.name}</span>
-									{#if p.id === plan.id}<Badge tone="levelup">Active</Badge>{/if}
-								</span>
+								<span class="planhead"><span class="planname">{p.name}</span></span>
 								{#if p.description}<span class="plandesc">{p.description}</span>{/if}
 								<span class="plansched">{p.schedule}</span>
 							</button>
-							{#if confirming === p.id && p.id !== plan.id}
+							{#if confirming === p.id}
 								<div class="confirmrow">
 									<span class="confirmtext">Switch to this plan? It goes in the ledger.</span>
 									<div class="confirmbtns">
@@ -122,7 +120,7 @@
 					</form>
 				{/each}
 			</div>
-		</div>
+		</details>
 	{/if}
 
 	<details class="advanced">
@@ -184,7 +182,6 @@
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
 	}
-	.plancard.active { border-color: var(--ink); box-shadow: var(--shadow-raised); }
 	.planbody {
 		width: 100%;
 		text-align: left;
@@ -221,6 +218,7 @@
 	.chips { display: flex; gap: 10px; flex-wrap: wrap; }
 	.daydesc { font-size: var(--text-sm); color: var(--ink-3); padding: 12px 2px 4px; }
 	.exrow {
+		min-width: 0;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -229,22 +227,37 @@
 		border-top: 1px solid var(--border-soft);
 	}
 	.exrow.first { border-top: none; margin-top: 8px; }
-	.exname { font-weight: var(--weight-bold); font-size: 18px; }
+	.exname { font-weight: var(--weight-bold); font-size: 17px; }
 	.exequip { font-size: 13px; color: var(--ink-3); }
 	.exnote { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
-	.planhead-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 16px 20px 0; }
+	.planhead-row { padding: 18px 24px 0; }
+	.activemeta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
 	.activename { font-family: var(--font-display); font-weight: var(--weight-black); font-size: var(--text-title); }
-	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
-	.whytext { margin: 0 0 12px; font-size: 15px; line-height: var(--leading-body); }
-	.whylink { font-weight: var(--weight-bold); font-size: 15px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-	.whylink:hover { background: var(--volt-tint); }
+	/* the rule, as the closing section of the plan card it governs */
+	.rulebox { padding: 18px 24px 20px; border-top: var(--border-w) solid var(--ink); background: var(--paper-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; }
+
+	/* the whole card is the link — nothing in it does anything else */
+	.whycard {
+		display: flex; flex-direction: column; gap: 8px;
+		background: var(--surface-card); border: var(--border-w) solid var(--border-soft);
+		border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+		padding: 20px; text-decoration: none; color: inherit;
+	}
+	.whycard:hover { border-color: var(--ink); box-shadow: var(--shadow-raised); }
+	.whytext { font-size: 15px; line-height: var(--leading-body); color: var(--ink); }
+	.whygo { font-weight: var(--weight-bold); font-size: 14px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 	.exnums {
-		font-family: var(--font-mono); font-size: 13px; color: var(--ink-3);
+		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
 		display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right;
+		/* the numbers claim their width; the name wraps before they do */
+		white-space: nowrap; flex: none;
 	}
 	.exinc { color: var(--ink-3); opacity: 0.8; }
 
-	.badges { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+	/* both fold-aways share one look — see .advanced summary below */
+	.disclosure[open] > .plans { margin-top: 12px; }
 
 	.tabletext { margin: 0 0 12px; font-size: 15px; color: var(--ink-2); line-height: var(--leading-body); }
 	code { font-family: var(--font-mono); font-size: 13px; }
@@ -263,7 +276,8 @@
 	.err { margin: 6px 0 0; color: var(--danger); font-size: var(--text-sm); font-weight: var(--weight-bold); }
 
 	/* <details> gives us the disclosure for free — no JS state needed */
-	.advanced summary {
+	.advanced summary,
+	.disclosure summary {
 		list-style: none;
 		display: inline-flex;
 		align-items: center;
@@ -278,9 +292,13 @@
 		border-radius: var(--radius-sm);
 		padding: 0 4px;
 	}
-	.advanced summary::-webkit-details-marker { display: none; }
-	.advanced summary::before { content: '▸'; }
-	.advanced[open] summary::before { content: '▾'; }
-	.advanced summary:hover { color: var(--ink); background: var(--volt-tint); }
+	.advanced summary::-webkit-details-marker,
+	.disclosure summary::-webkit-details-marker { display: none; }
+	.advanced summary::before,
+	.disclosure summary::before { content: '▸'; }
+	.advanced[open] summary::before,
+	.disclosure[open] summary::before { content: '▾'; }
+	.advanced summary:hover,
+	.disclosure summary:hover { color: var(--ink); background: var(--volt-tint); }
 	.advanced[open] summary { margin-bottom: 12px; }
 </style>

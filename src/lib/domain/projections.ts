@@ -323,9 +323,11 @@ export function setsLine(sets: SessionSet[], ex: Exercise): string {
 
 /** What a level-up costs here: a rack step, or a fixed increment. */
 export function stepLabel(ex: Exercise): string {
-	if (ex.bodyweight) return `+${ex.inc}${ex.mode === 'seconds' ? 's' : ' rep'} at the top`;
-	if (ex.rack) return `${rungLabel(ex.rack)} at the top`;
-	return `+${ex.inc} lb at the top`;
+	// no "at the top" — the rule section under the list says when, once, and
+	// repeating it per row pushed the column wide enough to wrap the name
+	if (ex.bodyweight) return `+${ex.inc}${ex.mode === 'seconds' ? 's' : ' rep'}`;
+	if (ex.rack) return rungLabel(ex.rack);
+	return `+${ex.inc} lb`;
 }
 
 /** "3 sets" · "2 sets, one per side" — what a "set" counts on this movement. */

@@ -59,6 +59,14 @@
 	.btn.ghost:active { transform: none; box-shadow: none; }
 
 	.btn.lg { min-height: var(--hit-lg); font-size: var(--text-lg); padding: 0 28px; }
+	/* phones trade the generous 72px target for a page that fits; 56px is still
+	   comfortably past the 44px touch floor */
+	@media (max-width: 900px) {
+		.btn.lg { min-height: 56px; padding: 0 20px; }
+	}
+	@media (max-height: 700px) {
+		.btn.lg { min-height: 48px; font-size: var(--text-md); }
+	}
 
 	.btn:disabled { opacity: 0.4; cursor: default; }
 	.btn:disabled:active { transform: none; box-shadow: var(--shadow-raised); }

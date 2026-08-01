@@ -14,18 +14,12 @@
 <div class="wp">
 	<div class="head">
 		<span class="lbl">Running — this week</span>
-		<span class="num">{minutes}<span class="unit"> min</span></span>
+		<span class="num">{minutes} / {target}<span class="unit"> min</span></span>
 	</div>
 	<div class="track" role="meter" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(minutes, target)} aria-label="Weekly run minutes">
 		<div class="fill" class:full={onTarget} style="width: {pct}%"></div>
 	</div>
-	<div class="status">
-		{#if onTarget}
-			<span class="up">↑</span> On target — {minutes} of {target} min
-		{:else}
-			{target - minutes} min to go this week
-		{/if}
-	</div>
+	{#if onTarget}<div class="status"><span class="up">↑</span> On target</div>{/if}
 	{#if children}
 		<div class="extra">{@render children()}</div>
 	{/if}
@@ -37,7 +31,7 @@
 		border: var(--border-w) solid var(--border-soft);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
-		padding: 24px;
+		padding: 20px;
 	}
 	.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 	.lbl {
@@ -50,8 +44,8 @@
 	.num { font-family: var(--font-mono); font-weight: 800; font-size: var(--text-data); }
 	.unit { font-size: 14px; color: var(--ink-3); font-weight: var(--weight-bold); }
 	.track {
-		margin-top: 12px;
-		height: 16px;
+		margin-top: 10px;
+		height: 14px;
 		background: var(--surface-sunken);
 		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-pill);
@@ -64,7 +58,18 @@
 		transition: width var(--dur-slow) var(--ease-out);
 	}
 	.fill.full { border-right: none; }
-	.status { margin-top: 10px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
+	.status { margin-top: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
 	.up { background: var(--volt); padding: 0 5px; border-radius: 4px; font-weight: var(--weight-bold); }
-	.extra { margin-top: 16px; }
+	.extra { margin-top: 14px; }
+	@media (max-width: 900px) {
+		.wp { padding: 14px; }
+		.num { font-size: 18px; }
+		.track { margin-top: 8px; height: 12px; }
+		.extra { margin-top: 10px; }
+	}
+	@media (max-height: 700px) {
+		.wp { padding: 10px 12px; }
+		.track { margin-top: 6px; height: 10px; }
+		.extra { margin-top: 8px; }
+	}
 </style>

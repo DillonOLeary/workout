@@ -80,6 +80,18 @@
 		gap: 24px;
 	}
 	/* touch layouts: same bar, last flex child — pinned to the real bottom */
+	@media (max-width: 900px) {
+		.shell { padding: 12px; padding-bottom: 16px; gap: 16px; }
+		.signout { margin-top: 0; }
+		.signout button { min-height: 32px; }
+		.tabwrap { padding-top: 8px; }
+	}
+
+	@media (max-height: 700px) {
+		.shell { padding: 8px; padding-bottom: 10px; gap: 12px; }
+		.signout button { min-height: 26px; font-size: 10px; }
+	}
+
 	@media (max-width: 640px) {
 		.tabwrap {
 			order: 2;
