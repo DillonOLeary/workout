@@ -11,7 +11,12 @@ import type { Exercise, Plan } from './types';
  * (Ported 1:1 from the design project's app/domain.js.)
  */
 
-export type SessionRow = { exercise: string; weight: number; reps: number[] };
+/**
+ * One logged set. Weight lives HERE, per set, not once per exercise — you can
+ * start a set heavy and drop it, and both facts are already in the stream.
+ */
+export type SessionSet = { weight: number; reps: number };
+export type SessionRow = { exercise: string; sets: SessionSet[] };
 export type SessionView = {
 	id: string;
 	day: string;
@@ -23,7 +28,7 @@ export type SessionView = {
 };
 export type RunView = { at: string; dateLabel: string; minutes: number };
 export type PlanSwitchView = { at: string; dateLabel: string; plan: string };
-export type LastEntry = { weight: number; reps: number[]; dateLabel: string };
+export type LastEntry = { sets: SessionSet[]; dateLabel: string };
 
 export function fmtDate(iso: string): string {
 	return new Date(iso).toLocaleDateString('en-US', {
@@ -61,11 +66,12 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 			if (!s) continue;
 			let row = s.rows.find((r) => r.exercise === e.data.exercise);
 			if (!row) {
-				row = { exercise: e.data.exercise, weight: e.data.weight, reps: [] };
+				row = { exercise: e.data.exercise, sets: [] };
 				s.rows.push(row);
 			}
-			row.weight = e.data.weight;
-			row.reps.push(e.data.reps);
+			// append, never overwrite: a single row.weight made the last set win,
+			// so dropping the load mid-exercise erased the heavier sets before it
+			row.sets.push({ weight: e.data.weight, reps: e.data.reps });
 		} else if (e.type === 'SessionFinished') {
 			const s = map.get(e.data.session);
 			if (s) s.finished = true;
@@ -117,7 +123,7 @@ export function historyFor(
 	for (const s of projectSessions(events)) {
 		if (s.id === excludeSession) continue;
 		const row = s.rows.find((r) => r.exercise === exercise);
-		if (row && row.reps.length) out.push({ weight: row.weight, reps: row.reps, dateLabel: s.dateLabel });
+		if (row && row.sets.length) out.push({ sets: row.sets, dateLabel: s.dateLabel });
 	}
 	return out;
 }
@@ -131,9 +137,40 @@ export function lastEntryFor(
 	return historyFor(events, exercise, excludeSession)[0] ?? null;
 }
 
-/** The one rule: all sets at/above the top of the range → earned an increase. */
-export function earnedIncrease(entry: { weight: number; reps: number[] } | null, ex: Exercise): boolean {
-	return !!entry && entry.reps.length >= ex.sets && entry.reps.every((r) => r >= ex.hi);
+/**
+ * The load this exercise actually happened at: the weight you did the most
+ * sets at, ties going to the lighter. Not the last set (that let a back-off
+ * rewrite the whole exercise) and not the lightest either — ramping 35 · 40 ·
+ * 40 settles at 40, while 45 · 35 · 35 settles at 35, and both read right.
+ */
+export function workingWeight(sets: SessionSet[]): number {
+	const count = new Map<number, number>();
+	for (const s of sets) count.set(s.weight, (count.get(s.weight) ?? 0) + 1);
+	let best = sets[0].weight;
+	for (const [w, c] of count) {
+		const bc = count.get(best) ?? 0;
+		if (c > bc || (c === bc && w < best)) best = w;
+	}
+	return best;
+}
+
+/** True when every set was at the same load. */
+export function uniformLoad(sets: SessionSet[]): boolean {
+	return sets.every((s) => s.weight === sets[0].weight);
+}
+
+/**
+ * The one rule: all sets at/above the top of the range → earned an increase.
+ *
+ * "All sets" means all sets at ONE load. Dropping the weight partway and
+ * finishing the reps there is not a clean sweep — it used to read as one,
+ * because the row only remembered the last set's weight, so backing off
+ * actually promoted you.
+ */
+export function earnedIncrease(entry: { sets: SessionSet[] } | null, ex: Exercise): boolean {
+	if (!entry || entry.sets.length < ex.sets) return false;
+	if (!uniformLoad(entry.sets)) return false;
+	return entry.sets.every((s) => s.reps >= ex.hi);
 }
 
 /** Consecutive stalls at the current weight before the ledger backs you off. */
@@ -150,9 +187,10 @@ export function stallStreak(events: LedgerEvent[], ex: Exercise, excludeSession?
 	const history = historyFor(events, ex.name, excludeSession);
 	const top = history[0];
 	if (!top || earnedIncrease(top, ex)) return 0;
+	const at = workingWeight(top.sets);
 	let n = 0;
 	for (const entry of history) {
-		if (entry.weight !== top.weight || earnedIncrease(entry, ex)) break;
+		if (workingWeight(entry.sets) !== at || earnedIncrease(entry, ex)) break;
 		n++;
 	}
 	return n;
@@ -206,15 +244,18 @@ export function nextLoad(
 	const entry = lastEntryFor(events, ex.name, excludeSession);
 	if (!entry)
 		return { weight: ex.rack ? snapToRack(ex.start, ex.rack) : ex.start, reason: 'start', stalls: 0 };
+	// what you held for every set, so a session you had to back off in carries
+	// its honest weight forward rather than the last number you happened to log
+	const held = workingWeight(entry.sets);
 	if (earnedIncrease(entry, ex))
-		return { weight: increasedWeight(entry.weight, ex), reason: 'increase', stalls: 0 };
+		return { weight: increasedWeight(held, ex), reason: 'increase', stalls: 0 };
 	const stalls = stallStreak(events, ex, excludeSession);
 	if (stalls >= STALL_LIMIT) {
-		const down = deloadWeight(entry.weight, ex);
+		const down = deloadWeight(held, ex);
 		// already at the floor — nothing to give back, so it's still a hold
-		if (down < entry.weight) return { weight: down, reason: 'deload', stalls };
+		if (down < held) return { weight: down, reason: 'deload', stalls };
 	}
-	return { weight: entry.weight, reason: 'hold', stalls };
+	return { weight: held, reason: 'hold', stalls };
 }
 
 /** Weight to preload next session. */
@@ -230,7 +271,7 @@ export function suggestedWeight(events: LedgerEvent[], ex: Exercise, excludeSess
 export function suggestedCount(events: LedgerEvent[], ex: Exercise, excludeSession?: string): number {
 	const entry = lastEntryFor(events, ex.name, excludeSession);
 	if (!entry) return ex.lo;
-	const best = Math.max(...entry.reps);
+	const best = Math.max(...entry.sets.map((s) => s.reps));
 	const next = earnedIncrease(entry, ex) ? best + ex.inc : best;
 	return Math.min(Math.max(ex.lo, next), ex.mode === 'seconds' ? 600 : 100);
 }
@@ -270,6 +311,14 @@ export function loadLabel(weight: number, ex: Exercise): string {
 export function rangeLabel(ex: Exercise): string {
 	const unit = ex.mode === 'seconds' ? 'sec' : 'reps';
 	return `${ex.lo}–${ex.hi} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
+}
+
+/** "35 lb · 12 · 12 · 11", or per-set pairs when the load moved mid-exercise. */
+export function setsLine(sets: SessionSet[], ex: Exercise): string {
+	const n = (r: number) => (ex.mode === 'seconds' ? `${r}s` : String(r));
+	if (ex.bodyweight) return sets.map((s) => n(s.reps)).join(' · ');
+	if (uniformLoad(sets)) return `${loadLabel(sets[0].weight, ex)} · ${sets.map((s) => n(s.reps)).join(' · ')}`;
+	return sets.map((s) => `${s.weight}×${n(s.reps)}`).join(' · ') + (ex.each ? ' each hand' : '');
 }
 
 /** What a level-up costs here: a rack step, or a fixed increment. */

@@ -29,6 +29,42 @@
 		<p class="err">{form.message}</p>
 	{/if}
 
+	<Card pad={false}>
+		<div class="planhead-row">
+			<span class="activename">{plan.name}</span>
+			<span class="badges">
+				<Badge tone="neutral">{plan.schedule}</Badge>
+				{#if plan.runs !== false}
+					<Badge tone="neutral">{plan.runTarget ?? 150} min run/week</Badge>
+				{/if}
+			</span>
+		</div>
+		<div class="dayhead">
+			<div class="chips">
+				{#each dayKeys as d (d)}
+					<Chip selected={shownDay === d} onclick={() => (day = d)}>{dayTitle(plan, d)}</Chip>
+				{/each}
+			</div>
+			{#if plan.dayInfo?.[shownDay]?.desc}
+				<div class="daydesc">{plan.dayInfo[shownDay].desc}</div>
+			{/if}
+		</div>
+		{#each plan.days[shownDay] as ex, i (ex.name)}
+			<div class="exrow" class:first={i === 0}>
+				<div>
+					<div class="exname">{ex.name}</div>
+					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
+					{#if ex.note}<div class="exnote">{ex.note}</div>{/if}
+				</div>
+				<span class="exnums">
+					<span>{setsLabel(ex)}</span>
+					<span>{rangeLabel(ex)}</span>
+					<span class="exinc">{stepLabel(ex)}</span>
+				</span>
+			</div>
+		{/each}
+	</Card>
+
 	<Card interactive>
 		<div class="caps mb8">The one rule</div>
 		<div class="rule">
@@ -53,7 +89,7 @@
 
 	{#if data.plans.length > 1}
 		<div>
-			<div class="caps mb8">Your plan</div>
+			<div class="caps mb8">Switch plan</div>
 			<div class="plans">
 				{#each data.plans as p (p.id)}
 					<form method="POST" action="?/select" use:enhance>
@@ -88,42 +124,6 @@
 			</div>
 		</div>
 	{/if}
-
-	<Card pad={false}>
-		<div class="dayhead">
-			<div class="chips">
-				{#each dayKeys as d (d)}
-					<Chip selected={shownDay === d} onclick={() => (day = d)}>{dayTitle(plan, d)}</Chip>
-				{/each}
-			</div>
-			{#if plan.dayInfo?.[shownDay]?.desc}
-				<div class="daydesc">{plan.dayInfo[shownDay].desc}</div>
-			{/if}
-		</div>
-		{#each plan.days[shownDay] as ex, i (ex.name)}
-			<div class="exrow" class:first={i === 0}>
-				<div>
-					<div class="exname">{ex.name}</div>
-					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
-					{#if ex.note}<div class="exnote">{ex.note}</div>{/if}
-				</div>
-				<span class="exnums">
-					<span>{setsLabel(ex)}</span>
-					<span>{rangeLabel(ex)}</span>
-					<span class="exinc">{stepLabel(ex)}</span>
-				</span>
-			</div>
-		{/each}
-	</Card>
-
-	<Card>
-		<div class="badges">
-			<Badge tone="neutral">{plan.schedule}</Badge>
-			{#if plan.runs !== false}
-				<Badge tone="neutral">{plan.runTarget ?? 150} min run/week</Badge>
-			{/if}
-		</div>
-	</Card>
 
 	<details class="advanced">
 		<summary>Advanced — plans table</summary>
@@ -232,6 +232,8 @@
 	.exname { font-weight: var(--weight-bold); font-size: 18px; }
 	.exequip { font-size: 13px; color: var(--ink-3); }
 	.exnote { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+	.planhead-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 16px 20px 0; }
+	.activename { font-family: var(--font-display); font-weight: var(--weight-black); font-size: var(--text-title); }
 	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
 	.whytext { margin: 0 0 12px; font-size: 15px; line-height: var(--leading-body); }
 	.whylink { font-weight: var(--weight-bold); font-size: 15px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

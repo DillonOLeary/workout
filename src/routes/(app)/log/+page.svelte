@@ -6,7 +6,7 @@
 		STALL_LIMIT,
 		dayTitle,
 		lastEntryFor,
-		loadLabel,
+		setsLine,
 		nextLoad,
 		rangeLabel,
 		suggestedCount,
@@ -152,7 +152,7 @@
 				reps = suggestedCount(data.events, e, session.id);
 			} else {
 				const entry = lastEntryFor(data.events, e.name, session.id);
-				reps = entry ? Math.max(...entry.reps) : e.lo;
+				reps = entry ? Math.max(...entry.sets.map((st) => st.reps)) : e.lo;
 			}
 		} else if (e.bodyweight) {
 			reps = priorLast ? priorLast.data.reps : suggestedCount(data.events, e, session.id);
@@ -394,7 +394,7 @@
 					</div>
 					<div class="lg-last">
 						{last
-							? `LAST  ${isBW || isHold ? '' : `${loadLabel(last.weight, ex)} · `}${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
+							? `LAST  ${setsLine(last.sets, ex)} — ${last.dateLabel}`
 							: isHold
 								? 'First time — hold to the bell'
 								: isBW
@@ -405,7 +405,7 @@
 					     the session's own weight and the suggestion no longer describes it -->
 					{#if load && done === 0 && load.reason === 'deload'}
 						<div class="lg-hint">
-							Stalled {load.stalls}× at {last?.weight} lb — backed off to {load.weight}. Build it back.
+							Stalled {load.stalls}× here — backed off to {load.weight} lb. Build it back.
 						</div>
 					{:else if load && done === 0 && load.stalls >= STALL_LIMIT}
 						<!-- stalled past the limit but reason is still 'hold' — already at the floor -->

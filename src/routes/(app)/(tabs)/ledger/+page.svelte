@@ -5,9 +5,11 @@
 	import {
 		dayTitle,
 		earnedIncrease,
+		loadLabel,
 		projectPlanSwitches,
 		projectRuns,
-		projectSessions
+		projectSessions,
+		uniformLoad
 	} from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
@@ -101,15 +103,24 @@
 				</div>
 				{#each en.s.rows as row (row.exercise)}
 					{@const ex = exByName(row.exercise)}
-					{@const lvl = ex ? earnedIncrease({ weight: row.weight, reps: row.reps }, ex) : false}
+					{@const lvl = ex ? earnedIncrease(row, ex) : false}
 					{@const hold = ex?.mode === 'seconds'}
+					{@const flat = uniformLoad(row.sets)}
 					<div class="sessrow">
 						<span class="exname">
 							{row.exercise}
 							{#if lvl}<span class="uppill">↑</span>{/if}
 						</span>
-						<span class="w">{ex?.bodyweight ? 'BW' : `${row.weight} lb`}</span>
-						<span class="reps">{row.reps.map((r) => (hold ? `${r}s` : r)).join(' · ')}</span>
+						<!-- a row whose load moved shows every set: collapsing it to one number
+						     is what used to hide the heavier sets before a back-off -->
+						<span class="w">
+							{ex?.bodyweight ? 'BW' : flat ? (ex ? loadLabel(row.sets[0].weight, ex) : `${row.sets[0].weight} lb`) : 'varied'}
+						</span>
+						<span class="reps">
+							{flat
+								? row.sets.map((st) => (hold ? `${st.reps}s` : st.reps)).join(' · ')
+								: row.sets.map((st) => `${st.weight}×${hold ? `${st.reps}s` : st.reps}`).join(' · ')}
+						</span>
 					</div>
 				{/each}
 			</Card>
