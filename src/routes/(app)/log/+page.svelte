@@ -6,7 +6,9 @@
 		STALL_LIMIT,
 		dayTitle,
 		lastEntryFor,
+		loadLabel,
 		nextLoad,
+		rangeLabel,
 		suggestedCount,
 		suggestedWeight
 	} from '$lib/domain/projections';
@@ -376,18 +378,23 @@
 						<span class="lg-tag">{ex.tag}</span>
 						<span class="lg-equip">{ex.equip}</span>
 					</div>
+					{#if ex.note}<div class="lg-note">{ex.note}</div>{/if}
 					<div class="lg-setline">
 						{#if exDone}
-							<span><b>All {ex.sets} {isHold ? 'holds' : 'sets'} logged</b>{isHold ? '' : ` · target ${ex.lo}–${ex.hi} reps`}</span>
+							<span><b>All {ex.sets} {isHold ? 'holds' : 'sets'} logged</b>{isHold ? '' : ` · target ${rangeLabel(ex)}`}</span>
 						{:else if isHold}
-							<span>Hold <b>{done + 1}</b> of {ex.sets} · {reps}s</span>
+							<span>
+								Hold <b>{done + 1}</b> of {ex.sets} · {reps}s{ex.side === 'sets'
+									? ` · ${done % 2 === 0 ? 'left' : 'right'} side`
+									: ''}
+							</span>
 						{:else}
-							<span>Set <b>{done + 1}</b> of {ex.sets} · target {ex.lo}–{ex.hi} reps</span>
+							<span>Set <b>{done + 1}</b> of {ex.sets} · target {rangeLabel(ex)}</span>
 						{/if}
 					</div>
 					<div class="lg-last">
 						{last
-							? `LAST  ${isBW || isHold ? '' : `${last.weight} lb · `}${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
+							? `LAST  ${isBW || isHold ? '' : `${loadLabel(last.weight, ex)} · `}${last.reps.map((r) => (isHold ? `${r}s` : r)).join(' · ')} — ${last.dateLabel}`
 							: isHold
 								? 'First time — hold to the bell'
 								: isBW
@@ -437,7 +444,7 @@
 								: 'Tap start, get in position, breathe.'}
 						</div>
 					{:else if !isBW}
-						<p class="lg-lbl">Weight</p>
+						<p class="lg-lbl">Weight{ex.each ? ' — each hand' : ''}</p>
 						<div class="lg-stepper">
 							<button type="button" class="lg-step" onclick={() => bump(-inc)} aria-label="Decrease weight">−</button>
 							<div class="lg-readout" aria-live="polite">
@@ -566,6 +573,7 @@
 	.lg-exmeta { display: flex; gap: 10px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 	.lg-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink); background: var(--volt-tint); border: 1px solid var(--ink); border-radius: var(--radius-pill); padding: 3px 10px; }
 	.lg-equip { font-size: 13px; color: var(--ink-3); }
+	.lg-note { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
 	.lg-setline { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); margin-top: 10px; }
 	.lg-setline b { color: var(--ink); background: var(--volt); padding: 0 5px; border-radius: 4px; }
 	.lg-last { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-top: 4px; }

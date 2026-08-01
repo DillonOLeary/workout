@@ -78,6 +78,14 @@ export function parsePlan(json: string): Plan {
 				if (typeof ex[k] !== 'number') throw new Error(`"${ex.name}" needs numeric ${k}`);
 			}
 			if (ex.bodyweight === true && typeof ex.start !== 'number') ex.start = 0;
+			// the per-hand / per-side fields exist to kill an ambiguity; a typo in
+			// them would quietly reintroduce it, so they are checked, not coerced
+			if (ex.side !== undefined && ex.side !== 'reps' && ex.side !== 'sets')
+				throw new Error(`"${ex.name}" side must be "reps" (per side) or "sets" (one per side)`);
+			if (ex.each !== undefined && typeof ex.each !== 'boolean')
+				throw new Error(`"${ex.name}" each must be a boolean`);
+			if (ex.note !== undefined && typeof ex.note !== 'string')
+				throw new Error(`"${ex.name}" note must be a string`);
 		}
 	}
 	return { schedule: '', ...p } as Plan;

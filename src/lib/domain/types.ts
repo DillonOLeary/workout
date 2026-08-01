@@ -24,6 +24,23 @@ export type Exercise = {
 	 * (or reps), and `start` should be 0.
 	 */
 	bodyweight?: boolean;
+	/**
+	 * absent = one implement, or a machine stack: the number IS the load.
+	 * true = the number is PER HAND (two dumbbells), so the total is double.
+	 * A goblet squat at 35 and an RDL at 40 each are not the same 35 and 40.
+	 */
+	each?: boolean;
+	/**
+	 * How a movement splits across sides. Left unsaid, "3 × 8–12" on a lunge
+	 * is genuinely ambiguous — per leg, or between them?
+	 *   absent  — bilateral, nothing to split
+	 *   'reps'  — lo/hi are PER SIDE; one set covers both (lunges, dead bugs)
+	 *   'sets'  — each set is ONE side, so `sets` already counts both (yoga
+	 *             holds, side plank): sets: 2 means one left, one right
+	 */
+	side?: 'reps' | 'sets';
+	/** short clarifier shown under the name — for what the fields can't say */
+	note?: string;
 };
 
 export type DayInfo = { title: string; desc?: string };

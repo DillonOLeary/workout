@@ -13,6 +13,10 @@ PostgreSQL event store · Neon · TypeScript.
 New here? Read [WALKTHROUGH.md](WALKTHROUGH.md) — a guided tour of the code as
 a Svelte + event-sourcing course.
 
+Wondering whether the plans are any good? [TRAINING.md](TRAINING.md) is the
+sourced case for them, plus the training fundamentals behind the one rule.
+The same thing lives in the app at `/why`.
+
 ## Run it
 
 ```sh
@@ -38,7 +42,7 @@ src/lib/design/       design tokens (colors, type, spacing, effects, motion)
 src/lib/components/   Button, Card, TabBar, Stepper, … (Svelte 5 ports of the DS)
 src/lib/domain/       events, commands, decider, projections — pure, no I/O
 src/lib/server/       Emmett event store, plans table, HMAC login (server-only)
-src/routes/           login · /u/[uid] Today / The Plan / Ledger · /log gym floor
+src/routes/           login · Today / The Plan / Ledger / Why · /log gym floor
 ```
 
 ## Checks

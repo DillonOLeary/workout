@@ -230,6 +230,30 @@ export function weekRunMinutes(events: LedgerEvent[]): number {
 		.reduce((sum, r) => sum + r.minutes, 0);
 }
 
+/**
+ * Display helpers. These live next to the folds because the per-hand and
+ * per-side questions must be answered identically on the plan screen and the
+ * gym floor — two screens phrasing "3 × 8–12" differently is how a lunge ends
+ * up meaning two different workouts.
+ */
+
+/** "40 lb each hand" vs "35 lb" — never a bare number for a two-dumbbell lift. */
+export function loadLabel(weight: number, ex: Exercise): string {
+	if (ex.bodyweight) return '';
+	return ex.each ? `${weight} lb each hand` : `${weight} lb`;
+}
+
+/** "8–12 reps per side" · "20–45 sec" — the rep range, with its side rule. */
+export function rangeLabel(ex: Exercise): string {
+	const unit = ex.mode === 'seconds' ? 'sec' : 'reps';
+	return `${ex.lo}–${ex.hi} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
+}
+
+/** "3 sets" · "2 sets, one per side" — what a "set" counts on this movement. */
+export function setsLabel(ex: Exercise): string {
+	return ex.side === 'sets' ? `${ex.sets} sets, one per side` : `${ex.sets} sets`;
+}
+
 /** Display title for a day: dayInfo title if present, else "Workout X". */
 export function dayTitle(plan: Plan | undefined, d: string): string {
 	return plan?.dayInfo?.[d]?.title ?? 'Workout ' + d;

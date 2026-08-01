@@ -4,7 +4,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
-	import { dayTitle } from '$lib/domain/projections';
+	import { dayTitle, rangeLabel, setsLabel } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -34,6 +34,21 @@
 		<div class="rule">
 			Hit every set at the top of the range → <span class="hl">add the smallest increment</span> next time.
 		</div>
+		<div class="ruledown">
+			Stall three sessions at one weight → it backs off about 10%, and you build it back.
+		</div>
+	</Card>
+
+	<!-- the case for the plans, one tap from the plans themselves -->
+	<Card>
+		<div class="caps mb8">Why this works</div>
+		<p class="whytext">
+			30–60 minutes of strength work a week is associated with a <b>10–17% lower risk of
+			all-cause mortality</b>, independently of cardio — and past about an hour a week the
+			curve flattens. You don’t need to train to failure, machines aren’t cheating, and
+			soreness isn’t the scoreboard.
+		</p>
+		<a class="whylink" href="/why">Read the cited case, and the fundamentals →</a>
 	</Card>
 
 	{#if data.plans.length > 1}
@@ -89,9 +104,14 @@
 			<div class="exrow" class:first={i === 0}>
 				<div>
 					<div class="exname">{ex.name}</div>
-					<div class="exequip">{ex.equip}</div>
+					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
+					{#if ex.note}<div class="exnote">{ex.note}</div>{/if}
 				</div>
-				<span class="exnums">{ex.sets}×{ex.lo}–{ex.hi}{ex.mode === 'seconds' ? 's' : ''} · +{ex.inc}{ex.bodyweight && ex.mode === 'seconds' ? 's' : ''}</span>
+				<span class="exnums">
+					<span>{setsLabel(ex)}</span>
+					<span>{rangeLabel(ex)}</span>
+					<span class="exinc">+{ex.inc}{ex.bodyweight ? (ex.mode === 'seconds' ? 's' : ' rep') : ' lb'} at the top</span>
+				</span>
 			</div>
 		{/each}
 	</Card>
@@ -211,7 +231,16 @@
 	.exrow.first { border-top: none; margin-top: 8px; }
 	.exname { font-weight: var(--weight-bold); font-size: 18px; }
 	.exequip { font-size: 13px; color: var(--ink-3); }
-	.exnums { font-family: var(--font-mono); font-size: 15px; color: var(--ink-3); white-space: nowrap; }
+	.exnote { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+	.whytext { margin: 0 0 12px; font-size: 15px; line-height: var(--leading-body); }
+	.whylink { font-weight: var(--weight-bold); font-size: 15px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+	.whylink:hover { background: var(--volt-tint); }
+	.exnums {
+		font-family: var(--font-mono); font-size: 13px; color: var(--ink-3);
+		display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right;
+	}
+	.exinc { color: var(--ink-3); opacity: 0.8; }
 
 	.badges { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
