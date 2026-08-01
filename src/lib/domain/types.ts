@@ -1,3 +1,5 @@
+import type { Rack } from './racks';
+
 /**
  * Reference-data shapes. Plans are NOT events — they are rows in the
  * `ledger_plans` table (see src/lib/server/plans.ts). Event sourcing does not
@@ -39,6 +41,13 @@ export type Exercise = {
 	 *             holds, side plank): sets: 2 means one left, one right
 	 */
 	side?: 'reps' | 'sets';
+	/**
+	 * Which rack this comes off (src/lib/domain/racks.ts). Free weights come in
+	 * discrete sizes, so a level-up is "the next bell up", not "+inc" — there is
+	 * no 37.5 lb kettlebell. When set, `rack` overrides `inc` for progression.
+	 * Machines leave it absent: stacks vary too much to model, so `inc` rules.
+	 */
+	rack?: Rack;
 	/** short clarifier shown under the name — for what the fields can't say */
 	note?: string;
 };

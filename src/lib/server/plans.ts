@@ -86,6 +86,8 @@ export function parsePlan(json: string): Plan {
 				throw new Error(`"${ex.name}" each must be a boolean`);
 			if (ex.note !== undefined && typeof ex.note !== 'string')
 				throw new Error(`"${ex.name}" note must be a string`);
+			if (ex.rack !== undefined && !['kettlebell', 'dumbbell', 'medball'].includes(ex.rack))
+				throw new Error(`"${ex.name}" rack must be kettlebell, dumbbell or medball (omit it for machines)`);
 		}
 	}
 	return { schedule: '', ...p } as Plan;

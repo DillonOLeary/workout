@@ -25,20 +25,20 @@ export const DEFAULT_PLANS: Plan[] = [
 		},
 		days: {
 			A: [
-				{ name: 'Goblet Squat', equip: 'Kettlebell / Dumbbell', tag: 'Squat', sets: 3, lo: 8, hi: 12, start: 35, inc: 5, note: 'One bell, held at the chest — 35 is the whole load.' },
+				{ name: 'Goblet Squat', equip: 'Kettlebell / Dumbbell', tag: 'Squat', sets: 3, lo: 8, hi: 12, start: 35, inc: 5, rack: 'dumbbell', note: 'One bell, held at the chest — 35 is the whole load.' },
 				{ name: 'Chest Press', equip: 'Multi-press machine', tag: 'Horiz. push', sets: 3, lo: 8, hi: 12, start: 30, inc: 5 },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', sets: 3, lo: 8, hi: 12, start: 90, inc: 10 },
-				{ name: 'DB Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 40, inc: 5, each: true },
-				{ name: 'Plank + Med-ball Core', equip: 'Mat / Med ball', tag: 'Core', sets: 3, lo: 30, hi: 60, start: 10, inc: 5, mode: 'seconds', note: 'Med ball resting on your back — the weight is the ball.' }
+				{ name: 'DB Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 40, inc: 5, rack: 'dumbbell', each: true },
+				{ name: 'Plank + Med-ball Core', equip: 'Mat / Med ball', tag: 'Core', sets: 3, lo: 30, hi: 60, start: 10, inc: 5, rack: 'medball', mode: 'seconds', note: 'Med ball resting on your back — the weight is the ball.' }
 			],
 			B: [
-				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 53, inc: 9, note: 'One bell between the feet. +9 lb is the next bell up (24 → 28 kg).' },
+				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 53, inc: 9, rack: 'kettlebell', note: 'One bell between the feet. Steps are whole bell sizes — 24 → 28 → 32 kg.' },
 				{ name: 'Shoulder Press', equip: 'Multi-press machine', tag: 'Vert. push', sets: 3, lo: 8, hi: 12, start: 25, inc: 5 },
 				{ name: 'Seated Row', equip: 'Row machine', tag: 'Horiz. pull', sets: 3, lo: 8, hi: 12, start: 80, inc: 10 },
 				// A knee-dominant compound, not the leg-extension machine it replaces:
 				// day B had no squat pattern, and nothing in the plan was single-leg
 				// — which matters most for someone running three times a week.
-				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', sets: 3, lo: 8, hi: 12, start: 20, inc: 5, each: true, side: 'reps' },
+				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', sets: 3, lo: 8, hi: 12, start: 20, inc: 5, rack: 'dumbbell', each: true, side: 'reps' },
 				{ name: 'Leg Curl', equip: 'Leg curl machine', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 60, inc: 10 },
 				// Day A's plank resists extension; this resists lateral flexion, so the
 				// two days cover different core vectors instead of B covering none.
@@ -59,20 +59,20 @@ export const DEFAULT_PLANS: Plan[] = [
 		},
 		days: {
 			'1': [
-				{ name: 'Deep Goblet Squat', equip: 'Dumbbell', tag: 'Squat', sets: 3, lo: 8, hi: 15, start: 20, inc: 5, note: 'One dumbbell at the chest — 20 is the whole load.' },
+				{ name: 'Deep Goblet Squat', equip: 'Dumbbell', tag: 'Squat', sets: 3, lo: 8, hi: 15, start: 20, inc: 5, rack: 'dumbbell', note: 'One dumbbell at the chest — 20 is the whole load.' },
 				{ name: 'Chest Press', equip: 'Multi-press machine', tag: 'Horiz. push', sets: 3, lo: 8, hi: 15, start: 20, inc: 5 },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', sets: 3, lo: 8, hi: 15, start: 50, inc: 10 },
-				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 15, start: 25, inc: 5, each: true },
+				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 15, start: 25, inc: 5, rack: 'dumbbell', each: true },
 				// This plan had no core work on either day. Dead bug is the deep-ROM
 				// plan's kind of core: resist the arch, move the limbs, stay braced.
 				{ name: 'Dead Bug', equip: 'Mat', tag: 'Core', sets: 3, lo: 8, hi: 15, start: 0, inc: 1, bodyweight: true, side: 'reps' }
 			],
 			'2': [
-				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', sets: 3, lo: 8, hi: 15, start: 15, inc: 5, each: true, side: 'reps' },
+				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', sets: 3, lo: 8, hi: 15, start: 15, inc: 5, rack: 'dumbbell', each: true, side: 'reps' },
 				{ name: 'Shoulder Press', equip: 'Multi-press machine', tag: 'Vert. push', sets: 3, lo: 8, hi: 15, start: 15, inc: 5 },
 				{ name: 'Seated Row', equip: 'Row machine', tag: 'Horiz. pull', sets: 3, lo: 8, hi: 15, start: 40, inc: 10 },
 				{ name: 'Leg Curl', equip: 'Leg curl machine', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 40, inc: 10 },
-				{ name: 'DB Glute Bridge', equip: 'Dumbbell', tag: 'Hip ext.', sets: 3, lo: 10, hi: 15, start: 25, inc: 5, note: 'One dumbbell across the hips — 25 is the whole load.' },
+				{ name: 'DB Glute Bridge', equip: 'Dumbbell', tag: 'Hip ext.', sets: 3, lo: 10, hi: 15, start: 25, inc: 5, rack: 'dumbbell', note: 'One dumbbell across the hips — 25 is the whole load.' },
 				// Day 1 resists the arch; this resists the side-bend. Two vectors, one
 				// per day, mirroring how Open to Work splits its core work.
 				{ name: 'Side Plank', equip: 'Mat', tag: 'Core', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true, side: 'sets' }

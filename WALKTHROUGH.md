@@ -115,8 +115,10 @@ folds, each answering one question from the same events:
 - `projectSessions` → the Ledger tab's history cards
 - `nextDay` → which workout is due (alternate from last finished session)
 - `nextLoad` + `earnedIncrease` → the progression rule ("all sets at the top of
-  the range → add the smallest increment"), and `stallStreak` + `deloadWeight`
-  → its downward half ("three sessions stuck at one weight → step back ~10%")
+  the range → next size up"), and `stallStreak` + `deloadWeight` → its downward
+  half ("three sessions stuck at one weight → step back ~10%"). Both walk the
+  real weight ladders in [racks.ts](src/lib/domain/racks.ts), so a suggestion is
+  always a bell that exists
 - `weekRunMinutes` → run minutes in the trailing 7 days, against the plan's
   own `runTarget`
 - `activePlanId` → last `PlanSelected` wins

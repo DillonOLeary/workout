@@ -4,7 +4,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
-	import { dayTitle, rangeLabel, setsLabel } from '$lib/domain/projections';
+	import { dayTitle, rangeLabel, setsLabel, stepLabel } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -32,10 +32,10 @@
 	<Card interactive>
 		<div class="caps mb8">The one rule</div>
 		<div class="rule">
-			Hit every set at the top of the range → <span class="hl">add the smallest increment</span> next time.
+			Hit every set at the top of the range → <span class="hl">take the next size up</span> next time.
 		</div>
 		<div class="ruledown">
-			Stall three sessions at one weight → it backs off about 10%, and you build it back.
+			Stall three sessions at one weight → it backs off about 10%, and you build it back. Both ways land on weights the rack actually has.
 		</div>
 	</Card>
 
@@ -110,7 +110,7 @@
 				<span class="exnums">
 					<span>{setsLabel(ex)}</span>
 					<span>{rangeLabel(ex)}</span>
-					<span class="exinc">+{ex.inc}{ex.bodyweight ? (ex.mode === 'seconds' ? 's' : ' rep') : ' lb'} at the top</span>
+					<span class="exinc">{stepLabel(ex)}</span>
 				</span>
 			</div>
 		{/each}

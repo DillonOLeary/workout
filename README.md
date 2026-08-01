@@ -4,8 +4,9 @@ Dillon's single-user workout tracker. Ergonomics-first (56px+ hit targets,
 full keyboard control, big mono numbers), event-sourced, paper-and-volt.
 
 Track the work. The rule does the rest: hit every set at the top of the range
-→ add the smallest increment next time; stall three sessions at one weight
-→ step back about 10% and build it again.
+→ take the next size up next time; stall three sessions at one weight → step
+back about 10% and build it again. Both directions move along real rack sizes,
+so it never asks you for a 37.5 lb kettlebell.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)
 PostgreSQL event store · Neon · TypeScript.

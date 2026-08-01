@@ -35,9 +35,15 @@ the ACSM defines progression as the gradual increase of stress placed on the
 body during training [12]. Everything else is detail.
 
 The practical form here is **double progression**: keep the weight, add reps
-until you hit the top of the range on every set, *then* add the smallest
-increment and start again at the bottom. It is self-limiting — you cannot
-add weight until you've earned it — which is exactly what makes it safe.
+until you hit the top of the range on every set, *then* take the next size up
+and start again at the bottom. It is self-limiting — you cannot add weight
+until you've earned it — which is exactly what makes it safe.
+
+"The next size up" is literal. Free weights come in fixed sizes, so the ledger
+steps along the real ladder — dumbbells in 2.5 lb steps through the light end
+then 5 lb, kettlebells on the kg castings (24 → 28 → 32 kg), med balls in 2 lb
+steps. Machines keep a per-exercise increment instead, because stacks differ
+too much between gyms to guess at.
 
 ### 3. Effort matters more than load
 
@@ -152,9 +158,11 @@ it becomes the recovery bottleneck as the weights climb.
 | Vertical pull | Lat Pulldown (1) |
 | Core | Dead Bug (1), Side Plank (2) |
 
-Patterns are complete. The 8–15 rep range is well chosen for the equipment: on
-light dumbbells the smallest available jump (+5 lb) is a *large* relative
-increase, and a wide rep range absorbs an overshoot that a narrow one wouldn't.
+Patterns are complete, and the 8–15 rep range is well chosen for the equipment.
+Light dumbbells are where a fixed "+5 lb" hurts most — from 15 lb that is a 33%
+jump, enough to drop you out of the rep range in one go. Stepping along real
+rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%, and
+the wide rep range absorbs what is left.
 
 The deep-ROM premise holds up — **modestly**. Full ROM beats partial ROM, but
 by a trivial-to-small margin; what carries most of the effect is loading at long
@@ -193,12 +201,14 @@ running. Use it as a complement, a deload week, or a mobility day.
 
 ## Part 3 — The one rule, and the way back down
 
-**Up:** hit every set at the top of the range → add the smallest increment next
-time. That's double progression [12], and it's the whole of section 2 above.
+**Up:** hit every set at the top of the range → take the next size up next time.
+That's double progression [12], and it's the whole of section 2 above.
 
 **Down:** stall three sessions at the same weight → the ledger backs you off
-about 10%, snapped to a weight that actually exists on the rack, and you build
-it back.
+about 10%, again landing on a size that exists, and you build it back.
+
+Both directions move along the same ladder, so the app can never ask you for a
+37.5 lb kettlebell.
 
 Worth flagging plainly: **the deload rule is weaker evidence than everything
 else on this page.** Planned back-offs are standard coaching practice and follow

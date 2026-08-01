@@ -1,4 +1,5 @@
 import type { LedgerEvent, RunLogged } from './events';
+import { nextRung, prevRung, rungLabel, snapToRack } from './racks';
 import type { Exercise, Plan } from './types';
 
 /**
@@ -157,12 +158,33 @@ export function stallStreak(events: LedgerEvent[], ex: Exercise, excludeSession?
 	return n;
 }
 
+/** One level-up: the next size on the rack, or +inc where a rack can't say. */
+export function increasedWeight(weight: number, ex: Exercise): number {
+	return ex.rack ? nextRung(weight, ex.rack) : weight + ex.inc;
+}
+
 /**
- * A stall deload: ~10% off, snapped to whole `inc` steps so the result is
- * still loadable (every weight is start + n·inc, so start + (n−k)·inc is a
- * plate/bell that exists), at least one full step, never below start.
+ * A stall deload: about 10% off, landing on a weight that exists.
+ *
+ * On a rack that means stepping DOWN rungs until we're at or under the 10%
+ * target — one rung minimum, so a deload always actually deloads. Off a rack
+ * the old arithmetic still holds: whole `inc` steps, because a machine weight
+ * is start + n·inc by construction. Never below start either way.
  */
 export function deloadWeight(weight: number, ex: Exercise): number {
+	if (ex.rack) {
+		const target = weight * 0.9;
+		let w = prevRung(weight, ex.rack);
+		// keep stepping down while we're still above the target — but prevRung
+		// pins at the lightest rung, so stop when it stops moving
+		for (;;) {
+			if (w <= target) break;
+			const down = prevRung(w, ex.rack);
+			if (down >= w) break;
+			w = down;
+		}
+		return Math.max(ex.start, w);
+	}
 	const steps = Math.max(1, Math.round((weight * 0.1) / ex.inc));
 	return Math.max(ex.start, weight - steps * ex.inc);
 }
@@ -182,9 +204,10 @@ export function nextLoad(
 	excludeSession?: string
 ): LoadSuggestion {
 	const entry = lastEntryFor(events, ex.name, excludeSession);
-	if (!entry) return { weight: ex.start, reason: 'start', stalls: 0 };
+	if (!entry)
+		return { weight: ex.rack ? snapToRack(ex.start, ex.rack) : ex.start, reason: 'start', stalls: 0 };
 	if (earnedIncrease(entry, ex))
-		return { weight: entry.weight + ex.inc, reason: 'increase', stalls: 0 };
+		return { weight: increasedWeight(entry.weight, ex), reason: 'increase', stalls: 0 };
 	const stalls = stallStreak(events, ex, excludeSession);
 	if (stalls >= STALL_LIMIT) {
 		const down = deloadWeight(entry.weight, ex);
@@ -247,6 +270,13 @@ export function loadLabel(weight: number, ex: Exercise): string {
 export function rangeLabel(ex: Exercise): string {
 	const unit = ex.mode === 'seconds' ? 'sec' : 'reps';
 	return `${ex.lo}–${ex.hi} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
+}
+
+/** What a level-up costs here: a rack step, or a fixed increment. */
+export function stepLabel(ex: Exercise): string {
+	if (ex.bodyweight) return `+${ex.inc}${ex.mode === 'seconds' ? 's' : ' rep'} at the top`;
+	if (ex.rack) return `${rungLabel(ex.rack)} at the top`;
+	return `+${ex.inc} lb at the top`;
 }
 
 /** "3 sets" · "2 sets, one per side" — what a "set" counts on this movement. */

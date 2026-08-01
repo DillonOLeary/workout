@@ -85,7 +85,7 @@
 		},
 		{
 			t: 'Progressive overload is the whole engine',
-			body: 'The body adapts to a stress slightly beyond what it currently handles, so the stress has to keep rising. The practical form here is double progression: keep the weight, add reps to the top of the range on every set, then add the smallest increment and start again at the bottom.',
+			body: 'The body adapts to a stress slightly beyond what it currently handles, so the stress has to keep rising. The practical form here is double progression: keep the weight, add reps to the top of the range on every set, then take the next size up and start again at the bottom. That’s literal — free weights come in fixed sizes, so the ledger steps along the real ladder (dumbbells 2.5 lb through the light end then 5, kettlebells on the kg castings, med balls in 2s). Machines keep a per-exercise increment, because stacks differ too much between gyms to guess at.',
 			punch: 'It’s self-limiting — you can’t add weight until you’ve earned it. That’s what makes it safe.',
 			cite: [12]
 		},
@@ -207,9 +207,10 @@
 				<div class="badges"><Badge tone="neutral">Lift 2–3×/week</Badge><Badge tone="neutral">Guided runs 1–2×/week</Badge></div>
 				<p>
 					Patterns are complete: squat, hinge, hip extension, lunge, both pushes, both pulls, and
-					core on both days. The 8–15 rep range is well chosen for the equipment — on light
-					dumbbells the smallest available jump (+5 lb) is a large <i>relative</i> increase, and a
-					wide rep range absorbs an overshoot that a narrow one wouldn’t.
+					core on both days. Light dumbbells are where a fixed “+5 lb” hurts most — from 15 lb
+					that’s a <b>33% jump</b>, enough to drop you out of the rep range in one go. Stepping
+					along real rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%,
+					and the wide 8–15 range absorbs what’s left.
 				</p>
 				<p>
 					The deep-ROM premise holds up, modestly. Full range beats partial range, but by a
@@ -261,10 +262,11 @@
 	<section>
 		<div class="caps mb8">Part 3 — The one rule, and the way back down</div>
 		<Card>
-			<p><b>Up:</b> hit every set at the top of the range → add the smallest increment next time.</p>
+			<p><b>Up:</b> hit every set at the top of the range → take the next size up next time.</p>
 			<p>
 				<b>Down:</b> stall three sessions at the same weight → the ledger backs you off about 10%,
-				snapped to a weight that actually exists on the rack, and you build it back.
+				again landing on a size that exists, and you build it back. Both directions walk the
+				same ladder, so it can never ask you for a 37.5 lb kettlebell.
 			</p>
 			<p class="caveat">
 				Worth flagging plainly: <b>the deload rule is weaker evidence than everything else on this
