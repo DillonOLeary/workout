@@ -120,13 +120,13 @@ Two sessions alternating (A/B), so each week is roughly 1.5 of each.
 | Movement pattern | Covered by |
 |---|---|
 | Squat | Goblet Squat (A) |
-| Hinge | DB Romanian Deadlift (A), KB Deadlift (B) |
+| Hinge | Romanian Deadlift (A), KB Deadlift (B) |
 | Lunge / single-leg | DB Reverse Lunge (B) |
 | Horizontal push | Chest Press (A) |
 | Vertical push | Shoulder Press (B) |
 | Horizontal pull | Seated Row (B) |
 | Vertical pull | Lat Pulldown (A) |
-| Core | Plank + med ball (A), Side Plank (B) |
+| Core | Weighted Plank (A), Side Plank (B) |
 
 All six fundamental patterns, every week, with push and pull balanced 1:1 in
 both planes. That balance is the single most common thing amateur programs get
