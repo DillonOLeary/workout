@@ -96,6 +96,19 @@ seconds there's little further benefit [10]. And on range of motion: full ROM is
 favoured over partial, but the difference is *trivial to small*, and the part
 that actually matters is loading the muscle at **long** lengths [9].
 
+### The thing the 2026 stand leads with
+
+Worth stating last because it reframes everything above: the ACSM's own summary
+of 137 reviews is that **the largest gain by far is going from no resistance
+training to any resistance training** — bands, bodyweight, home routines all
+produce marked improvements. Training to failure, equipment choice, and
+periodisation "did not consistently impact outcomes" for the average healthy
+adult, and rigid prescriptions are no longer supported [1].
+
+So the eight points above are refinements, not entry requirements. None of them
+is a reason to not start, and the plan you'll actually repeat beats the optimal
+one you won't.
+
 ---
 
 ## Part 2 — The three plans, reviewed one at a time

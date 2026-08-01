@@ -126,6 +126,15 @@
 			cite: [11, 10, 9]
 		}
 	];
+
+	// Stated last on purpose: it reframes the eight above as refinements.
+	const headline = {
+		t: 'And the thing the 2026 stand leads with',
+		body:
+			'The ACSM’s own summary of 137 reviews is that the largest gain by far is going from no resistance training to any resistance training — bands, bodyweight and home routines all produce marked improvements. Training to failure, equipment choice and periodisation “did not consistently impact outcomes” for the average healthy adult, and rigid prescriptions are no longer supported.',
+		punch: 'The eight above are refinements, not entry requirements. The plan you’ll repeat beats the optimal one you won’t.',
+		cite: [1]
+	};
 </script>
 
 <div class="col">
@@ -159,6 +168,15 @@
 					</div>
 				</Card>
 			{/each}
+			<Card>
+				<div class="fnum">+</div>
+				<h2>{headline.t}</h2>
+				<p>{headline.body}</p>
+				<p class="punch">{headline.punch}</p>
+				<div class="cites">
+					{#each headline.cite as c (c)}<a href="#ref-{c}" class="cite">[{c}]</a>{/each}
+				</div>
+			</Card>
 		</div>
 	</section>
 

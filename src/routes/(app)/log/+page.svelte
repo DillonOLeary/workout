@@ -175,6 +175,22 @@
 
 	const bump = (d: number) => (weight = Math.max(0, Math.round((weight + d) * 2) / 2));
 
+	/* Typed entry. The steppers are the fast path, but a stack that jumps in
+	   15s or a machine at 47.5 needs an exact number, and tapping + eleven
+	   times is not it. The readout IS the input — no extra control on screen.
+	   Each commit clamps, then writes the clean value back so a rejected
+	   keystroke can't leave the field showing something we didn't store. */
+	function commitWeight(el: HTMLInputElement) {
+		const n = Number(el.value);
+		if (Number.isFinite(n)) weight = Math.max(0, Math.min(2000, Math.round(n * 2) / 2));
+		el.value = Number.isInteger(weight) ? String(weight) : weight.toFixed(1);
+	}
+	function commitCount(el: HTMLInputElement, max: number) {
+		const n = Math.round(Number(el.value));
+		if (Number.isFinite(n)) reps = Math.max(1, Math.min(max, n));
+		el.value = String(reps);
+	}
+
 	/* ---------- the write path ---------- */
 	function enqueue(count: number, target?: number) {
 		errMsg = null;
@@ -378,7 +394,7 @@
 						<span class="lg-tag">{ex.tag}</span>
 						<span class="lg-equip">{ex.equip}</span>
 					</div>
-					{#if ex.note}<div class="lg-note">{ex.note}</div>{/if}
+					{#if ex.note && done === 0}<div class="lg-note">{ex.note}</div>{/if}
 					<div class="lg-setline">
 						{#if exDone}
 							<span><b>All {ex.sets} {isHold ? 'holds' : 'sets'} logged</b>{isHold ? '' : ` · target ${rangeLabel(ex)}`}</span>
@@ -428,7 +444,15 @@
 						<div class="lg-stepper">
 							<button type="button" class="lg-step" onclick={() => bumpTarget(-inc)} disabled={!!hold} aria-label="Shorter hold">−</button>
 							<div class="lg-readout" class:run={!!hold} aria-live="polite">
-								<span class="v">{hold ? remaining : reps}</span>
+								{#if hold}
+									<span class="v">{remaining}</span>
+								{:else}
+									<input
+										class="v" type="number" inputmode="numeric" min="1" max="600"
+										value={reps} onchange={(e) => commitCount(e.currentTarget, 600)}
+										aria-label="Hold seconds — type an exact number"
+									/>
+								{/if}
 								<span class="u">sec</span>
 							</div>
 							<button type="button" class="lg-step" onclick={() => bumpTarget(inc)} disabled={!!hold} aria-label="Longer hold">+</button>
@@ -447,8 +471,12 @@
 						<p class="lg-lbl">Weight{ex.each ? ' — each hand' : ''}</p>
 						<div class="lg-stepper">
 							<button type="button" class="lg-step" onclick={() => bump(-inc)} aria-label="Decrease weight">−</button>
-							<div class="lg-readout" aria-live="polite">
-								<span class="v">{fmtW}</span>
+							<div class="lg-readout">
+								<input
+									class="v" type="number" inputmode="decimal" step="0.5" min="0" max="2000"
+									value={fmtW} onchange={(e) => commitWeight(e.currentTarget)}
+									aria-label="Weight — type an exact number"
+								/>
 								<span class="u">lb</span>
 							</div>
 							<button type="button" class="lg-step" onclick={() => bump(inc)} aria-label="Increase weight">+</button>
@@ -466,8 +494,12 @@
 							<p class="lg-lbl">Reps</p>
 							<div class="lg-stepper">
 								<button type="button" class="lg-step" onclick={() => (reps = Math.max(1, reps - 1))} aria-label="Decrease reps">−</button>
-								<div class="lg-readout" aria-live="polite">
-									<span class="v">{reps}</span>
+								<div class="lg-readout">
+									<input
+										class="v" type="number" inputmode="numeric" min="1" max="100"
+										value={reps} onchange={(e) => commitCount(e.currentTarget, 100)}
+										aria-label="Reps — type an exact number"
+									/>
 									<span class="u">reps</span>
 								</div>
 								<button type="button" class="lg-step" onclick={() => (reps = reps + 1)} aria-label="Increase reps">+</button>
@@ -475,7 +507,7 @@
 						</div>
 					{:else if !isHold}
 						<div class="lg-reps">
-							<p class="lg-lbl">Reps{repChoices.indexOf(reps) === -1 ? ` — set to ${reps}` : ''}</p>
+							<p class="lg-lbl">Reps</p>
 							<div class="lg-repgrid" role="group" aria-label="Reps">
 								{#each repChoices as n (n)}
 									<button type="button" class="lg-rep" aria-pressed={reps === n} onclick={() => (reps = n)}>
@@ -483,9 +515,16 @@
 									</button>
 								{/each}
 							</div>
-							<div class="lg-repextra">
-								<button type="button" onclick={() => (reps = Math.max(1, reps - 1))}>− below {ex.lo}</button>
-								<button type="button" onclick={() => (reps = reps + 1)}>above {ex.lo + 4} +</button>
+							<!-- one exact field replaces the two nudge buttons: it reaches any rep in
+							     a single entry instead of N taps, and takes no more room -->
+							<div class="lg-repexact">
+								<button type="button" onclick={() => (reps = Math.max(1, reps - 1))} aria-label="One fewer rep">−</button>
+								<input
+									type="number" inputmode="numeric" min="1" max="100"
+									value={reps} onchange={(e) => commitCount(e.currentTarget, 100)}
+									aria-label="Reps — type an exact number"
+								/>
+								<button type="button" onclick={() => (reps = reps + 1)} aria-label="One more rep">+</button>
 							</div>
 						</div>
 					{/if}
@@ -621,10 +660,25 @@
 	.lg-step:disabled { opacity: 0.3; cursor: default; }
 	.lg-step:disabled:active { transform: none; box-shadow: var(--shadow-raised); }
 	.lg-help { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 14px; }
-	.lg-repextra { display: flex; gap: 8px; margin-top: 8px; }
-	.lg-repextra button {
-		flex: 1; font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink-2);
+	.lg-repexact { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; margin-top: 8px; }
+	.lg-repexact button {
+		font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: var(--ink-2);
 		background: var(--white); border: 2px solid var(--paper-3); border-radius: var(--radius-md); min-height: 44px; cursor: pointer;
+	}
+	.lg-repexact input {
+		width: 100%; min-height: 44px; text-align: center;
+		font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--ink);
+		background: var(--white); border: 2px solid var(--paper-3); border-radius: var(--radius-md);
+	}
+	.lg-readout input.v {
+		width: 100%; text-align: center; background: transparent; border: none; padding: 0;
+		font-family: var(--font-mono); font-weight: 800; font-size: clamp(44px, 13vw, 64px);
+		line-height: 0.95; color: var(--ink);
+	}
+	.lg-readout input.v, .lg-repexact input { -moz-appearance: textfield; appearance: textfield; }
+	.lg-readout input.v::-webkit-outer-spin-button, .lg-readout input.v::-webkit-inner-spin-button,
+	.lg-repexact input::-webkit-outer-spin-button, .lg-repexact input::-webkit-inner-spin-button {
+		-webkit-appearance: none; margin: 0;
 	}
 
 	.lg-khint { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); text-align: center; padding: 8px 16px 6px; line-height: 1.7; margin: 0; }
@@ -660,12 +714,27 @@
 		.lg-floor *, .lg-flash { transition: none !important; }
 	}
 
+	/* Short screens: the gym floor must not scroll mid-set — thumbing a page
+	   down to find the log button between sets is exactly the wrong moment.
+	   Raised from 640 to 740 because a phone reporting 700-odd px of
+	   viewport still loses a chunk to browser chrome. */
+	@media (max-height: 740px) {
+		/* reclaim the vertical margins first — they cost nothing to lose */
+		.lg-setline { margin-top: 6px; }
+		.lg-note { margin-top: 4px; font-size: 12px; }
+		.lg-exmeta { margin-top: 4px; }
+		.lg-inc { margin-top: 6px; }
+		.lg-reps { margin-top: 10px; }
+		.lg-repexact { margin-top: 6px; }
+		.lg-rail { padding-bottom: 6px; }
+	}
+
 	@media (max-height: 640px) {
 		.lg-stepper { grid-template-columns: 72px 1fr 72px; }
 		.lg-step { min-height: var(--hit-lg); font-size: 32px; }
-		.lg-readout .v { font-size: clamp(36px, 9vh, 52px); }
+		.lg-readout .v, .lg-readout input.v { font-size: clamp(36px, 9vh, 52px); }
 		.lg-rep { min-height: var(--hit-min); font-size: 24px; }
-		.lg-inc button, .lg-repextra button { min-height: 38px; }
+		.lg-inc button, .lg-repexact button, .lg-repexact input { min-height: 38px; }
 		.lg-khint { display: none; }
 		.lg-actions { grid-template-columns: 64px 1fr 64px; }
 		.lg-nav, .lg-log { min-height: var(--hit-min); }
