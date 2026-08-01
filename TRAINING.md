@@ -132,7 +132,10 @@ Two sessions alternating (A/B), so each week is roughly 1.5 of each.
 | Core | Weighted Plank (A), Side Plank (B) |
 
 All six fundamental patterns, every week, with push and pull balanced 1:1 in
-both planes — the thing self-made programs most often miss.
+both planes — the thing self-made programs most often miss. The hinge appears on
+both days too: RDL on A, KB deadlift on B, so it runs every session on top of
+three runs. That is comfortable at these loads, and it is the first place
+recovery will run short as the weights climb.
 
 **Weekly set volume:**
 
@@ -154,9 +157,6 @@ Cardio: 90 min of running/week sits inside the WHO's 75–150 min vigorous band
 [2]. Lifting covers the ≥2 muscle-strengthening days [2] and lands in the
 30–60 min/week mortality window [3].
 
-One thing to keep an eye on: there is a hinge in *every* session — RDL on A, KB
-deadlift on B — on top of three runs. That is fine at these loads. It is the
-first place recovery will run short as the weights climb.
 
 ### Full Range of Motion — lift 2–3×/week, guided runs 1–2×/week
 
@@ -172,8 +172,15 @@ first place recovery will run short as the weights climb.
 | Vertical pull | Lat Pulldown (1) |
 | Core | Dead Bug (1), Side Plank (2) |
 
-Patterns are complete, and the 8–15 rep range is well chosen for the equipment.
-Light dumbbells are where a fixed "+5 lb" hurts most — from 15 lb that is a 33%
+Patterns are complete — squat, hinge, hip extension, lunge, both pushes, both
+pulls, and core on both days, the last of those covered by Dead Bug and Side
+Plank. Every lower-body movement runs front-to-back, though, so nothing here
+trains the adductors or hip external rotation. **Hold Steady covers exactly
+that** (pigeon, low lunge, supine twist), which is why the two plans run well
+together.
+
+The 8–15 rep range is well chosen for the equipment. Light dumbbells are where a
+fixed "+5 lb" hurts most — from 15 lb that is a 33%
 jump, enough to drop you out of the rep range in one go. Stepping along real
 rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%, and
 the wide rep range absorbs what is left.
@@ -197,26 +204,20 @@ mortality benefit shows up [3]. And the 60 min/week run target is under the
 WHO's 75 min vigorous floor [2]; brisk walking counts toward the same guideline,
 so moderate activity closes the gap without changing the running.
 
-It had no core work at all on either day — Dead Bug and Side Plank now close
-that. One thing it does not cover on its own: every lower-body movement here
-runs front-to-back — squat, hinge, lunge — so nothing trains the adductors or
-hip external rotation. **Hold Steady covers exactly that** (pigeon, low lunge,
-supine twist), which is why the two plans run well together.
 
 ### Hold Steady — yoga, 2–3×/week, mat only
 
 Day 1 (chair, warrior II, plank, boat, bridge) is genuine isometric strength
 work. Day 2 (tree, warrior III, low lunge, pigeon, fold, twist) is balance and
-mobility with little strength stimulus.
+mobility with little strength stimulus. There is no aerobic component and no
+external load, so it sits alongside the lifting rather than in place of it — a
+complement, a deload week, or a mobility day.
 
 Yoga does improve balance, flexibility, and lower-limb strength against both
 active and inactive controls [13]. One honest limit: that meta-analytic evidence
 is largely **in older adults**, so the strength finding shouldn't be transferred
 wholesale to someone already lifting three days a week.
 
-There is no aerobic component here and no external load, so it sits alongside
-the lifting rather than in place of it — a complement, a deload week, or a
-mobility day.
 
 ---
 

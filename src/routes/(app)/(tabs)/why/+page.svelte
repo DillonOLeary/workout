@@ -194,7 +194,9 @@
 				<p>
 					All six fundamental movement patterns every week, with push and pull balanced 1:1 in
 					both planes — the thing self-made programs most often miss. Core is covered on both
-					days, in two different vectors.
+					days, in two different vectors. The hinge appears on both too: RDL on A, KB deadlift on
+					B, so it runs every session on top of three runs. That is comfortable at these loads,
+					and it is the first place recovery will run short as the weights climb.
 				</p>
 				<div class="tablewrap">
 					<table>
@@ -218,11 +220,6 @@
 					90 min of running a week sits inside the WHO’s 75–150 min vigorous band, and the
 					lifting covers the ≥2 muscle-strengthening days <a href="#ref-2" class="cite">[2]</a>.
 				</p>
-				<p class="tail">
-					One thing to keep an eye on: there’s a hinge in every session — RDL on A, KB deadlift
-					on B — on top of three runs. That’s fine at these loads. It’s the first place recovery
-					will run short as the weights climb.
-				</p>
 			</Card>
 
 			<Card>
@@ -230,10 +227,16 @@
 				<div class="badges"><Badge tone="neutral">Lift 2–3×/week</Badge><Badge tone="neutral">Guided runs 1–2×/week</Badge></div>
 				<p>
 					Patterns are complete: squat, hinge, hip extension, lunge, both pushes, both pulls, and
-					core on both days. Light dumbbells are where a fixed “+5 lb” hurts most — from 15 lb
-					that’s a <b>33% jump</b>, enough to drop you out of the rep range in one go. Stepping
-					along real rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%,
-					and the wide 8–15 range absorbs what’s left.
+					core on both days, the last of those covered by Dead Bug and Side Plank. Every
+					lower-body movement runs front-to-back, though, so nothing here trains the adductors or
+					hip external rotation — <b>Hold Steady covers exactly that</b>, which is why the two run
+					well together.
+				</p>
+				<p>
+					Light dumbbells are where a fixed “+5 lb” hurts most — from 15 lb that’s a
+					<b>33% jump</b>, enough to drop you out of the rep range in one go. Stepping along real
+					rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%, and the wide
+					8–15 range absorbs what’s left.
 				</p>
 				<p>
 					The deep-ROM premise holds up — but not for the reason you’d guess. Judged as a
@@ -258,12 +261,6 @@
 					<a href="#ref-2" class="cite">[2]</a> — brisk walking counts toward the same guideline,
 					so moderate activity closes the gap without changing the running.
 				</p>
-				<p class="tail">
-					It had no core work at all on either day — Dead Bug and Side Plank now close that. One
-					thing it doesn’t cover on its own: every lower-body movement runs front-to-back, so
-					nothing trains the adductors or hip external rotation. <b>Hold Steady covers exactly
-					that</b>, which is why the two run well together.
-				</p>
 			</Card>
 
 			<Card>
@@ -272,17 +269,15 @@
 				<p>
 					Day 1 (chair, warrior II, plank, boat, bridge) is genuine isometric strength work. Day 2
 					(tree, warrior III, low lunge, pigeon, fold, twist) is balance and mobility with little
-					strength stimulus.
+					strength stimulus. There’s no aerobic component and no external load, so it sits
+					alongside the lifting rather than in place of it — a complement, a deload week, or a
+					mobility day.
 				</p>
 				<p>
 					Yoga does improve balance, flexibility and lower-limb strength against both active and
 					inactive controls <a href="#ref-13" class="cite">[13]</a>. One honest limit: that
 					evidence is largely <b>in older adults</b>, so the strength finding shouldn’t transfer
 					wholesale to someone already lifting three days a week.
-				</p>
-				<p class="tail">
-					There’s no aerobic component here and no external load, so it sits alongside the lifting
-					rather than in place of it — a complement, a deload week, or a mobility day.
 				</p>
 			</Card>
 		</div>
@@ -392,8 +387,6 @@
 	.cite:hover { color: var(--ink); background: var(--volt-tint); }
 
 	.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-	/* a hairline before the closing thought — a separator, not a scorecard */
-	.tail { border-top: 1px solid var(--border-soft); padding-top: 10px; }
 	/* the page being straight about its own weakest claim */
 	.note {
 		border-left: 3px solid var(--paper-3);
