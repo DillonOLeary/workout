@@ -73,6 +73,11 @@
 			n: 13,
 			text: 'Sivaramakrishnan D, Fitzsimons C, Kelly P, et al. The effects of yoga compared to active and inactive controls on physical function and health related quality of life in older adults. International Journal of Behavioral Nutrition and Physical Activity, 2019.',
 			url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6451238/'
+		},
+		{
+			n: 14,
+			text: 'Alizadeh S, Daneshjoo A, Zahiri A, Anvar SH, Goudini R, Hicks JP, Konrad A, Behm DG. Resistance training induces improvements in range of motion: a systematic review and meta-analysis. Sports Medicine, 2023;53:707–722.',
+			url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9935664/'
 		}
 	];
 
@@ -121,9 +126,9 @@
 		},
 		{
 			t: 'Soreness is not the scoreboard',
-			body: 'Post-exercise soreness isn’t a valid indicator of adaptation — it tracks novelty, connective tissue and personal pain sensitivity, not growth. Separately: rest more than 60s between sets, though past ~90s adds little; and full range of motion beats partial, but only trivially — what matters is loading the muscle at long lengths.',
+			body: 'Post-exercise soreness isn’t a valid indicator of adaptation — it tracks novelty, connective tissue and personal pain sensitivity, not growth. Separately: rest more than 60s between sets, though past ~90s adds little. And on range of motion — for muscle growth, full ROM beats partial only trivially; but for range of motion itself, lifting through a full range increases joint ROM about as much as stretching does, to the point that stretching around a session may add nothing on top.',
 			punch: 'Not being sore doesn’t mean it didn’t work.',
-			cite: [11, 10, 9]
+			cite: [11, 10, 9, 14]
 		}
 	];
 
@@ -231,16 +236,24 @@
 					and the wide 8–15 range absorbs what’s left.
 				</p>
 				<p>
-					The deep-ROM premise holds up, modestly. Full range beats partial range, but by a
-					trivial-to-small margin; most of the effect comes from loading at <b>long muscle
-					lengths</b> <a href="#ref-9" class="cite">[9]</a> — which deep squats, RDLs and a deep
-					press do by design. Sound logic; just don’t expect ROM alone to be the difference-maker.
+					The deep-ROM premise holds up — but not for the reason you’d guess. Judged as a
+					<i>hypertrophy</i> strategy, full range beats partial range only trivially
+					<a href="#ref-9" class="cite">[9]</a>. Judged on its own stated terms — “mobility you
+					can load” — it does much better: lifting through a full range increases joint range of
+					motion <b>about as much as stretching does</b>
+					<a href="#ref-14" class="cite">[14]</a>.
+				</p>
+				<p>
+					So a deep goblet squat, an RDL to real length and a deep press aren’t a slower road to
+					muscle. They’re flexibility work that happens to be loaded — which is exactly what this
+					plan claims to be, and the claim holds.
 				</p>
 				<p class="caveat">
-					<b>Caveat 1 — this is a health-and-strength dose, not a growth dose.</b> At 2–3 sessions
-					a week across two days, most muscles get roughly 4–8 sets weekly, under the ~10-set mark
-					for hypertrophy <a href="#ref-1" class="cite">[1]</a>. It clears the mortality-benefit
-					window <a href="#ref-3" class="cite">[3]</a> comfortably. Both are true at once.
+					<b>Caveat 1 — this is a strength-and-mobility dose, not a growth dose.</b> At 2–3
+					sessions a week across two days, most muscles get roughly 4–8 sets weekly, under the
+					~10-set mark for hypertrophy <a href="#ref-1" class="cite">[1]</a>. It clears the
+					mortality-benefit window <a href="#ref-3" class="cite">[3]</a> comfortably. That’s the
+					plan aimed somewhere other than size — a design choice, not a shortfall.
 				</p>
 				<p class="caveat">
 					<b>Caveat 2 — the 60 min/week run target is under the WHO vigorous floor of 75 min</b>
@@ -250,7 +263,10 @@
 				</p>
 				<p class="verdict">
 					<b>Verdict: sound, with the volume caveat stated.</b> It had no core work at all on
-					either day — Dead Bug and Side Plank now close that.
+					either day — Dead Bug and Side Plank now close that. One gap it doesn’t close alone:
+					every lower-body movement runs front-to-back, so nothing trains the adductors or hip
+					external rotation. <b>Hold Steady covers exactly that</b> — run the two together and
+					the hole fills without adding anything to either.
 				</p>
 			</Card>
 

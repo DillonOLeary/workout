@@ -92,9 +92,11 @@ tracks novelty, connective tissue, and individual pain sensitivity — not
 growth. Not being sore does not mean it didn't work.
 
 **Two smaller settings.** Rest more than 60 seconds between sets; past about 90
-seconds there's little further benefit [10]. And on range of motion: full ROM is
-favoured over partial, but the difference is *trivial to small*, and the part
-that actually matters is loading the muscle at **long** lengths [9].
+seconds there's little further benefit [10]. And on range of motion: for *muscle
+growth* full ROM beats partial only *trivially*, and what matters is loading at
+**long** lengths [9] — but for **range of motion itself**, lifting through a full
+range increases joint ROM about as much as stretching does, to the point that
+stretching before or after lifting may add nothing on top [14].
 
 ### The thing the 2026 stand leads with
 
@@ -177,23 +179,37 @@ jump, enough to drop you out of the rep range in one go. Stepping along real
 rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%, and
 the wide rep range absorbs what is left.
 
-The deep-ROM premise holds up — **modestly**. Full ROM beats partial ROM, but
-by a trivial-to-small margin; what carries most of the effect is loading at long
-muscle lengths [9], which deep squats, RDLs and a deep press do by design. The
-plan's logic is sound; just don't expect ROM alone to be the difference-maker.
+The deep-ROM premise holds up — but not for the reason you'd guess, and it took
+being asked what this plan is *for* to measure it against the right thing.
+
+Judged as a **hypertrophy** strategy, full ROM beats partial ROM only trivially
+[9]. Judged on its own stated terms — "mobility you can load" — it does much
+better: resistance training through a full range increases joint range of motion
+**about as much as stretching does** [14].
+
+So a deep goblet squat, an RDL to real length and a deep press are not a slower
+road to muscle. They are flexibility work that happens to be loaded, which is
+exactly what the plan claims to be, and that claim is supported.
 
 **Two honest caveats:**
 
-1. **This is a health-and-strength dose, not a growth dose.** At 2–3 sessions a
-   week alternating two days, most muscles get roughly 4–8 sets a week — under
+1. **This is a strength-and-mobility dose, not a growth dose.** At 2–3 sessions
+   a week alternating two days, most muscles get roughly 4–8 sets a week — under
    the ~10-set mark for hypertrophy [1]. It clears the mortality-benefit window
-   [3] comfortably. Both things are true at once.
+   [3] comfortably. That is the plan aimed somewhere other than size, which is a
+   design choice and not a shortfall — see fundamental 5.
 2. **The 60 min/week run target is under the WHO vigorous floor of 75 min** [2].
    Either nudge it to 75, or make the difference up with moderate activity —
    brisk walking counts, and the guideline explicitly allows combining the two [2].
 
 **Verdict: sound, with the volume caveat stated.** It was missing core work
 entirely on both days; Dead Bug and Side Plank now close that.
+
+One gap it does *not* close on its own: every lower-body movement here runs
+front-to-back — squat, hinge, lunge. Nothing trains the adductors or hip
+external rotation. **Hold Steady covers exactly that** (pigeon, low lunge,
+supine twist), so running the two plans together fills the hole without adding
+anything to either one.
 
 ### Hold Steady — yoga, 2–3×/week, mat only
 
@@ -254,3 +270,4 @@ substitutes for having someone look at it.
 11. Schoenfeld BJ, Contreras B. **Is Postexercise Muscle Soreness a Valid Indicator of Muscular Adaptations?** *Strength and Conditioning Journal* 2013;35(5):16–21. <https://journals.lww.com/nsca-scj/fulltext/2013/10000/is_postexercise_muscle_soreness_a_valid_indicator.2.aspx>
 12. American College of Sports Medicine. **Progression Models in Resistance Training for Healthy Adults** (Position Stand). *Medicine & Science in Sports & Exercise* 2009;41(3):687–708. <https://pubmed.ncbi.nlm.nih.gov/19204579/>
 13. Sivaramakrishnan D, Fitzsimons C, Kelly P, et al. **The effects of yoga compared to active and inactive controls on physical function and health related quality of life in older adults — systematic review and meta-analysis of randomised controlled trials.** *International Journal of Behavioral Nutrition and Physical Activity* 2019. <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6451238/>
+14. Alizadeh S, Daneshjoo A, Zahiri A, Anvar SH, Goudini R, Hicks JP, Konrad A, Behm DG. **Resistance training induces improvements in range of motion: a systematic review and meta-analysis.** *Sports Medicine* 2023;53:707–722. <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9935664/>
