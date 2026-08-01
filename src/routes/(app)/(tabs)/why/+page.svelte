@@ -262,8 +262,10 @@
 					combining the two.
 				</p>
 				<p class="verdict">
-					<b>Verdict: sound, with the volume caveat stated.</b> It had no core work at all on
-					either day — Dead Bug and Side Plank now close that. One gap it doesn’t close alone:
+					<b>Verdict: sound.</b> For general health this clears the bar with room to spare — the
+					volume caveat above only bites if <i>size</i> is the goal, and it isn’t what this plan
+					is built around. It had no core work at all on either day — Dead Bug and Side Plank now
+					close that. One gap it doesn’t close alone:
 					every lower-body movement runs front-to-back, so nothing trains the adductors or hip
 					external rotation. <b>Hold Steady covers exactly that</b> — run the two together and
 					the hole fills without adding anything to either.

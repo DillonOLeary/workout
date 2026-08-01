@@ -179,8 +179,7 @@ jump, enough to drop you out of the rep range in one go. Stepping along real
 rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%, and
 the wide rep range absorbs what is left.
 
-The deep-ROM premise holds up — but not for the reason you'd guess, and it took
-being asked what this plan is *for* to measure it against the right thing.
+The deep-ROM premise holds up — but not for the reason you'd guess.
 
 Judged as a **hypertrophy** strategy, full ROM beats partial ROM only trivially
 [9]. Judged on its own stated terms — "mobility you can load" — it does much
@@ -202,8 +201,10 @@ exactly what the plan claims to be, and that claim is supported.
    Either nudge it to 75, or make the difference up with moderate activity —
    brisk walking counts, and the guideline explicitly allows combining the two [2].
 
-**Verdict: sound, with the volume caveat stated.** It was missing core work
-entirely on both days; Dead Bug and Side Plank now close that.
+**Verdict: sound.** For general health this clears the bar with room to spare —
+the volume caveat above only bites if *size* is the goal, and it isn't the goal
+this plan is built around. It was missing core work entirely on both days; Dead
+Bug and Side Plank now close that.
 
 One gap it does *not* close on its own: every lower-body movement here runs
 front-to-back — squat, hinge, lunge. Nothing trains the adductors or hip
