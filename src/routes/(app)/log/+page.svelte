@@ -408,15 +408,19 @@
 							<span>Set <b>{done + 1}</b> of {ex.sets} · target {rangeLabel(ex)}</span>
 						{/if}
 					</div>
-					<div class="lg-last">
+					<!-- a weighted lift with no history has nothing to report here; the
+					     hold and bodyweight variants are instructions, so they stay -->
+					{#if last || isHold || isBW}
+						<div class="lg-last">
 						{last
 							? `LAST  ${setsLine(last.sets, ex)} — ${last.dateLabel}`
 							: isHold
 								? 'First time — hold to the bell'
 								: isBW
 									? `First time — start at ${ex.lo} reps`
-									: 'First time — starting weight'}
-					</div>
+									: ''}
+						</div>
+					{/if}
 					<!-- only before this exercise's first set: after that the stepper carries
 					     the session's own weight and the suggestion no longer describes it -->
 					{#if load && done === 0 && load.reason === 'deload'}
@@ -570,7 +574,15 @@
 	/* Ported from the design project's log-screen.css */
 	.lg-floor {
 		position: fixed;
-		inset: 0;
+		top: 0;
+		left: 0;
+		right: 0;
+		/* NOT inset:0 — in mobile Safari that resolves to the layout viewport,
+		   which extends behind the URL bar and toolbar, so the log button ends
+		   up underneath the browser. This shell never scrolls the page, so the
+		   bars stay expanded and svh is the honest number. */
+		height: 100vh;
+		height: 100svh;
 		z-index: 50;
 		background: var(--paper);
 		display: flex;
@@ -727,6 +739,13 @@
 		.lg-reps { margin-top: 10px; }
 		.lg-repexact { margin-top: 6px; }
 		.lg-rail { padding-bottom: 6px; }
+		/* the controls carry the remaining height — every one stays past the
+		   44px touch floor */
+		.lg-step { min-height: 80px; }
+		.lg-rep { min-height: 64px; font-size: 26px; }
+		.lg-inc button { min-height: 34px; }
+		.lg-repexact button, .lg-repexact input { min-height: 40px; }
+		.lg-exname { font-size: clamp(26px, 6vw, 38px); }
 	}
 
 	@media (max-height: 640px) {
@@ -739,5 +758,22 @@
 		.lg-actions { grid-template-columns: 64px 1fr 64px; }
 		.lg-nav, .lg-log { min-height: var(--hit-min); }
 		.lg-exname { font-size: clamp(24px, 5vh, 36px); }
+		.lg-step { min-height: 72px; }
+		.lg-rep { min-height: 56px; }
+	}
+
+	/* Shortest screens: the 2.5 / 5 / 10 step chips go. They only change how
+	   far ± jumps, and the readout itself is typable, so an exact weight is
+	   still one tap away — whereas a log button below the fold is not. */
+	@media (max-height: 560px) {
+		.lg-inc { display: none; }
+		.lg-readout .v, .lg-readout input.v { font-size: clamp(32px, 8vh, 44px); }
+		/* the note stays — it is what answers "what counts as one rep" — but it
+		   gets the tightest setting that is still readable */
+		.lg-note { font-size: 11.5px; margin-top: 2px; line-height: 1.35; }
+		.lg-exmeta { margin-top: 2px; }
+		.lg-setline { margin-top: 4px; }
+		.lg-last { margin-top: 2px; }
+		.lg-actions { padding-top: 4px; }
 	}
 </style>

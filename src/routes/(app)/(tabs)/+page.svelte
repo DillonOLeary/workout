@@ -259,4 +259,20 @@
 		.changes { margin-bottom: 8px; font-size: 13px; }
 		.scopego { font-size: 12px; }
 	}
+
+	/* Smallest screens (SE with Safari's bars up): the session-shape line is
+	   the only thing here that is information rather than action, and the
+	   Plan tab reaches the same detail in one tap. */
+	@media (max-height: 620px) {
+		.scope { display: none; }
+		.col { gap: 6px; }
+		.altlink { min-height: 28px; }
+		.mono-sub { margin-bottom: 8px; font-size: 14px; }
+	}
+
+	@media (max-height: 560px) {
+		/* 44px is the touch floor, not a suggestion — this is as small as the
+		   resume/finish pair is allowed to get */
+		.resume { min-height: 44px; font-size: 15px; }
+	}
 </style>

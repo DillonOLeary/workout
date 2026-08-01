@@ -67,6 +67,9 @@
 	@media (max-height: 700px) {
 		.btn.lg { min-height: 48px; font-size: var(--text-md); }
 	}
+	@media (max-height: 560px) {
+		.btn.lg { min-height: 44px; }
+	}
 
 	.btn:disabled { opacity: 0.4; cursor: default; }
 	.btn:disabled:active { transform: none; box-shadow: var(--shadow-raised); }

@@ -48,7 +48,10 @@
 		overflow: hidden;
 	}
 	.app-frame {
-		height: 100%;
+		/* same reason as the gym floor: 100% of html resolves to the layout
+		   viewport, so the tab bar hides behind Safari's toolbar */
+		height: 100vh;
+		height: 100svh;
 		display: flex;
 		flex-direction: column;
 	}

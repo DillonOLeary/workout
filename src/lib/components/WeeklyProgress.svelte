@@ -20,8 +20,14 @@
 		<div class="fill" class:full={onTarget} style="width: {pct}%"></div>
 	</div>
 	{#if onTarget}<div class="status"><span class="up">↑</span> On target</div>{/if}
+	<!-- The meter is the daily fact; logging is what you do after a run, a
+	     couple of times a week. Keeping the stepper permanently open cost
+	     ~70px on every screen for an action most visits don't take. -->
 	{#if children}
-		<div class="extra">{@render children()}</div>
+		<details class="logger">
+			<summary>Log a run</summary>
+			<div class="extra">{@render children()}</div>
+		</details>
 	{/if}
 </div>
 
@@ -42,7 +48,7 @@
 		color: var(--ink-3);
 	}
 	.num { font-family: var(--font-mono); font-weight: 800; font-size: var(--text-data); }
-	.unit { font-size: 14px; color: var(--ink-3); font-weight: var(--weight-bold); }
+	.unit { font-size: 14px; color: var(--ink-3); font-weight: var(--weight-bold); margin-left: 3px; }
 	.track {
 		margin-top: 10px;
 		height: 14px;
@@ -61,6 +67,14 @@
 	.status { margin-top: 8px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
 	.up { background: var(--volt); padding: 0 5px; border-radius: 4px; font-weight: var(--weight-bold); }
 	.extra { margin-top: 14px; }
+	.logger > summary {
+		list-style: none; cursor: pointer; min-height: 44px; display: flex; align-items: center;
+		margin-top: 6px; font-weight: var(--weight-bold); font-size: 14px; color: var(--ink-2);
+	}
+	.logger > summary::-webkit-details-marker { display: none; }
+	.logger > summary::before { content: '＋'; margin-right: 8px; color: var(--ink-3); }
+	.logger[open] > summary::before { content: '−'; }
+	.logger > summary:hover { color: var(--ink); }
 	@media (max-width: 900px) {
 		.wp { padding: 14px; }
 		.num { font-size: 18px; }
