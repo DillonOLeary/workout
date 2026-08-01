@@ -4,8 +4,9 @@ A short, sourced case for the three plans in this app — and enough of the
 fundamentals to judge them yourself instead of taking anyone's word for it.
 Numbered references are at the bottom; every claim here points at one.
 
-Where the evidence is strong, this says so. Where it is thin or where a plan
-has a real weakness, this says that too. A case you can't check isn't a case.
+Where the evidence is strong, this says so. Where it is thin, or where a call
+is judgement rather than a finding, it says that too. A case you can't check
+isn't a case.
 
 ---
 
@@ -113,7 +114,7 @@ one you won't.
 
 ---
 
-## Part 2 — The three plans, reviewed one at a time
+## Part 2 — The three plans, one at a time
 
 ### Open to Work — lift Mon/Wed/Fri, run 3×/week
 
@@ -131,10 +132,9 @@ Two sessions alternating (A/B), so each week is roughly 1.5 of each.
 | Core | Weighted Plank (A), Side Plank (B) |
 
 All six fundamental patterns, every week, with push and pull balanced 1:1 in
-both planes. That balance is the single most common thing amateur programs get
-wrong, and it is right here.
+both planes — the thing self-made programs most often miss.
 
-**Weekly set volume, honestly:**
+**Weekly set volume:**
 
 | Muscle group | Sets/week | vs. ~10-set growth mark [1] |
 |---|---|---|
@@ -154,10 +154,9 @@ Cardio: 90 min of running/week sits inside the WHO's 75–150 min vigorous band
 [2]. Lifting covers the ≥2 muscle-strengthening days [2] and lands in the
 30–60 min/week mortality window [3].
 
-**Verdict: sound.** Meets both halves of the WHO guideline, patterns balanced,
-volume adequate-to-good. Watch one thing: there is a hinge in *every* session
-(RDL on A, KB deadlift on B) on top of three runs. Harmless at current loads;
-it becomes the recovery bottleneck as the weights climb.
+One thing to keep an eye on: there is a hinge in *every* session — RDL on A, KB
+deadlift on B — on top of three runs. That is fine at these loads. It is the
+first place recovery will run short as the weights climb.
 
 ### Full Range of Motion — lift 2–3×/week, guided runs 1–2×/week
 
@@ -187,30 +186,22 @@ better: resistance training through a full range increases joint range of motion
 **about as much as stretching does** [14].
 
 So a deep goblet squat, an RDL to real length and a deep press are not a slower
-road to muscle. They are flexibility work that happens to be loaded, which is
-exactly what the plan claims to be, and that claim is supported.
+road to muscle. They are flexibility work that happens to be loaded, which is what
+the plan set out to be.
 
-**Two honest caveats:**
+Two things worth knowing about the dose. At 2–3 sessions a week alternating two
+days, most muscles get roughly 4–8 sets a week — under the ~10-set mark for
+hypertrophy [1], which is this plan aimed at strength and mobility rather than
+size. Either way it sits well inside the 30–60 min/week window where the
+mortality benefit shows up [3]. And the 60 min/week run target is under the
+WHO's 75 min vigorous floor [2]; brisk walking counts toward the same guideline,
+so moderate activity closes the gap without changing the running.
 
-1. **This is a strength-and-mobility dose, not a growth dose.** At 2–3 sessions
-   a week alternating two days, most muscles get roughly 4–8 sets a week — under
-   the ~10-set mark for hypertrophy [1]. It clears the mortality-benefit window
-   [3] comfortably. That is the plan aimed somewhere other than size, which is a
-   design choice and not a shortfall — see fundamental 5.
-2. **The 60 min/week run target is under the WHO vigorous floor of 75 min** [2].
-   Either nudge it to 75, or make the difference up with moderate activity —
-   brisk walking counts, and the guideline explicitly allows combining the two [2].
-
-**Verdict: sound.** For general health this clears the bar with room to spare —
-the volume caveat above only bites if *size* is the goal, and it isn't the goal
-this plan is built around. It was missing core work entirely on both days; Dead
-Bug and Side Plank now close that.
-
-One gap it does *not* close on its own: every lower-body movement here runs
-front-to-back — squat, hinge, lunge. Nothing trains the adductors or hip
-external rotation. **Hold Steady covers exactly that** (pigeon, low lunge,
-supine twist), so running the two plans together fills the hole without adding
-anything to either one.
+It had no core work at all on either day — Dead Bug and Side Plank now close
+that. One thing it does not cover on its own: every lower-body movement here
+runs front-to-back — squat, hinge, lunge — so nothing trains the adductors or
+hip external rotation. **Hold Steady covers exactly that** (pigeon, low lunge,
+supine twist), which is why the two plans run well together.
 
 ### Hold Steady — yoga, 2–3×/week, mat only
 
@@ -223,9 +214,9 @@ active and inactive controls [13]. One honest limit: that meta-analytic evidence
 is largely **in older adults**, so the strength finding shouldn't be transferred
 wholesale to someone already lifting three days a week.
 
-**Verdict: good at what it's for — and not a substitute.** There is no aerobic
-component and no external load, so it cannot replace either lifting plan or the
-running. Use it as a complement, a deload week, or a mobility day.
+There is no aerobic component here and no external load, so it sits alongside
+the lifting rather than in place of it — a complement, a deload week, or a
+mobility day.
 
 ---
 

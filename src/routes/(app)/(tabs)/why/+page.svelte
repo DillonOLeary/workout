@@ -152,7 +152,7 @@
 		<p class="lede">
 			A sourced case for these three plans, and enough of the fundamentals to judge them
 			yourself instead of taking anyone’s word for it. Where the evidence is strong, this says
-			so. Where a plan has a real weakness, it says that too.
+			so. Where it’s thin, or where a call is judgement rather than a finding, it says that too.
 		</p>
 		<p class="lede quiet">A case you can’t check isn’t a case — so every claim is numbered.</p>
 	</Card>
@@ -193,8 +193,8 @@
 				<div class="badges"><Badge tone="neutral">Lift Mon / Wed / Fri</Badge><Badge tone="neutral">Run 3×/week</Badge></div>
 				<p>
 					All six fundamental movement patterns every week, with push and pull balanced 1:1 in
-					both planes — the single most common thing amateur programs get wrong, and it’s right
-					here. Core is covered on both days, in two different vectors.
+					both planes — the thing self-made programs most often miss. Core is covered on both
+					days, in two different vectors.
 				</p>
 				<div class="tablewrap">
 					<table>
@@ -204,8 +204,8 @@
 							<tr><td>Back</td><td>~9</td><td>at the mark</td></tr>
 							<tr><td>Quads</td><td>~9</td><td>at the mark</td></tr>
 							<tr><td>Core</td><td>~7.5</td><td>near</td></tr>
-							<tr><td>Chest</td><td>~4.5</td><td class="warn">below</td></tr>
-							<tr><td>Shoulders</td><td>~4.5</td><td class="warn">below</td></tr>
+							<tr><td>Chest</td><td>~4.5</td><td>below</td></tr>
+							<tr><td>Shoulders</td><td>~4.5</td><td>below</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -218,10 +218,10 @@
 					90 min of running a week sits inside the WHO’s 75–150 min vigorous band, and the
 					lifting covers the ≥2 muscle-strengthening days <a href="#ref-2" class="cite">[2]</a>.
 				</p>
-				<p class="verdict">
-					<b>Verdict: sound.</b> Watch one thing — there’s a hinge in every session (RDL on A, KB
-					deadlift on B) on top of three runs. Harmless now; it becomes the recovery bottleneck
-					as the weights climb.
+				<p class="tail">
+					One thing to keep an eye on: there’s a hinge in every session — RDL on A, KB deadlift
+					on B — on top of three runs. That’s fine at these loads. It’s the first place recovery
+					will run short as the weights climb.
 				</p>
 			</Card>
 
@@ -245,30 +245,24 @@
 				</p>
 				<p>
 					So a deep goblet squat, an RDL to real length and a deep press aren’t a slower road to
-					muscle. They’re flexibility work that happens to be loaded — which is exactly what this
-					plan claims to be, and the claim holds.
+					muscle. They’re flexibility work that happens to be loaded, which is what the plan set out
+					to be.
 				</p>
-				<p class="caveat">
-					<b>Caveat 1 — this is a strength-and-mobility dose, not a growth dose.</b> At 2–3
-					sessions a week across two days, most muscles get roughly 4–8 sets weekly, under the
-					~10-set mark for hypertrophy <a href="#ref-1" class="cite">[1]</a>. It clears the
-					mortality-benefit window <a href="#ref-3" class="cite">[3]</a> comfortably. That’s the
-					plan aimed somewhere other than size — a design choice, not a shortfall.
+				<p>
+					Two things worth knowing about the dose. At 2–3 sessions a week across two days, most
+					muscles get roughly 4–8 sets weekly — under the ~10-set mark for hypertrophy
+					<a href="#ref-1" class="cite">[1]</a>, which is this plan aimed at strength and
+					mobility rather than size. Either way it sits well inside the window where the
+					mortality benefit shows up <a href="#ref-3" class="cite">[3]</a>. And the 60 min/week
+					run target is under the WHO’s 75 min vigorous floor
+					<a href="#ref-2" class="cite">[2]</a> — brisk walking counts toward the same guideline,
+					so moderate activity closes the gap without changing the running.
 				</p>
-				<p class="caveat">
-					<b>Caveat 2 — the 60 min/week run target is under the WHO vigorous floor of 75 min</b>
-					<a href="#ref-2" class="cite">[2]</a>. Either nudge it to 75, or make up the difference
-					with moderate activity; brisk walking counts, and the guideline explicitly allows
-					combining the two.
-				</p>
-				<p class="verdict">
-					<b>Verdict: sound.</b> For general health this clears the bar with room to spare — the
-					volume caveat above only bites if <i>size</i> is the goal, and it isn’t what this plan
-					is built around. It had no core work at all on either day — Dead Bug and Side Plank now
-					close that. One gap it doesn’t close alone:
-					every lower-body movement runs front-to-back, so nothing trains the adductors or hip
-					external rotation. <b>Hold Steady covers exactly that</b> — run the two together and
-					the hole fills without adding anything to either.
+				<p class="tail">
+					It had no core work at all on either day — Dead Bug and Side Plank now close that. One
+					thing it doesn’t cover on its own: every lower-body movement runs front-to-back, so
+					nothing trains the adductors or hip external rotation. <b>Hold Steady covers exactly
+					that</b>, which is why the two run well together.
 				</p>
 			</Card>
 
@@ -286,10 +280,9 @@
 					evidence is largely <b>in older adults</b>, so the strength finding shouldn’t transfer
 					wholesale to someone already lifting three days a week.
 				</p>
-				<p class="verdict">
-					<b>Verdict: good at what it’s for — and not a substitute.</b> No aerobic component and no
-					external load, so it can’t replace either lifting plan or the running. Use it as a
-					complement, a deload week, or a mobility day.
+				<p class="tail">
+					There’s no aerobic component here and no external load, so it sits alongside the lifting
+					rather than in place of it — a complement, a deload week, or a mobility day.
 				</p>
 			</Card>
 		</div>
@@ -304,7 +297,7 @@
 				again landing on a size that exists, and you build it back. Both directions walk the
 				same ladder, so it can never ask you for a 37.5 lb kettlebell.
 			</p>
-			<p class="caveat">
+			<p class="note">
 				Worth flagging plainly: <b>the deload rule is weaker evidence than everything else on this
 				page.</b> Planned back-offs are standard coaching practice and follow from the overload
 				principle <a href="#ref-12" class="cite">[12]</a>, but they don’t rest on a meta-analysis
@@ -399,8 +392,10 @@
 	.cite:hover { color: var(--ink); background: var(--volt-tint); }
 
 	.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-	.verdict { border-top: 1px solid var(--border-soft); padding-top: 10px; }
-	.caveat {
+	/* a hairline before the closing thought — a separator, not a scorecard */
+	.tail { border-top: 1px solid var(--border-soft); padding-top: 10px; }
+	/* the page being straight about its own weakest claim */
+	.note {
 		border-left: 3px solid var(--paper-3);
 		padding: 8px 12px;
 		background: var(--paper-2);
@@ -414,7 +409,6 @@
 	th { font-size: 11px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); font-weight: var(--weight-bold); }
 	td { font-family: var(--font-mono); }
 	td:first-child { font-family: var(--font-body); }
-	.warn { color: var(--danger); font-weight: 700; }
 
 	.refs { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
 	.refs li { font-size: 13px; line-height: var(--leading-body); color: var(--ink-2); }
