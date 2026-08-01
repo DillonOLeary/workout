@@ -2,6 +2,7 @@
 	import { deserialize, enhance } from '$app/forms';
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
+	import { nextRung, prevRung } from '$lib/domain/racks';
 	import {
 		STALL_LIMIT,
 		dayTitle,
@@ -93,18 +94,7 @@
 	let repChoices = $derived([ex.lo, ex.lo + 1, ex.lo + 2, ex.lo + 3, ex.lo + 4]);
 	let fmtW = $derived(Number.isInteger(weight) ? String(weight) : weight.toFixed(1));
 
-	/* ---------- clocks: rest count-up + hold timer ---------- */
-	let now = $state(Date.now());
-	$effect(() => {
-		const t = setInterval(() => (now = Date.now()), 1000);
-		return () => clearInterval(t);
-	});
-	let lastLoggedAt = $derived(
-		loggedThis.length ? Math.max(...loggedThis.map((e) => new Date(e.data.at).getTime())) : 0
-	);
-	let restSec = $derived(lastLoggedAt ? Math.max(0, Math.floor((now - lastLoggedAt) / 1000)) : null);
-	const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
+	/* ---------- the hold timer ---------- */
 	// Timed holds (the Claude Design model): dial the TARGET on the stepper,
 	// start — the readout counts DOWN and logs itself at the bell. Drop early
 	// and "Done early" logs the seconds actually held.
@@ -174,6 +164,12 @@
 	}
 
 	const bump = (d: number) => (weight = Math.max(0, Math.round((weight + d) * 2) / 2));
+	/* the compact load control carries no step-size chips, so ± walks the rack
+	   itself — a med ball steps 10 → 12 → 14, the sizes that exist */
+	function bumpLoad(dir: 1 | -1) {
+		if (ex.rack) weight = dir > 0 ? nextRung(weight, ex.rack) : prevRung(weight, ex.rack);
+		else bump(dir * ex.inc);
+	}
 
 	/* Typed entry. The steppers are the fast path, but a stack that jumps in
 	   15s or a machine at 47.5 needs an exact number, and tapping + eleven
@@ -435,9 +431,6 @@
 					{/if}
 					{#if allDone}
 						<div class="lg-hint">Done — stretch 5 min while you're warm.</div>
-					{:else if restSec !== null && restSec < 900 && !hold}
-						<!-- rest ends the moment work starts: hidden while a hold runs -->
-						<div class="lg-rest">REST {fmtClock(restSec)}</div>
 					{/if}
 				</div>
 
@@ -466,13 +459,32 @@
 								<button type="button" aria-pressed={inc === v} onclick={() => (inc = v)}>{v}</button>
 							{/each}
 						</div>
+						{#if !isBW}
+							<!-- A weighted hold still has a load, and the hold stepper took the
+							     weight stepper's place — without this the plank never says which
+							     ball to pick up, and could never move off the starting one. -->
+							<div class="lg-load">
+								<span class="lg-loadlbl">Weight</span>
+								<button type="button" onclick={() => bumpLoad(-1)} disabled={!!hold} aria-label="Lighter">−</button>
+								<!-- number and unit share one bordered box, like the big readout, so the
+								     row reads as − [ value ] + instead of four loose things -->
+								<div class="lg-loadval">
+									<input
+										type="number" inputmode="decimal" step="0.5" min="0" max="2000"
+										value={fmtW} onchange={(e) => commitWeight(e.currentTarget)} disabled={!!hold}
+										aria-label="Weight — type an exact number"
+									/>
+									<span class="lg-loadunit">lb</span>
+								</div>
+								<button type="button" onclick={() => bumpLoad(1)} disabled={!!hold} aria-label="Heavier">+</button>
+							</div>
+						{/if}
 						<div class="lg-help">
 							{hold
 								? 'Logs itself at zero. Drop early — tap Done, the seconds count.'
 								: 'Tap start, get in position, breathe.'}
 						</div>
 					{:else if !isBW}
-						<p class="lg-lbl">Weight{ex.each ? ' — each hand' : ''}</p>
 						<div class="lg-stepper">
 							<button type="button" class="lg-step" onclick={() => bump(-inc)} aria-label="Decrease weight">−</button>
 							<div class="lg-readout">
@@ -481,7 +493,8 @@
 									value={fmtW} onchange={(e) => commitWeight(e.currentTarget)}
 									aria-label="Weight — type an exact number"
 								/>
-								<span class="u">lb</span>
+								<!-- "each hand" belongs on the number, not a label above it -->
+								<span class="u">{ex.each ? 'lb each hand' : 'lb'}</span>
 							</div>
 							<button type="button" class="lg-step" onclick={() => bump(inc)} aria-label="Increase weight">+</button>
 						</div>
@@ -629,7 +642,6 @@
 	.lg-setline b { color: var(--ink); background: var(--volt); padding: 0 5px; border-radius: 4px; }
 	.lg-last { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-top: 4px; }
 	.lg-hint { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); margin-top: 8px; background: var(--volt-tint); display: inline-block; padding: 2px 8px; border-radius: 4px; }
-	.lg-rest { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 8px; }
 
 	.lg-block { margin-top: auto; padding-bottom: 4px; }
 	.lg-lbl { font-family: var(--font-body); font-weight: 700; font-size: 11px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px 2px; }
@@ -672,7 +684,38 @@
 	.lg-step:disabled { opacity: 0.3; cursor: default; }
 	.lg-step:disabled:active { transform: none; box-shadow: var(--shadow-raised); }
 	.lg-help { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 14px; }
-	.lg-repexact { display: grid; grid-template-columns: 64px 1fr 64px; gap: 8px; margin-top: 8px; }
+	/* one row: what to pick up, and how to change it */
+	.lg-load { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+	.lg-loadlbl {
+		flex: 1; font-family: var(--font-body); font-weight: 700; font-size: 11px;
+		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);
+	}
+	.lg-load button {
+		width: 56px; min-height: 48px; background: var(--white); border: 2px solid var(--ink);
+		border-radius: var(--radius-md); box-shadow: var(--shadow-raised); cursor: pointer;
+		font-family: var(--font-mono); font-weight: 700; font-size: 24px; color: var(--ink);
+		touch-action: manipulation;
+	}
+	.lg-load button:disabled { opacity: 0.3; cursor: default; }
+	.lg-loadval {
+		display: flex; align-items: baseline; justify-content: center; gap: 4px;
+		min-width: 104px; min-height: 48px; padding: 0 10px;
+		background: var(--white); border: 2px solid var(--ink); border-radius: var(--radius-md);
+		box-shadow: var(--shadow-card);
+	}
+	.lg-load input {
+		width: 56px; text-align: right; background: transparent; border: none; padding: 0;
+		align-self: center;
+		font-family: var(--font-mono); font-weight: 800; font-size: 24px; color: var(--ink);
+		-moz-appearance: textfield; appearance: textfield;
+	}
+	.lg-load input::-webkit-outer-spin-button,
+	.lg-load input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+	.lg-loadunit { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); align-self: center; }
+	/* the same five columns as the rep grid above, so − and + sit exactly under
+	   the 8 and the 12 rather than nearly under them */
+	.lg-repexact { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
+	.lg-repexact input { grid-column: 2 / 5; }
 	.lg-repexact button {
 		font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: var(--ink-2);
 		background: var(--white); border: 2px solid var(--paper-3); border-radius: var(--radius-md); min-height: 44px; cursor: pointer;
