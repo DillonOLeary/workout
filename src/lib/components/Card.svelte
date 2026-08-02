@@ -26,4 +26,7 @@
 	@media (max-height: 700px) {
 		.card.pad { padding: 12px; }
 	}
+	@media (max-height: 560px) {
+		.card.pad { padding: 10px; }
+	}
 </style>

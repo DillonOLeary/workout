@@ -202,11 +202,18 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		/* date + up to two badges + Remove does not fit one line on a phone,
+		   and an unwrapped flex row just overflows the card instead of saying so */
+		flex-wrap: wrap;
+		gap: 8px;
 		padding: 16px 24px;
 		background: var(--surface-sunken);
 		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
-	.sessbadges { display: flex; gap: 8px; align-items: center; }
+	.sessbadges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+	@media (max-width: 900px) {
+		.sesshead { padding: 12px 16px; }
+	}
 	.sessrow {
 		display: grid;
 		grid-template-columns: 1fr auto auto;

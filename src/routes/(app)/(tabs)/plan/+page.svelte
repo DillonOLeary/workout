@@ -263,7 +263,6 @@
 	code { font-family: var(--font-mono); font-size: 13px; }
 	textarea {
 		width: 100%;
-		box-sizing: border-box;
 		font-family: var(--font-mono);
 		font-size: 13px;
 		padding: 12px;

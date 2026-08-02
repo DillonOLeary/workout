@@ -1,4 +1,16 @@
 /* LEDGER — base element styles */
+
+/* Border-box everywhere. Without it, `width: 100%` on anything carrying a
+   border or padding overflows its container by exactly border + padding —
+   which is how the reps stepper ate the gap beside its + button, and why the
+   plans textarea had to patch box-sizing by hand. One rule, not per-element
+   compensation. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);

@@ -274,5 +274,9 @@
 		/* 44px is the touch floor, not a suggestion — this is as small as the
 		   resume/finish pair is allowed to get */
 		.resume { min-height: 44px; font-size: 15px; }
+		h1 { font-size: 22px; }
+		.caps { font-size: 11px; }
+		.title { font-size: 17px; }
+		.alts { margin-top: 0; }
 	}
 </style>
