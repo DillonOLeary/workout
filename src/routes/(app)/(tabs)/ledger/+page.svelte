@@ -194,7 +194,9 @@
 	.remove:hover { color: var(--danger); border-color: var(--danger); }
 	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
 	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; }
+	/* never break a date mid-word — "Sun, Aug 2" over three lines is what let
+	   the badges keep their full width and push Remove off the card */
+	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
 	.runlbl { font-weight: var(--weight-bold); }
 	.runmin { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; }
 
@@ -210,9 +212,13 @@
 		background: var(--surface-sunken);
 		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
-	.sessbadges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-	@media (max-width: 900px) {
-		.sesshead { padding: 12px 16px; }
+	.sessbadges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
+	/* Wrapping alone wasn't enough: the date could shrink, so the row kept
+	   "fitting" while the badge group — which cannot shrink below its content
+	   — overflowed instead. On a phone they stack, which cannot overflow. */
+	@media (max-width: 700px) {
+		.sesshead { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 16px; }
+		.sessbadges { width: 100%; }
 	}
 	.sessrow {
 		display: grid;
