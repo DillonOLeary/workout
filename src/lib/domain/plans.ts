@@ -29,7 +29,9 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'Chest Press', equip: 'Multi-press machine', tag: 'Horiz. push', sets: 3, lo: 8, hi: 12, start: 30, inc: 5 },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', sets: 3, lo: 8, hi: 12, start: 90, inc: 10 },
 				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 40, inc: 5, rack: 'dumbbell', each: true },
-				{ name: 'Weighted Plank', equip: 'Mat + med ball', tag: 'Core', sets: 3, lo: 30, hi: 60, start: 10, inc: 5, rack: 'medball', mode: 'seconds', note: 'Med ball resting on your back — the weight is the ball.' }
+				// A hold that outgrows 45s gets a heavier ball, not a longer minute —
+				// the time ceiling keeps the set hard instead of long.
+				{ name: 'Weighted Plank', equip: 'Mat + med ball', tag: 'Core', sets: 3, lo: 20, hi: 45, start: 10, inc: 5, rack: 'medball', mode: 'seconds', note: 'Med ball resting on your back — the weight is the ball.' }
 			],
 			B: [
 				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', sets: 3, lo: 8, hi: 12, start: 53, inc: 9, rack: 'kettlebell', note: 'One bell between the feet. Steps are whole bell sizes — 24 → 28 → 32 kg.' },

@@ -140,6 +140,11 @@
 				reps = priorLast.data.target ?? priorLast.data.reps;
 			} else if (e.bodyweight) {
 				reps = suggestedCount(data.events, e, session.id);
+			} else if (nextLoad(data.events, e, session.id).reason === 'increase') {
+				// double progression applies to holds too: the next ball up starts
+				// back at the bottom of the range, like reps after a level-up —
+				// without this the heavier ball would still ask for last week's max
+				reps = e.lo;
 			} else {
 				const entry = lastEntryFor(data.events, e.name, session.id);
 				reps = entry ? Math.max(...entry.sets.map((st) => st.reps)) : e.lo;
