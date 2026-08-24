@@ -13,7 +13,6 @@
 		dayAges,
 		dayTitle,
 		nextDay,
-		nextLoad,
 		trendFor,
 		weekRunMinutes,
 		weekStrip
@@ -36,21 +35,6 @@
 	let dayKeys = $derived(Object.keys(plan.days));
 
 	let cells = $derived(weekStrip(data.events));
-
-	// Scoped to the day that is DUE: a level-up on the other day isn't actionable
-	// from here, and the gym floor announces it when you get there.
-	let dueList = $derived(plan.days[due] ?? []);
-	let dueSets = $derived(dueList.reduce((n, e) => n + e.sets, 0));
-	let dueLoads = $derived(dueList.map((ex) => ({ ex, load: nextLoad(data.events, ex, session?.id) })));
-	let ups = $derived(dueLoads.filter((c) => c.load.up).map((c) => c.ex.name));
-	let downs = $derived(dueLoads.filter((c) => c.load.down).map((c) => c.ex.name));
-	const summarise = (names: string[]) =>
-		names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
-	let shape = $derived(
-		`${dueList.length} exercises · ${dueSets} sets` +
-			(ups.length ? ` · ↑ ${summarise(ups)}` : '') +
-			(downs.length ? ` · ↓ ${summarise(downs)}` : '')
-	);
 
 	// the re-entry nudge: information, never alarm — only while there is runway
 	let nudges = $derived(
@@ -104,15 +88,6 @@
 		<p class="err">{form.message}</p>
 	{/if}
 
-	<!-- one card for the week: the strip, and the run meter under it -->
-	<Card>
-		<div class="caps mb10">This week</div>
-		<WeekStrip {cells} />
-		{#if plan.runs !== false}
-			<WeeklyProgress {minutes} target={runTarget} label="Running" bare />
-		{/if}
-	</Card>
-
 	{#if session}
 		<Card interactive>
 			<div class="caps">In progress</div>
@@ -129,7 +104,6 @@
 		<Card interactive>
 			<div class="caps">Next up</div>
 			<div class="title">{dayTitle(plan, due)}</div>
-			<div class="mono-sub">{shape}</div>
 
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="day" value={due} />
@@ -161,6 +135,15 @@
 			{/if}
 		</Card>
 	{/if}
+
+	<!-- the week, right under the action: the strip, and the run meter under it -->
+	<Card>
+		<div class="caps mb10">This week</div>
+		<WeekStrip {cells} />
+		{#if plan.runs !== false}
+			<WeeklyProgress {minutes} target={runTarget} label="Running" bare />
+		{/if}
+	</Card>
 
 	{#if nudges.length}
 		<div class="nudge">
@@ -216,7 +199,7 @@
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);
 		font-size: var(--text-title);
-		margin: 4px 0 2px;
+		margin: 4px 0 14px;
 	}
 	.mono-sub { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); margin-bottom: 16px; }
 	.row { display: flex; align-items: center; }
