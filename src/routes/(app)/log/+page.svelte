@@ -559,7 +559,7 @@
 					</div>
 					<div class="fl-glyph">
 						{#key ex.name}
-							<ExerciseGlyph name={ex.name} size={88} />
+							<ExerciseGlyph name={ex.name} size={104} />
 						{/key}
 					</div>
 				</div>
@@ -758,15 +758,23 @@
 		overflow-y: auto;
 		padding: 4px 16px 0;
 	}
+	/* the title block and the glyph are one pair: centred on each other, the
+	   glyph heavy enough to answer a 32px black title, and the row keeps a
+	   clear 16px before the set table so the figure never stands on it */
 	.fl-titlerow {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		justify-content: space-between;
-		gap: 12px;
+		gap: 16px;
+		margin-bottom: 16px;
 	}
 	.fl-titleblock { min-width: 0; flex: 1 1 auto; }
+	.fl-titleblock .fl-meta { margin-bottom: 0; }
 	.fl-glyph { flex: none; }
 	.fl-glyph:empty { display: none; }
+	@media (min-width: 640px) {
+		.fl-glyph { --glyph-size: 128px; }
+	}
 	.fl-name {
 		margin: 0;
 		font-family: var(--font-display);
@@ -867,6 +875,8 @@
 		.fl-meta { margin: 4px 0 8px; }
 		.fl-name { font-size: clamp(24px, 6vw, 30px); }
 		.fl-bottom { padding-top: 6px; }
+		.fl-titlerow { margin-bottom: 12px; }
+		.fl-glyph { --glyph-size: 88px; }
 	}
 	@media (max-height: 640px) {
 		.fl-ledgerline { display: none; }
