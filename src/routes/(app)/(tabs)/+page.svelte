@@ -102,12 +102,10 @@
 		</Card>
 	{:else}
 		<Card interactive>
-			<div class="caprow">
-				<span class="caps">Next up</span>
-				<!-- the way through to the detail, on the label row so it costs no height -->
-				<a class="quiet" href="/plan?day={due}">See the plan →</a>
-			</div>
+			<div class="caps">Next up</div>
 			<div class="title">{dayTitle(plan, due)}</div>
+			<!-- the way through to the detail, under the title it describes -->
+			<a class="planlink" href="/plan?day={due}">See the plan →</a>
 
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="day" value={due} />
@@ -199,13 +197,20 @@
 		color: var(--ink-3);
 	}
 	.mb10 { display: block; margin-bottom: 10px; }
-	.caprow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 	.title {
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);
 		font-size: var(--text-title);
-		margin: 4px 0 14px;
+		margin: 4px 0 0;
 	}
+	/* a text link, flush with the title's left edge; 40px of hit height
+	   with the visual gap kept tight */
+	.planlink {
+		display: inline-flex; align-items: center; min-height: 40px; margin: 0 0 6px;
+		font-size: 14px; font-weight: var(--weight-bold); color: var(--ink-2);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+	}
+	.planlink:hover { color: var(--ink); background: none; }
 	.mono-sub { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); margin-bottom: 16px; }
 	.row { display: flex; align-items: center; }
 	.gap12 { gap: 12px; }
