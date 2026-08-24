@@ -31,6 +31,14 @@ const CALF_RAISE: Exercise = {
 /** One line, both days: a warm-up costs five minutes and the first set thanks you for it. */
 const WARMUP = '3–5 min easy, then one bodyweight and one half-weight set of the first lift.';
 
+/**
+ * Full Range of Motion's warm-up carries the breathing cue too: exhale-on-
+ * exertion is the pelvic-floor-safe default for a beginner — hard breath-holds
+ * are a later, optional skill, not a day-one requirement.
+ */
+const HER_WARMUP =
+	'5 min easy, 10 bodyweight squats, 10 hip hinges, then one light set of the first lift. Exhale through the hard part — never hold your breath.';
+
 export const DEFAULT_PLANS: Plan[] = [
 	{
 		id: 'ab-fullbody-v1',
@@ -81,32 +89,45 @@ export const DEFAULT_PLANS: Plan[] = [
 		id: 'her-12-v1',
 		name: 'Full Range of Motion',
 		description:
-			'Deep-ROM lifts at 8–15 reps. Strength through the full range of motion — mobility you can load. Runs stay with Coach Bennett — log the minutes after.',
-		schedule: 'Lift 2–3×/week · NRC guided runs 1–2×/week',
+			'Deep-ROM lifts at moderate reps. Strength through the full range of motion — mobility you can load, dosed for visible change at three days a week. Runs stay with Coach Bennett — log the minutes after.',
+		// She asked for regimented, so the schedule names days instead of counts.
+		schedule: 'Lift Mon / Thu (+ Sat when it fits) · Run Wed / Sat with NRC',
 		runTarget: 60,
 		dayInfo: {
-			'1': { title: 'Get Low', desc: 'Deep squat · push · pull · hinge · core' },
-			'2': { title: 'Bridge Club', desc: 'Lunge · press · row · curl · bridge · core — squeeze and pause at the top' }
+			'1': {
+				title: 'Get Low',
+				desc: 'Deep squat · hinge · push · pull · rear delt · core',
+				warmup: HER_WARMUP
+			},
+			'2': {
+				title: 'Bridge Club',
+				desc: 'Lunge · curl · press · row · bridge · calves · core',
+				warmup: HER_WARMUP
+			}
 		},
 		days: {
 			'1': [
-				{ name: 'Deep Goblet Squat', equip: 'Dumbbell', tag: 'Squat', sets: 3, lo: 8, hi: 15, start: 20, inc: 5, rack: 'dumbbell', note: 'One dumbbell at the chest — 20 is the whole load.' },
-				{ name: 'Chest Press', equip: 'Multi-press machine', tag: 'Horiz. push', sets: 3, lo: 8, hi: 15, start: 20, inc: 5 },
-				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', sets: 3, lo: 8, hi: 15, start: 50, inc: 10 },
-				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 15, start: 25, inc: 5, rack: 'dumbbell', each: true },
-				// This plan had no core work on either day. Dead bug is the deep-ROM
-				// plan's kind of core: resist the arch, move the limbs, stay braced.
-				{ name: 'Dead Bug', equip: 'Mat', tag: 'Core', sets: 3, lo: 8, hi: 15, start: 0, inc: 1, bodyweight: true, side: 'reps', note: 'One rep = opposite arm and leg lowered and returned. Count 8–15 each side.' }
+				{ name: 'Deep Goblet Squat', equip: 'One dumbbell (plate under heels optional)', tag: 'Squat', sets: 3, lo: 8, hi: 15, start: 20, inc: 5, rack: 'dumbbell', note: 'One bell at the chest — 20 is the whole load. Sit deep until the elbows brush the knees; stop if the heels rise or the tailbone tucks.' },
+				// Hinge while fresh, ahead of the machines. 15s to learn the pattern —
+				// the old 25/hand start was ~100% of a typical beginner max, and the
+				// ledger shows it got quietly corrected on day one.
+				{ name: 'Romanian Deadlift', equip: 'Two dumbbells', tag: 'Hinge', sets: 3, lo: 8, hi: 15, start: 15, inc: 5, rack: 'dumbbell', each: true, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
+				// 6–15, not 8–15: the smallest stack step on a press is a 25–33% jump
+				// at these loads, and the wider floor is what keeps a post-jump set
+				// inside the range instead of reading as a miss.
+				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', sets: 3, lo: 6, hi: 15, start: 20, inc: 5, note: 'Seat so the handles meet mid-chest; feet flat, on a step if they don’t reach. Shoulder blades back; press to nearly straight, lower to the chest.' },
+				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', sets: 3, lo: 8, hi: 15, start: 40, inc: 5, note: 'Thigh pad snug so the hips can’t lift. Slight lean back, chest up; bar to the upper chest, in front of the face. Control back to a full stretch.' },
+				{ name: 'Face Pull', equip: 'Cable, rope', tag: 'Rear delt / ER', sets: 2, lo: 12, hi: 15, start: 15, inc: 5, note: 'Rope at face height. Pull to the ears, elbows high and wide, thumbs back. Light and clean — this is shoulder insurance.' },
+				{ name: 'Dead Bug', equip: 'Mat', tag: 'Core', sets: 3, lo: 8, hi: 12, start: 0, inc: 1, bodyweight: true, side: 'reps', note: 'Low back and ribs pressed down; exhale as the opposite arm and leg lower slowly. Too hard? Tap the heels. Easy at 12? Take 3 seconds to lower.' }
 			],
 			'2': [
-				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', sets: 3, lo: 8, hi: 15, start: 15, inc: 5, rack: 'dumbbell', each: true, side: 'reps', note: 'One rep = one step back and drive up. Count 8–15 on each leg.' },
-				{ name: 'Shoulder Press', equip: 'Multi-press machine', tag: 'Vert. push', sets: 3, lo: 8, hi: 15, start: 15, inc: 5 },
-				{ name: 'Seated Row', equip: 'Seated cable row', tag: 'Horiz. pull', sets: 3, lo: 8, hi: 15, start: 40, inc: 10, note: 'Pulling toward you, sitting down — not the lat pulldown, which pulls from overhead.' },
-				{ name: 'Leg Curl', equip: 'Leg curl machine (seated or lying)', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 40, inc: 10 },
-				{ name: 'DB Glute Bridge', equip: 'Dumbbell', tag: 'Hip ext.', sets: 3, lo: 10, hi: 15, start: 25, inc: 5, rack: 'dumbbell', note: 'One dumbbell across the hips — 25 is the whole load.' },
-				// Day 1 resists the arch; this resists the side-bend. Two vectors, one
-				// per day, mirroring how Open to Work splits its core work.
-				{ name: 'Side Plank', equip: 'Mat', tag: 'Core', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true, side: 'sets' }
+				{ name: 'DB Reverse Lunge', equip: 'Two dumbbells (bodyweight first session)', tag: 'Lunge', sets: 3, lo: 8, hi: 15, start: 10, inc: 5, rack: 'dumbbell', each: true, side: 'reps', note: 'First session: no bells. All reps on one leg, weaker leg first. Long step back, front shin upright, drive up through the front heel.' },
+				{ name: 'Leg Curl', equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', sets: 3, lo: 10, hi: 15, start: 40, inc: 5, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
+				{ name: 'Shoulder Press', equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', sets: 3, lo: 6, hi: 15, start: 15, inc: 5, note: 'Handles start at shoulder height — if you must shrug to reach them, raise the seat. Ribs down, no arching; press up without shrugging.' },
+				{ name: 'Seated Row', equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', sets: 3, lo: 8, hi: 15, start: 40, inc: 5, note: 'Feet on the plates, torso upright and still. Drive the elbows back along the ribs, squeeze the blades, then let the arms straighten fully.' },
+				{ name: 'DB Glute Bridge', equip: 'One dumbbell + folded mat as a pad', tag: 'Hip ext.', sets: 3, lo: 10, hi: 15, start: 25, inc: 5, rack: 'dumbbell', note: 'Bell on the pad across the hips — 25 is the load. Chin tucked, ribs down; drive to level hips, squeeze, pause, lower. Easy at 35? Shoulders up on a bench.' },
+				{ ...CALF_RAISE, start: 50 },
+				{ name: 'Side Plank', equip: 'Mat', tag: 'Core', sets: 2, lo: 20, hi: 45, start: 0, inc: 5, mode: 'seconds', bodyweight: true, side: 'sets', note: 'Elbow under the shoulder; knees bent and stacked to start, feet stacked once that’s easy. Hips up in a line, breathe. At 45 s: top knee onto a bench — Copenhagen.' }
 			]
 		}
 	},

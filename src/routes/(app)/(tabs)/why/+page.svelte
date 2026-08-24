@@ -118,6 +118,41 @@
 			n: 22,
 			text: 'Andersson SH, Bahr R, Clarsen B, Myklebust G. Preventing overuse shoulder injuries among throwing athletes: a cluster-randomised controlled trial in 660 elite handball players. British Journal of Sports Medicine, 2017;51:1073–1080.',
 			url: 'https://bjsm.bmj.com/content/51/14/1073'
+		},
+		{
+			n: 23,
+			text: 'Warneke K, et al. Effects of chronic static stretching on maximal strength and muscle hypertrophy: systematic review and meta-analysis. Sports Medicine — Open, 2024. Trivial effects except at extreme daily durations.',
+			url: 'https://link.springer.com/article/10.1186/s40798-024-00706-8'
+		},
+		{
+			n: 24,
+			text: 'Harøy J, et al. The Adductor Strengthening Programme prevents groin problems among male football players: a cluster-randomised controlled trial. British Journal of Sports Medicine, 2019;53:150–157.',
+			url: 'https://bjsm.bmj.com/content/53/3/150'
+		},
+		{
+			n: 25,
+			text: 'Wewege MA, et al. The effect of resistance training in healthy adults on body fat percentage, fat mass and visceral fat: systematic review and meta-analysis. Sports Medicine, 2022;52:287–300.',
+			url: 'https://link.springer.com/article/10.1007/s40279-021-01562-2'
+		},
+		{
+			n: 26,
+			text: 'Morton RW, et al. Protein supplementation and resistance training-induced gains in muscle mass and strength: systematic review, meta-analysis and meta-regression. British Journal of Sports Medicine, 2018;52:376–384.',
+			url: 'https://pubmed.ncbi.nlm.nih.gov/28698222/'
+		},
+		{
+			n: 27,
+			text: 'Roberts BM, Nuckols G, Krieger JW. Sex differences in resistance training: a systematic review and meta-analysis. Journal of Strength and Conditioning Research, 2020;34(5):1448–1460.',
+			url: 'https://journals.lww.com/nsca-jscr/fulltext/2020/05000/sex_differences_in_resistance_training__a.30.aspx'
+		},
+		{
+			n: 28,
+			text: 'Maeo S, et al. Greater hamstrings hypertrophy after training at long versus short muscle lengths. Medicine & Science in Sports & Exercise, 2021;53(4):825–837.',
+			url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7969179/'
+		},
+		{
+			n: 29,
+			text: 'Bø K, Nygaard IE. Is physical activity good or bad for the female pelvic floor? A narrative review. Sports Medicine, 2020;50:471–484.',
+			url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7018791/'
 		}
 	];
 
@@ -286,42 +321,53 @@
 
 			<Card>
 				<h2>Full Range of Motion</h2>
-				<div class="badges"><Badge tone="neutral">Lift 2–3×/week</Badge><Badge tone="neutral">Guided runs 1–2×/week</Badge></div>
+				<div class="badges"><Badge tone="neutral">Lift Mon / Thu</Badge><Badge tone="neutral">NRC runs Wed / Sat</Badge></div>
 				<p>
-					Patterns are complete: squat, hinge, hip extension, lunge, both pushes, both pulls, and
-					core on both days, the last of those covered by Dead Bug and Side Plank. Every
-					lower-body movement runs front-to-back, though, so nothing here trains the adductors or
-					hip external rotation — <b>Hold Steady covers exactly that</b>, which is why the two run
-					well together.
+					Every pattern, plus the two things the first version lacked: face pulls for the rear
+					delts and external rotators, and calf raises — the muscle running loads hardest had
+					zero sets. The days are named (Mon / Thu) on purpose: the request was
+					<i>regimented</i>, and named days get kept. A third lift, when it fits, moves most
+					muscles from maintenance volume to the ~10-set growth mark
+					<a href="#ref-1" class="cite">[1]</a><a href="#ref-4" class="cite">[4]</a>.
 				</p>
 				<p>
-					Light dumbbells are where a fixed “+5 lb” hurts most — from 15 lb that’s a
-					<b>33% jump</b>, enough to drop you out of the rep range in one go. Stepping along real
-					rack sizes instead (15 → 17.5 → 20 → 22.5) keeps each level-up to 11–17%, and the wide
-					8–15 range absorbs what’s left.
+					<b>Three starting weights were wrong, and the ledger caught it.</b> Against beginner
+					norms for an untrained woman, the old pulldown start was ~96% of a typical one-rep
+					max, the RDL ~100%, the lunge ~115% — and the first real session quietly corrected
+					all three. Women's relative strength gains match or beat men's; the absolute numbers
+					start lower <a href="#ref-27" class="cite">[27]</a>. The starts now sit at learnable
+					loads, and the first session is a ramp, not a test. The machine presses run 6–15
+					because the smallest stack step is a 25–33% jump at these loads — the wide floor
+					absorbs it, and each set climbs on its own.
 				</p>
 				<p>
-					The deep-ROM premise holds up — but not for the reason you’d guess. Judged as a
-					<i>hypertrophy</i> strategy, full range beats partial range only trivially
-					<a href="#ref-9" class="cite">[9]</a>. Judged on its own stated terms — “mobility you
-					can load” — it does much better: lifting through a full range increases joint range of
-					motion <b>about as much as stretching does</b>
-					<a href="#ref-14" class="cite">[14]</a>.
+					The deep-ROM premise holds. As hypertrophy, full range beats partial only trivially
+					<a href="#ref-9" class="cite">[9]</a>; as "mobility you can load" it earns its name —
+					loaded full-range work improves joint range about as much as stretching
+					<a href="#ref-14" class="cite">[14]</a>, and the bodyweight-only subgroup showed no
+					ROM gain, which is why this is a lifting plan and not a stretching list. The leg curl
+					says <i>seated</i> now: hamstrings trained at length grew about half again more
+					<a href="#ref-28" class="cite">[28]</a>.
 				</p>
 				<p>
-					So a deep goblet squat, an RDL to real length and a deep press aren’t a slower road to
-					muscle. They’re flexibility work that happens to be loaded, which is what the plan set out
-					to be.
+					<b>One claim is retracted.</b> This page used to say Hold Steady "covers exactly" the
+					adductors and hip external rotation. Passive holds at realistic durations build
+					essentially no strength or muscle <a href="#ref-23" class="cite">[23]</a> — yoga is
+					mobility, not load. The loaded coverage lives here now: face pulls, and a side plank
+					whose upgrade path ends at the Copenhagen plank, the one adductor exercise with an
+					injury-prevention trial behind it <a href="#ref-24" class="cite">[24]</a>.
 				</p>
 				<p>
-					Two things worth knowing about the dose. At 2–3 sessions a week across two days, most
-					muscles get roughly 4–8 sets weekly — under the ~10-set mark for hypertrophy
-					<a href="#ref-1" class="cite">[1]</a>, which is this plan aimed at strength and
-					mobility rather than size. Either way it sits well inside the window where the
-					mortality benefit shows up <a href="#ref-3" class="cite">[3]</a>. And the 60 min/week
-					run target is under the WHO’s 75 min vigorous floor
-					<a href="#ref-2" class="cite">[2]</a> — brisk walking counts toward the same guideline,
-					so moderate activity closes the gap without changing the running.
+					<b>On "toned":</b> muscle plus a little less fat over it — there is no toning-specific
+					way to lift. Lifting alone moves fat modestly (~−1.5% body fat
+					<a href="#ref-25" class="cite">[25]</a>); protein around 1.6 g/kg/day is where the
+					benefit plateaus <a href="#ref-26" class="cite">[26]</a>, and everyday walking counts
+					toward the aerobic target 60 running minutes don't fill
+					<a href="#ref-2" class="cite">[2]</a>. Muscle is denser than fat: the scale can hold
+					still while the waist shrinks — clothes change before the mirror does. Visible change
+					typically shows at 8–12 consistent weeks. And one breathing rule, written for the
+					pelvic floor: exhale through the hard part; never hold your breath
+					<a href="#ref-29" class="cite">[29]</a>.
 				</p>
 			</Card>
 
