@@ -389,7 +389,6 @@
 	/* ---------- finish / exit ---------- */
 	let finishFormEl = $state<HTMLFormElement>();
 	let finishing = $state(false);
-	let exiting = $state(false);
 
 	async function finishNow() {
 		finishing = true;
@@ -411,7 +410,6 @@
 	}
 
 	async function exitToToday() {
-		exiting = true;
 		await drain();
 		// we skipped all invalidation during the session, so Today must reload
 		await goto('/', { invalidateAll: true });
@@ -464,12 +462,9 @@
 		// typed entry belongs to the tile inputs — never fight the keypad
 		if ((ev.target as HTMLElement | null)?.tagName === 'INPUT') return;
 		if (ev.key === 'Escape') {
-			if (sheetOpen) {
-				sheetOpen = false;
-				ev.preventDefault();
-				return;
-			}
-			void exitToToday();
+			// Esc only ever closes the sheet — leaving is a sheet action
+			sheetOpen = false;
+			ev.preventDefault();
 			return;
 		}
 		if (sheetOpen) return;
@@ -504,16 +499,9 @@
 
 <div class="fl">
 	<div class="fl-inner">
+		<!-- a session owns the screen: no tab bar, no × — pausing and finishing
+		     both live in the ⋯ sheet -->
 		<header class="fl-top">
-			<button
-				type="button"
-				class="fl-ghost"
-				onclick={exitToToday}
-				disabled={exiting}
-				aria-label="Save and go back"
-			>
-				{exiting ? '…' : '×'}
-			</button>
 			<span class="fl-crumb">
 				{dayTitle(plan, session.day)} · Ex {Math.min(exI + 1, exercises.length)}/{exercises.length}
 			</span>
@@ -689,7 +677,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-		padding: 8px 12px 4px;
+		padding: 8px 12px 4px 16px;
 	}
 	.fl-ghost {
 		width: 48px;
@@ -710,7 +698,6 @@
 		touch-action: manipulation;
 	}
 	.fl-ghost:hover { background: var(--volt-tint); color: var(--ink); }
-	.fl-ghost:disabled { opacity: 0.5; }
 	.fl-crumb {
 		font-family: var(--font-mono);
 		font-size: 12px;

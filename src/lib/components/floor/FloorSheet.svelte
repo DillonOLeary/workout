@@ -74,7 +74,7 @@
 		</section>
 		<section class="kbd-only">
 			<div class="caps">Keyboard</div>
-			<p class="note mono">↑↓ value · ←→ exercise · 1–9 reps · Enter log / start · Esc close</p>
+			<p class="note mono">↑↓ value · ←→ exercise · 1–9 reps · Enter log / start · Esc closes this</p>
 		</section>
 		<section class="actions">
 			{#if !allDone}
@@ -92,7 +92,7 @@
 					</button>
 				{/if}
 			{/if}
-			<button type="button" class="arow" onclick={onExit}>Save &amp; exit — come back later</button>
+			<button type="button" class="arow" onclick={onExit}>Pause and go back — the session stays open</button>
 		</section>
 	</div>
 {/if}

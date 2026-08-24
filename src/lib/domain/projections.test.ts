@@ -252,3 +252,99 @@ describe('anySetEarned', () => {
 		expect(anySetEarned([{ weight: 35, reps: 11 }, { weight: 35, reps: 11 }], goblet)).toBe(false);
 	});
 });
+
+import { REENTRY_WARN_DAYS, dayAges, trendFor, weekStrip } from './projections';
+
+describe('trendFor — the status sentence', () => {
+	it('names the starting load before any history', () => {
+		const t = trendFor([], goblet, undefined, NOW);
+		expect(t.sentence).toBe('Starts at 35 lb');
+		expect(t.tone).toBe('start');
+		expect(t.points).toEqual([]);
+		expect(t.next).toBe(35);
+	});
+	it('calls a stall by its length', () => {
+		const ev = ledger('Goblet Squat', [
+			{ daysAgo: 16, sets: [[35, 10], [35, 10], [35, 10]] },
+			{ daysAgo: 9, sets: [[35, 10], [35, 10], [35, 10]] },
+			{ daysAgo: 2, sets: [[35, 10], [35, 10], [35, 10]] }
+		]);
+		const t = trendFor(ev, goblet, undefined, NOW);
+		expect(t.sentence).toMatch(/^35 lb since Aug 7 — 3 sessions, no change$/);
+		expect(t.tone).toBe('flat');
+		expect(t.points.map((p) => p.load)).toEqual([35, 35, 35]);
+	});
+	it('celebrates the set that earned its increase', () => {
+		const ev = ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 12], [35, 9], [35, 5]] }]);
+		const t = trendFor(ev, goblet, undefined, NOW);
+		expect(t.sentence).toBe('Set 1 at the top of the range — 40 lb next time');
+		expect(t.tone).toBe('up');
+		expect(t.points[0].earned).toBe(true);
+		expect(t.points[0].missed).toBe(true);
+	});
+	it('reads a climb across the window', () => {
+		const ev = ledger('Goblet Squat', [
+			{ daysAgo: 9, sets: [[30, 11], [30, 10], [30, 10]] },
+			{ daysAgo: 2, sets: [[35, 10], [35, 10], [35, 10]] }
+		]);
+		const t = trendFor(ev, goblet, undefined, NOW);
+		expect(t.sentence).toBe('↑ 30 → 35 lb since Aug 14');
+		expect(t.tone).toBe('up');
+	});
+	it('warns three days before the re-entry haircut', () => {
+		const ev = ledger('Goblet Squat', [{ daysAgo: 12, sets: [[40, 10], [40, 10], [40, 10]] }]);
+		const t = trendFor(ev, goblet, undefined, NOW);
+		expect(t.sentence).toBe('Re-entry haircut in 2 days');
+		expect(t.tone).toBe('warn');
+		expect(REENTRY_WARN_DAYS).toBe(11);
+	});
+	it('explains an adjustment', () => {
+		const ev = ledger('Goblet Squat', [
+			{ daysAgo: 9, sets: [[35, 5], [35, 9], [35, 9]] },
+			{ daysAgo: 2, sets: [[35, 4], [35, 9], [35, 9]] }
+		]);
+		const t = trendFor(ev, goblet, undefined, NOW);
+		expect(t.sentence).toBe('Missed the bottom twice at 35 — back to 30 lb next time');
+		expect(t.tone).toBe('down');
+	});
+	it('caps a hold at its ceiling', () => {
+		const ev = ledger('Long-Lever Plank', [{ daysAgo: 2, sets: [[0, 20, 20], [0, 20, 20], [0, 20, 20]], unit: 's' }]);
+		const t = trendFor(ev, plank, undefined, NOW);
+		expect(t.sentence).toBe('At the ceiling (20s) — make it harder, not longer');
+		expect(t.next).toBe(20);
+	});
+	it('windows to the last seven sessions but counts them all', () => {
+		const ev = ledger(
+			'Goblet Squat',
+			Array.from({ length: 9 }, (_, i) => ({ daysAgo: 2 + i * 3, sets: [[35, 10], [35, 10], [35, 10]] as [number, number][] }))
+		);
+		const t = trendFor(ev, goblet, undefined, NOW);
+		expect(t.points).toHaveLength(7);
+		expect(t.sessions).toBe(9);
+	});
+});
+
+describe('weekStrip', () => {
+	it('marks lifts, runs and today, Monday first', () => {
+		// NOW is a Sunday: the week runs Mon (6 days ago) → today
+		const ev = ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]] }]);
+		ev.push({ type: 'RunLogged', data: { minutes: 30, at: new Date(NOW - 5 * DAY).toISOString() } });
+		const cells = weekStrip(ev, NOW);
+		expect(cells.map((c) => c.label).join('')).toBe('MTWTFSS');
+		expect(cells[6].today).toBe(true);
+		expect(cells[4].lifted).toBe(true);
+		expect(cells[1].ran).toBe(true);
+		expect(cells.filter((c) => c.lifted)).toHaveLength(1);
+		expect(cells.every((c) => !c.future)).toBe(true);
+	});
+});
+
+describe('dayAges', () => {
+	it('reports days since each plan day was last finished', () => {
+		const plan = { id: 'p', name: 'p', schedule: '', days: { A: [], B: [] } };
+		const ev = ledger('Goblet Squat', [{ daysAgo: 12, sets: [[35, 10]] }]);
+		const ages = dayAges(ev, plan, NOW);
+		expect(ages.find((a) => a.day === 'A')?.daysSince).toBeCloseTo(12, 5);
+		expect(ages.find((a) => a.day === 'B')?.daysSince).toBeNull();
+	});
+});

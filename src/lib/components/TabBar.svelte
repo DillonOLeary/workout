@@ -1,11 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
 
-	let { tabs }: { tabs: { label: string; href: string }[] } = $props();
-
-	// a child page keeps its tab lit: /plan/why is still The Plan
-	const isActive = (href: string) =>
-		page.url.pathname === href || (href !== '/' && page.url.pathname.startsWith(href + '/'));
+	type Tab = { label: string; href: string; also?: string[] };
+	let { tabs }: { tabs: Tab[] } = $props();
+	
+	// a child page keeps its tab lit: /plan/why is still The Plan, and the
+	// chronological "By day" view is still Today
+	const isActive = (t: Tab) =>
+		page.url.pathname === t.href ||
+		(t.href !== '/' && page.url.pathname.startsWith(t.href + '/')) ||
+		(t.also ?? []).some((a) => page.url.pathname === a || page.url.pathname.startsWith(a + '/'));
 </script>
 
 <!-- Tabs are plain links: SvelteKit's file-based routes do the "switching". -->
@@ -14,8 +18,8 @@
 		<a
 			href={tab.href}
 			class="tab"
-			class:active={isActive(tab.href)}
-			aria-current={isActive(tab.href) ? 'page' : undefined}
+			class:active={isActive(tab)}
+			aria-current={isActive(tab) ? 'page' : undefined}
 		>
 			{tab.label}
 		</a>
@@ -27,8 +31,9 @@
 	   the bar itself is just an in-flow pill. */
 	.tabbar {
 		display: flex;
-		gap: 4px;
-		padding: 4px;
+		gap: 0;
+		padding: 0;
+		overflow: hidden;
 		background: var(--white);
 		border: var(--border-w) solid var(--ink);
 		border-radius: var(--radius-pill);
@@ -39,7 +44,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 48px;
+		min-height: 56px;
 		border-radius: var(--radius-pill);
 		font-weight: var(--weight-bold);
 		font-size: 16px;

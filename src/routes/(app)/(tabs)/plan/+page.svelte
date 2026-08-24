@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
-	import { dayTitle, rangeLabel, setsLabel } from '$lib/domain/projections';
+	import { dayTitle } from '$lib/domain/projections';
+	import type { Exercise } from '$lib/domain/types';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let dayKeys = $derived(Object.keys(plan.days));
@@ -15,31 +14,22 @@
 	let day = $state('');
 	let shownDay = $derived(plan.days[day] ? day : dayKeys[0]);
 
-	// everything except the plan already shown in full above
-	let others = $derived(data.plans.filter((p) => p.id !== plan.id));
-
-	let json = $state('');
-
-	// Switching plans is history (a PlanSelected event) — make it deliberate.
-	let confirming = $state<string | null>(null);
+	/** "3 × 6–12" · "3 × 10–20s" · "2 × 5–15 · L/R" · "3 × 8–12 · per side" */
+	const dose = (ex: Exercise) =>
+		`${ex.sets} × ${ex.lo}–${ex.hi}${ex.mode === 'seconds' ? 's' : ''}` +
+		(ex.side === 'sets' ? ' · L/R' : ex.side === 'reps' ? ' · per side' : '');
 </script>
 
 <div class="col">
-	<!-- The plan IS the page: its name is the title, not a label inside a
-	     wrapper card. The page lost weight by losing content, not by
-	     shrinking type — technique notes live on the gym floor's ⋯ sheet,
-	     where the movement is actually happening, and the increment column
-	     is gone because the rule below states it once. -->
+	<!-- The plan IS the page: its name is the title. Technique notes live on
+	     the gym floor's ⋯ sheet, where the movement is actually happening;
+	     the increment column is gone because the rule below states it once. -->
 	<div class="titleblock">
 		<h1>{plan.name}</h1>
 		<div class="activemeta">
 			{plan.schedule}{plan.runs !== false ? ` · ${plan.runTarget ?? 150} min/wk` : ''}
 		</div>
 	</div>
-
-	{#if form?.message}
-		<p class="err">{form.message}</p>
-	{/if}
 
 	<Card pad={false}>
 		<div class="dayhead">
@@ -54,18 +44,14 @@
 		</div>
 		{#each plan.days[shownDay] as ex, i (ex.name)}
 			<div class="exrow" class:first={i === 0}>
-				<div>
+				<div class="exmain">
 					<div class="exname">{ex.name}</div>
 					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
 				</div>
-				<span class="exnums">
-					<span>{setsLabel(ex)}</span>
-					<span>{rangeLabel(ex)}</span>
-				</span>
+				<span class="exdose">{dose(ex)}</span>
 			</div>
 		{/each}
-		<!-- The rule belongs INSIDE the plan, under the exercises it governs.
-		     As a sibling card it read as an unrelated fact about the app. -->
+		<!-- The rule belongs INSIDE the plan, under the exercises it governs. -->
 		<div class="rulebox">
 			<div class="caps mb8">How it progresses</div>
 			<div class="rule">
@@ -78,76 +64,19 @@
 				a size the rack actually has.
 			</div>
 		</div>
+		<!-- rare acts, text-sized, on the card's bottom border row -->
+		<div class="bottomrow">
+			<a class="textlink" href="/plan/change">Change plan</a>
+			<form method="POST" action="/logout">
+				<button type="submit" class="textlink">Sign out</button>
+			</form>
+		</div>
 	</Card>
 
 	<!-- the case for the plans, one tap from the plans themselves -->
-	<a class="whycard" href="/plan/why">
-		<span class="caps">Why this works</span>
-		<span class="whytext">
-			30–60 min of strength work a week is linked to a <b>10–17% lower risk of all-cause
-			mortality</b>, independent of cardio. You don’t need to train to failure, machines
-			aren’t cheating, and soreness isn’t the scoreboard.
-		</span>
-		<span class="whygo">Read the cited case, and the fundamentals →</span>
+	<a class="disclosure" href="/plan/why">
+		<span class="tri">▸</span> Why this works
 	</a>
-
-	<!-- Switching is a once-in-a-while act: one link folds away the other
-	     plans AND the raw plans table that used to be two separate sections. -->
-	<details class="disclosure">
-		<summary>Change plan</summary>
-		<div class="fold">
-			{#if others.length}
-				<div class="plans">
-					{#each others as p (p.id)}
-						<form method="POST" action="?/select" use:enhance>
-							<input type="hidden" name="plan" value={p.id} />
-							<div class="plancard">
-								<button
-									type="button"
-									class="planbody"
-									onclick={() => (confirming = confirming === p.id ? null : p.id)}
-								>
-									<span class="planhead"><span class="planname">{p.name}</span></span>
-									{#if p.description}<span class="plandesc">{p.description}</span>{/if}
-									<span class="plansched">{p.schedule}</span>
-								</button>
-								{#if confirming === p.id}
-									<div class="confirmrow">
-										<span class="confirmtext">Switch to this plan? It goes in the ledger.</span>
-										<div class="confirmbtns">
-											<Button variant="accent" type="submit">Switch</Button>
-											<Button variant="ghost" type="button" onclick={() => (confirming = null)}>Cancel</Button>
-										</div>
-									</div>
-								{/if}
-							</div>
-						</form>
-					{/each}
-				</div>
-			{/if}
-			<Card>
-				<div class="caps mb8">Plans table</div>
-				<p class="tabletext">
-					Plans are reference data — one JSON row each in the <code>ledger_plans</code> table, not
-					events in the ledger. Paste a row here to INSERT it (and switch to it).
-				</p>
-				<form method="POST" action="?/addPlan" use:enhance>
-					<textarea
-						name="json"
-						rows="4"
-						bind:value={json}
-						placeholder={'{"id": "upper-lower-v1", "name": "Upper / Lower", "schedule": "…", "days": {"U": […], "L": […]}}'}
-					></textarea>
-					{#if form?.planError}
-						<p class="err">Invalid row: {form.planError}</p>
-					{/if}
-					<Button variant="secondary" type="submit" style="margin-top: 10px" disabled={!json.trim()}>
-						Insert plan
-					</Button>
-				</form>
-			</Card>
-		</div>
-	</details>
 </div>
 
 <style>
@@ -177,46 +106,6 @@
 	}
 	.hl { background: var(--volt); padding: 0 6px; }
 
-	.plans { display: flex; flex-direction: column; gap: 12px; }
-	.plancard {
-		width: 100%;
-		background: var(--white);
-		border: var(--border-w) solid var(--border-soft);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-card);
-	}
-	.planbody {
-		width: 100%;
-		text-align: left;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		cursor: pointer;
-		background: transparent;
-		border: none;
-		padding: 16px 20px;
-		font: inherit;
-		color: var(--ink);
-		border-radius: var(--radius-lg);
-	}
-	.planbody:disabled { cursor: default; }
-	.planbody:not(:disabled):hover { background: var(--volt-tint); }
-	.confirmrow {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 12px;
-		padding: 12px 20px 16px;
-		border-top: 1px solid var(--border-soft);
-	}
-	.confirmtext { font-size: var(--text-sm); color: var(--ink-2); font-weight: var(--weight-bold); }
-	.confirmbtns { display: flex; gap: 8px; }
-	.planhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-	.planname { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 20px; }
-	.plandesc { font-size: var(--text-sm); color: var(--ink-2); line-height: 1.45; }
-	.plansched { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-top: 2px; }
-
 	.dayhead { padding: 16px 24px 4px; }
 	.chips { display: flex; gap: 10px; flex-wrap: wrap; }
 	.daydesc { font-size: var(--text-sm); color: var(--ink-3); padding: 12px 2px 4px; }
@@ -226,69 +115,36 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 12px;
-		padding: 16px 24px;
+		padding: 14px 24px;
 		border-top: 1px solid var(--border-soft);
 	}
 	.exrow.first { border-top: none; margin-top: 8px; }
+	.exmain { min-width: 0; }
 	.exname { font-weight: var(--weight-bold); font-size: 17px; }
 	.exequip { font-size: 13px; color: var(--ink-3); }
+	.exdose { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); white-space: nowrap; flex: none; }
 	/* the rule, as the closing section of the plan card it governs */
-	.rulebox { padding: 18px 24px 20px; border-top: var(--border-w) solid var(--ink); background: var(--paper-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+	.rulebox { padding: 18px 24px 20px; border-top: var(--border-w) solid var(--ink); background: var(--paper-2); }
 	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; }
-
-	/* the whole card is the link — nothing in it does anything else */
-	.whycard {
-		display: flex; flex-direction: column; gap: 8px;
-		background: var(--surface-card); border: var(--border-w) solid var(--border-soft);
-		border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
-		padding: 20px; text-decoration: none; color: inherit;
+	.bottomrow {
+		display: flex; justify-content: space-between; align-items: center; gap: 12px;
+		padding: 4px 16px; border-top: 1px solid var(--border-soft);
+		background: var(--paper-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 	}
-	.whycard:hover { border-color: var(--ink); box-shadow: var(--shadow-raised); }
-	.whytext { font-size: 15px; line-height: var(--leading-body); color: var(--ink); }
-	.whygo { font-weight: var(--weight-bold); font-size: 14px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-	.exnums {
-		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
-		display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right;
-		/* the numbers claim their width; the name wraps before they do */
-		white-space: nowrap; flex: none;
+	.textlink {
+		display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px;
+		background: none; border: none; cursor: pointer;
+		font-family: var(--font-body); font-size: 12px; font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
+	.textlink:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
 
-	.fold { display: flex; flex-direction: column; gap: 16px; }
-	.disclosure[open] > summary { margin-bottom: 12px; }
-
-	.tabletext { margin: 0 0 12px; font-size: 15px; color: var(--ink-2); line-height: var(--leading-body); }
-	code { font-family: var(--font-mono); font-size: 13px; }
-	textarea {
-		width: 100%;
-		font-family: var(--font-mono);
-		font-size: 13px;
-		padding: 12px;
-		border: var(--border-w) solid var(--border-soft);
-		border-radius: var(--radius-md);
-		background: var(--paper);
-		color: var(--ink);
-		resize: vertical;
+	.disclosure {
+		display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 4px;
+		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink-3); text-decoration: none; border-radius: var(--radius-sm);
 	}
-	.err { margin: 6px 0 0; color: var(--danger); font-size: var(--text-sm); font-weight: var(--weight-bold); }
-
-	/* <details> gives us the disclosure for free — no JS state needed */
-	.disclosure summary {
-		list-style: none;
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		min-height: 44px;
-		cursor: pointer;
-		font-size: 12px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		border-radius: var(--radius-sm);
-		padding: 0 4px;
-	}
-	.disclosure summary::-webkit-details-marker { display: none; }
-	.disclosure summary::before { content: '▸'; }
-	.disclosure[open] summary::before { content: '▾'; }
-	.disclosure summary:hover { color: var(--ink); background: var(--volt-tint); }
+	.disclosure:hover { color: var(--ink); background: var(--volt-tint); }
+	.tri { font-size: 12px; }
 </style>

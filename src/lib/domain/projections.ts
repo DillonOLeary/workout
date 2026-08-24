@@ -467,6 +467,179 @@ export function setsLabel(ex: Exercise): string {
 	return ex.side === 'sets' ? `${ex.sets} sets, one per side` : `${ex.sets} sets`;
 }
 
+/* ---------- exercises over time: the trends folds ----------------------
+   Read-side only: no new events, no stored projections. Today's "How it's
+   going" list is these folds run per exercise at request time. */
+
+/** "35 lb" · "40 lb each hand" · "15s" · "8 reps" — one number in this exercise's own unit. */
+export function unitLabel(n: number, ex: Exercise): string {
+	if (!ex.bodyweight) return loadLabel(n, ex);
+	return ex.mode === 'seconds' ? `${n}s` : `${n} reps`;
+}
+
+/** "Jul 11" — the date without its weekday, for a sentence. */
+export function fmtShort(iso: string): string {
+	return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Sessions, not weeks: a week off would read as a gap, and a stall must read as a stall. */
+export const TREND_WINDOW = 7;
+/** Warn from day 11 — three days of runway before the re-entry rule fires. */
+export const REENTRY_WARN_DAYS = 11;
+
+export type TrendPoint = {
+	at: string;
+	dateLabel: string;
+	/** the progressible axis: set 1's weight — or its count, for bodyweight */
+	load: number;
+	sets: SessionSet[];
+	/** some set reached the top of the range */
+	earned: boolean;
+	/** some set fell below the bottom of the range */
+	missed: boolean;
+};
+export type TrendTone = 'start' | 'up' | 'down' | 'warn' | 'flat';
+export type Trend = {
+	/** the last TREND_WINDOW sessions, oldest first */
+	points: TrendPoint[];
+	/** what the rule has queued for set 1 next time (weight, or count for bodyweight) */
+	next: number;
+	/** the hero: one sentence about where this exercise stands */
+	sentence: string;
+	tone: TrendTone;
+	/** total sessions on record, so the UI can say how many the window hides */
+	sessions: number;
+};
+
+/**
+ * One exercise, over time. The sentence is the point and the strip is the
+ * corroboration; precedence runs from what the rule will DO next (re-entry,
+ * an adjustment, an earned increase) down to how long the load has sat still.
+ */
+export function trendFor(
+	events: LedgerEvent[],
+	ex: Exercise,
+	excludeSession?: string,
+	now: number = Date.now(),
+	window: number = TREND_WINDOW
+): Trend {
+	const history = historyFor(events, ex.name, excludeSession); // newest first
+	const axis = (s: SessionSet) => (ex.bodyweight ? s.reps : s.weight);
+	const all = history.slice().reverse();
+	const points: TrendPoint[] = all.slice(-window).map((h) => ({
+		at: h.at,
+		dateLabel: h.dateLabel,
+		load: axis(h.sets[0]),
+		sets: h.sets,
+		earned: anySetEarned(h.sets, ex),
+		missed: h.sets.some((s) => s.reps < ex.lo)
+	}));
+	const load = nextLoad(events, ex, excludeSession, now);
+	const next = ex.bodyweight ? suggestedCount(events, ex, excludeSession, 0) : load.weight;
+	const base = { points, next, sessions: history.length };
+	const last = history[0];
+	if (!last) return { ...base, tone: 'start', sentence: `Starts at ${unitLabel(next, ex)}` };
+
+	const days = load.daysSince ?? 0;
+	if (load.reason === 'reentry')
+		return {
+			...base,
+			tone: 'down',
+			sentence: `Re-entry after ${Math.floor(days)} days — one size down, ${unitLabel(next, ex)} next time`
+		};
+	if (days >= REENTRY_WARN_DAYS && days <= REENTRY_DAYS) {
+		const n = Math.max(1, Math.ceil(REENTRY_DAYS - days));
+		return { ...base, tone: 'warn', sentence: `Re-entry haircut in ${n} ${n === 1 ? 'day' : 'days'}` };
+	}
+	const adjusted = load.sets.findIndex((s) => s.reason === 'adjust');
+	if (adjusted >= 0) {
+		const was = last.sets[adjusted]?.weight ?? last.sets[0].weight;
+		return {
+			...base,
+			tone: 'down',
+			sentence: `Missed the bottom twice at ${was} — back to ${unitLabel(load.sets[adjusted].weight, ex)} next time`
+		};
+	}
+	const earnedIdx = last.sets.map((s, i) => (setEarned(s, ex) ? i : -1)).filter((i) => i >= 0);
+	if (earnedIdx.length) {
+		if (ex.bodyweight && ex.mode === 'seconds' && holdMaxed(last, ex))
+			return { ...base, tone: 'up', sentence: `At the ceiling (${ex.hi}s) — make it harder, not longer` };
+		if (ex.bodyweight)
+			return { ...base, tone: 'up', sentence: `Hit the top of the range — ${unitLabel(next, ex)} next time` };
+		const who = earnedIdx.length >= ex.sets ? 'Every set' : capitalise(setsPhrase(earnedIdx));
+		const to = unitLabel(load.sets[Math.min(earnedIdx[0], load.sets.length - 1)].weight, ex);
+		return { ...base, tone: 'up', sentence: `${who} at the top of the range — ${to} next time` };
+	}
+	const missedIdx = load.sets.map((s, i) => (s.missed ? i : -1)).filter((i) => i >= 0);
+	if (missedIdx.length)
+		return {
+			...base,
+			tone: 'warn',
+			sentence: `${capitalise(setsPhrase(missedIdx))} missed last time — miss again and it backs off a size`
+		};
+	// how long has set 1 sat at this load? (walk newest → oldest until it changes)
+	const cur = axis(last.sets[0]);
+	let streak = 0;
+	for (const h of history) {
+		if (axis(h.sets[0]) !== cur) break;
+		streak++;
+	}
+	const since = fmtShort(history[streak - 1].at);
+	const first = axis(all[0].sets[0]);
+	if (streak >= 3)
+		return { ...base, tone: 'flat', sentence: `${unitLabel(cur, ex)} since ${since} — ${streak} sessions, no change` };
+	if (cur > first)
+		return { ...base, tone: 'up', sentence: `↑ ${first} → ${unitLabel(cur, ex)} since ${fmtShort(all[0].at)}` };
+	if (cur < first)
+		return { ...base, tone: 'down', sentence: `↓ ${first} → ${unitLabel(cur, ex)} since ${fmtShort(all[0].at)}` };
+	return {
+		...base,
+		tone: 'flat',
+		sentence: streak === 1 ? `${unitLabel(cur, ex)} — first session` : `${unitLabel(cur, ex)} since ${since} — ${streak} sessions`
+	};
+}
+
+/* ---------- this week ---------- */
+
+export type WeekCell = {
+	/** local yyyymmdd */
+	key: number;
+	label: string;
+	lifted: boolean;
+	ran: boolean;
+	today: boolean;
+	future: boolean;
+};
+
+/**
+ * Seven cells, Monday first (to match the "this week" run meter), bucketed by
+ * LOCAL calendar day — which is why this runs where `now` runs and never
+ * stores anything. An unfinished session today still counts as lifted.
+ */
+export function weekStrip(events: LedgerEvent[], now: number = Date.now()): WeekCell[] {
+	const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+	const lifted = new Set(projectSessions(events).map((s) => dayKey(new Date(s.at))));
+	const ran = new Set(projectRuns(events).map((r) => dayKey(new Date(r.at))));
+	const today = new Date(now);
+	const todayKey = dayKey(today);
+	const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+	return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => {
+		const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+		const key = dayKey(d);
+		return { key, label, lifted: lifted.has(key), ran: ran.has(key), today: key === todayKey, future: key > todayKey };
+	});
+}
+
+/** Whole days since each plan day was last finished (null = never). */
+export type DayAge = { day: string; daysSince: number | null };
+export function dayAges(events: LedgerEvent[], plan: Plan, now: number = Date.now()): DayAge[] {
+	const sessions = projectSessions(events).filter((s) => s.finished && s.plan === plan.id);
+	return Object.keys(plan.days).map((day) => {
+		const s = sessions.find((x) => x.day === day); // newest first
+		return { day, daysSince: s ? (now - Date.parse(s.at)) / DAY : null };
+	});
+}
+
 /** Display title for a day: dayInfo title if present, else "Workout X". */
 export function dayTitle(plan: Plan | undefined, d: string): string {
 	return plan?.dayInfo?.[d]?.title ?? 'Workout ' + d;

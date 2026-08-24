@@ -4,37 +4,46 @@
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
+	import TrendRow from '$lib/components/TrendRow.svelte';
+	import WeekStrip from '$lib/components/WeekStrip.svelte';
 	import WeeklyProgress from '$lib/components/WeeklyProgress.svelte';
-	import { dayTitle, nextDay, nextLoad, weekRunMinutes } from '$lib/domain/projections';
+	import {
+		REENTRY_DAYS,
+		REENTRY_WARN_DAYS,
+		dayAges,
+		dayTitle,
+		nextDay,
+		nextLoad,
+		trendFor,
+		weekRunMinutes,
+		weekStrip
+	} from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
+	import type { Exercise } from '$lib/domain/types';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
 	/**
-	 * Today answers one question — what do I do right now — and has to answer
-	 * it without scrolling, because it is the screen you check on the way out
-	 * the door. The card carries the day title, one mono line for the shape of
-	 * the session and what the rule changed, and a big Start. Everything else
-	 * (the exercise list, warm-up, technique) lives where it is used: The Plan
-	 * tab and the gym floor's ⋯ sheet.
+	 * Tab 1 is your state now and your state over time, in one scroll: this
+	 * week, what to do next, anything the rule is about to do, and how each
+	 * exercise is going. Nothing chronological lives here — "By day" is one
+	 * tap away at the foot for the rare "what did I do Tuesday".
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
 	let due = $derived(nextDay(data.events, plan));
 	let dayKeys = $derived(Object.keys(plan.days));
 
+	let cells = $derived(weekStrip(data.events));
+
 	// Scoped to the day that is DUE: a level-up on the other day isn't actionable
 	// from here, and the gym floor announces it when you get there.
 	let dueList = $derived(plan.days[due] ?? []);
 	let dueSets = $derived(dueList.reduce((n, e) => n + e.sets, 0));
 	let dueLoads = $derived(dueList.map((ex) => ({ ex, load: nextLoad(data.events, ex, session?.id) })));
-	// per-set progression: ↑ when any set of an exercise goes up, ↓ when
-	// anything comes down (a re-entry after time away, or an adjustment)
 	let ups = $derived(dueLoads.filter((c) => c.load.up).map((c) => c.ex.name));
 	let downs = $derived(dueLoads.filter((c) => c.load.down).map((c) => c.ex.name));
-	// one name plus a count, never the full list — spelling out four exercises
-	// wraps to a second line and costs more height than the news is worth
 	const summarise = (names: string[]) =>
 		names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
 	let shape = $derived(
@@ -42,6 +51,24 @@
 			(ups.length ? ` · ↑ ${summarise(ups)}` : '') +
 			(downs.length ? ` · ↓ ${summarise(downs)}` : '')
 	);
+
+	// the re-entry nudge: information, never alarm — only while there is runway
+	let nudges = $derived(
+		dayAges(data.events, plan).filter(
+			(a) => a.daysSince !== null && a.daysSince >= REENTRY_WARN_DAYS && a.daysSince <= REENTRY_DAYS
+		)
+	);
+	const runway = (days: number) => Math.max(1, Math.ceil(REENTRY_DAYS - days));
+
+	// every exercise on the plan, in plan order, once (calves are on both days)
+	let planExercises = $derived.by(() => {
+		const seen = new Set<string>();
+		const out: Exercise[] = [];
+		for (const d of dayKeys) for (const ex of plan.days[d]) if (!seen.has(ex.name)) { seen.add(ex.name); out.push(ex); }
+		return out;
+	});
+	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, session?.id) })));
+	let openRow = $state<string | null>(null);
 
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
 	let sessionSets = $derived(
@@ -58,6 +85,7 @@
 	let minutes = $derived(weekRunMinutes(data.events));
 	let runTarget = $derived(plan.runTarget ?? 150);
 	let runMin = $state(30);
+	let runOpen = $state(false);
 
 	const today = new Date().toLocaleDateString('en-US', {
 		weekday: 'short',
@@ -75,6 +103,11 @@
 	{#if form?.message}
 		<p class="err">{form.message}</p>
 	{/if}
+
+	<Card>
+		<div class="caps mb10">This week</div>
+		<WeekStrip {cells} />
+	</Card>
 
 	{#if session}
 		<Card interactive>
@@ -99,29 +132,66 @@
 				<input type="hidden" name="plan" value={plan.id} />
 				<button type="submit" class="startbtn">Start workout</button>
 			</form>
-			<div class="alts">
+			<!-- two peers, neither competing with Start: the other day, and the
+			     five-second action you take a couple of times a week -->
+			<div class="secs">
 				{#each dayKeys.filter((d) => d !== due) as d (d)}
-					<form method="POST" action="?/start" use:enhance>
+					<form method="POST" action="?/start" use:enhance class="grow">
 						<input type="hidden" name="day" value={d} />
 						<input type="hidden" name="plan" value={plan.id} />
-						<button type="submit" class="altlink">or start {dayTitle(plan, d)}</button>
+						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, d)}</Button>
 					</form>
 				{/each}
+				{#if plan.runs !== false}
+					<Button variant="secondary" type="button" style="flex: 1" aria-expanded={runOpen} onclick={() => (runOpen = !runOpen)}>
+						{runOpen ? 'Cancel' : 'Log a run'}
+					</Button>
+				{/if}
 			</div>
+			{#if runOpen && plan.runs !== false}
+				<form method="POST" action="?/logRun" use:enhance class="row gap12 wrap runform">
+					<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
+					<input type="hidden" name="minutes" value={runMin} />
+					<Button variant="accent" size="lg" type="submit" style="flex: 1; min-width: 96px">Log {runMin} min</Button>
+				</form>
+			{/if}
 		</Card>
 	{/if}
 
-	{#if plan.runs !== false}
-		<WeeklyProgress {minutes} target={runTarget}>
-			<form method="POST" action="?/logRun" use:enhance class="row gap12 wrap">
-				<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
-				<input type="hidden" name="minutes" value={runMin} />
-				<Button variant="secondary" size="lg" type="submit" style="flex: 1; min-width: 96px">
-					Log run
-				</Button>
-			</form>
-		</WeeklyProgress>
+	{#if nudges.length}
+		<div class="nudge">
+			<span class="caps">Heads up</span>
+			{#each nudges as n (n.day)}
+				<p>
+					<b>{dayTitle(plan, n.day)}</b> — {Math.floor(n.daysSince ?? 0)} days ago. Re-entry haircut in
+					{runway(n.daysSince ?? 0)} {runway(n.daysSince ?? 0) === 1 ? 'day' : 'days'}: past two weeks, every
+					set comes back one size lighter.
+				</p>
+			{/each}
+		</div>
 	{/if}
+
+	{#if plan.runs !== false}
+		<WeeklyProgress {minutes} target={runTarget} />
+	{/if}
+
+	<section>
+		<div class="caps mb10">How it's going</div>
+		<Card pad={false}>
+			{#each trends as t (t.ex.name)}
+				<TrendRow
+					ex={t.ex}
+					trend={t.trend}
+					open={openRow === t.ex.name}
+					ontoggle={() => (openRow = openRow === t.ex.name ? null : t.ex.name)}
+				/>
+			{/each}
+		</Card>
+		<div class="foot">
+			<a class="quiet" href="/ledger">By day →</a>
+			<a class="quiet" href="/export" download="training-ledger-events.json">Export JSON</a>
+		</div>
+	</section>
 </div>
 
 <style>
@@ -141,6 +211,7 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 	}
+	.mb10 { display: block; margin-bottom: 10px; }
 	.title {
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);
@@ -173,25 +244,8 @@
 	}
 	.startbtn:hover { background: var(--volt-deep); }
 	.startbtn:active { transform: translateY(3px); box-shadow: var(--shadow-pressed); }
-
-	/* the other day: a real submit, dressed down to a link so it can't compete
-	   with the primary action directly above it */
-	.alts { margin-top: 8px; display: flex; flex-direction: column; align-items: center; }
-	.altlink {
-		min-height: 40px;
-		padding: 0 12px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		font-family: var(--font-body);
-		font-weight: var(--weight-bold);
-		font-size: 14px;
-		color: var(--ink-2);
-		text-decoration: underline;
-		text-underline-offset: 3px;
-		text-decoration-color: var(--border-soft);
-	}
-	.altlink:hover { color: var(--ink); }
+	.secs { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+	.runform { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 
 	/* Resume is a link (no state change) dressed as the accent button */
 	.resume {
@@ -213,36 +267,28 @@
 	.resume:hover { background: var(--volt-deep); }
 	.resume:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
-	/* Phones: Today must not scroll. Nothing is removed here, only tightened. */
+	/* information, never alarm: paper-2, one soft border, prose */
+	.nudge {
+		display: flex; flex-direction: column; gap: 6px;
+		padding: 14px 16px; background: var(--surface-sunken);
+		border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
+	}
+	.nudge p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+	.nudge b { color: var(--ink); }
+
+	.foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; }
+	.quiet {
+		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
+		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink-3);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+	}
+	.quiet:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
+
 	@media (max-width: 900px) {
 		.col { gap: 12px; }
 		h1 { font-size: 30px; }
 		.title { font-size: 22px; margin: 2px 0; }
-		.alts { margin-top: 4px; }
-		.altlink { min-height: 36px; }
 		.mono-sub { margin-bottom: 12px; }
-	}
-
-	@media (max-height: 700px) {
-		.col { gap: 8px; }
-		h1 { font-size: 24px; }
-		.title { font-size: 19px; }
-		.altlink { min-height: 32px; }
-	}
-
-	@media (max-height: 620px) {
-		.col { gap: 6px; }
-		.altlink { min-height: 28px; }
-		.mono-sub { margin-bottom: 8px; font-size: 14px; }
-	}
-
-	@media (max-height: 560px) {
-		/* 44px is the touch floor, not a suggestion */
-		.resume { min-height: 44px; font-size: 15px; }
-		.startbtn { min-height: 64px; font-size: 19px; }
-		h1 { font-size: 22px; }
-		.caps { font-size: 11px; }
-		.title { font-size: 17px; }
-		.alts { margin-top: 0; }
 	}
 </style>

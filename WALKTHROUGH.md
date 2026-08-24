@@ -121,7 +121,14 @@ per aggregate (per order, per cart) so streams stay short.
 [src/lib/domain/projections.ts](src/lib/domain/projections.ts) is a bag of pure
 folds, each answering one question from the same events:
 
-- `projectSessions` → the Ledger tab's history cards
+- `projectSessions` → the "By day" view's history cards (a child page of Today)
+- `trendFor` → one exercise over time: the last seven sessions as points, what
+  the rule has queued next, and ONE status sentence ("35 lb since Jul 11 — 6
+  sessions, no change", "Set 1 at the top of the range — 40 lb next time",
+  "Re-entry haircut in 3 days"). Today's "How it's going" list is this fold
+  run per exercise at request time — no stored projection, no new events
+- `weekStrip` / `dayAges` → this week's seven cells (lifted / ran / today) and
+  how old each plan day is, for the re-entry nudge
 - `nextDay` → which workout is due (alternate from last finished session)
 - `nextLoad` → the progression rule, SET BY SET: each set's suggestion comes
   from the same set last time ("top of the range → that set takes the next
@@ -152,7 +159,7 @@ cached.
 Plans are reference data — rows in `ledger_plans`
 ([src/lib/server/plans.ts](src/lib/server/plans.ts)), UPSERTed, no history.
 Events point at them by id. Deciding *what deserves history* is the actual
-modelling skill; the Insert card (behind "Advanced" on The Plan tab) does both
+modelling skill; the Insert card on `/plan/change` does both
 writes side by side: plan row → table, `PlanSelected` → ledger.
 
 One consequence worth knowing: editing `DEFAULT_PLANS` in
@@ -160,7 +167,7 @@ One consequence worth knowing: editing `DEFAULT_PLANS` in
 the shipped plans on every boot, so a new exercise, a widened rep range or a
 rewritten note reaches every database the next time a worker starts — no
 migration file, no upcaster. History for an exercise that has since left the
-plan stays in the stream under its old name, and the Ledger still renders it
+plan stays in the stream under its old name, and the By day view still renders it
 correctly, because a `SetLogged` event carries its own `unit`: a retired
 "Weighted Plank" is still `60s`, not `60`.
 
@@ -189,8 +196,9 @@ src/routes/
    ├─ +layout.server.ts           ONE load for all pages: plans + events (uid from locals)
    ├─ (tabs)/                     nested group — the TabBar shell
    │  ├─ +page.svelte             Today        (/)
-   │  ├─ ledger/+page.svelte      Ledger       (/ledger)
+   │  ├─ ledger/+page.svelte      By day — the chronological view, a child of Today (/ledger)
    │  ├─ plan/+page.svelte        The Plan     (/plan)
+   │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
    ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)
    └─ export/+server.ts           GET /export: the stream as a JSON download
@@ -265,7 +273,7 @@ patterns worth studying:
   the decider fold — so `SessionStruck` rows stay in Postgres forever while
   no living code knows the old word. The same additive field is what let the
   med-ball plank retire without a migration: its events say `unit: 's'`, so
-  the Ledger formats them as seconds long after no plan knows the name.
+  By day formats them as seconds long after no plan knows the name.
 - **Shallow routing** (`replaceState` from `$app/navigation`): the current
   exercise lives in the URL (`/log?ex=2`) so refresh keeps your place, but no
   server load runs and no history entries pile up.

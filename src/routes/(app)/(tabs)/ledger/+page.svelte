@@ -81,7 +81,8 @@
 
 <div class="col">
 	<div class="head">
-		<h1>Ledger</h1>
+		<a class="back" href="/" aria-label="Back to Today">←</a>
+		<h1>By day</h1>
 		<button type="button" class="edit" aria-pressed={editMode} onclick={() => (editMode = !editMode)}>
 			{editMode ? 'Done' : 'Edit entries'}
 		</button>
@@ -170,13 +171,24 @@
 				{/each}
 			</details>
 		{/if}
-		<a class="exportlink" href="/export" download="training-ledger-events.json">Export JSON</a>
 	</div>
 </div>
 
 <style>
 	.col { display: flex; flex-direction: column; gap: 20px; }
-	.head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+	.head { display: flex; align-items: center; gap: 14px; }
+	.head h1 { flex: 1; }
+	/* a child page of Today — the chronological view for "what did I do
+	   Tuesday", and the stable home for corrections */
+	.back {
+		width: 48px; height: 48px; flex: none;
+		display: inline-flex; align-items: center; justify-content: center;
+		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
+		box-shadow: var(--shadow-raised); text-decoration: none;
+		font-family: var(--font-display); font-weight: var(--weight-black); font-size: 22px; color: var(--ink);
+	}
+	.back:hover { background: var(--volt-tint); }
+	.back:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 	h1 {
 		margin: 0;
 		font-family: var(--font-display);
@@ -282,21 +294,6 @@
 	.more:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
 	.foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-	.exportlink {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		padding: 0 4px;
-		font-size: 12px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		text-decoration: underline;
-		text-underline-offset: 3px;
-		text-decoration-color: var(--border-soft);
-	}
-	.exportlink:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
 
 	/* Plan switches: recorded honestly, displayed quietly */
 	.switches summary {

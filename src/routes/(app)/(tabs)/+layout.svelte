@@ -14,10 +14,11 @@
 <div class="app-frame">
 	<div class="tabwrap">
 		<div class="tabwrap-inner">
+			<!-- two tabs: your state now (and over time), and the plan. "By day"
+			     is a child of Today, so it keeps that tab lit. -->
 			<TabBar
 				tabs={[
-					{ label: 'Today', href: '/' },
-					{ label: 'Ledger', href: '/ledger' },
+					{ label: 'Today', href: '/', also: ['/ledger'] },
 					{ label: 'The Plan', href: '/plan' }
 				]}
 			/>
@@ -26,12 +27,6 @@
 	<main class="app-main" bind:this={mainEl}>
 		<div class="shell">
 			{@render children()}
-			<footer class="signout">
-				<!-- plain form on purpose: works with zero JS, full-page nav to /login -->
-				<form method="POST" action="/logout">
-					<button type="submit">Sign out</button>
-				</form>
-			</footer>
 		</div>
 	</main>
 </div>
@@ -85,21 +80,19 @@
 	/* touch layouts: same bar, last flex child — pinned to the real bottom */
 	@media (max-width: 900px) {
 		.shell { padding: 12px; padding-bottom: 16px; gap: 16px; }
-		.signout { margin-top: 0; }
-		.signout button { min-height: 32px; }
 		.tabwrap { padding-top: 8px; }
 	}
 
 	@media (max-height: 700px) {
 		.shell { padding: 8px; padding-bottom: 10px; gap: 12px; }
-		.signout button { min-height: 26px; font-size: 10px; }
 	}
 
 	@media (max-width: 640px) {
+		/* 8px side padding: two tabs stay ≥ 180px wide at 390px */
 		.tabwrap {
 			order: 2;
-			padding: 8px 12px;
-			padding-bottom: max(env(safe-area-inset-bottom), 12px);
+			padding: 8px 8px;
+			padding-bottom: max(env(safe-area-inset-bottom), 10px);
 			border-top: 1px solid var(--border-soft);
 			background: var(--paper);
 		}
@@ -108,23 +101,5 @@
 		}
 	}
 
-	/* rare action, quiet home: caps text at the end of the scroll */
-	.signout { display: flex; justify-content: center; margin-top: 8px; }
-	.signout button {
-		min-height: 44px;
-		padding: 0 16px;
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		font-family: var(--font-body);
-		font-size: 11px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		text-decoration: underline;
-		text-underline-offset: 3px;
-		text-decoration-color: var(--border-soft);
-	}
-	.signout button:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
+	
 </style>
