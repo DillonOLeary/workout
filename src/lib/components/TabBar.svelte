@@ -54,4 +54,11 @@
 	}
 	.tab:hover { background: var(--volt-tint); color: var(--ink); }
 	.tab.active { background: var(--ink); color: var(--paper); }
+	/* The bar's own curve clips the outer ends — a tab drawing its own pill
+	   corner inside that curve left a hairline of paper where the two
+	   anti-aliased edges met. Only the side where the tabs meet stays a pill. */
+	.tab:first-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+	.tab:last-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+	/* overflow: hidden would eat the outside focus ring — draw it inside */
+	.tab:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--volt); }
 </style>
