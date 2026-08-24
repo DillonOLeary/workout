@@ -4,16 +4,19 @@
 	let {
 		minutes,
 		target = 150,
+		label = 'Running — this week',
+		bare = false,
 		children
-	}: { minutes: number; target?: number; children?: Snippet } = $props();
+	}: { minutes: number; target?: number; label?: string; bare?: boolean; children?: Snippet } = $props();
 
 	let pct = $derived(Math.min(100, (minutes / target) * 100));
 	let onTarget = $derived(minutes >= target);
 </script>
 
-<div class="wp">
+<!-- bare: no card chrome, for nesting inside another card (Today's "This week") -->
+<div class="wp" class:bare>
 	<div class="head">
-		<span class="lbl">Running — this week</span>
+		<span class="lbl">{label}</span>
 		<span class="num">{minutes} / {target}<span class="unit"> min</span></span>
 	</div>
 	<div class="track" role="meter" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(minutes, target)} aria-label="Weekly run minutes">
@@ -38,6 +41,10 @@
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
 		padding: 20px;
+	}
+	.wp.bare {
+		background: transparent; border: none; box-shadow: none; border-radius: 0;
+		padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--border-soft);
 	}
 	.head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 	.lbl {

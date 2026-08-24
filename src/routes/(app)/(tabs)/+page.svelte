@@ -104,9 +104,13 @@
 		<p class="err">{form.message}</p>
 	{/if}
 
+	<!-- one card for the week: the strip, and the run meter under it -->
 	<Card>
 		<div class="caps mb10">This week</div>
 		<WeekStrip {cells} />
+		{#if plan.runs !== false}
+			<WeeklyProgress {minutes} target={runTarget} label="Running" bare />
+		{/if}
 	</Card>
 
 	{#if session}
@@ -169,10 +173,6 @@
 				</p>
 			{/each}
 		</div>
-	{/if}
-
-	{#if plan.runs !== false}
-		<WeeklyProgress {minutes} target={runTarget} />
 	{/if}
 
 	<section>
