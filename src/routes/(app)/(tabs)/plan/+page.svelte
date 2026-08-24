@@ -3,7 +3,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
-	import { dayTitle, rangeLabel, setsLabel, stepLabel } from '$lib/domain/projections';
+	import { dayTitle, rangeLabel, setsLabel } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -15,7 +15,7 @@
 	let day = $state('');
 	let shownDay = $derived(plan.days[day] ? day : dayKeys[0]);
 
-	// everything except the one already shown in full above
+	// everything except the plan already shown in full above
 	let others = $derived(data.plans.filter((p) => p.id !== plan.id));
 
 	let json = $state('');
@@ -25,20 +25,23 @@
 </script>
 
 <div class="col">
-	<h1>The Plan</h1>
+	<!-- The plan IS the page: its name is the title, not a label inside a
+	     wrapper card. The page lost weight by losing content, not by
+	     shrinking type — technique notes live on the gym floor's ⋯ sheet,
+	     where the movement is actually happening, and the increment column
+	     is gone because the rule below states it once. -->
+	<div class="titleblock">
+		<h1>{plan.name}</h1>
+		<div class="activemeta">
+			{plan.schedule}{plan.runs !== false ? ` · ${plan.runTarget ?? 150} min/wk` : ''}
+		</div>
+	</div>
 
 	{#if form?.message}
 		<p class="err">{form.message}</p>
 	{/if}
 
 	<Card pad={false}>
-		<div class="planhead-row">
-			<div class="activename">{plan.name}</div>
-			<!-- one line, not two stacked pills that each wrap on a phone -->
-			<div class="activemeta">
-				{plan.schedule}{plan.runs !== false ? ` · ${plan.runTarget ?? 150} min/wk` : ''}
-			</div>
-		</div>
 		<div class="dayhead">
 			<div class="chips">
 				{#each dayKeys as d (d)}
@@ -54,12 +57,10 @@
 				<div>
 					<div class="exname">{ex.name}</div>
 					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
-					{#if ex.note}<div class="exnote">{ex.note}</div>{/if}
 				</div>
 				<span class="exnums">
 					<span>{setsLabel(ex)}</span>
 					<span>{rangeLabel(ex)}</span>
-					<span class="exinc">{stepLabel(ex)}</span>
 				</span>
 			</div>
 		{/each}
@@ -80,7 +81,7 @@
 	</Card>
 
 	<!-- the case for the plans, one tap from the plans themselves -->
-	<a class="whycard" href="/why">
+	<a class="whycard" href="/plan/why">
 		<span class="caps">Why this works</span>
 		<span class="whytext">
 			30–60 min of strength work a week is linked to a <b>10–17% lower risk of all-cause
@@ -90,64 +91,62 @@
 		<span class="whygo">Read the cited case, and the fundamentals →</span>
 	</a>
 
-	<!-- Alternatives to the plan above, not siblings of it: folded away, because
-	     switching is a once-in-a-while act and three full cards drowned the page. -->
-	{#if others.length}
-		<details class="disclosure">
-			<summary>Other plans ({others.length})</summary>
-			<div class="plans">
-				{#each others as p (p.id)}
-					<form method="POST" action="?/select" use:enhance>
-						<input type="hidden" name="plan" value={p.id} />
-						<div class="plancard">
-							<button
-								type="button"
-								class="planbody"
-								onclick={() => (confirming = confirming === p.id ? null : p.id)}
-							>
-								<span class="planhead"><span class="planname">{p.name}</span></span>
-								{#if p.description}<span class="plandesc">{p.description}</span>{/if}
-								<span class="plansched">{p.schedule}</span>
-							</button>
-							{#if confirming === p.id}
-								<div class="confirmrow">
-									<span class="confirmtext">Switch to this plan? It goes in the ledger.</span>
-									<div class="confirmbtns">
-										<Button variant="accent" type="submit">Switch</Button>
-										<Button variant="ghost" type="button" onclick={() => (confirming = null)}>Cancel</Button>
+	<!-- Switching is a once-in-a-while act: one link folds away the other
+	     plans AND the raw plans table that used to be two separate sections. -->
+	<details class="disclosure">
+		<summary>Change plan</summary>
+		<div class="fold">
+			{#if others.length}
+				<div class="plans">
+					{#each others as p (p.id)}
+						<form method="POST" action="?/select" use:enhance>
+							<input type="hidden" name="plan" value={p.id} />
+							<div class="plancard">
+								<button
+									type="button"
+									class="planbody"
+									onclick={() => (confirming = confirming === p.id ? null : p.id)}
+								>
+									<span class="planhead"><span class="planname">{p.name}</span></span>
+									{#if p.description}<span class="plandesc">{p.description}</span>{/if}
+									<span class="plansched">{p.schedule}</span>
+								</button>
+								{#if confirming === p.id}
+									<div class="confirmrow">
+										<span class="confirmtext">Switch to this plan? It goes in the ledger.</span>
+										<div class="confirmbtns">
+											<Button variant="accent" type="submit">Switch</Button>
+											<Button variant="ghost" type="button" onclick={() => (confirming = null)}>Cancel</Button>
+										</div>
 									</div>
-								</div>
-							{/if}
-						</div>
-					</form>
-				{/each}
-			</div>
-		</details>
-	{/if}
-
-	<details class="advanced">
-		<summary>Advanced — plans table</summary>
-		<Card>
-		<div class="caps mb8">Plans table</div>
-		<p class="tabletext">
-			Plans are reference data — one JSON row each in the <code>ledger_plans</code> table, not
-			events in the ledger. Paste a row here to INSERT it (and switch to it).
-		</p>
-		<form method="POST" action="?/addPlan" use:enhance>
-			<textarea
-				name="json"
-				rows="4"
-				bind:value={json}
-				placeholder={'{"id": "upper-lower-v1", "name": "Upper / Lower", "schedule": "…", "days": {"U": […], "L": […]}}'}
-			></textarea>
-			{#if form?.planError}
-				<p class="err">Invalid row: {form.planError}</p>
+								{/if}
+							</div>
+						</form>
+					{/each}
+				</div>
 			{/if}
-			<Button variant="secondary" type="submit" style="margin-top: 10px" disabled={!json.trim()}>
-				Insert plan
-			</Button>
-		</form>
-		</Card>
+			<Card>
+				<div class="caps mb8">Plans table</div>
+				<p class="tabletext">
+					Plans are reference data — one JSON row each in the <code>ledger_plans</code> table, not
+					events in the ledger. Paste a row here to INSERT it (and switch to it).
+				</p>
+				<form method="POST" action="?/addPlan" use:enhance>
+					<textarea
+						name="json"
+						rows="4"
+						bind:value={json}
+						placeholder={'{"id": "upper-lower-v1", "name": "Upper / Lower", "schedule": "…", "days": {"U": […], "L": […]}}'}
+					></textarea>
+					{#if form?.planError}
+						<p class="err">Invalid row: {form.planError}</p>
+					{/if}
+					<Button variant="secondary" type="submit" style="margin-top: 10px" disabled={!json.trim()}>
+						Insert plan
+					</Button>
+				</form>
+			</Card>
+		</div>
 	</details>
 </div>
 
@@ -160,6 +159,8 @@
 		font-size: var(--text-display);
 		line-height: var(--leading-tight);
 	}
+	.titleblock { display: flex; flex-direction: column; gap: 4px; }
+	.activemeta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); }
 	.caps {
 		font-size: 12px;
 		font-weight: var(--weight-bold);
@@ -225,16 +226,12 @@
 		justify-content: space-between;
 		align-items: center;
 		gap: 12px;
-		padding: 18px 24px;
+		padding: 16px 24px;
 		border-top: 1px solid var(--border-soft);
 	}
 	.exrow.first { border-top: none; margin-top: 8px; }
 	.exname { font-weight: var(--weight-bold); font-size: 17px; }
 	.exequip { font-size: 13px; color: var(--ink-3); }
-	.exnote { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
-	.planhead-row { padding: 18px 24px 0; }
-	.activemeta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
-	.activename { font-family: var(--font-display); font-weight: var(--weight-black); font-size: var(--text-title); }
 	/* the rule, as the closing section of the plan card it governs */
 	.rulebox { padding: 18px 24px 20px; border-top: var(--border-w) solid var(--ink); background: var(--paper-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
 	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; }
@@ -255,11 +252,9 @@
 		/* the numbers claim their width; the name wraps before they do */
 		white-space: nowrap; flex: none;
 	}
-	.exinc { color: var(--ink-3); opacity: 0.8; }
 
-
-	/* both fold-aways share one look — see .advanced summary below */
-	.disclosure[open] > .plans { margin-top: 12px; }
+	.fold { display: flex; flex-direction: column; gap: 16px; }
+	.disclosure[open] > summary { margin-bottom: 12px; }
 
 	.tabletext { margin: 0 0 12px; font-size: 15px; color: var(--ink-2); line-height: var(--leading-body); }
 	code { font-family: var(--font-mono); font-size: 13px; }
@@ -277,7 +272,6 @@
 	.err { margin: 6px 0 0; color: var(--danger); font-size: var(--text-sm); font-weight: var(--weight-bold); }
 
 	/* <details> gives us the disclosure for free — no JS state needed */
-	.advanced summary,
 	.disclosure summary {
 		list-style: none;
 		display: inline-flex;
@@ -293,13 +287,8 @@
 		border-radius: var(--radius-sm);
 		padding: 0 4px;
 	}
-	.advanced summary::-webkit-details-marker,
 	.disclosure summary::-webkit-details-marker { display: none; }
-	.advanced summary::before,
 	.disclosure summary::before { content: '▸'; }
-	.advanced[open] summary::before,
 	.disclosure[open] summary::before { content: '▾'; }
-	.advanced summary:hover,
 	.disclosure summary:hover { color: var(--ink); background: var(--volt-tint); }
-	.advanced[open] summary { margin-bottom: 12px; }
 </style>

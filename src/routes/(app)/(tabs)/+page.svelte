@@ -5,19 +5,19 @@
 	import Card from '$lib/components/Card.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
 	import WeeklyProgress from '$lib/components/WeeklyProgress.svelte';
-	import { dayTitle, nextDay, nextLoad, warmupFor, weekRunMinutes } from '$lib/domain/projections';
+	import { dayTitle, nextDay, nextLoad, weekRunMinutes } from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
 	/**
-	 * Today answers one question — what do I do right now — and has to answer it
-	 * without scrolling, because it is the screen you check on the way out the
-	 * door. Everything here is either the next action or the score. The full
-	 * exercise list used to live here; it is one tap away on The Plan, and the
-	 * gym floor shows each lift as you reach it, so it was costing a screenful
-	 * to say something twice.
+	 * Today answers one question — what do I do right now — and has to answer
+	 * it without scrolling, because it is the screen you check on the way out
+	 * the door. The card carries the day title, one mono line for the shape of
+	 * the session and what the rule changed, and a big Start. Everything else
+	 * (the exercise list, warm-up, technique) lives where it is used: The Plan
+	 * tab and the gym floor's ⋯ sheet.
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
@@ -37,6 +37,11 @@
 	// wraps to a second line and costs more height than the news is worth
 	const summarise = (names: string[]) =>
 		names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
+	let shape = $derived(
+		`${dueList.length} exercises · ${dueSets} sets` +
+			(ups.length ? ` · ↑ ${summarise(ups)}` : '') +
+			(downs.length ? ` · ↓ ${summarise(downs)}` : '')
+	);
 
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
 	let sessionSets = $derived(
@@ -64,8 +69,6 @@
 <div class="col">
 	<div class="head">
 		<h1>Today</h1>
-		<!-- the run badge lived here while runs were below the fold; the meter
-		     itself is on screen now, so repeating it is just height -->
 		<Badge tone="neutral">{today}</Badge>
 	</div>
 
@@ -89,34 +92,12 @@
 		<Card interactive>
 			<div class="caps">Next up</div>
 			<div class="title">{dayTitle(plan, due)}</div>
-			{#if plan.dayInfo?.[due]?.desc}
-				<div class="desc">{plan.dayInfo[due].desc}</div>
-			{/if}
-			{#if warmupFor(plan, due)}
-				<div class="desc">Warm up: {warmupFor(plan, due)}</div>
-			{/if}
-			<!-- the shape of the session, and a way through to the detail -->
-			<a class="scope" href="/plan">
-				{dueList.length} exercises · {dueSets} sets<span class="scopego">see the plan →</span>
-			</a>
-
-			{#if ups.length || downs.length}
-				<div class="changes">
-					{#if ups.length}
-						<span class="pill up">↑</span><span class="pilltext">{summarise(ups)}</span>
-					{/if}
-					{#if downs.length}
-						<span class="pill down">↓</span><span class="pilltext">{summarise(downs)}</span>
-					{/if}
-				</div>
-			{/if}
+			<div class="mono-sub">{shape}</div>
 
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="day" value={due} />
 				<input type="hidden" name="plan" value={plan.id} />
-				<Button variant="accent" size="lg" type="submit" style="width: 100%">
-					Start {dayTitle(plan, due)}
-				</Button>
+				<button type="submit" class="startbtn">Start workout</button>
 			</form>
 			<div class="alts">
 				{#each dayKeys.filter((d) => d !== due) as d (d)}
@@ -167,37 +148,31 @@
 		margin: 4px 0 2px;
 	}
 	.mono-sub { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); margin-bottom: 16px; }
-	.desc { font-size: var(--text-sm); color: var(--ink-3); }
 	.row { display: flex; align-items: center; }
 	.gap12 { gap: 12px; }
 	.wrap { flex-wrap: wrap; }
 	.grow { flex: 1; }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); }
 
-	/* the session's shape, doubling as the door to the full list */
-	.scope {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: 12px;
-		margin: 10px 0 12px;
-		padding-bottom: 10px;
-		border-bottom: 1px solid var(--border-soft);
-		font-family: var(--font-mono);
-		font-size: 14px;
-		color: var(--ink-2);
-		text-decoration: none;
+	/* the one thing this screen exists for — 76px of it */
+	.startbtn {
+		width: 100%;
+		min-height: 76px;
+		background: var(--volt);
+		color: var(--ink);
+		border: var(--border-w) solid var(--ink);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-raised-lg);
+		font-family: var(--font-display);
+		font-weight: var(--weight-black);
+		font-size: 22px;
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+		cursor: pointer;
+		touch-action: manipulation;
 	}
-	.scopego { font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 13px; color: var(--ink); white-space: nowrap; }
-	.scope:hover .scopego { text-decoration: underline; }
-
-	/* what the rule changed for this workout — a line, not two banners */
-	.changes { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; font-size: 14px; min-width: 0; }
-	.pill { font-family: var(--font-mono); font-weight: 700; padding: 0 5px; border-radius: 4px; }
-	.pill.up { background: var(--volt); color: var(--ink); }
-	.pill.down { border: 1px solid var(--ink-3); color: var(--ink-2); }
-	.pilltext { color: var(--ink-2); margin-right: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.pill { flex: none; }
+	.startbtn:hover { background: var(--volt-deep); }
+	.startbtn:active { transform: translateY(3px); box-shadow: var(--shadow-pressed); }
 
 	/* the other day: a real submit, dressed down to a link so it can't compete
 	   with the primary action directly above it */
@@ -238,47 +213,33 @@
 	.resume:hover { background: var(--volt-deep); }
 	.resume:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
-	/* Phones: Today must not scroll — it is the screen you check on the way out
-	   the door, and a page-down to find the start button defeats the point.
-	   Nothing is removed here, only tightened. Desktop keeps the roomy ring. */
+	/* Phones: Today must not scroll. Nothing is removed here, only tightened. */
 	@media (max-width: 900px) {
 		.col { gap: 12px; }
 		h1 { font-size: 30px; }
 		.title { font-size: 22px; margin: 2px 0; }
-		.scope { margin: 8px 0 10px; padding-bottom: 8px; }
-		.changes { margin-bottom: 10px; }
 		.alts { margin-top: 4px; }
 		.altlink { min-height: 36px; }
 		.mono-sub { margin-bottom: 12px; }
 	}
 
-	/* Very short phones (SE, older Androids): the pattern summary goes, since
-	   the exercise count below it already says what kind of session this is. */
 	@media (max-height: 700px) {
 		.col { gap: 8px; }
 		h1 { font-size: 24px; }
 		.title { font-size: 19px; }
-		.desc { display: none; }
-		.scope { margin: 6px 0 8px; padding-bottom: 6px; }
 		.altlink { min-height: 32px; }
-		.changes { margin-bottom: 8px; font-size: 13px; }
-		.scopego { font-size: 12px; }
 	}
 
-	/* Smallest screens (SE with Safari's bars up): the session-shape line is
-	   the only thing here that is information rather than action, and the
-	   Plan tab reaches the same detail in one tap. */
 	@media (max-height: 620px) {
-		.scope { display: none; }
 		.col { gap: 6px; }
 		.altlink { min-height: 28px; }
 		.mono-sub { margin-bottom: 8px; font-size: 14px; }
 	}
 
 	@media (max-height: 560px) {
-		/* 44px is the touch floor, not a suggestion — this is as small as the
-		   resume/finish pair is allowed to get */
+		/* 44px is the touch floor, not a suggestion */
 		.resume { min-height: 44px; font-size: 15px; }
+		.startbtn { min-height: 64px; font-size: 19px; }
 		h1 { font-size: 22px; }
 		.caps { font-size: 11px; }
 		.title { font-size: 17px; }

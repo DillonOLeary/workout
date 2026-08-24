@@ -189,8 +189,9 @@ src/routes/
    ├─ +layout.server.ts           ONE load for all pages: plans + events (uid from locals)
    ├─ (tabs)/                     nested group — the TabBar shell
    │  ├─ +page.svelte             Today        (/)
+   │  ├─ ledger/+page.svelte      Ledger       (/ledger)
    │  ├─ plan/+page.svelte        The Plan     (/plan)
-   │  └─ ledger/+page.svelte      Ledger       (/ledger)
+   │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
    ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)
    └─ export/+server.ts           GET /export: the stream as a JSON download
 ```
@@ -210,8 +211,9 @@ Things to notice:
 - **Form actions are the only mutations.** No API routes, no fetch handlers —
   `<form method="POST" action="?/logSet">` works with JS disabled, and
   `use:enhance` upgrades it to a fetch that re-runs `load` and updates `data`
-  in place. The gym floor uses the callback form to flash volt and auto-advance
-  ([log/+page.svelte](src/routes/u/[uid]/log/+page.svelte), `enhanceLog`).
+  in place. The one exception that proves the rule is the gym floor's set
+  queue, which POSTs the same `?/logSet` action by hand (§4½) — but even
+  there, Finish is a real hidden `<form use:enhance>`.
 - **Errors flow as data.** The decider throws → the action catches
   (`tryCommand`) → `fail(400, { message })` → the page renders `form.message`.
   Infrastructure errors still crash to a 500, as they should.
@@ -226,7 +228,7 @@ Things to notice:
 | `$bindable` | `Stepper.svelte` — `bind:value={runMin}` two-way binds parent state |
 | `Snippet` / `{@render children()}` | `Button`, `Card` — Svelte's children |
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ weight, 1–9 reps, Enter logs |
-| `class:` directive | `class:done={i < done}` on the set-pips rail |
+| `class:` directive | `class:single={isBW}` on the floor's adjust tiles; row states on the set table |
 | scoped `<style>` | every component — the design system's tokens are global, layout is local |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
@@ -246,9 +248,12 @@ patterns worth studying:
   no invalidation runs mid-session. The safety net is in the DOMAIN, not the
   UI: the decider treats a duplicate `(exercise, set)` as a zero-event no-op,
   so ambiguous network retries are idempotent, and Emmett's
-  `retry: { onVersionConflict: true }` absorbs concurrent appends. Exiting the
-  screen drains the queue, then `goto(..., { invalidateAll: true })` restores
-  server truth.
+  `retry: { onVersionConflict: true }` absorbs concurrent appends. A set the
+  server rejects stays on the table as a failed row with a Retry — marked,
+  never silently removed — and the floor draws the whole queue as rows of a
+  set table (confirmed / saving… / current / upcoming), which replaced the
+  old progress rail. Exiting the screen drains the queue, then
+  `goto(..., { invalidateAll: true })` restores server truth.
 - **Schema evolution without migration**
   ([events.ts](src/lib/domain/events.ts)): planks became seconds-based by
   ADDING an optional `unit?: 'reps' | 's'` field whose absence means what old

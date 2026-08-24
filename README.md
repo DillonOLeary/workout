@@ -17,7 +17,7 @@ a Svelte + event-sourcing course.
 
 Wondering whether the plans are any good? [TRAINING.md](TRAINING.md) is the
 sourced case for them, plus the training fundamentals behind the one rule.
-The same thing lives in the app at `/why`.
+The same thing lives in the app at `/plan/why`.
 
 ## Run it
 

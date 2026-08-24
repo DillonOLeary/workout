@@ -11,11 +11,20 @@
 		projectSessions,
 		uniformLoad
 	} from '$lib/domain/projections';
+	import type { SessionRow, SessionSet } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
-	// two-tap arm before removing — same pattern as Finish on the gym floor
+	/**
+	 * The Ledger tab is the event stream made human-readable: two columns —
+	 * the exercise, and what happened. Removing an entry is a rare correction,
+	 * so the Remove buttons hide behind one "Edit entries" toggle instead of
+	 * sitting on every card.
+	 */
+	let editMode = $state(false);
+
+	// two-tap arm before removing — the red waits for stated intent
 	let removing = $state<string | null>(null);
 	let removeTimer: ReturnType<typeof setTimeout> | undefined;
 	function armRemove(id: string) {
@@ -24,8 +33,6 @@
 		removeTimer = setTimeout(() => (removing = null), 3000);
 	}
 
-	// The Ledger tab is the event stream made human-readable. Sessions and
-	// runs are the story; plan switches are footnotes (see below).
 	let sessions = $derived(projectSessions(data.events));
 	let runs = $derived(projectRuns(data.events));
 	let switches = $derived(projectPlanSwitches(data.events));
@@ -45,14 +52,39 @@
 		data.plans.flatMap((p) => Object.values(p.days).flat()).find((e) => e.name === name);
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
+
+	/** "45 lb · 12 · 11 · 10" · "8 L · 8 R" · "30s L · 30s R" · "50×12 · 45×10" */
+	function rowValue(row: SessionRow): string {
+		const ex = exByName(row.exercise);
+		const hold = ex?.mode === 'seconds' || row.sets.some((st) => st.unit === 's');
+		const n = (st: SessionSet) => (hold || st.unit === 's' ? `${st.reps}s` : String(st.reps));
+		// side: 'sets' — each set is one side, so say which (matches the floor)
+		if (ex?.side === 'sets')
+			return row.sets.map((st, i) => `${n(st)} ${i % 2 === 0 ? 'L' : 'R'}`).join(' · ');
+		if (ex?.bodyweight) return row.sets.map(n).join(' · ');
+		// a row whose load moved shows every set: collapsing it to one number
+		// is what used to hide the heavier sets before a back-off
+		if (uniformLoad(row.sets)) {
+			const w = ex
+				? loadLabel(row.sets[0].weight, ex)
+				: row.sets[0].weight
+					? `${row.sets[0].weight} lb`
+					: '';
+			const reps = row.sets.map(n).join(' · ');
+			return w ? `${w} · ${reps}` : reps;
+		}
+		return (
+			row.sets.map((st) => `${st.weight}×${n(st)}`).join(' · ') + (ex?.each ? ' each hand' : '')
+		);
+	}
 </script>
 
 <div class="col">
 	<div class="head">
 		<h1>Ledger</h1>
-		<a class="export" href="/export" download="training-ledger-events.json">
-			Export JSON
-		</a>
+		<button type="button" class="edit" aria-pressed={editMode} onclick={() => (editMode = !editMode)}>
+			{editMode ? 'Done' : 'Edit entries'}
+		</button>
 	</div>
 
 	{#if form?.message}
@@ -70,16 +102,18 @@
 					<span class="date">{en.r.dateLabel}</span>
 					<span class="runlbl">Run</span>
 					<span class="runmin">{en.r.minutes} min</span>
-					<form method="POST" action="?/removeRun" use:enhance>
-						<input type="hidden" name="run" value={en.r.at} />
-						{#if removing === en.r.at}
-							<button type="submit" class="remove armed">Remove?</button>
-						{:else}
-							<button type="button" class="remove" onclick={() => armRemove(en.r.at)}>
-								Remove
-							</button>
-						{/if}
-					</form>
+					{#if editMode}
+						<form method="POST" action="?/removeRun" use:enhance>
+							<input type="hidden" name="run" value={en.r.at} />
+							{#if removing === en.r.at}
+								<button type="submit" class="remove armed">Remove?</button>
+							{:else}
+								<button type="button" class="remove" onclick={() => armRemove(en.r.at)}>
+									Remove
+								</button>
+							{/if}
+						</form>
+					{/if}
 				</div>
 			</Card>
 		{:else}
@@ -89,38 +123,29 @@
 					<span class="sessbadges">
 						{#if !en.s.finished}<Badge tone="warning">In progress</Badge>{/if}
 						<Badge tone="neutral">{dayTitle(planById(en.s.plan), en.s.day)}</Badge>
-						<form method="POST" action="?/remove" use:enhance>
-							<input type="hidden" name="session" value={en.s.id} />
-							{#if removing === en.s.id}
-								<button type="submit" class="remove armed">Remove?</button>
-							{:else}
-								<button type="button" class="remove" onclick={() => armRemove(en.s.id)}>
-									Remove
-								</button>
-							{/if}
-						</form>
+						{#if editMode}
+							<form method="POST" action="?/remove" use:enhance>
+								<input type="hidden" name="session" value={en.s.id} />
+								{#if removing === en.s.id}
+									<button type="submit" class="remove armed">Remove?</button>
+								{:else}
+									<button type="button" class="remove" onclick={() => armRemove(en.s.id)}>
+										Remove
+									</button>
+								{/if}
+							</form>
+						{/if}
 					</span>
 				</div>
 				{#each en.s.rows as row (row.exercise)}
 					{@const ex = exByName(row.exercise)}
 					{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
-					{@const hold = ex?.mode === 'seconds' || row.sets.some((st) => st.unit === 's')}
-					{@const flat = uniformLoad(row.sets)}
 					<div class="sessrow">
 						<span class="exname">
 							{row.exercise}
 							{#if lvl}<span class="uppill">↑</span>{/if}
 						</span>
-						<!-- a row whose load moved shows every set: collapsing it to one number
-						     is what used to hide the heavier sets before a back-off -->
-						<span class="w">
-							{ex?.bodyweight ? 'BW' : flat ? (ex ? loadLabel(row.sets[0].weight, ex) : `${row.sets[0].weight} lb`) : 'varied'}
-						</span>
-						<span class="reps">
-							{flat
-								? row.sets.map((st) => (hold ? `${st.reps}s` : st.reps)).join(' · ')
-								: row.sets.map((st) => `${st.weight}×${hold ? `${st.reps}s` : st.reps}`).join(' · ')}
-						</span>
+						<span class="val">{rowValue(row)}</span>
 					</div>
 				{/each}
 			</Card>
@@ -133,17 +158,20 @@
 		</button>
 	{/if}
 
-	{#if switches.length}
-		<details class="switches">
-			<summary>{switches.length} plan {switches.length === 1 ? 'change' : 'changes'}</summary>
-			{#each switches as w (w.at)}
-				<div class="switchline">
-					<span class="date">{w.dateLabel}</span>
-					<span class="switchtext">Switched plan → <b>{planName(w.plan)}</b></span>
-				</div>
-			{/each}
-		</details>
-	{/if}
+	<div class="foot">
+		{#if switches.length}
+			<details class="switches">
+				<summary>{switches.length} plan {switches.length === 1 ? 'change' : 'changes'}</summary>
+				{#each switches as w (w.at)}
+					<div class="switchline">
+						<span class="date">{w.dateLabel}</span>
+						<span class="switchtext">Switched plan → <b>{planName(w.plan)}</b></span>
+					</div>
+				{/each}
+			</details>
+		{/if}
+		<a class="exportlink" href="/export" download="training-ledger-events.json">Export JSON</a>
+	</div>
 </div>
 
 <style>
@@ -156,22 +184,23 @@
 		font-size: var(--text-display);
 		line-height: var(--leading-tight);
 	}
-	.export {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: var(--hit-min);
-		padding: 0 22px;
+	/* corrections are rare: one quiet toggle, not a button on every card */
+	.edit {
+		min-height: 44px;
+		padding: 0 14px;
+		background: transparent;
+		border: 1px solid var(--border-soft);
+		border-radius: var(--radius-pill);
+		font-family: var(--font-body);
+		font-size: 12px;
 		font-weight: var(--weight-bold);
-		color: var(--ink);
-		background: var(--white);
-		border: var(--border-w) solid var(--ink);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised);
-		text-decoration: none;
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+		cursor: pointer;
 	}
-	.export:hover { background: var(--volt-tint); }
-	.export:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
+	.edit:hover { color: var(--ink); border-color: var(--ink); }
+	.edit[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
 
 	.empty { font-size: 16px; color: var(--ink-2); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
@@ -204,8 +233,6 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		/* date + up to two badges + Remove does not fit one line on a phone,
-		   and an unwrapped flex row just overflows the card instead of saying so */
 		flex-wrap: wrap;
 		gap: 8px;
 		padding: 16px 24px;
@@ -213,16 +240,14 @@
 		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
 	.sessbadges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
-	/* Wrapping alone wasn't enough: the date could shrink, so the row kept
-	   "fitting" while the badge group — which cannot shrink below its content
-	   — overflowed instead. On a phone they stack, which cannot overflow. */
 	@media (max-width: 700px) {
 		.sesshead { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 16px; }
 		.sessbadges { width: 100%; }
 	}
+	/* two columns: the exercise, and what happened */
 	.sessrow {
 		display: grid;
-		grid-template-columns: 1fr auto auto;
+		grid-template-columns: 1fr auto;
 		gap: 16px;
 		align-items: center;
 		padding: 14px 24px;
@@ -238,8 +263,7 @@
 		font-size: 12px;
 		font-weight: var(--weight-bold);
 	}
-	.w { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; }
-	.reps { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); }
+	.val { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); text-align: right; }
 
 	.more {
 		min-height: var(--hit-min);
@@ -256,6 +280,23 @@
 	}
 	.more:hover { background: var(--volt-tint); }
 	.more:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
+
+	.foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+	.exportlink {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 4px;
+		font-size: 12px;
+		font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-color: var(--border-soft);
+	}
+	.exportlink:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
 
 	/* Plan switches: recorded honestly, displayed quietly */
 	.switches summary {

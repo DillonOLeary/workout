@@ -17,8 +17,8 @@
 			<TabBar
 				tabs={[
 					{ label: 'Today', href: '/' },
-					{ label: 'The Plan', href: '/plan' },
-					{ label: 'Ledger', href: '/ledger' }
+					{ label: 'Ledger', href: '/ledger' },
+					{ label: 'The Plan', href: '/plan' }
 				]}
 			/>
 		</div>

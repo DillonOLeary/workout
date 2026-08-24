@@ -2,6 +2,10 @@
 	import { page } from '$app/state';
 
 	let { tabs }: { tabs: { label: string; href: string }[] } = $props();
+
+	// a child page keeps its tab lit: /plan/why is still The Plan
+	const isActive = (href: string) =>
+		page.url.pathname === href || (href !== '/' && page.url.pathname.startsWith(href + '/'));
 </script>
 
 <!-- Tabs are plain links: SvelteKit's file-based routes do the "switching". -->
@@ -10,8 +14,8 @@
 		<a
 			href={tab.href}
 			class="tab"
-			class:active={page.url.pathname === tab.href}
-			aria-current={page.url.pathname === tab.href ? 'page' : undefined}
+			class:active={isActive(tab.href)}
+			aria-current={isActive(tab.href) ? 'page' : undefined}
 		>
 			{tab.label}
 		</a>
