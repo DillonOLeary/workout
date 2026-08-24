@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
 
 	/**
-	 * The case for the plans, on the same screen as the plans. Static content
-	 * on purpose — no load(), nothing derived from events. Every claim carries
-	 * a numbered reference; the reference list at the bottom is the point of
-	 * the page, not decoration.
+	 * The case for the plans, on the same screen as the plans — written as an
+	 * essay, not a card deck, because it IS an argument. Static on purpose: no
+	 * load(), nothing derived from events. Every claim carries a numbered
+	 * reference; the list at the bottom is the point of the page, not
+	 * decoration. Reference numbering matches TRAINING.md exactly.
 	 */
 	const refs = [
 		{
@@ -155,66 +155,6 @@
 			url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7018791/'
 		}
 	];
-
-	const fundamentals = [
-		{
-			t: 'The reason to lift isn’t aesthetic',
-			body: 'Muscle-strengthening activity is linked to 10–17% lower risk of all-cause mortality, cardiovascular disease, cancer and diabetes — independently of aerobic exercise. The benefit shows up at 30–60 minutes a week, and the curve is J-shaped: past about an hour a week there’s no conclusive further gain.',
-			punch: 'Two or three sessions isn’t a down-payment on a real program. It is the program.',
-			cite: [3, 2]
-		},
-		{
-			t: 'Progressive overload is the whole engine',
-			body: 'The body adapts to a stress slightly beyond what it currently handles, so the stress has to keep rising. The practical form here is double progression, set by set: keep the weight, add reps; the set that reaches the top of the range takes the next size up next time, and starts again at the bottom. That’s literal — free weights come in fixed sizes, so the ledger steps along the real ladder (dumbbells 2.5 lb through the light end then 5, kettlebells on the kg castings). Machines keep a per-exercise increment, because stacks differ too much between gyms to guess at.',
-			punch: 'It’s self-limiting — a set can’t add weight until it has earned it. That’s what makes it safe.',
-			cite: [12, 19]
-		},
-		{
-			t: 'Effort matters more than load',
-			body: 'Muscle growth is similar across loads from roughly 30% to 100% of your one-rep max, as long as each set is taken close to failure. Maximal strength does favour heavy loads — but for muscle and health there is no magic rep range.',
-			punch: '8–15 reps with a moderate dumbbell isn’t a lesser version of heavy lifting. The curve is nearly flat.',
-			cite: [6, 1]
-		},
-		{
-			t: 'You don’t need to train to failure',
-			body: 'Going to momentary failure gives no meaningful advantage over stopping 1–3 reps short, for strength, size or power. It just costs more fatigue and more risk.',
-			punch: 'The last rep should be hard but clean. If your form breaks, that rep subtracted.',
-			cite: [1, 7]
-		},
-		{
-			t: 'About 10 hard sets per muscle per week — for growth',
-			body: 'There’s a graded dose-response between weekly sets and muscle growth, and the 2026 ACSM position stand converges on ~10 sets per muscle per week for hypertrophy. Read the number carefully: that’s a growth threshold, not a health threshold.',
-			punch: 'Under 10 isn’t a failed program. It’s a program aimed at something else.',
-			cite: [4, 1]
-		},
-		{
-			t: 'Spread the work over two sessions',
-			body: 'With weekly volume held equal, training a muscle twice a week beats training it once.',
-			punch: 'Two moderate sessions beat one punishing one.',
-			cite: [5]
-		},
-		{
-			t: 'Machines aren’t cheating',
-			body: 'Free weights and machines show no detectable difference in strength or hypertrophy outcomes. Choose for consistency and for what doesn’t hurt.',
-			punch: 'A machine you use beats a barbell you avoid.',
-			cite: [8]
-		},
-		{
-			t: 'Soreness is not the scoreboard',
-			body: 'Post-exercise soreness isn’t a valid indicator of adaptation — it tracks novelty, connective tissue and personal pain sensitivity, not growth. Separately: rest more than 60s between sets — past ~90s adds little for growth, though strength likes longer, so take about two minutes on the squat and the hinge. And on range of motion — for muscle growth, full ROM beats partial only trivially; but for range of motion itself, lifting through a full range increases joint ROM about as much as stretching does, to the point that stretching around a session may add nothing on top.',
-			punch: 'Not being sore doesn’t mean it didn’t work.',
-			cite: [11, 10, 9, 14]
-		}
-	];
-
-	// Stated last on purpose: it reframes the eight above as refinements.
-	const headline = {
-		t: 'And the thing the 2026 stand leads with',
-		body:
-			'The ACSM’s own summary of 137 reviews is that the largest gain by far is going from no resistance training to any resistance training — bands, bodyweight and home routines all produce marked improvements. Training to failure, equipment choice and periodisation “did not consistently impact outcomes” for the average healthy adult, and rigid prescriptions are no longer supported.',
-		punch: 'The eight above are refinements, not entry requirements. The plan you’ll repeat beats the optimal one you won’t.',
-		cite: [1]
-	};
 </script>
 
 <div class="col">
@@ -223,214 +163,170 @@
 		<a class="back" href="/plan">← The Plan</a>
 	</div>
 
-	<Card>
+	<article class="essay">
 		<p class="lede">
-			A sourced case for these three plans, and enough of the fundamentals to judge them
-			yourself instead of taking anyone’s word for it. Where the evidence is strong, this says
-			so. Where it’s thin, or where a call is judgement rather than a finding, it says that too.
+			A sourced case for these plans, and enough of the fundamentals to judge them yourself
+			instead of taking anyone’s word for it. Where the evidence is strong, this says so;
+			where a call is judgement rather than a finding, it says that too. A case you can’t
+			check isn’t a case — so every claim is numbered.
 		</p>
-		<p class="lede quiet">A case you can’t check isn’t a case — so every claim is numbered.</p>
-	</Card>
 
-	<section>
-		<div class="caps mb8">Part 1 — Eight fundamentals</div>
-		<div class="stack">
-			{#each fundamentals as f, i (f.t)}
-				<Card>
-					<div class="fnum">{i + 1}</div>
-					<h2>{f.t}</h2>
-					<p>{f.body}</p>
-					<p class="punch">{f.punch}</p>
-					<div class="cites">
-						{#each f.cite as c (c)}
-							<a href="#ref-{c}" class="cite">[{c}]</a>
-						{/each}
-					</div>
-				</Card>
-			{/each}
-			<Card>
-				<div class="fnum">+</div>
-				<h2>{headline.t}</h2>
-				<p>{headline.body}</p>
-				<p class="punch">{headline.punch}</p>
-				<div class="cites">
-					{#each headline.cite as c (c)}<a href="#ref-{c}" class="cite">[{c}]</a>{/each}
-				</div>
-			</Card>
-		</div>
-	</section>
+		<h2>The case for lifting at all</h2>
+		<p>
+			Muscle-strengthening activity is associated with a 10–17% lower risk of all-cause
+			mortality, cardiovascular disease, cancer and diabetes — independently of aerobic
+			exercise <a href="#ref-3" class="cite">[3]</a>. The dose is smaller than anyone expects:
+			the benefit shows up at 30–60 minutes a week, and past about an hour the curve goes
+			flat. The WHO guideline has the same shape — aerobic minutes <i>plus</i> strength work
+			on two or more days <a href="#ref-2" class="cite">[2]</a>. Two or three short sessions
+			a week is not a down-payment on a real program. It is the program.
+		</p>
+		<p>
+			The 2026 ACSM position stand, a summary of 137 reviews, leads with the same reframe:
+			the largest gain by far is going from no resistance training to any. Training to
+			failure, equipment choice and periodisation “did not consistently impact outcomes” for
+			the average healthy adult <a href="#ref-1" class="cite">[1]</a>. Everything below is a
+			refinement, not an entry requirement — and the plan you’ll actually repeat beats the
+			optimal one you won’t.
+		</p>
 
-	<section>
-		<div class="caps mb8">Part 2 — The plans, one at a time</div>
-		<div class="stack">
-			<Card>
-				<h2>Open to Work</h2>
-				<div class="badges"><Badge tone="neutral">Lift Mon / Wed / Fri</Badge><Badge tone="neutral">Run 3×/week</Badge></div>
-				<p>
-					All six fundamental movement patterns every week, with push and pull balanced 1:1 in
-					both planes — the thing self-made programs most often miss — plus the two things a
-					<i>runner’s</i> lifting plan most often lacks. The soleus produces more force than any
-					other muscle in running and calf strength tracks running economy
-					<a href="#ref-17" class="cite">[17]</a>; it had zero sets, and now has nine a week.
-					And nothing trained external rotation at the shoulder, the one shoulder-health input
-					with a trial behind it <a href="#ref-22" class="cite">[22]</a> — two light sets of
-					face pulls after the press fix that. The hinge still appears on both days, so it runs
-					every session on top of three runs: comfortable at these loads, and the first place
-					recovery will run short as the weights climb.
-				</p>
-				<p>
-					The core slots are deliberately not long holds. A plank past twenty seconds is an
-					endurance test; the long-lever version roughly doubles abdominal activation at the same
-					length <a href="#ref-18" class="cite">[18]</a>, and the Copenhagen plank loads the
-					adductors, which nothing else in a front-to-back plan touches. Both progress by getting
-					harder, never longer.
-				</p>
-				<div class="tablewrap">
-					<table>
-						<thead><tr><th>Muscle group</th><th>Sets/week</th><th>vs. growth mark <a href="#ref-1" class="cite">[1]</a></th></tr></thead>
-						<tbody>
-							<tr><td>Hamstrings / glutes</td><td>~13</td><td>above</td></tr>
-							<tr><td>Back</td><td>~9 (+3 rear delt)</td><td>at the mark</td></tr>
-							<tr><td>Quads</td><td>~9</td><td>at the mark</td></tr>
-							<tr><td>Calves</td><td>~9</td><td>at the mark</td></tr>
-							<tr><td>Core</td><td>~7.5</td><td>near</td></tr>
-							<tr><td>Adductors</td><td>~3</td><td>maintenance</td></tr>
-							<tr><td>Chest</td><td>~4.5</td><td>below</td></tr>
-							<tr><td>Shoulders</td><td>~4.5 (+3 rear delt)</td><td>below</td></tr>
-						</tbody>
-					</table>
-				</div>
-				<p>
-					So lower body and back are dosed for growth; <b>chest and shoulders are dosed for
-					strength and maintenance, not size</b>. If visible upper-body change is a goal, the
-					cleanest fix is a third day with a second press and a chest-supported row — and it
-					only makes sense once three sessions a week is a habit. If it isn’t a goal, this is
-					fine as written.
-				</p>
-				<p>
-					Two honest limits on the running side. Ninety minutes a week of easy running costs
-					nothing on the lifting side — interference is real only at far higher endurance doses
-					<a href="#ref-21" class="cite">[21]</a>. But 8–12 rep training does little for running
-					economy on its own; what moves running is heavy loading and the calves
-					<a href="#ref-17" class="cite">[17]</a><a href="#ref-20" class="cite">[20]</a>. The
-					calf raise is the part of this plan that is <i>for</i> the running. 90 min sits inside
-					the WHO’s 75–150 min vigorous band, and the lifting covers the ≥2 muscle-strengthening
-					days <a href="#ref-2" class="cite">[2]</a>.
-				</p>
-			</Card>
+		<h2>The engine: one rule, run set by set</h2>
+		<p>
+			Your body adapts to a stress slightly beyond what it currently handles, so the stress
+			has to keep rising <a href="#ref-12" class="cite">[12]</a>. The practical form in a gym
+			of fixed dumbbell sizes is double progression — keep the weight, add reps, take the
+			next size when you reach the top of the range — and the detail that decides whether it
+			works is <i>what counts as reaching the top</i>. This app’s original answer was every
+			set at once, at one load: the strictest version in use, and in practice it never fired.
+			The rule now runs per set, the way coaches actually apply it
+			<a href="#ref-19" class="cite">[19]</a>: hit the top of the range on a set and
+			<b>that set</b> takes the next size next time, while the others keep climbing where
+			they are. The strongest set never waits for the weakest, and a rack that jumps 14–20%
+			between sizes gets absorbed one set at a time.
+		</p>
+		<p>
+			Down has two paths, both one size at a time. Miss the bottom of the range on the same
+			set, at the same weight, twice inside a fortnight, and that set backs off a size — two
+			misses are evidence. Stay away more than a fortnight and everything comes back one size
+			lighter, never below the start — a haircut, not a verdict. There used to be a third
+			rule here, the classic “stall three sessions, drop 10%”. It’s gone: the one randomised
+			trial of a scheduled deload found no benefit for size and a cost to strength
+			<a href="#ref-15" class="cite">[15]</a>, and one session a week at a held load
+			maintains for months <a href="#ref-16" class="cite">[16]</a> — so at low frequency a
+			“stall” is under-stimulus, not fatigue, and a 10% cut is just a slide.
+		</p>
+		<p>
+			Timed holds follow the same philosophy in a different axis: they stop at the top of
+			their range. A plank past twenty seconds is an endurance test, not a strength stimulus;
+			the long-lever version roughly doubles abdominal work at the same length
+			<a href="#ref-18" class="cite">[18]</a>. Past the cap, the exercise note names the
+			harder variation. Holds get harder, never longer.
+		</p>
 
-			<Card>
-				<h2>Full Range of Motion</h2>
-				<div class="badges"><Badge tone="neutral">Lift Mon / Thu</Badge><Badge tone="neutral">NRC runs Wed / Sat</Badge></div>
-				<p>
-					Every pattern, plus the two things the first version lacked: face pulls for the rear
-					delts and external rotators, and calf raises — the muscle running loads hardest had
-					zero sets. The days are named (Mon / Thu) on purpose: the request was
-					<i>regimented</i>, and named days get kept. A third lift, when it fits, moves most
-					muscles from maintenance volume to the ~10-set growth mark
-					<a href="#ref-1" class="cite">[1]</a><a href="#ref-4" class="cite">[4]</a>.
-				</p>
-				<p>
-					<b>Three starting weights were wrong, and the ledger caught it.</b> Against beginner
-					norms for an untrained woman, the old pulldown start was ~96% of a typical one-rep
-					max, the RDL ~100%, the lunge ~115% — and the first real session quietly corrected
-					all three. Women's relative strength gains match or beat men's; the absolute numbers
-					start lower <a href="#ref-27" class="cite">[27]</a>. The starts now sit at learnable
-					loads, and the first session is a ramp, not a test. The machine presses run 6–15
-					because the smallest stack step is a 25–33% jump at these loads — the wide floor
-					absorbs it, and each set climbs on its own.
-				</p>
-				<p>
-					The deep-ROM premise holds. As hypertrophy, full range beats partial only trivially
-					<a href="#ref-9" class="cite">[9]</a>; as "mobility you can load" it earns its name —
-					loaded full-range work improves joint range about as much as stretching
-					<a href="#ref-14" class="cite">[14]</a>, and the bodyweight-only subgroup showed no
-					ROM gain, which is why this is a lifting plan and not a stretching list. The leg curl
-					says <i>seated</i> now: hamstrings trained at length grew about half again more
-					<a href="#ref-28" class="cite">[28]</a>.
-				</p>
-				<p>
-					<b>One claim is retracted.</b> This page used to say Hold Steady "covers exactly" the
-					adductors and hip external rotation. Passive holds at realistic durations build
-					essentially no strength or muscle <a href="#ref-23" class="cite">[23]</a> — yoga is
-					mobility, not load. The loaded coverage lives here now: face pulls, and a side plank
-					whose upgrade path ends at the Copenhagen plank, the one adductor exercise with an
-					injury-prevention trial behind it <a href="#ref-24" class="cite">[24]</a>.
-				</p>
-				<p>
-					<b>On "toned":</b> muscle plus a little less fat over it — there is no toning-specific
-					way to lift. Lifting alone moves fat modestly (~−1.5% body fat
-					<a href="#ref-25" class="cite">[25]</a>); protein around 1.6 g/kg/day is where the
-					benefit plateaus <a href="#ref-26" class="cite">[26]</a>, and everyday walking counts
-					toward the aerobic target 60 running minutes don't fill
-					<a href="#ref-2" class="cite">[2]</a>. Muscle is denser than fat: the scale can hold
-					still while the waist shrinks — clothes change before the mirror does. Visible change
-					typically shows at 8–12 consistent weeks. And one breathing rule, written for the
-					pelvic floor: exhale through the hard part; never hold your breath
-					<a href="#ref-29" class="cite">[29]</a>.
-				</p>
-			</Card>
+		<h2>What the evidence constrains — and what it doesn’t</h2>
+		<p>
+			Load barely matters: muscle growth is similar from roughly 30% to 100% of your one-rep
+			max, as long as sets come close to failure <a href="#ref-6" class="cite">[6]</a> — and
+			actually reaching failure adds nothing over stopping a couple of reps short
+			<a href="#ref-7" class="cite">[7]</a>. What does matter is volume, with a dose-response
+			that flattens around ten hard sets per muscle per week for <i>growth</i>
+			<a href="#ref-4" class="cite">[4]</a> — a growth threshold, not a health one; the
+			mortality benefit arrives far below it <a href="#ref-3" class="cite">[3]</a>. Spread it
+			over two sessions rather than one <a href="#ref-5" class="cite">[5]</a>; with volume
+			equal, two and three are hard to tell apart. Rest more than a minute — past ninety
+			seconds there’s little further gain for size <a href="#ref-10" class="cite">[10]</a>,
+			though strength likes two minutes on the squat and the hinge. Machines and free weights
+			build the same muscle <a href="#ref-8" class="cite">[8]</a>. Soreness tracks novelty,
+			not progress <a href="#ref-11" class="cite">[11]</a>. And range of motion is the quiet
+			one: full range beats partial for growth only trivially
+			<a href="#ref-9" class="cite">[9]</a>, but lifting through a full range improves how
+			far your joints move about as much as stretching does
+			<a href="#ref-14" class="cite">[14]</a> — flexibility you can load.
+		</p>
 
-			<Card>
-				<h2>Hold Steady</h2>
-				<div class="badges"><Badge tone="neutral">Flow 2–3×/week</Badge><Badge tone="neutral">Mat only</Badge></div>
-				<p>
-					Day 1 (chair, warrior II, plank, boat, bridge) is genuine isometric strength work. Day 2
-					(tree, warrior III, low lunge, pigeon, fold, twist) is balance and mobility with little
-					strength stimulus. There’s no aerobic component and no external load, so it sits
-					alongside the lifting rather than in place of it — a complement, a deload week, or a
-					mobility day.
-				</p>
-				<p>
-					Yoga does improve balance, flexibility and lower-limb strength against both active and
-					inactive controls <a href="#ref-13" class="cite">[13]</a>. One honest limit: that
-					evidence is largely <b>in older adults</b>, so the strength finding shouldn’t transfer
-					wholesale to someone already lifting three days a week.
-				</p>
-			</Card>
-		</div>
-	</section>
+		<h2>Open to Work</h2>
+		<p>
+			The lifting half of a lifter-who-runs week: all six movement patterns, push and pull
+			balanced in both planes, an A/B alternation that gives every muscle two exposures.
+			The audit added what a runner’s plan most often lacks — calves, which absorb more force
+			in running than any other muscle and track running economy in trials
+			<a href="#ref-17" class="cite">[17]</a>, and face pulls, the one shoulder-health input
+			with a trial behind it <a href="#ref-22" class="cite">[22]</a> — and swapped the long
+			holds for planks that get harder instead <a href="#ref-18" class="cite">[18]</a>.
+			Two honest limits stand. Chest and shoulders sit at maintenance volume, below the
+			growth mark <a href="#ref-4" class="cite">[4]</a>; the clean fix is a third day, and it
+			only makes sense once three sessions a week is a habit. And the running relationship is
+			one-way at these loads: ninety easy minutes a week costs the lifting nothing
+			<a href="#ref-21" class="cite">[21]</a>, but 8–12-rep training does little for running
+			economy — that comes from heavy loading and the calves
+			<a href="#ref-20" class="cite">[20]</a>.
+		</p>
 
-	<section>
-		<div class="caps mb8">Part 3 — The rule, set by set, and the way back down</div>
-		<Card>
-			<p>
-				<b>Up:</b> hit the top of the range on a set → <i>that set</i> takes the next size up
-				next time; the others keep climbing where they are. That’s double progression
-				<a href="#ref-12" class="cite">[12]</a> applied per set — the first set to reach the top
-				is the trigger, not the last <a href="#ref-19" class="cite">[19]</a>. The strongest set
-				never waits for the weakest, and a rack that jumps 14–20% between sizes gets absorbed one
-				set at a time.
-			</p>
-			<p>
-				<b>Down, two ways:</b> miss the bottom of the range on the same set, at the same weight,
-				twice inside a fortnight → that set backs off one size. More than a fortnight away → every
-				set comes back one size lighter, never below the start — a haircut, not a verdict. Both
-				walk the same ladder, so it can never ask you for a 37.5 lb kettlebell.
-			</p>
-			<p>
-				<b>Holds stop at the top of the range.</b> Past it the answer is a harder variation — the
-				exercise note says which — never a longer hold <a href="#ref-18" class="cite">[18]</a>.
-			</p>
-			<p class="note">
-				There used to be a “stall three sessions → back off 10%” rule here. It’s gone: the one
-				trial of a scheduled deload found no benefit for size and a cost to strength
-				<a href="#ref-15" class="cite">[15]</a>, and one session a week holds strength and size
-				for months as long as the load is held <a href="#ref-16" class="cite">[16]</a> — so at
-				that frequency a “stall” is under-stimulus, not fatigue, and a 10% cut is a slide.
-				Worth flagging plainly: <b>the two downward rules are weaker evidence than everything else
-				on this page.</b> They follow from the overload principle and from what the re-entry data
-				shows, not from a meta-analysis. They’re here because a program with no reverse gear
-				quietly asks you to grind through failing sets or quit — and the second one is what
-				actually happens.
-			</p>
-			<p class="quiet">
-				Technique cues live on each exercise now, and every day opens with a warm-up line;
-				nutrition is out of scope, and none of this is medical advice. If something hurts in a
-				specific joint — as opposed to being hard — that’s a physio question.
-			</p>
-		</Card>
-	</section>
+		<h2>Full Range of Motion</h2>
+		<p>
+			Written for a beginner, and rewritten after its own ledger testified against it. Three
+			starting weights sat at 96–115% of a typical untrained woman’s one-rep max, and the
+			first real session quietly corrected all three. Women’s relative strength gains match
+			or beat men’s — the absolute numbers just start lower, especially up top
+			<a href="#ref-27" class="cite">[27]</a> — so the starts now sit at learnable loads,
+			the first session is a ramp rather than a test, and the machine presses run 6–15
+			because the smallest stack step is a 25–33% jump at these loads: the wide floor is
+			what lets a post-jump set land inside the range instead of reading as a miss. Days are
+			named — Mon and Thursday — because “more regimented” was the request, and named days
+			get kept.
+		</p>
+		<p>
+			The deep-ROM premise earns its name here. As hypertrophy, deep beats shallow only
+			trivially <a href="#ref-9" class="cite">[9]</a>; as mobility, loaded full-range work
+			matches stretching <a href="#ref-14" class="cite">[14]</a> — and the bodyweight-only
+			subgroup in that meta-analysis showed no gain at all, which is exactly why this is a
+			lifting plan and not a stretching list. The leg curl says <i>seated</i> now: hamstrings
+			trained at length grew about half again more in a direct trial
+			<a href="#ref-28" class="cite">[28]</a>. One claim is retracted: this page used to say
+			the yoga plan “covers” the adductors and hip external rotation this plan lacked.
+			Passive holds at realistic durations build essentially no strength
+			<a href="#ref-23" class="cite">[23]</a>; the loaded coverage lives here now — face
+			pulls, and a side plank whose upgrade path ends at the Copenhagen plank, the one
+			adductor exercise with an injury-prevention trial behind it
+			<a href="#ref-24" class="cite">[24]</a>.
+		</p>
+		<p>
+			On “toned”: muscle plus a little less fat over it — there is no toning-specific way to
+			lift, and moderate-rep double progression is already the right tool. Lifting alone
+			moves body fat modestly (about −1.5% over months
+			<a href="#ref-25" class="cite">[25]</a>); protein around 1.6 g per kilo per day is
+			where the benefit plateaus <a href="#ref-26" class="cite">[26]</a>, and everyday
+			walking counts toward the aerobic target that sixty running minutes don’t fill
+			<a href="#ref-2" class="cite">[2]</a>. Muscle is denser than fat, so the scale can hold
+			still while the waist shrinks — clothes change before the mirror does. Visible change
+			typically shows at eight to twelve consistent weeks. And one breathing rule, written
+			for the pelvic floor: exhale through the hard part, never hold your breath
+			<a href="#ref-29" class="cite">[29]</a>.
+		</p>
+
+		<h2>Hold Steady</h2>
+		<p>
+			Thirty minutes on a mat: isometric strength on day one, balance and mobility on day
+			two. Yoga genuinely improves balance, flexibility and lower-limb strength against
+			controls <a href="#ref-13" class="cite">[13]</a> — with the honest caveat that the
+			evidence is largely in older adults. It sits alongside the lifting plans as a
+			complement, and after the retraction above it is no longer asked to be anything more:
+			mobility, not load.
+		</p>
+
+		<h2>The fine print</h2>
+		<p class="note">
+			The downward rules — the two-miss adjustment and the re-entry haircut — are weaker
+			evidence than everything else on this page. They follow from the overload principle
+			<a href="#ref-12" class="cite">[12]</a> and the maintenance data
+			<a href="#ref-16" class="cite">[16]</a>, not from a meta-analysis. They’re here because
+			a program with no reverse gear quietly asks you to grind through failing sets or quit —
+			and the second one is what actually happens. Technique cues live on each exercise, and
+			every day opens with a warm-up line; nutrition beyond the protein sentence is out of
+			scope, and none of this is medical advice. If something hurts in a specific joint — as
+			opposed to being hard — that’s a physio question.
+		</p>
+	</article>
 
 	<section>
 		<div class="caps mb8">References</div>
@@ -448,7 +344,7 @@
 </div>
 
 <style>
-	.col { display: flex; flex-direction: column; gap: 24px; }
+	.col { display: flex; flex-direction: column; gap: 28px; }
 	.head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 	h1 {
 		margin: 0;
@@ -457,21 +353,26 @@
 		font-size: var(--text-display);
 		line-height: var(--leading-tight);
 	}
-	h2 {
-		margin: 0 0 8px;
+	.back { font-weight: var(--weight-bold); font-size: 14px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+	.back:hover { color: var(--ink); }
+
+	/* the essay: one reading column, prose-first */
+	.essay { max-width: 66ch; display: flex; flex-direction: column; gap: 14px; }
+	.lede { margin: 0; font-size: 18px; line-height: var(--leading-body); color: var(--ink-2); }
+	.essay h2 {
+		margin: 18px 0 0;
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);
-		font-size: var(--text-title);
-		line-height: var(--leading-tight);
+		font-size: 24px;
+		line-height: var(--leading-snug);
+		letter-spacing: -0.01em;
 	}
-	.back {
-		font-weight: var(--weight-bold);
-		font-size: 14px;
-		color: var(--ink-2);
-		text-decoration: underline;
-		text-underline-offset: 3px;
-	}
-	.back:hover { color: var(--ink); }
+	.essay p { margin: 0; font-size: 16px; line-height: 1.65; color: var(--ink); }
+	.essay p b { font-weight: var(--weight-bold); }
+	.essay .note { color: var(--ink-2); border-left: 3px solid var(--paper-3); padding-left: 14px; }
+	.cite { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); text-decoration: none; padding: 0 2px; }
+	.cite:hover { color: var(--ink); background: var(--volt-tint); }
+
 	.caps {
 		font-size: 12px;
 		font-weight: var(--weight-bold);
@@ -480,59 +381,13 @@
 		color: var(--ink-3);
 	}
 	.mb8 { margin-bottom: 8px; }
-	.stack { display: flex; flex-direction: column; gap: 12px; }
-	p { margin: 0 0 10px; line-height: var(--leading-body); }
-	p:last-child { margin-bottom: 0; }
-	.lede { font-size: 16px; }
-	.quiet { color: var(--ink-3); font-size: 14px; }
+	.refs { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+	.refs li { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+	.reftext { margin-right: 6px; }
+	.refs a { font-weight: var(--weight-bold); font-size: 12.5px; color: var(--ink); white-space: nowrap; }
 
-	/* the number is the anchor for scanning — big, quiet, out of the text flow */
-	.fnum {
-		font-family: var(--font-mono);
-		font-weight: 800;
-		font-size: 13px;
-		color: var(--ink-3);
-		margin-bottom: 2px;
+	@media (max-width: 640px) {
+		.essay h2 { font-size: 21px; }
+		.essay p { font-size: 15.5px; }
 	}
-	.punch {
-		font-weight: var(--weight-bold);
-		background: var(--volt-tint);
-		border-left: 3px solid var(--ink);
-		padding: 8px 12px;
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-	}
-	.cites { display: flex; gap: 6px; margin-top: 8px; }
-	.cite {
-		font-family: var(--font-mono);
-		font-size: 12px;
-		font-weight: 700;
-		color: var(--ink-2);
-		text-decoration: none;
-		border-bottom: 1px solid var(--border-soft);
-	}
-	.cite:hover { color: var(--ink); background: var(--volt-tint); }
-
-	.badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-	/* the page being straight about its own weakest claim */
-	.note {
-		border-left: 3px solid var(--paper-3);
-		padding: 8px 12px;
-		background: var(--paper-2);
-		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-	}
-
-	/* wide content scrolls inside its own box — the page never scrolls sideways */
-	.tablewrap { overflow-x: auto; margin: 0 0 10px; }
-	table { border-collapse: collapse; width: 100%; font-size: 14px; }
-	th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--border-soft); white-space: nowrap; }
-	th { font-size: 11px; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3); font-weight: var(--weight-bold); }
-	td { font-family: var(--font-mono); }
-	td:first-child { font-family: var(--font-body); }
-
-	.refs { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
-	.refs li { font-size: 13px; line-height: var(--leading-body); color: var(--ink-2); }
-	.reftext { display: block; }
-	.refs a { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--ink); }
-	/* an anchored reference should be findable after the jump */
-	.refs li:target { background: var(--volt-tint); border-radius: var(--radius-sm); }
 </style>
