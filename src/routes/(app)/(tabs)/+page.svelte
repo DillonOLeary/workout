@@ -102,7 +102,11 @@
 		</Card>
 	{:else}
 		<Card interactive>
-			<div class="caps">Next up</div>
+			<div class="caprow">
+				<span class="caps">Next up</span>
+				<!-- the way through to the detail, on the label row so it costs no height -->
+				<a class="quiet" href="/plan?day={due}">See the plan →</a>
+			</div>
 			<div class="title">{dayTitle(plan, due)}</div>
 
 			<form method="POST" action="?/start" use:enhance>
@@ -195,6 +199,7 @@
 		color: var(--ink-3);
 	}
 	.mb10 { display: block; margin-bottom: 10px; }
+	.caprow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 	.title {
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);

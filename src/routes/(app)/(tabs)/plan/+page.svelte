@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
 	import { dayTitle } from '$lib/domain/projections';
@@ -10,8 +11,9 @@
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let dayKeys = $derived(Object.keys(plan.days));
 
-	// Which day's exercises are expanded — pure client state, no server involved
-	let day = $state('');
+	// Which day's exercises are expanded — client state, seeded from ?day= so
+	// Today can link straight to the day that is due
+	let day = $state(page.url.searchParams.get('day') ?? '');
 	let shownDay = $derived(plan.days[day] ? day : dayKeys[0]);
 
 	/** "3 × 6–12" · "3 × 10–20s" · "2 × 5–15 · L/R" · "3 × 8–12 · per side" */
