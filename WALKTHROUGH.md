@@ -238,11 +238,21 @@ Things to notice:
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ weight, 1–9 reps, Enter logs |
 | `class:` directive | `class:single={isBW}` on the floor's adjust tiles; row states on the set table |
 | scoped `<style>` | every component — the design system's tokens are global, layout is local |
+| `$effect` | `ExerciseGlyph.svelte` — a canvas that plays one rep: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop, and the function it returns tears both down |
+| `{#key}` | the gym floor wraps the glyph in `{#key ex.name}`: advancing to the next exercise remounts it, and a fresh mount plays once |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 (and a `svelte-ignore state_referenced_locally`) because a session's identity
 *can't* change while you're on the floor. Knowing when you *don't* want
 reactivity is part of learning it.
+
+The glyph is the same lesson from the other side: its playback clock (`start`,
+`lastIdx`, the rAF handle) is plain `let`s, not `$state`, because it changes six
+times a rep and nothing in the template reads it. Reactivity nobody depends on
+is work the compiler does for no one. The poses themselves live in
+`src/lib/design/glyphs.ts` — pure functions of a depth `d` in 0..1, so they are
+unit-tested like the domain: every plan exercise maps to a pose, every pose
+prints at every frame, and the working frame differs from rest.
 
 ## 4½. Lessons from the first real workout
 

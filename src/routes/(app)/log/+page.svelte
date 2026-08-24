@@ -2,6 +2,7 @@
 	import { deserialize, enhance } from '$app/forms';
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
+	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import AdjustTile from '$lib/components/floor/AdjustTile.svelte';
 	import FloorPrimary from '$lib/components/floor/FloorPrimary.svelte';
 	import FloorSheet from '$lib/components/floor/FloorSheet.svelte';
@@ -545,11 +546,23 @@
 
 		{#if ex && !allDone}
 			<main class="fl-main">
-				<h1 class="fl-name">{ex.name}</h1>
-				<p class="fl-meta">
-					<span>{planLine}</span>
-					<span class="fl-ledgerline"> · {ledgerLine}</span>
-				</p>
+				<!-- the glyph is Plan-tier content, right of the title block: one
+				     rep when the exercise arrives (keyed, so advancing replays),
+				     then still. Press it to see the rep again. -->
+				<div class="fl-titlerow">
+					<div class="fl-titleblock">
+						<h1 class="fl-name">{ex.name}</h1>
+						<p class="fl-meta">
+							<span>{planLine}</span>
+							<span class="fl-ledgerline"> · {ledgerLine}</span>
+						</p>
+					</div>
+					<div class="fl-glyph">
+						{#key ex.name}
+							<ExerciseGlyph name={ex.name} size={88} />
+						{/key}
+					</div>
+				</div>
 
 				<SetTable {ex} {rows} onRetry={retrySet} />
 
@@ -745,6 +758,15 @@
 		overflow-y: auto;
 		padding: 4px 16px 0;
 	}
+	.fl-titlerow {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+	}
+	.fl-titleblock { min-width: 0; flex: 1 1 auto; }
+	.fl-glyph { flex: none; }
+	.fl-glyph:empty { display: none; }
 	.fl-name {
 		margin: 0;
 		font-family: var(--font-display);
@@ -849,9 +871,11 @@
 	@media (max-height: 640px) {
 		.fl-ledgerline { display: none; }
 		.fl-hint { margin-top: 6px; }
+		.fl-glyph { --glyph-size: 64px; }
 	}
 	@media (max-height: 560px) {
 		.fl-hint { display: none; }
+		.fl-glyph { display: none; }
 		.fl-meta { margin: 2px 0 6px; font-size: 12px; }
 		.fl-name { font-size: clamp(22px, 5vh, 26px); }
 		.fl-tiles { gap: 8px; margin-bottom: 8px; }

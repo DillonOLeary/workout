@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
+	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { dayTitle } from '$lib/domain/projections';
 	import type { Exercise } from '$lib/domain/types';
 	import type { PageProps } from './$types';
@@ -46,6 +47,9 @@
 		</div>
 		{#each plan.days[shownDay] as ex, i (ex.name)}
 			<div class="exrow" class:first={i === 0}>
+				<!-- still (frame 0): a list must never animate itself. Press one
+				     to see the rep. Plans without glyphs (yoga) get no column. -->
+				<ExerciseGlyph name={ex.name} size={48} play={false} />
 				<div class="exmain">
 					<div class="exname">{ex.name}</div>
 					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
@@ -116,12 +120,12 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		gap: 12px;
+		gap: 14px;
 		padding: 14px 24px;
 		border-top: 1px solid var(--border-soft);
 	}
 	.exrow.first { border-top: none; margin-top: 8px; }
-	.exmain { min-width: 0; }
+	.exmain { min-width: 0; flex: 1 1 auto; }
 	.exname { font-weight: var(--weight-bold); font-size: 17px; }
 	.exequip { font-size: 13px; color: var(--ink-3); }
 	.exdose { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); white-space: nowrap; flex: none; }

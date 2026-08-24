@@ -43,8 +43,8 @@ Empty phone → the shared demo sandbox.
 ## Layout
 
 ```
-src/lib/design/       design tokens (colors, type, spacing, effects, motion)
-src/lib/components/   Button, Card, TabBar, Stepper, … (Svelte 5 ports of the DS)
+src/lib/design/       design tokens (colors, type, spacing, effects, motion) + glyphs.ts (dot-matrix poses)
+src/lib/components/   Button, Card, TabBar, Stepper, ExerciseGlyph, … (Svelte 5 ports of the DS)
 src/lib/domain/       events, commands, decider, projections — pure, no I/O
 src/lib/server/       Emmett event store, plans table, HMAC login (server-only)
 src/routes/           login · Today (+ By day) / The Plan (+ Why, Change plan) · /log gym floor
@@ -53,7 +53,7 @@ src/routes/           login · Today (+ By day) / The Plan (+ Why, Change plan) 
 ## Checks
 
 ```sh
-pnpm test     # vitest — the pure domain: decider, progression fold, racks
+pnpm test     # vitest — the pure domain: decider, progression fold, racks, glyph poses
 pnpm check    # svelte-check
 pnpm build    # production build
 ```
