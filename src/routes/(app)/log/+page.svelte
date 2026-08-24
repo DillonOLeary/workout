@@ -199,7 +199,32 @@
 	}
 	preload(initialEx);
 
+	/* ---------- exercise complete: a visible pause, then on ----------------
+	   The last set used to flip the screen 280ms later — a flash. Now the
+	   primary turns to "Next exercise" with a ring that drains for two
+	   seconds: tap it to go now, open the ⋯ sheet to stay. */
+	const ADVANCE_MS = 2000;
+	let advance = $state<{ end: number } | null>(null);
+	let advanceLeft = $state(1); // fraction of the ring still full
+	$effect(() => {
+		if (!advance) return;
+		const a = advance;
+		const t = setInterval(() => {
+			const left = (a.end - Date.now()) / ADVANCE_MS;
+			if (left <= 0) {
+				advance = null;
+				goTo(exI + 1);
+			} else advanceLeft = left;
+		}, 40);
+		return () => clearInterval(t);
+	});
+	function armAdvance() {
+		advanceLeft = 1;
+		advance = { end: Date.now() + ADVANCE_MS };
+	}
+
 	function goTo(i: number) {
+		advance = null; // any navigation, by hand or by the ring, settles it
 		if (i < 0 || i >= exercises.length || i === exI) return;
 		exI = i;
 		preload(i);
@@ -287,7 +312,7 @@
 		// instant feedback: the row fills in, the phone taps back. No flash —
 		// the table changing IS the confirmation.
 		navigator.vibrate?.(12);
-		if (done >= ex.sets && exI < exercises.length - 1) setTimeout(() => goTo(exI + 1), 280);
+		if (done >= ex.sets && exI < exercises.length - 1) armAdvance();
 		void pump();
 	}
 
@@ -508,7 +533,10 @@
 			<button
 				type="button"
 				class="fl-ghost"
-				onclick={() => (sheetOpen = true)}
+				onclick={() => {
+					advance = null;
+					sheetOpen = true;
+				}}
 				aria-label="More — technique, jump to exercise, finish"
 			>
 				⋯
@@ -574,6 +602,7 @@
 					variant={primaryVariant}
 					label={primaryLabel}
 					disabled={finishing}
+					ring={advance ? advanceLeft : null}
 					onclick={primaryAction}
 				/>
 			</div>
