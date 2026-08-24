@@ -78,6 +78,46 @@
 			n: 14,
 			text: 'Alizadeh S, Daneshjoo A, Zahiri A, Anvar SH, Goudini R, Hicks JP, Konrad A, Behm DG. Resistance training induces improvements in range of motion: a systematic review and meta-analysis. Sports Medicine, 2023;53:707–722.',
 			url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9935664/'
+		},
+		{
+			n: 15,
+			text: 'Coleman M, Burke R, Benavente C, et al. Supervised resistance training with or without a one-week deload: effects on muscle hypertrophy and strength in trained lifters. PeerJ, 2024. Randomised; the deload week gave no hypertrophy advantage and cost lower-body strength.',
+			url: 'https://peerj.com/articles/16777/'
+		},
+		{
+			n: 16,
+			text: 'Bickel CS, Cross JM, Bamman MM. Exercise dosing to retain resistance training adaptations in young and older adults. Medicine & Science in Sports & Exercise, 2011;43(7):1177–1187. One session a week at maintained intensity held strength and size for 32 weeks.',
+			url: 'https://pubmed.ncbi.nlm.nih.gov/?term=Bickel+Cross+Bamman+2011+exercise+dosing+retain'
+		},
+		{
+			n: 17,
+			text: 'Eihara Y, Takao K, Sugiyama T, et al. Heavy resistance training improves running economy in recreational runners; calf-raise strength gains track the improvement. European Journal of Sport Science, 2024.',
+			url: 'https://onlinelibrary.wiley.com/doi/full/10.1002/ejsc.12197'
+		},
+		{
+			n: 18,
+			text: 'Schoenfeld BJ, Contreras B, Tiryaki-Sonmez G, Willardson JM, Fontana F. An electromyographic comparison of a modified version of the plank with a long lever and posterior tilt versus the traditional plank exercise. Sports Biomechanics, 2014;13(3):296–306.',
+			url: 'https://www.tandfonline.com/doi/abs/10.1080/14763141.2014.942355'
+		},
+		{
+			n: 19,
+			text: 'Helms E, Morgan A. Progression — the Muscle & Strength Pyramid (Training), applied: the first-set trigger for double progression. Coaching practice, not a trial.',
+			url: 'https://rippedbody.com/progression/'
+		},
+		{
+			n: 20,
+			text: 'Llanos-Lagos C, Ramirez-Campillo R, Moran J, Sáez de Villarreal E. The effect of strength training methods on middle-distance and long-distance runners’ athletic performance: a systematic review with meta-analysis. Sports Medicine, 2024. High-load and combined methods improved running economy; submaximal 40–79% loads did not.',
+			url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11052887/'
+		},
+		{
+			n: 21,
+			text: 'Schumann M, Feuerbacher JF, Sünkeler M, et al. Compatibility of concurrent aerobic and strength training for skeletal muscle size and function: an updated systematic review and meta-analysis. Sports Medicine, 2022. No interference for hypertrophy or maximal strength.',
+			url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC8891239/'
+		},
+		{
+			n: 22,
+			text: 'Andersson SH, Bahr R, Clarsen B, Myklebust G. Preventing overuse shoulder injuries among throwing athletes: a cluster-randomised controlled trial in 660 elite handball players. British Journal of Sports Medicine, 2017;51:1073–1080.',
+			url: 'https://bjsm.bmj.com/content/51/14/1073'
 		}
 	];
 
@@ -90,9 +130,9 @@
 		},
 		{
 			t: 'Progressive overload is the whole engine',
-			body: 'The body adapts to a stress slightly beyond what it currently handles, so the stress has to keep rising. The practical form here is double progression: keep the weight, add reps to the top of the range on every set, then take the next size up and start again at the bottom. That’s literal — free weights come in fixed sizes, so the ledger steps along the real ladder (dumbbells 2.5 lb through the light end then 5, kettlebells on the kg castings, med balls in 2s). Machines keep a per-exercise increment, because stacks differ too much between gyms to guess at.',
-			punch: 'It’s self-limiting — you can’t add weight until you’ve earned it. That’s what makes it safe.',
-			cite: [12]
+			body: 'The body adapts to a stress slightly beyond what it currently handles, so the stress has to keep rising. The practical form here is double progression, set by set: keep the weight, add reps; the set that reaches the top of the range takes the next size up next time, and starts again at the bottom. That’s literal — free weights come in fixed sizes, so the ledger steps along the real ladder (dumbbells 2.5 lb through the light end then 5, kettlebells on the kg castings). Machines keep a per-exercise increment, because stacks differ too much between gyms to guess at.',
+			punch: 'It’s self-limiting — a set can’t add weight until it has earned it. That’s what makes it safe.',
+			cite: [12, 19]
 		},
 		{
 			t: 'Effort matters more than load',
@@ -126,7 +166,7 @@
 		},
 		{
 			t: 'Soreness is not the scoreboard',
-			body: 'Post-exercise soreness isn’t a valid indicator of adaptation — it tracks novelty, connective tissue and personal pain sensitivity, not growth. Separately: rest more than 60s between sets, though past ~90s adds little. And on range of motion — for muscle growth, full ROM beats partial only trivially; but for range of motion itself, lifting through a full range increases joint ROM about as much as stretching does, to the point that stretching around a session may add nothing on top.',
+			body: 'Post-exercise soreness isn’t a valid indicator of adaptation — it tracks novelty, connective tissue and personal pain sensitivity, not growth. Separately: rest more than 60s between sets — past ~90s adds little for growth, though strength likes longer, so take about two minutes on the squat and the hinge. And on range of motion — for muscle growth, full ROM beats partial only trivially; but for range of motion itself, lifting through a full range increases joint ROM about as much as stretching does, to the point that stretching around a session may add nothing on top.',
 			punch: 'Not being sore doesn’t mean it didn’t work.',
 			cite: [11, 10, 9, 14]
 		}
@@ -193,32 +233,54 @@
 				<div class="badges"><Badge tone="neutral">Lift Mon / Wed / Fri</Badge><Badge tone="neutral">Run 3×/week</Badge></div>
 				<p>
 					All six fundamental movement patterns every week, with push and pull balanced 1:1 in
-					both planes — the thing self-made programs most often miss. Core is covered on both
-					days, in two different vectors. The hinge appears on both too: RDL on A, KB deadlift on
-					B, so it runs every session on top of three runs. That is comfortable at these loads,
-					and it is the first place recovery will run short as the weights climb.
+					both planes — the thing self-made programs most often miss — plus the two things a
+					<i>runner’s</i> lifting plan most often lacks. The soleus produces more force than any
+					other muscle in running and calf strength tracks running economy
+					<a href="#ref-17" class="cite">[17]</a>; it had zero sets, and now has nine a week.
+					And nothing trained external rotation at the shoulder, the one shoulder-health input
+					with a trial behind it <a href="#ref-22" class="cite">[22]</a> — two light sets of
+					face pulls after the press fix that. The hinge still appears on both days, so it runs
+					every session on top of three runs: comfortable at these loads, and the first place
+					recovery will run short as the weights climb.
+				</p>
+				<p>
+					The core slots are deliberately not long holds. A plank past twenty seconds is an
+					endurance test; the long-lever version roughly doubles abdominal activation at the same
+					length <a href="#ref-18" class="cite">[18]</a>, and the Copenhagen plank loads the
+					adductors, which nothing else in a front-to-back plan touches. Both progress by getting
+					harder, never longer.
 				</p>
 				<div class="tablewrap">
 					<table>
 						<thead><tr><th>Muscle group</th><th>Sets/week</th><th>vs. growth mark <a href="#ref-1" class="cite">[1]</a></th></tr></thead>
 						<tbody>
 							<tr><td>Hamstrings / glutes</td><td>~13</td><td>above</td></tr>
-							<tr><td>Back</td><td>~9</td><td>at the mark</td></tr>
+							<tr><td>Back</td><td>~9 (+3 rear delt)</td><td>at the mark</td></tr>
 							<tr><td>Quads</td><td>~9</td><td>at the mark</td></tr>
+							<tr><td>Calves</td><td>~9</td><td>at the mark</td></tr>
 							<tr><td>Core</td><td>~7.5</td><td>near</td></tr>
+							<tr><td>Adductors</td><td>~3</td><td>maintenance</td></tr>
 							<tr><td>Chest</td><td>~4.5</td><td>below</td></tr>
-							<tr><td>Shoulders</td><td>~4.5</td><td>below</td></tr>
+							<tr><td>Shoulders</td><td>~4.5 (+3 rear delt)</td><td>below</td></tr>
 						</tbody>
 					</table>
 				</div>
 				<p>
 					So lower body and back are dosed for growth; <b>chest and shoulders are dosed for
-					strength and maintenance, not size</b>. If visible upper-body change is a goal, add a
-					second pressing movement or a fourth set. If it isn’t, this is fine as written.
+					strength and maintenance, not size</b>. If visible upper-body change is a goal, the
+					cleanest fix is a third day with a second press and a chest-supported row — and it
+					only makes sense once three sessions a week is a habit. If it isn’t a goal, this is
+					fine as written.
 				</p>
 				<p>
-					90 min of running a week sits inside the WHO’s 75–150 min vigorous band, and the
-					lifting covers the ≥2 muscle-strengthening days <a href="#ref-2" class="cite">[2]</a>.
+					Two honest limits on the running side. Ninety minutes a week of easy running costs
+					nothing on the lifting side — interference is real only at far higher endurance doses
+					<a href="#ref-21" class="cite">[21]</a>. But 8–12 rep training does little for running
+					economy on its own; what moves running is heavy loading and the calves
+					<a href="#ref-17" class="cite">[17]</a><a href="#ref-20" class="cite">[20]</a>. The
+					calf raise is the part of this plan that is <i>for</i> the running. 90 min sits inside
+					the WHO’s 75–150 min vigorous band, and the lifting covers the ≥2 muscle-strengthening
+					days <a href="#ref-2" class="cite">[2]</a>.
 				</p>
 			</Card>
 
@@ -284,24 +346,42 @@
 	</section>
 
 	<section>
-		<div class="caps mb8">Part 3 — The one rule, and the way back down</div>
+		<div class="caps mb8">Part 3 — The rule, set by set, and the way back down</div>
 		<Card>
-			<p><b>Up:</b> hit every set at the top of the range → take the next size up next time.</p>
 			<p>
-				<b>Down:</b> stall three sessions at the same weight → the ledger backs you off about 10%,
-				again landing on a size that exists, and you build it back. Both directions walk the
-				same ladder, so it can never ask you for a 37.5 lb kettlebell.
+				<b>Up:</b> hit the top of the range on a set → <i>that set</i> takes the next size up
+				next time; the others keep climbing where they are. That’s double progression
+				<a href="#ref-12" class="cite">[12]</a> applied per set — the first set to reach the top
+				is the trigger, not the last <a href="#ref-19" class="cite">[19]</a>. The strongest set
+				never waits for the weakest, and a rack that jumps 14–20% between sizes gets absorbed one
+				set at a time.
+			</p>
+			<p>
+				<b>Down, two ways:</b> miss the bottom of the range on the same set, at the same weight,
+				twice inside a fortnight → that set backs off one size. More than a fortnight away → every
+				set comes back one size lighter, never below the start — a haircut, not a verdict. Both
+				walk the same ladder, so it can never ask you for a 37.5 lb kettlebell.
+			</p>
+			<p>
+				<b>Holds stop at the top of the range.</b> Past it the answer is a harder variation — the
+				exercise note says which — never a longer hold <a href="#ref-18" class="cite">[18]</a>.
 			</p>
 			<p class="note">
-				Worth flagging plainly: <b>the deload rule is weaker evidence than everything else on this
-				page.</b> Planned back-offs are standard coaching practice and follow from the overload
-				principle <a href="#ref-12" class="cite">[12]</a>, but they don’t rest on a meta-analysis
-				the way the fundamentals above do. It’s here because a program with no reverse gear quietly
-				asks you to grind through failing sets or quit — and the second one is what actually happens.
+				There used to be a “stall three sessions → back off 10%” rule here. It’s gone: the one
+				trial of a scheduled deload found no benefit for size and a cost to strength
+				<a href="#ref-15" class="cite">[15]</a>, and one session a week holds strength and size
+				for months as long as the load is held <a href="#ref-16" class="cite">[16]</a> — so at
+				that frequency a “stall” is under-stimulus, not fatigue, and a 10% cut is a slide.
+				Worth flagging plainly: <b>the two downward rules are weaker evidence than everything else
+				on this page.</b> They follow from the overload principle and from what the re-entry data
+				shows, not from a meta-analysis. They’re here because a program with no reverse gear
+				quietly asks you to grind through failing sets or quit — and the second one is what
+				actually happens.
 			</p>
 			<p class="quiet">
-				Warm-ups, technique and nutrition are out of scope, and none of this is medical advice. If
-				something hurts in a specific joint — as opposed to being hard — that’s a physio question.
+				Technique cues live on each exercise now, and every day opens with a warm-up line;
+				nutrition is out of scope, and none of this is medical advice. If something hurts in a
+				specific joint — as opposed to being hard — that’s a physio question.
 			</p>
 		</Card>
 	</section>

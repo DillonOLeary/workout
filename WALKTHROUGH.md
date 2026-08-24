@@ -41,6 +41,15 @@ Secrets live in `.env.local` (git-ignored), read at runtime via
 
 Run it: `pnpm dev` → http://localhost:5173
 
+One wrinkle: `adapter-cloudflare` emulates the Worker bindings from
+[wrangler.jsonc](wrangler.jsonc) in dev, and wrangler won't emulate the
+`HYPERDRIVE` binding without a Postgres string in
+`process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` — a
+variable Vite never sets from `.env.local`. [vite.config.ts](vite.config.ts)
+bridges that by copying `DB` into it at startup, so local "Hyperdrive" is
+just Neon, `DB` stays the one secret, and the Hyperdrive branch of
+[hooks.server.ts](src/hooks.server.ts) runs in dev exactly as in prod.
+
 ## 2. Event sourcing: the mental model
 
 Most apps store **current state** (a `sets` table you UPDATE). Event sourcing
@@ -114,17 +123,22 @@ folds, each answering one question from the same events:
 
 - `projectSessions` → the Ledger tab's history cards
 - `nextDay` → which workout is due (alternate from last finished session)
-- `nextLoad` + `earnedIncrease` → the progression rule ("all sets at the top of
-  the range → next size up"), and `stallStreak` + `deloadWeight` → its downward
-  half ("three sessions stuck at one weight → step back ~10%"). Both walk the
-  real weight ladders in [racks.ts](src/lib/domain/racks.ts), so a suggestion is
-  always a bell that exists
+- `nextLoad` → the progression rule, SET BY SET: each set's suggestion comes
+  from the same set last time ("top of the range → that set takes the next
+  size up"), with two ways down — the same set missed twice inside a fortnight
+  backs off one size (`adjust`), and more than a fortnight away brings every
+  set back one size (`reentry`). `loadHint` turns the decision into the one
+  line the gym floor shows before set 1; `suggestedCount` does the same job
+  for holds and bodyweight reps, capped at the top of the range. All of it
+  walks the real weight ladders in [racks.ts](src/lib/domain/racks.ts), so a
+  suggestion is always a bell that exists — and `now` is a parameter, so time
+  is data the fold receives, not a clock it reads
 - `weekRunMinutes` → run minutes in the trailing 7 days, against the plan's
   own `runTarget`
 - `activePlanId` → last `PlanSelected` wins
 
 Even "is a session open?" is a projection (`currentState(events).activeSession`
-in [+layout.server.ts](src/routes/u/[uid]/+layout.server.ts)) — the same
+in [+layout.server.ts](src/routes/(app)/+layout.server.ts)) — the same
 `evolve` that guards writes answers the UI. Nothing is stored twice, so nothing
 can disagree.
 
@@ -140,6 +154,28 @@ Plans are reference data — rows in `ledger_plans`
 Events point at them by id. Deciding *what deserves history* is the actual
 modelling skill; the Insert card (behind "Advanced" on The Plan tab) does both
 writes side by side: plan row → table, `PlanSelected` → ledger.
+
+One consequence worth knowing: editing `DEFAULT_PLANS` in
+[plans.ts](src/lib/domain/plans.ts) *is* the migration. `ensureReady` upserts
+the shipped plans on every boot, so a new exercise, a widened rep range or a
+rewritten note reaches every database the next time a worker starts — no
+migration file, no upcaster. History for an exercise that has since left the
+plan stays in the stream under its old name, and the Ledger still renders it
+correctly, because a `SetLogged` event carries its own `unit`: a retired
+"Weighted Plank" is still `60s`, not `60`.
+
+### Tests — the domain is pure, so test it like arithmetic
+
+`pnpm test` runs vitest over [src/lib/domain](src/lib/domain):
+`decider.test.ts` pins the write-side rules (validation bounds, idempotent
+duplicates and removes, the upcaster), `projections.test.ts` pins the
+progression fold (per-set increases, the two-miss adjustment, re-entry, hold
+caps, removed sessions) and `racks.test.ts` the ladders. Two things make these
+cheap to write: nothing in the domain does I/O, and `nextLoad` takes `now` as
+an argument — a test builds a stream with "15 days ago" arithmetic and never
+touches the clock. The config is a separate
+[vitest.config.ts](vitest.config.ts) so the suite doesn't load the SvelteKit
+plugin (and, with it, wrangler's Hyperdrive emulation).
 
 ## 3. SvelteKit: the mental model
 
@@ -204,7 +240,7 @@ The first gym session produced a feedback batch; three of the fixes are
 patterns worth studying:
 
 - **Optimistic UI over an event store**
-  ([log/+page.svelte](src/routes/u/[uid]/log/+page.svelte)): "Log set" appends
+  ([log/+page.svelte](src/routes/(app)/log/+page.svelte)): "Log set" appends
   to a client-side `$state` queue and the screen updates in the same frame;
   a single-flight `pump()` POSTs queued sets in order in the background, and
   no invalidation runs mid-session. The safety net is in the DOMAIN, not the
@@ -222,12 +258,14 @@ patterns worth studying:
   translates old events at read time: `upcastLedgerEvent` runs at both read
   boundaries — `readLedgerEvents` for projections, the top of `evolve` for
   the decider fold — so `SessionStruck` rows stay in Postgres forever while
-  no living code knows the old word.
+  no living code knows the old word. The same additive field is what let the
+  med-ball plank retire without a migration: its events say `unit: 's'`, so
+  the Ledger formats them as seconds long after no plan knows the name.
 - **Shallow routing** (`replaceState` from `$app/navigation`): the current
   exercise lives in the URL (`/log?ex=2`) so refresh keeps your place, but no
   server load runs and no history entries pile up.
 - **The locked app shell**
-  ([(tabs)/+layout.svelte](src/routes/u/[uid]/(tabs)/+layout.svelte)), stolen
+  ([(tabs)/+layout.svelte](src/routes/(app)/(tabs)/+layout.svelte)), stolen
   from the cabin site: on mobile the document itself never scrolls (html/body
   `overflow: hidden`), only an inner `<main>` does, and the tab bar is a plain
   flex child at the bottom — `position: fixed` bars slide when mobile browsers
@@ -238,8 +276,9 @@ patterns worth studying:
 1. **Corrections, the event-sourced way.** Add a `SetCorrected` event
    (retract/assert — never mutate `SetLogged`). Touch: `events.ts`,
    `commands.ts`, `decide`/`evolve`, and make `projectSessions` apply it.
-   A worked example now exists: `SessionStruck` (the Ledger's "Strike"
-   button) — deleting a workout appends a fact instead of removing one,
+   A worked example now exists: `SessionRemoved` (the Ledger's "Remove"
+   button, born as `SessionStruck`) — deleting a workout appends a fact
+   instead of removing one,
    the decider's state tracks known/struck ids to refuse nonsense and
    no-op repeats, and one exclusion inside `projectSessions` makes every
    downstream view (progression, next-day, history) forget it at once.

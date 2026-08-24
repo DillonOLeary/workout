@@ -93,7 +93,8 @@ tracks novelty, connective tissue, and individual pain sensitivity — not
 growth. Not being sore does not mean it didn't work.
 
 **Two smaller settings.** Rest more than 60 seconds between sets; past about 90
-seconds there's little further benefit [10]. And on range of motion: for *muscle
+seconds there's little further benefit for *growth* [10] — strength likes
+longer, so take about two minutes on the squat and the hinge. And on range of motion: for *muscle
 growth* full ROM beats partial only *trivially*, and what matters is loading at
 **long** lengths [9] — but for **range of motion itself**, lifting through a full
 range increases joint ROM about as much as stretching does, to the point that
@@ -129,29 +130,56 @@ Two sessions alternating (A/B), so each week is roughly 1.5 of each.
 | Vertical push | Shoulder Press (B) |
 | Horizontal pull | Seated Row (B) |
 | Vertical pull | Lat Pulldown (A) |
-| Core | Weighted Plank (A), Side Plank (B) |
+| Rear delt / external rotation | Face Pull (A) |
+| Calves | Standing Calf Raise (A, B) |
+| Core | Long-Lever Plank (A), Copenhagen Plank (B) |
+| Adductors | Copenhagen Plank (B) |
 
 All six fundamental patterns, every week, with push and pull balanced 1:1 in
-both planes — the thing self-made programs most often miss. The hinge appears on
-both days too: RDL on A, KB deadlift on B, so it runs every session on top of
-three runs. That is comfortable at these loads, and it is the first place
-recovery will run short as the weights climb.
+both planes — the thing self-made programs most often miss — plus the two
+things a *runner's* lifting plan most often lacks. The soleus produces more
+force than any other muscle in running, and calf strength tracks running
+economy [17]; it had zero sets here, and now has nine a week. And nothing
+trained external rotation at the shoulder, which is the one shoulder-health
+input with a trial behind it [22] — two light sets of face pulls after the
+press fix that. The hinge still appears on both days: RDL on A, KB deadlift on
+B, so it runs every session on top of three runs. That is comfortable at
+these loads, and it is the first place recovery will run short as the
+weights climb.
 
-**Weekly set volume:**
+The core slots are deliberately not long holds. A plank past twenty seconds
+is an endurance test, not a strength stimulus; the long-lever version roughly
+doubles abdominal activation at the same length [18], and the Copenhagen
+plank loads the adductors — which nothing else in a front-to-back plan
+touches — with an injury-reduction trial behind it. Both progress by making
+the exercise harder, never longer.
+
+**Weekly set volume** (1.5 sessions of each day):
 
 | Muscle group | Sets/week | vs. ~10-set growth mark [1] |
 |---|---|---|
-| Back | ~9 | at the mark |
-| Quads | ~9 | at the mark |
 | Hamstrings / glutes | ~13 | above |
+| Back | ~9 (+3 rear delt) | at the mark |
+| Quads | ~9 | at the mark |
+| Calves | ~9 | at the mark |
 | Core | ~7.5 | near |
+| Adductors | ~3 | maintenance |
 | Chest | ~4.5 | **below** |
-| Shoulders | ~4.5 | **below** |
+| Shoulders | ~4.5 (+3 rear delt) | **below** |
 
 So: lower body and back are dosed for growth; **chest and shoulders are dosed
 for strength and maintenance, not size**. That is a real finding, not a
-formality — if visible upper-body change is a goal, add a second pressing
-movement or a fourth set. If it isn't, the plan is fine as written.
+formality — if visible upper-body change is a goal, the cleanest fix is a
+third day (A/B/C) with a second press and a chest-supported row, and it only
+makes sense once three sessions a week is a habit. If it isn't a goal, the
+plan is fine as written.
+
+Two honest limits on the running side. Ninety minutes a week of easy running
+costs nothing on the lifting side — the interference effect is real only at
+far higher endurance doses [21]. But the traffic doesn't run the other way at
+these loads: 8–12 rep training does little for running economy on its own;
+what moves running is heavy loading and the calves [17, 20]. The calf raise
+is the part of this plan that is *for* the running.
 
 Cardio: 90 min of running/week sits inside the WHO's 75–150 min vigorous band
 [2]. Lifting covers the ≥2 muscle-strengthening days [2] and lands in the
@@ -221,23 +249,48 @@ wholesale to someone already lifting three days a week.
 
 ---
 
-## Part 3 — The one rule, and the way back down
+## Part 3 — The rule, set by set, and the way back down
 
-**Up:** hit every set at the top of the range → take the next size up next time.
-That's double progression [12], and it's the whole of section 2 above.
+**Up:** hit the top of the range on a set → *that set* takes the next size up
+next time; the others keep climbing where they are. That's double
+progression [12] applied per set — "dynamic double progression" in coaching
+practice, where the trigger is the first set to reach the top rather than
+the last [19]. The difference matters for two reasons. The strongest set
+never waits for the weakest, so the rule fires when you have actually
+progressed instead of weeks later. And a rack that jumps 14–20% between
+sizes (25 → 30 lb dumbbells, 24 → 28 kg bells) gets absorbed one set at a
+time: set 1 at the new size, sets 2–3 at the old, until they catch up.
 
-**Down:** stall three sessions at the same weight → the ledger backs you off
-about 10%, again landing on a size that exists, and you build it back.
-
-Both directions move along the same ladder, so the app can never ask you for a
+**Down, two ways.** Miss the bottom of the range on the *same* set, at the
+*same* weight, twice inside a fortnight → that set backs off one size and
+you build it back. Two misses are evidence, so this can go below the plan's
+starting guess. And more than a fortnight away → every set comes back one
+size lighter, never below the start — a haircut, not a verdict. Both
+directions move along the same ladder, so the app can never ask you for a
 37.5 lb kettlebell.
 
-Worth flagging plainly: **the deload rule is weaker evidence than everything
-else on this page.** Planned back-offs are standard coaching practice and follow
-logically from the overload principle [12], but they don't rest on a meta-
-analysis the way sections 3–8 do. It's here because a program with no reverse
-gear quietly asks you to either grind through failing sets or quit — and the
-second one is what actually happens.
+**Holds stop at the top of the range.** Past it the answer is a harder
+variation — the exercise note says which — never a longer hold. Long holds
+turn into endurance tests, and a heavier version at the same length is what
+actually adds stimulus [18].
+
+There used to be a third rule here: stall three sessions at one weight → back
+off about 10%. It's gone, and it's worth saying why. Reactive back-offs like
+it are standard practice in three-day-a-week barbell programs, but the
+evidence for scheduled deloads in beginners is thin at best — the one trial
+that tested a week off found no benefit for size and a cost to strength
+[15] — and one session a week holds strength and size for months as long as
+the load is held [16]. At that frequency a "stall" is three weeks of
+under-stimulus, not fatigue, and a 10% cut is a slide, not a reset. The
+re-entry rule is the honest replacement: it responds to *absence*, one size
+at a time, and only when the absence was real.
+
+Worth flagging plainly: **the two downward rules are weaker evidence than
+everything else on this page.** They follow from the overload principle [12]
+and from what the re-entry data shows [15, 16], but they don't rest on a
+meta-analysis the way sections 3–8 do. They're here because a program with no
+reverse gear quietly asks you to either grind through failing sets or quit —
+and the second one is what actually happens.
 
 ## What this page does not cover
 
@@ -264,3 +317,11 @@ substitutes for having someone look at it.
 12. American College of Sports Medicine. **Progression Models in Resistance Training for Healthy Adults** (Position Stand). *Medicine & Science in Sports & Exercise* 2009;41(3):687–708. <https://pubmed.ncbi.nlm.nih.gov/19204579/>
 13. Sivaramakrishnan D, Fitzsimons C, Kelly P, et al. **The effects of yoga compared to active and inactive controls on physical function and health related quality of life in older adults — systematic review and meta-analysis of randomised controlled trials.** *International Journal of Behavioral Nutrition and Physical Activity* 2019. <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6451238/>
 14. Alizadeh S, Daneshjoo A, Zahiri A, Anvar SH, Goudini R, Hicks JP, Konrad A, Behm DG. **Resistance training induces improvements in range of motion: a systematic review and meta-analysis.** *Sports Medicine* 2023;53:707–722. <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9935664/>
+15. Coleman M, Burke R, Benavente C, et al. **Supervised resistance training with or without a one-week deload: effects on muscle hypertrophy and strength in trained lifters.** *PeerJ* 2024. Randomised trial; the deload week gave no hypertrophy advantage and cost lower-body strength. <https://peerj.com/articles/16777/>
+16. Bickel CS, Cross JM, Bamman MM. **Exercise dosing to retain resistance training adaptations in young and older adults.** *Medicine & Science in Sports & Exercise* 2011;43(7):1177–1187. One session a week at maintained intensity preserved strength and size for 32 weeks. <https://pubmed.ncbi.nlm.nih.gov/?term=Bickel+Cross+Bamman+2011+exercise+dosing+retain>
+17. Eihara Y, Takao K, Sugiyama T, et al. **Heavy resistance training improves running economy in recreational runners: calf-raise strength gains track the improvement.** *European Journal of Sport Science* 2024. Randomised trial in middle-aged recreational runners. <https://onlinelibrary.wiley.com/doi/full/10.1002/ejsc.12197>
+18. Schoenfeld BJ, Contreras B, Tiryaki-Sonmez G, Willardson JM, Fontana F. **An electromyographic comparison of a modified version of the plank with a long lever and posterior tilt versus the traditional plank exercise.** *Sports Biomechanics* 2014;13(3):296–306. <https://www.tandfonline.com/doi/abs/10.1080/14763141.2014.942355>
+19. Helms E, Morgan A. **Progression** (the Muscle & Strength Pyramid: Training, applied) — the first-set trigger for double progression. Coaching practice, not a trial. <https://rippedbody.com/progression/>
+20. Llanos-Lagos C, Ramirez-Campillo R, Moran J, Sáez de Villarreal E. **The effect of strength training methods on middle-distance and long-distance runners' athletic performance: a systematic review with meta-analysis.** *Sports Medicine* 2024. High-load and combined methods improved running economy; submaximal 40–79% loads did not. <https://pmc.ncbi.nlm.nih.gov/articles/PMC11052887/>
+21. Schumann M, Feuerbacher JF, Sünkeler M, et al. **Compatibility of concurrent aerobic and strength training for skeletal muscle size and function: an updated systematic review and meta-analysis.** *Sports Medicine* 2022. No interference for hypertrophy or maximal strength; only explosive strength, mainly same-session. <https://pmc.ncbi.nlm.nih.gov/articles/PMC8891239/>
+22. Andersson SH, Bahr R, Clarsen B, Myklebust G. **Preventing overuse shoulder injuries among throwing athletes: a cluster-randomised controlled trial in 660 elite handball players.** *British Journal of Sports Medicine* 2017;51:1073–1080. External-rotation and scapular strengthening cut shoulder problems by about a quarter; generalising to gym-goers is consensus, not trial data. <https://bjsm.bmj.com/content/51/14/1073>

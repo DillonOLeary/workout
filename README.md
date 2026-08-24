@@ -3,10 +3,11 @@
 Dillon's single-user workout tracker. Ergonomics-first (56px+ hit targets,
 full keyboard control, big mono numbers), event-sourced, paper-and-volt.
 
-Track the work. The rule does the rest: hit every set at the top of the range
-→ take the next size up next time; stall three sessions at one weight → step
-back about 10% and build it again. Both directions move along real rack sizes,
-so it never asks you for a 37.5 lb kettlebell.
+Track the work. The rule does the rest, one set at a time: hit the top of the
+range on a set → that set takes the next size up next time. Miss the bottom of
+the range on the same set twice in a row → it backs off one size; two weeks
+away → everything comes back one size lighter. Every move lands on a real
+rack size, so it never asks you for a 37.5 lb kettlebell.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)
 PostgreSQL event store · Neon · TypeScript.
@@ -29,8 +30,11 @@ Needs `.env.local` (git-ignored):
 
 ```
 DB=postgres://…            # Neon connection string
-LEDGER_PEPPER=…            # any random secret; HMACs phone numbers into /u/<id> URLs
+LEDGER_PEPPER=…            # any random secret; HMACs phone numbers into account ids and signs the cookie
 ```
+
+Dev talks to Neon directly: [vite.config.ts](vite.config.ts) hands `DB` to
+wrangler's local Hyperdrive emulation, which otherwise refuses to start.
 
 Log in with a phone number — no password; a signed cookie keeps the device
 signed in, and the same number reaches the same ledger from any device.
@@ -49,6 +53,7 @@ src/routes/           login · Today / The Plan / Ledger / Why · /log gym floor
 ## Checks
 
 ```sh
+pnpm test     # vitest — the pure domain: decider, progression fold, racks
 pnpm check    # svelte-check
 pnpm build    # production build
 ```
