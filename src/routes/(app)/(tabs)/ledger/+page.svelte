@@ -4,7 +4,7 @@
 	import Card from '$lib/components/Card.svelte';
 	import {
 		dayTitle,
-		earnedIncrease,
+		anySetEarned,
 		loadLabel,
 		projectPlanSwitches,
 		projectRuns,
@@ -103,8 +103,8 @@
 				</div>
 				{#each en.s.rows as row (row.exercise)}
 					{@const ex = exByName(row.exercise)}
-					{@const lvl = ex ? earnedIncrease(row, ex) : false}
-					{@const hold = ex?.mode === 'seconds'}
+					{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
+					{@const hold = ex?.mode === 'seconds' || row.sets.some((st) => st.unit === 's')}
 					{@const flat = uniformLoad(row.sets)}
 					<div class="sessrow">
 						<span class="exname">

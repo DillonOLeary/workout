@@ -5,7 +5,7 @@
 	import Card from '$lib/components/Card.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
 	import WeeklyProgress from '$lib/components/WeeklyProgress.svelte';
-	import { dayTitle, nextDay, nextLoad, weekRunMinutes } from '$lib/domain/projections';
+	import { dayTitle, nextDay, nextLoad, warmupFor, weekRunMinutes } from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
 	import type { PageProps } from './$types';
 
@@ -29,8 +29,10 @@
 	let dueList = $derived(plan.days[due] ?? []);
 	let dueSets = $derived(dueList.reduce((n, e) => n + e.sets, 0));
 	let dueLoads = $derived(dueList.map((ex) => ({ ex, load: nextLoad(data.events, ex, session?.id) })));
-	let ups = $derived(dueLoads.filter((c) => c.load.reason === 'increase').map((c) => c.ex.name));
-	let downs = $derived(dueLoads.filter((c) => c.load.reason === 'deload').map((c) => c.ex.name));
+	// per-set progression: ↑ when any set of an exercise goes up, ↓ when
+	// anything comes down (a re-entry after time away, or an adjustment)
+	let ups = $derived(dueLoads.filter((c) => c.load.up).map((c) => c.ex.name));
+	let downs = $derived(dueLoads.filter((c) => c.load.down).map((c) => c.ex.name));
 	// one name plus a count, never the full list — spelling out four exercises
 	// wraps to a second line and costs more height than the news is worth
 	const summarise = (names: string[]) =>
@@ -89,6 +91,9 @@
 			<div class="title">{dayTitle(plan, due)}</div>
 			{#if plan.dayInfo?.[due]?.desc}
 				<div class="desc">{plan.dayInfo[due].desc}</div>
+			{/if}
+			{#if warmupFor(plan, due)}
+				<div class="desc">Warm up: {warmupFor(plan, due)}</div>
 			{/if}
 			<!-- the shape of the session, and a way through to the detail -->
 			<a class="scope" href="/plan">

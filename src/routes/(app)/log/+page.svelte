@@ -4,14 +4,15 @@
 	import { page } from '$app/state';
 	import { nextRung, prevRung } from '$lib/domain/racks';
 	import {
-		STALL_LIMIT,
 		dayTitle,
+		holdMaxed,
 		lastEntryFor,
-		setsLine,
+		loadHint,
 		nextLoad,
 		rangeLabel,
+		setsLine,
 		suggestedCount,
-		suggestedWeight
+		warmupFor
 	} from '$lib/domain/projections';
 	import type { SetLogged } from '$lib/domain/events';
 	import type { PageProps } from './$types';
@@ -27,6 +28,7 @@
 	const plan = data.plans.find((p) => p.id === session.plan) ?? data.plans[0];
 	const exercises = plan.days[session.day] ?? [];
 	const totalSets = exercises.reduce((n, e) => n + e.sets, 0);
+	const warmup = warmupFor(plan, session.day);
 
 	/* ---------- optimistic queue ----------------------------------------
 	   Pressing "Log set" appends to `local` and the UI updates in the same
@@ -91,7 +93,11 @@
 	// the reasoning behind the preloaded weight, so a drop is never silent —
 	// an unexplained lighter bar reads as a bug, which is worse than no deload
 	let load = $derived(ex && !ex.bodyweight ? nextLoad(data.events, ex, session.id) : null);
-	let repChoices = $derived([ex.lo, ex.lo + 1, ex.lo + 2, ex.lo + 3, ex.lo + 4]);
+	// only before the first set: after that the controls carry the session's
+	// own numbers and the suggestion no longer describes what's on screen
+	let hint = $derived(load && done === 0 ? loadHint(load, ex) : null);
+	// every rep in the range, not five of them — a 6–12 range has seven
+	let repChoices = $derived(Array.from({ length: ex.hi - ex.lo + 1 }, (_, i) => ex.lo + i));
 	let fmtW = $derived(Number.isInteger(weight) ? String(weight) : weight.toFixed(1));
 
 	/* ---------- the hold timer ---------- */
@@ -116,54 +122,60 @@
 		}, 200);
 		return () => clearInterval(t);
 	});
+	// the ceiling is the top of the range: past it the answer is a harder
+	// variation (the exercise note says which), never a longer hold
 	const bumpTarget = (d: number) => {
-		if (!hold) reps = Math.max(10, reps + d);
+		if (!hold) reps = Math.min(ex.hi, Math.max(5, reps + d));
 	};
 
-	function initFor(i: number) {
+	/**
+	 * What the controls show for the set about to be logged. Per-set
+	 * progression means set 2 can legitimately ask for LESS than set 1, so the
+	 * preload follows the ledger's suggestion for THIS set number — unless you
+	 * overrode the ledger on the previous set (a different machine, a sore
+	 * shoulder). Then the override sticks for the rest of the exercise, because
+	 * "the ledger is wrong today" is true of every remaining set.
+	 */
+	function preload(i: number) {
 		const e = exercises[i];
 		if (!e) return;
 		const prior = loggedThis.filter((s) => s.data.exercise === e.name);
 		const priorLast = prior[prior.length - 1];
+		const k = Math.min(prior.length, e.sets - 1); // the set about to be logged
 		const timed = e.mode === 'seconds';
-		// weight: 0 for bodyweight; timed-weighted (med-ball plank) carries it
-		// silently — the hold stepper replaces the weight stepper on screen
-		weight = e.bodyweight
-			? 0
-			: priorLast
-				? priorLast.data.weight
-				: suggestedWeight(data.events, e, session.id);
-		if (timed) {
-			// target seconds: this session's last TARGET (a dropped hold
-			// shouldn't lower the next bell), else history, else the floor
-			if (priorLast) {
-				reps = priorLast.data.target ?? priorLast.data.reps;
-			} else if (e.bodyweight) {
-				reps = suggestedCount(data.events, e, session.id);
-			} else if (nextLoad(data.events, e, session.id).reason === 'increase') {
-				// double progression applies to holds too: the next ball up starts
-				// back at the bottom of the range, like reps after a level-up —
-				// without this the heavier ball would still ask for last week's max
-				reps = e.lo;
-			} else {
-				const entry = lastEntryFor(data.events, e.name, session.id);
-				reps = entry ? Math.max(...entry.sets.map((st) => st.reps)) : e.lo;
-			}
-		} else if (e.bodyweight) {
-			reps = priorLast ? priorLast.data.reps : suggestedCount(data.events, e, session.id);
-		} else {
-			reps = Math.min(e.lo + 2, e.hi);
+		const sugg = e.bodyweight ? null : nextLoad(data.events, e, session.id);
+		let overridden = false;
+		if (sugg && priorLast) {
+			const suggestedPrev = sugg.sets[Math.min(prior.length - 1, e.sets - 1)].weight;
+			overridden = priorLast.data.weight !== suggestedPrev;
 		}
-		inc = timed ? 15 : 5;
+		// weight: 0 for bodyweight; a timed-weighted hold (custom plans) carries it
+		// silently — the hold stepper replaces the weight stepper on screen
+		weight = !sugg ? 0 : overridden ? priorLast!.data.weight : sugg.sets[k].weight;
+		if (timed) {
+			// target seconds: this session's last TARGET (a dropped hold shouldn't
+			// lower the next bell), else the ledger's per-set suggestion. A level-up
+			// on a weighted hold restarts at the bottom of the range, like reps do.
+			if (priorLast) reps = priorLast.data.target ?? priorLast.data.reps;
+			else if (sugg && sugg.sets[k].reason === 'increase') reps = e.lo;
+			else reps = suggestedCount(data.events, e, session.id, k);
+			reps = Math.min(e.hi, reps);
+		} else if (e.bodyweight) {
+			reps = priorLast ? priorLast.data.reps : suggestedCount(data.events, e, session.id, k);
+		} else {
+			// what you did last set if you're off-plan, else what this set asks for
+			reps = overridden ? priorLast!.data.reps : sugg!.sets[k].reps;
+		}
+		inc = 5;
 		hold = null;
 		remaining = null;
 	}
-	initFor(initialEx);
+	preload(initialEx);
 
 	function goTo(i: number) {
 		if (i < 0 || i >= exercises.length || i === exI) return;
 		exI = i;
-		initFor(i);
+		preload(i);
 		// shallow routing: URL tracks the exercise, no loads run, no history spam
 		replaceState(`?ex=${i}`, {});
 	}
@@ -210,6 +222,8 @@
 				...(isHold ? { unit: 's' as const, ...(target !== undefined ? { target } : {}) } : {})
 			}
 		});
+		// the next set gets its own number — per-set progression, not a carry
+		preload(exI);
 		// instant feedback — the network is not invited to this part
 		flash = true;
 		setTimeout(() => (flash = false), 160);
@@ -395,6 +409,7 @@
 						<span class="lg-tag">{ex.tag}</span>
 						<span class="lg-equip">{ex.equip}</span>
 					</div>
+					{#if exI === 0 && done === 0 && warmup}<div class="lg-note lg-warmup">Warm up: {warmup}</div>{/if}
 					{#if ex.note && done === 0}<div class="lg-note">{ex.note}</div>{/if}
 					<div class="lg-setline">
 						{#if exDone}
@@ -424,15 +439,11 @@
 					{/if}
 					<!-- only before this exercise's first set: after that the stepper carries
 					     the session's own weight and the suggestion no longer describes it -->
-					{#if load && done === 0 && load.reason === 'deload'}
-						<div class="lg-hint">
-							Stalled {load.stalls}× here — backed off to {load.weight} lb. Build it back.
-						</div>
-					{:else if load && done === 0 && load.stalls >= STALL_LIMIT}
-						<!-- stalled past the limit but reason is still 'hold' — already at the floor -->
-						<div class="lg-hint">Stalled {load.stalls}× at the starting weight.</div>
-					{:else if load && done === 0 && load.stalls === STALL_LIMIT - 1}
-						<div class="lg-hint">Stalled {load.stalls}× here — miss again and it backs off.</div>
+					{#if hint}
+						<div class="lg-hint">{hint}</div>
+					{:else if isHold && done === 0 && holdMaxed(last, ex)}
+						<!-- the note above already says what "harder" means for this hold -->
+						<div class="lg-hint">At the ceiling ({ex.hi}s) — make it harder, not longer.</div>
 					{/if}
 					{#if allDone}
 						<div class="lg-hint">Done — stretch 5 min while you're warm.</div>
@@ -450,8 +461,8 @@
 									<span class="v">{remaining}</span>
 								{:else}
 									<input
-										class="v" type="number" inputmode="numeric" min="1" max="600"
-										value={reps} onchange={(e) => commitCount(e.currentTarget, 600)}
+										class="v" type="number" inputmode="numeric" min="1" max={ex.hi}
+										value={reps} onchange={(e) => commitCount(e.currentTarget, ex.hi)}
 										aria-label="Hold seconds — type an exact number"
 									/>
 								{/if}
@@ -460,7 +471,7 @@
 							<button type="button" class="lg-step" onclick={() => bumpTarget(inc)} disabled={!!hold} aria-label="Longer hold">+</button>
 						</div>
 						<div class="lg-inc" role="group" aria-label="Seconds step size">
-							{#each [5, 15, 30] as v (v)}
+							{#each [5, 10] as v (v)}
 								<button type="button" aria-pressed={inc === v} onclick={() => (inc = v)}>{v}</button>
 							{/each}
 						</div>
@@ -530,7 +541,7 @@
 					{:else if !isHold}
 						<div class="lg-reps">
 							<p class="lg-lbl">Reps</p>
-							<div class="lg-repgrid" role="group" aria-label="Reps">
+							<div class="lg-repgrid" class:dense={repChoices.length > 5} role="group" aria-label="Reps">
 								{#each repChoices as n (n)}
 									<button type="button" class="lg-rep" aria-pressed={reps === n} onclick={() => (reps = n)}>
 										{n}<span class="off">{n === ex.lo ? 'min' : n === ex.hi ? 'max' : ' '}</span>
@@ -643,6 +654,7 @@
 	.lg-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink); background: var(--volt-tint); border: 1px solid var(--ink); border-radius: var(--radius-pill); padding: 3px 10px; }
 	.lg-equip { font-size: 13px; color: var(--ink-3); }
 	.lg-note { font-size: 13px; color: var(--ink-2); margin-top: 8px; }
+	.lg-warmup { color: var(--ink-3); }
 	.lg-setline { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); margin-top: 10px; }
 	.lg-setline b { color: var(--ink); background: var(--volt); padding: 0 5px; border-radius: 4px; }
 	.lg-last { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-top: 4px; }
@@ -676,7 +688,11 @@
 	.lg-reps { margin-top: 16px; }
 	/* bodyweight: no weight block above, so the count UI sits flush */
 	.lg-reps:first-child { margin-top: 0; }
-	.lg-repgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+	/* as many columns as the range has reps: seven fit one row on any phone
+	   wider than ~340px and wrap 4 + 3 on an SE */
+	.lg-repgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 8px; }
+	.lg-repgrid.dense { gap: 6px; }
+	.lg-repgrid.dense .lg-rep { min-height: 60px; font-size: 24px; }
 	.lg-rep {
 		font-family: var(--font-mono); font-weight: 800; font-size: 30px; color: var(--ink);
 		background: var(--white); border: 2px solid var(--ink); border-radius: var(--radius-lg);
@@ -717,11 +733,12 @@
 	.lg-load input::-webkit-outer-spin-button,
 	.lg-load input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 	.lg-loadunit { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); align-self: center; }
-	/* the same five columns as the rep grid above, so − and + sit exactly under
-	   the 8 and the 12 rather than nearly under them */
-	.lg-repexact { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
-	.lg-repexact input { grid-column: 2 / 5; }
+	/* the grid above no longer has a fixed column count, so this row lays
+	   itself out: fixed-width nudges, the field takes the rest */
+	.lg-repexact { display: flex; gap: 8px; margin-top: 8px; }
+	.lg-repexact input { flex: 1; min-width: 0; }
 	.lg-repexact button {
+		flex: none; width: 56px;
 		font-family: var(--font-mono); font-size: 22px; font-weight: 700; color: var(--ink-2);
 		background: var(--white); border: 2px solid var(--paper-3); border-radius: var(--radius-md); min-height: 44px; cursor: pointer;
 	}

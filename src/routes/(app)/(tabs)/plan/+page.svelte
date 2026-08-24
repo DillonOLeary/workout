@@ -68,11 +68,13 @@
 		<div class="rulebox">
 			<div class="caps mb8">How it progresses</div>
 			<div class="rule">
-				Hit every set at the top of the range → <span class="hl">take the next size up</span> next time.
+				Each set climbs on its own. Top of the range on a set → <span class="hl">that set takes the next size up</span> next time; the others keep climbing where they are.
 			</div>
 			<div class="ruledown">
-				Stall three sessions at one weight → it backs off about 10%, and you build it back.
-				Both ways land on weights the rack actually has.
+				Miss the bottom of the range on the same set twice in a row → it backs off one size.
+				Two weeks away → everything comes back one size lighter and builds back. Holds stop
+				at the top of the range — past that, make them harder, not longer. Every number is
+				a size the rack actually has.
 			</div>
 		</div>
 	</Card>

@@ -34,7 +34,8 @@ export const RACKS: Record<Rack, number[]> = {
 export function snapToRack(weight: number, rack: Rack): number {
 	const rungs = RACKS[rack];
 	let best = rungs[0];
-	for (const r of rungs) if (Math.abs(r - weight) <= Math.abs(best - weight)) best = r;
+	// strictly closer only: on a tie the earlier (lighter) rung keeps the win
+	for (const r of rungs) if (Math.abs(r - weight) < Math.abs(best - weight)) best = r;
 	return best;
 }
 

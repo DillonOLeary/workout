@@ -52,7 +52,12 @@ export type Exercise = {
 	note?: string;
 };
 
-export type DayInfo = { title: string; desc?: string };
+export type DayInfo = {
+	title: string;
+	desc?: string;
+	/** one line shown on the floor before exercise 1 and on the Today card */
+	warmup?: string;
+};
 
 export type Plan = {
 	id: string;
@@ -65,4 +70,6 @@ export type Plan = {
 	runs?: boolean;
 	/** weekly run-minute goal for the meter/badge; absent = 150 */
 	runTarget?: number;
+	/** warm-up line for days whose dayInfo doesn't carry its own */
+	warmup?: string;
 };
