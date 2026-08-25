@@ -325,7 +325,9 @@
 				const x = s.ex!;
 				if (e) return { key: s.key, label: s.label, value: setValue(x, mLoad(e.measure), mCount(e.measure)), note: e ? undefined : undefined, state: state(true) };
 				if (cur && hold) return { key: s.key, label: s.label, value: String(remaining ?? hold.target), note: `of ${hold.target}s left`, state: 'running', big: true };
-				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'logging', state: state(false) };
+				// "now", not "logging": the write is what saving… means — this row is
+				// simply the one you're on, same word the prep steps use
+				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'now', state: state(false) };
 				const ld = loads.get(x.name);
 				return { key: s.key, label: s.label, value: setValue(x, ld ? ld.sets[Math.min(s.index - 1, x.sets - 1)].weight : 0, null), state: 'upcoming' };
 			}
