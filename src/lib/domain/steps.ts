@@ -20,6 +20,12 @@ import { cooldownFor, restFor, warmupFor, type Exercise, type Plan } from './pla
  */
 export type StepKind = 'prep' | 'set' | 'rest' | 'run';
 
+/* what each step costs the clock, seconds — the honest "about N min" is the
+   sum of these plus the rests, not a guess per session */
+const PREP_SECONDS = 75;
+const SET_SECONDS = 45;
+const COOLDOWN_SECONDS = 60;
+
 export type Step = {
 	/** entry identity for prep/set/run; `rest:<item>#<set>` for a rest */
 	key: string;
@@ -56,7 +62,7 @@ export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
 	warmupFor(plan, day).forEach((text, n) =>
 		out.push({
 			key: entryKey(WARMUP_ITEM, n + 1), kind: 'prep', section: WARMUP_ITEM, item: WARMUP_ITEM, index: n + 1,
-			label: `STEP ${n + 1}`, text, estimate: 75
+			label: `STEP ${n + 1}`, text, estimate: PREP_SECONDS
 		})
 	);
 	for (const ex of exercises) {
@@ -66,7 +72,7 @@ export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
 			out.push({
 				key: entryKey(ex.name, s), kind: 'set', section: ex.name, item: ex.name, index: s,
 				label: `${hold ? 'HOLD' : 'SET'} ${s}${ex.side === 'sets' ? (s % 2 === 1 ? ' · L' : ' · R') : ''}`,
-				ex, estimate: 45
+				ex, estimate: SET_SECONDS
 			});
 			if (s < ex.sets)
 				out.push({
@@ -78,7 +84,7 @@ export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
 	cooldownFor(plan, day).forEach((text, n) =>
 		out.push({
 			key: entryKey(COOLDOWN_ITEM, n + 1), kind: 'prep', section: COOLDOWN_ITEM, item: COOLDOWN_ITEM, index: n + 1,
-			label: `STEP ${n + 1}`, text, estimate: 60
+			label: `STEP ${n + 1}`, text, estimate: COOLDOWN_SECONDS
 		})
 	);
 	return out;
