@@ -13,7 +13,7 @@
 		/** 'SET 1' · 'HOLD 2 · L' · 'REST' · 'STEP 3' · 'WALK' · 'RUN' */
 		label: string;
 		value: string;
-		/** 'logging' · 'saving…' · 'now' · 'of 60s left' · '✓' */
+		/** 'now' · 'saving…' · 'of 60s left' · '✓' */
 		note?: string;
 		state: RowState;
 		/** the countdown / the clock: 40px, the only number on screen that matters */
