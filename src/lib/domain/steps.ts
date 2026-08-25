@@ -147,7 +147,7 @@ export function runStart(steps: Step[], i: number, entries: Entry[], sessionAt: 
 	return Date.parse(sessionAt);
 }
 
-export function sessionProgress(steps: Step[], entries: Entry[], now: number = Date.now()): Progress {
+export function sessionProgress(steps: Step[], entries: Entry[], now: number): Progress {
 	const logged = new Set(entries.map((e) => entryKey(e.item, e.index)));
 	const done = new Set<string>();
 	for (const s of steps) {

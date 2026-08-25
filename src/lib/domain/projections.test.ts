@@ -11,6 +11,7 @@ import {
 	suggestedWeight
 } from './projections';
 import type { Exercise } from './plan';
+import type { Measure } from './measure';
 
 const DAY = 86400000;
 const NOW = Date.parse('2026-08-23T18:00:00Z');
@@ -233,28 +234,30 @@ describe('bodyweight and holds', () => {
 		const ev = ledger('Copenhagen Plank', [{ daysAgo: 2, sets: [[0, 8], [0, 20]] }]);
 		expect(suggestedCount(ev, copenhagen, undefined, 0)).toBe(8);
 		expect(suggestedCount(ev, copenhagen, undefined, 1)).toBe(15);
-		expect(suggestedCount([], copenhagen)).toBe(5);
+		expect(suggestedCount([], copenhagen, undefined, 0)).toBe(5);
 	});
 	it('asks for +inc after a hold that rang its bell, and caps at the ceiling', () => {
 		const rang = ledger('Long-Lever Plank', [{ daysAgo: 2, unit: 's', sets: [[0, 10, 10], [0, 10, 10], [0, 7, 10]] }]);
 		expect(suggestedCount(rang, plank, undefined, 0)).toBe(15);
 		expect(suggestedCount(rang, plank, undefined, 2)).toBe(10); // dropped early → what you held, floored at lo
 		const top = ledger('Long-Lever Plank', [{ daysAgo: 2, unit: 's', sets: [[0, 20, 20], [0, 20, 20], [0, 20, 20]] }]);
-		expect(suggestedCount(top, plank)).toBe(20);
-		expect(holdMaxed({ sets: [{ weight: 0, reps: 20 }, { weight: 0, reps: 20 }, { weight: 0, reps: 20 }] }, plank)).toBe(true);
-		expect(holdMaxed({ sets: [{ weight: 0, reps: 20 }, { weight: 0, reps: 19 }, { weight: 0, reps: 20 }] }, plank)).toBe(false);
-		expect(holdMaxed({ sets: [{ weight: 0, reps: 20 }] }, plank)).toBe(false);
+		expect(suggestedCount(top, plank, undefined, 0)).toBe(20);
+		const hold = (seconds: number): Measure => ({ of: 'hold', seconds });
+		expect(holdMaxed({ sets: [hold(20), hold(20), hold(20)] }, plank)).toBe(true);
+		expect(holdMaxed({ sets: [hold(20), hold(19), hold(20)] }, plank)).toBe(false);
+		expect(holdMaxed({ sets: [hold(20)] }, plank)).toBe(false);
 	});
 	it('treats a hold logged before targets existed as having rung', () => {
 		const old = ledger('Long-Lever Plank', [{ daysAgo: 2, unit: 's', sets: [[0, 15]] }]);
-		expect(suggestedCount(old, plank)).toBe(20);
+		expect(suggestedCount(old, plank, undefined, 0)).toBe(20);
 	});
 });
 
 describe('anySetEarned', () => {
 	it('lights the ledger pill when some set reached the top', () => {
-		expect(anySetEarned([{ weight: 35, reps: 12 }, { weight: 35, reps: 8 }], goblet)).toBe(true);
-		expect(anySetEarned([{ weight: 35, reps: 11 }, { weight: 35, reps: 11 }], goblet)).toBe(false);
+		const set = (reps: number): Measure => ({ of: 'load', load: 35, reps });
+		expect(anySetEarned([set(12), set(8)], goblet)).toBe(true);
+		expect(anySetEarned([set(11), set(11)], goblet)).toBe(false);
 	});
 });
 
@@ -396,8 +399,8 @@ describe('runs as sessions', () => {
 		expect(s.isRun).toBe(false);
 		expect(s.mode).toBe('live');
 		expect(s.rows).toEqual([
-			{ exercise: 'Goblet Squat', sets: [{ weight: 35, reps: 10 }] },
-			{ exercise: 'Plank', sets: [{ weight: 0, reps: 20, unit: 's', target: 20 }] }
+			{ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 10 }] },
+			{ item: 'Plank', sets: [{ of: 'hold', seconds: 20, target: 20 }] }
 		]);
 	});
 	it('names a run by the plan', () => {

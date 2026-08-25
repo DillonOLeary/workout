@@ -22,6 +22,8 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	// one clock reading per visit: every fold below takes it as an input
+	const now = Date.now();
 
 	/**
 	 * Tab 1 is your state now and your state over time, in one scroll: this
@@ -34,11 +36,11 @@
 	let due = $derived(nextDay(data.events, plan));
 	let dayKeys = $derived(Object.keys(plan.days));
 
-	let cells = $derived(weekStrip(data.events));
+	let cells = $derived(weekStrip(data.events, now));
 
 	// the re-entry nudge: information, never alarm — only while there is runway
 	let nudges = $derived(
-		dayAges(data.events, plan).filter(
+		dayAges(data.events, plan, now).filter(
 			(a) => a.daysSince !== null && a.daysSince >= REENTRY_WARN_DAYS && a.daysSince <= REENTRY_DAYS
 		)
 	);
@@ -51,7 +53,7 @@
 		for (const d of dayKeys) for (const ex of plan.days[d]) if (!seen.has(ex.name)) { seen.add(ex.name); out.push(ex); }
 		return out;
 	});
-	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, session?.id) })));
+	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, session?.id, now) })));
 	let openRow = $state<string | null>(null);
 
 	// the session is a list of steps: Today says how long it is, and how far in
@@ -64,7 +66,7 @@
 					.map((e) => e.data)
 			: []
 	);
-	let liveProgress = $derived(sessionProgress(liveSteps, liveEntries));
+	let liveProgress = $derived(sessionProgress(liveSteps, liveEntries, now));
 	let liveLine = $derived.by(() => {
 		if (!session) return '';
 		const left = estimateMinutes(liveSteps, liveProgress.current);
@@ -79,7 +81,7 @@
 		return `${dueSteps.length} steps · about ${estimateMinutes(dueSteps)} min${prep ? ' · warm-up and cooldown included' : ''}`;
 	});
 
-	let minutes = $derived(weekRunMinutes(data.events));
+	let minutes = $derived(weekRunMinutes(data.events, now));
 	let target = $derived(runTarget(plan));
 
 	const today = new Date().toLocaleDateString('en-US', {

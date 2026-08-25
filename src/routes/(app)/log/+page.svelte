@@ -24,7 +24,7 @@
 		suggestedCount,
 		weekRunMinutes
 	} from '$lib/domain/projections';
-	import type { LoadSuggestion, SessionSet } from '$lib/domain/projections';
+	import type { LoadSuggestion } from '$lib/domain/projections';
 	import {
 		estimateMinutes,
 		restStart,
@@ -38,6 +38,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const opened = Date.now(); // one clock reading for the folds that need one at load
 
 	// Snapshots, not $derived — deliberately. id/plan/day cannot change while
 	// this screen is open (the load() guard guarantees a session exists), and
@@ -59,7 +60,7 @@
 	// the rule's answer per exercise, once: data.events never refreshes mid-session
 	// svelte-ignore state_referenced_locally
 	const loads = new Map<string, LoadSuggestion>(
-		exercises.filter((e) => e.kind === 'load').map((e) => [e.name, nextLoad(data.events, e, session.id)])
+		exercises.filter((e) => e.kind === 'load').map((e) => [e.name, nextLoad(data.events, e, session.id, opened)])
 	);
 
 	/* ---------- optimistic queue ----------------------------------------
@@ -338,7 +339,7 @@
 
 	/* ---------- the lines above the table ---------- */
 	let heading = $derived(!st ? 'Done' : st.kind === 'rest' ? 'Rest' : st.kind === 'set' ? st.ex!.name : st.section);
-	let weekMin = $derived(weekRunMinutes(data.events));
+	let weekMin = $derived(weekRunMinutes(data.events, opened));
 	let meta = $derived.by(() => {
 		if (!st) return '';
 		if (st.kind === 'prep') {
@@ -613,15 +614,11 @@
 	});
 
 	/** the receipt: what this session actually wrote, in ledger shape */
-	function receiptSets(name: string): SessionSet[] {
+	function receiptSets(name: string): Measure[] {
 		return entries
 			.filter((e) => e.item === name && isSet(e.measure))
 			.sort((a, b) => a.index - b.index)
-			.map((e) => ({
-				weight: loadOf(e.measure),
-				reps: countOf(e.measure),
-				...(e.measure.of === 'hold' ? { unit: 's' as const, ...(e.measure.target !== undefined ? { target: e.measure.target } : {}) } : {})
-			}));
+			.map((e) => e.measure);
 	}
 	let runMinutes = $derived(entries.filter((e) => e.measure.of === 'duration').reduce((n, e) => n + (e.measure.of === 'duration' ? e.measure.minutes : 0), 0));
 	let prepLine = $derived.by(() => {

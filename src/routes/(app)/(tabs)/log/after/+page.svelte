@@ -13,6 +13,7 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const opened = Date.now();
 
 	/**
 	 * "Log it after": the same session shape the floor writes live, written
@@ -58,8 +59,8 @@
 		lines = exs.map((ex) => ({
 			ex,
 			sets: ex.sets,
-			weight: ex.kind !== 'load' ? 0 : nextLoad(data.events, ex).weight,
-			count: ex.kind !== 'load' ? suggestedCount(data.events, ex) : nextLoad(data.events, ex).sets[0].reps
+			weight: ex.kind !== 'load' ? 0 : nextLoad(data.events, ex, undefined, opened).weight,
+			count: ex.kind !== 'load' ? suggestedCount(data.events, ex, undefined, 0) : nextLoad(data.events, ex, undefined, opened).sets[0].reps
 		}));
 	});
 	function bumpWeight(l: Line, dir: 1 | -1) {
