@@ -28,16 +28,34 @@ const CALF_RAISE: Exercise = {
 	note: 'Full stretch at the bottom, pause; up on the balls of the feet, pause. Slow both ways — the tendon likes slow.'
 };
 
-/** One line, both days: a warm-up costs five minutes and the first set thanks you for it. */
-const WARMUP = '3–5 min easy, then one bodyweight and one half-weight set of the first lift.';
+/**
+ * Warm-up and cooldown are STEPS: each line takes its turn on the floor
+ * like a set does, and the session's length is honest about them. A warm-up
+ * costs five minutes and the first set thanks you for it.
+ */
+const WARMUP = [
+	'3–5 min easy — bike, row or a brisk walk',
+	'One bodyweight set of the first lift',
+	'One half-weight set of the first lift'
+];
+const COOLDOWN = ['Calf stretch · 45s each', 'Hip flexor stretch · 45s each', 'Doorway chest stretch · 45s'];
 
 /**
  * Full Range of Motion's warm-up carries the breathing cue too: exhale-on-
  * exertion is the pelvic-floor-safe default for a beginner — hard breath-holds
  * are a later, optional skill, not a day-one requirement.
  */
-const HER_WARMUP =
-	'5 min easy, 10 bodyweight squats, 10 hip hinges, then one light set of the first lift. Exhale through the hard part — never hold your breath.';
+const HER_WARMUP = ['5 min easy bike', '10 bodyweight squats', '10 hip hinges', '1 light set of the first lift'];
+const HER_COOLDOWN = ['Hip flexor stretch · 60s each', 'Hamstring stretch · 60s each', 'Doorway chest stretch · 60s'];
+const HER_CUE = 'Exhale through the hard part — never hold your breath.';
+
+/** The guided run both lifting plans offer: walk, run, walk. */
+const EASY_RUN = {
+	title: 'Easy run',
+	minutes: 30,
+	walk: 5,
+	note: 'Conversational — able to talk in full sentences.'
+};
 
 export const DEFAULT_PLANS: Plan[] = [
 	{
@@ -47,6 +65,10 @@ export const DEFAULT_PLANS: Plan[] = [
 			'Full-body A/B on dumbbells, kettlebells and machines. The calendar is empty; Mon / Wed / Fri isn’t. Currently accepting all opportunities to pick things up and put them down.',
 		schedule: 'Lift Mon / Wed / Fri · Run 3×/week',
 		runTarget: 90,
+		// 90s between sets: these are compounds first, machines second
+		rest: 90,
+		cooldown: COOLDOWN,
+		run: EASY_RUN,
 		dayInfo: {
 			A: { title: 'Squat & Shove', desc: 'Squat · push · pull · hinge · calves · core', warmup: WARMUP },
 			B: { title: 'Hinge & Haul', desc: 'Hinge · press · row · lunge · calves · core', warmup: WARMUP }
@@ -93,6 +115,10 @@ export const DEFAULT_PLANS: Plan[] = [
 		// She asked for regimented, so the schedule names days instead of counts.
 		schedule: 'Lift Mon / Thu (+ Sat when it fits) · Run Wed / Sat with NRC',
 		runTarget: 60,
+		rest: 60,
+		cooldown: HER_COOLDOWN,
+		cue: HER_CUE,
+		run: EASY_RUN,
 		dayInfo: {
 			'1': {
 				title: 'Get Low',
@@ -138,6 +164,8 @@ export const DEFAULT_PLANS: Plan[] = [
 			'Two-day bodyweight yoga rotation, about 30 minutes on a mat. Nothing to load, nothing to rack — progress is measured in seconds. Same rule as the iron: hit the top of the range, then make the pose harder — a hold never gets longer than its range. A complement to the lifting plans, not a replacement: there is no aerobic work here and no external load.',
 		schedule: 'Flow 2–3×/week · mat only',
 		runs: false,
+		// a breath or two between holds — the flow is its own warm-up
+		rest: 20,
 		dayInfo: {
 			'1': { title: 'Flow & Hold', desc: 'Sun salutations · chair · warrior II · plank · boat · bridge' },
 			'2': { title: 'Balance & Bend', desc: 'Tree · warrior III · low lunge · pigeon · fold · twist' }

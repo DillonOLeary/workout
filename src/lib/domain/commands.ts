@@ -1,4 +1,5 @@
 import type { Command } from '@event-driven-io/emmett';
+import type { Measure } from './events';
 
 /**
  * Commands are requests in the imperative ("StartSession") — they can be
@@ -13,19 +14,40 @@ export type StartSession = Command<
 	{ sessionId: string; plan: string; day: string; at: string }
 >;
 
-export type LogSet = Command<
-	'LogSet',
+/** One entry, live, into the session in progress. */
+export type LogEntry = Command<
+	'LogEntry',
 	{
 		session: string;
 		plan: string;
 		day: string;
-		exercise: string;
-		weight: number;
-		reps: number;
-		set: number;
+		item: string;
+		index: number;
 		at: string;
-		unit?: 'reps' | 's';
-		target?: number;
+		measure: Measure;
+	}
+>;
+
+/** What an after-the-fact session contains: the same identity + measure as a live entry. */
+export type AfterEntry = { item: string; index: number; measure: Measure };
+
+/**
+ * A whole session in one shot, backdated: your run, or a lift you did
+ * without the phone out. Start, entries and finish append together; the
+ * session is closed before anyone sees it, so it never competes with a
+ * session in progress.
+ */
+export type LogAfter = Command<
+	'LogAfter',
+	{
+		sessionId: string;
+		plan: string;
+		day: string;
+		/** when it began */
+		startAt: string;
+		/** when it ended — the entries' timestamp */
+		at: string;
+		entries: AfterEntry[];
 	}
 >;
 
@@ -33,18 +55,12 @@ export type FinishSession = Command<'FinishSession', { at: string }>;
 
 export type RemoveSession = Command<'RemoveSession', { session: string; at: string }>;
 
-export type LogRun = Command<'LogRun', { minutes: number; at: string }>;
-
-/** `run` is the RunLogged event's `at` timestamp — a run's natural id. */
-export type RemoveRun = Command<'RemoveRun', { run: string; at: string }>;
-
 export type SelectPlan = Command<'SelectPlan', { plan: string; at: string }>;
 
 export type LedgerCommand =
 	| StartSession
-	| LogSet
+	| LogEntry
+	| LogAfter
 	| FinishSession
 	| RemoveSession
-	| LogRun
-	| RemoveRun
 	| SelectPlan;

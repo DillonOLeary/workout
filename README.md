@@ -47,13 +47,13 @@ src/lib/design/       design tokens (colors, type, spacing, effects, motion) + g
 src/lib/components/   Button, Card, TabBar, Stepper, ExerciseGlyph, … (Svelte 5 ports of the DS)
 src/lib/domain/       events, commands, decider, projections — pure, no I/O
 src/lib/server/       Emmett event store, plans table, HMAC login (server-only)
-src/routes/           login · Today (+ By day) / The Plan (+ Why, Change plan) · /log gym floor
+src/routes/           login · Today (+ By day, Log it after) / The Plan (+ Why, Change plan) · /log gym floor
 ```
 
 ## Checks
 
 ```sh
-pnpm test     # vitest — the pure domain: decider, progression fold, racks, glyph poses
+pnpm test     # vitest — the pure domain: decider, upcaster, progression fold, steps, racks, glyph poses
 pnpm check    # svelte-check
 pnpm build    # production build
 ```

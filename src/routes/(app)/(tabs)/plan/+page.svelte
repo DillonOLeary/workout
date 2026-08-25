@@ -3,7 +3,9 @@
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
+	import { RUN_DAY } from '$lib/domain/events';
 	import { dayTitle } from '$lib/domain/projections';
+	import { cooldownSteps, estimateMinutes, restFor, sessionSteps, warmupSteps } from '$lib/domain/steps';
 	import type { Exercise } from '$lib/domain/types';
 	import type { PageProps } from './$types';
 
@@ -21,6 +23,13 @@
 	const dose = (ex: Exercise) =>
 		`${ex.sets} × ${ex.lo}–${ex.hi}${ex.mode === 'seconds' ? 's' : ''}` +
 		(ex.side === 'sets' ? ' · L/R' : ex.side === 'reps' ? ' · per side' : '');
+
+	// the day is a list of steps, and its length is honest about all of them
+	let warm = $derived(warmupSteps(plan, shownDay));
+	let cool = $derived(cooldownSteps(plan, shownDay));
+	let rests = $derived([...new Set((plan.days[shownDay] ?? []).map((ex) => restFor(plan, ex)))]);
+	let dayLen = $derived(estimateMinutes(sessionSteps(plan, shownDay)));
+	let runLen = $derived(plan.runs !== false ? estimateMinutes(sessionSteps(plan, RUN_DAY)) : 0);
 </script>
 
 <div class="col">
@@ -44,9 +53,16 @@
 			{#if plan.dayInfo?.[shownDay]?.desc}
 				<div class="daydesc">{plan.dayInfo[shownDay].desc}</div>
 			{/if}
+			<div class="daylen">About {dayLen} min · rest {rests.join(' / ')}s between sets</div>
 		</div>
+		{#if warm.length}
+			<div class="preprow first">
+				<span class="prepcaps">Warm-up</span>
+				<span class="preptext">{warm.join(' · ')}</span>
+			</div>
+		{/if}
 		{#each plan.days[shownDay] as ex, i (ex.name)}
-			<div class="exrow" class:first={i === 0}>
+			<div class="exrow" class:first={i === 0 && !warm.length}>
 				<!-- still (frame 0): a list must never animate itself. Press one
 				     to see the rep. Plans without glyphs (yoga) get no column. -->
 				<ExerciseGlyph name={ex.name} size={48} play={false} />
@@ -57,6 +73,20 @@
 				<span class="exdose">{dose(ex)}</span>
 			</div>
 		{/each}
+		{#if cool.length}
+			<div class="preprow">
+				<span class="prepcaps">Cooldown</span>
+				<span class="preptext">{cool.join(' · ')}</span>
+			</div>
+		{/if}
+		{#if plan.runs !== false}
+			<div class="preprow">
+				<span class="prepcaps">{dayTitle(plan, RUN_DAY)}</span>
+				<span class="preptext">
+					{plan.run ? `${plan.run.minutes} min${plan.run.walk ? `, walk ${plan.run.walk} before and after` : ''} · about ${runLen} min` : 'Guided, or logged after'}
+				</span>
+			</div>
+		{/if}
 		<!-- The rule belongs INSIDE the plan, under the exercises it governs. -->
 		<div class="rulebox">
 			<div class="caps mb8">How it progresses</div>
@@ -114,7 +144,19 @@
 
 	.dayhead { padding: 16px 24px 4px; }
 	.chips { display: flex; gap: 10px; flex-wrap: wrap; }
-	.daydesc { font-size: var(--text-sm); color: var(--ink-3); padding: 12px 2px 4px; }
+	.daydesc { font-size: var(--text-sm); color: var(--ink-3); padding: 12px 2px 0; }
+	.daylen { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); padding: 6px 2px 4px; }
+	/* prep rows: the steps around the lifts, in the list but quieter than a lift */
+	.preprow {
+		display: flex; flex-direction: column; gap: 2px;
+		padding: 12px 24px; border-top: 1px solid var(--border-soft);
+	}
+	.preprow.first { border-top: none; margin-top: 8px; }
+	.prepcaps {
+		font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);
+	}
+	.preptext { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
 	.exrow {
 		min-width: 0;
 		display: flex;

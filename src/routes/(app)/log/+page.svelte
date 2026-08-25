@@ -6,9 +6,11 @@
 	import AdjustTile from '$lib/components/floor/AdjustTile.svelte';
 	import FloorPrimary from '$lib/components/floor/FloorPrimary.svelte';
 	import FloorSheet from '$lib/components/floor/FloorSheet.svelte';
-	import SetTable from '$lib/components/floor/SetTable.svelte';
-	import type { Row } from '$lib/components/floor/SetTable.svelte';
+	import type { SheetSection } from '$lib/components/floor/FloorSheet.svelte';
+	import StepTable from '$lib/components/floor/StepTable.svelte';
+	import type { Row } from '$lib/components/floor/StepTable.svelte';
 	import { nextRung, prevRung } from '$lib/domain/racks';
+	import { COOLDOWN_ITEM, RUN_DAY, WARMUP_ITEM, type EntryLogged, type Measure } from '$lib/domain/events';
 	import {
 		dayTitle,
 		holdMaxed,
@@ -19,10 +21,20 @@
 		setsLine,
 		stepLabel,
 		suggestedCount,
-		warmupFor
+		weekRunMinutes
 	} from '$lib/domain/projections';
-	import type { SessionSet } from '$lib/domain/projections';
-	import type { SetLogged } from '$lib/domain/events';
+	import type { LoadSuggestion, SessionSet } from '$lib/domain/projections';
+	import {
+		estimateMinutes,
+		prepCue,
+		restStart,
+		runStart,
+		sessionProgress,
+		sessionSteps,
+		type Entry,
+		type Step
+	} from '$lib/domain/steps';
+	import type { Exercise } from '$lib/domain/types';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -34,88 +46,124 @@
 	const session = data.activeSession!;
 	// svelte-ignore state_referenced_locally
 	const plan = data.plans.find((p) => p.id === session.plan) ?? data.plans[0];
-	const exercises = plan.days[session.day] ?? [];
-	const totalSets = exercises.reduce((n, e) => n + e.sets, 0);
-	const warmup = warmupFor(plan, session.day);
+	/* The session is a LIST OF STEPS — warm-up lines, every set with the rest
+	   before the next, the cooldown; or walk · run · walk. The plan owns the
+	   order; this screen shows exactly one step at a time with one big button. */
+	const steps = sessionSteps(plan, session.day);
+	const isRunDay = session.day === RUN_DAY;
+	const title = dayTitle(plan, session.day);
+	const cue = prepCue(plan, session.day);
+	const exercises = isRunDay ? [] : (plan.days[session.day] ?? []);
+	const totalSets = steps.filter((s) => s.kind === 'set').length;
+	// svelte-ignore state_referenced_locally
+	const sessionAt =
+		data.events.find((e) => e.type === 'SessionStarted' && e.data.session === session.id)?.data.at ??
+		new Date().toISOString();
+	// the rule's answer per exercise, once: data.events never refreshes mid-session
+	// svelte-ignore state_referenced_locally
+	const loads = new Map<string, LoadSuggestion>(
+		exercises.filter((e) => !e.bodyweight).map((e) => [e.name, nextLoad(data.events, e, session.id)])
+	);
 
 	/* ---------- optimistic queue ----------------------------------------
 	   Pressing the primary appends to `local` and the UI updates in the same
-	   frame; a single-flight pump() POSTs queued sets to the server strictly
+	   frame; a single-flight pump() POSTs queued entries to the server strictly
 	   in order in the background. data.events is never refreshed mid-session
-	   (no update()/invalidation), so confirmed sets stay in `local` and the
-	   merge below stays the one source of truth for this screen. A set the
+	   (no update()/invalidation), so confirmed entries stay in `local` and the
+	   merge below stays the one source of truth for this screen. An entry the
 	   server rejects goes to 'failed' — it keeps its row and its numbers with
 	   a Retry in place; nothing disappears silently (D4). */
-	type LocalSet = {
-		key: string;
-		status: 'queued' | 'inflight' | 'confirmed' | 'failed';
-		data: SetLogged['data'];
-	};
-	let local = $state<LocalSet[]>([]);
+	type LocalEntry = { key: string; status: 'queued' | 'inflight' | 'confirmed' | 'failed'; data: Entry };
+	let local = $state<LocalEntry[]>([]);
 	let errMsg = $state<string | null>(null);
 	let lastPress = 0; // double-tap cooldown; not reactive on purpose
 	let pumpPromise: Promise<void> | null = null;
 
-	let serverSets = $derived(
-		data.events.filter(
-			(e): e is SetLogged => e.type === 'SetLogged' && e.data.session === session.id
-		)
+	let serverEntries = $derived(
+		data.events
+			.filter((e): e is EntryLogged => e.type === 'EntryLogged' && e.data.session === session.id)
+			.map((e) => e.data)
 	);
-	// deduped by (exercise, set) so a surprise invalidation can't double-count
-	let optimistic = $derived(
-		local.filter(
-			(p) =>
-				!serverSets.some(
-					(s) => s.data.exercise === p.data.exercise && s.data.set === p.data.set
-				)
-		)
-	);
-	// the sets that COUNT: confirmed or on their way. A failed set stays
+	const same = (a: Entry, b: Entry) => a.item === b.item && a.index === b.index;
+	// deduped by identity so a surprise invalidation can't double-count
+	let optimistic = $derived(local.filter((p) => !serverEntries.some((s) => same(s, p.data))));
+	// the entries that COUNT: confirmed or on their way. A failed one stays
 	// visible in the table but never inflates progress.
-	let loggedThis = $derived([
-		...serverSets,
-		...optimistic
-			.filter((p) => p.status !== 'failed')
-			.map((p) => ({ type: 'SetLogged', data: p.data }) as SetLogged)
+	let entries = $derived<Entry[]>([
+		...serverEntries,
+		...optimistic.filter((p) => p.status !== 'failed').map((p) => p.data)
 	]);
 	let anyFailed = $derived(local.some((p) => p.status === 'failed'));
+	let syncing = $derived(local.some((p) => p.status === 'queued' || p.status === 'inflight'));
+
+	/* ---------- the clock ----------
+	   Time is an input to the fold: rests and the run count from the previous
+	   entry's timestamp, so a reload lands back on the same countdown. */
+	let now = $state(Date.now());
+	let progress = $derived(sessionProgress(steps, entries, now));
+	let allDone = $derived(progress.current >= steps.length);
 
 	/* ---------- screen state ---------- */
-	const initialEx = (() => {
-		const n = Number(page.url.searchParams.get('ex'));
-		return Number.isInteger(n) && n >= 0 && n < exercises.length ? n : 0;
+	// where a reload lands: the URL's step if it has one, else the first step
+	// the ledger doesn't already show as done — a rest still counting, set 2,
+	// never the top of the bike
+	const initialStep = (() => {
+		// Number(null) is 0 — a missing param must not read as "step 0"
+		const raw = page.url.searchParams.get('step');
+		const n = raw === null ? NaN : Number(raw);
+		if (Number.isInteger(n) && n >= 0 && n < steps.length) return n;
+		// svelte-ignore state_referenced_locally
+		const known = data.events
+			.filter((e): e is EntryLogged => e.type === 'EntryLogged' && e.data.session === session.id)
+			.map((e) => e.data);
+		return Math.min(sessionProgress(steps, known, Date.now()).current, Math.max(0, steps.length - 1));
 	})();
-	let exI = $state(initialEx);
+	let stepI = $state(initialStep);
 	let weight = $state(0);
 	let reps = $state(0); // reps — or seconds held, for mode: 'seconds'
 	let sheetOpen = $state(false);
 
-	let ex = $derived(exercises[exI]);
-	let isHold = $derived(ex?.mode === 'seconds');
-	// bodyweight ≠ seconds: the med-ball plank is a WEIGHTED hold. Weight UI
+	let st = $derived<Step | undefined>(steps[stepI]);
+	let ex = $derived<Exercise | undefined>(st?.ex);
+	let isSet = $derived(st?.kind === 'set');
+	let isHold = $derived(isSet && ex?.mode === 'seconds');
+	// bodyweight ≠ seconds: a med-ball plank is a WEIGHTED hold. Weight UI
 	// keys off bodyweight; the hold timer keys off mode.
 	let isBW = $derived(!!ex?.bodyweight);
-	let done = $derived(loggedThis.filter((e) => e.data.exercise === ex.name).length);
-	let syncing = $derived(local.some((p) => p.status === 'queued' || p.status === 'inflight'));
-	let allDone = $derived(loggedThis.length >= totalSets);
-	let exDone = $derived(done >= ex.sets);
-	let last = $derived(lastEntryFor(data.events, ex.name, session.id));
-	// the reasoning behind the preloaded weight, so a drop is never silent —
-	// an unexplained lighter bar reads as a bug, which is worse than no deload
-	let load = $derived(ex && !ex.bodyweight ? nextLoad(data.events, ex, session.id) : null);
-	// only before the first set: after that the table carries the session's
-	// own numbers and the suggestion no longer describes what's on screen
-	let hint = $derived(load && done === 0 ? loadHint(load, ex) : null);
+	let stepDone = $derived(!!st && progress.done.has(st.key));
+	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
+	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
+	let load = $derived(ex && !ex.bodyweight ? (loads.get(ex.name) ?? null) : null);
+	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && e.measure.of !== 'step').length;
 
-	// The set about to be logged. Failed sets keep their numbers, so the next
-	// attempt takes the number AFTER everything already on the table — logging
-	// N+1 sets never prints "Set N+1 of N", the extra row is labelled (D2).
-	let nextNum = $derived.by(() => {
-		const nums = [...serverSets, ...optimistic]
-			.filter((s) => s.data.exercise === ex.name)
-			.map((s) => s.data.set);
-		return nums.length ? Math.max(...nums) + 1 : 1;
+	// only tick while something on screen is counting
+	let timed = $derived(st?.kind === 'rest' || st?.kind === 'run');
+	$effect(() => {
+		if (!timed) return;
+		const t = setInterval(() => (now = Date.now()), 200);
+		return () => clearInterval(t);
 	});
+
+	/* ---------- rests: the bell moves you on ---------- */
+	let restFrom = $derived(st?.kind === 'rest' ? restStart(st, entries) : null);
+	let restLeft = $derived(
+		st?.kind === 'rest' && restFrom !== null
+			? Math.max(0, Math.ceil((restFrom + (st.seconds ?? 0) * 1000 - now) / 1000))
+			: null
+	);
+	$effect(() => {
+		// zero on the countdown = the next set, by itself; a rest with no set
+		// before it has nothing to wait for and just sits at its full length
+		if (st?.kind === 'rest' && restLeft === 0 && !progress.done.has(st.key) === false) goTo(stepI + 1);
+	});
+
+	/* ---------- the run: the clock is the number ---------- */
+	let runFrom = $derived(st?.kind === 'run' ? runStart(steps, stepI, entries, sessionAt) : null);
+	let runElapsed = $derived(runFrom !== null ? Math.max(0, now - runFrom) : 0);
+	const mmss = (ms: number) => {
+		const s = Math.floor(ms / 1000);
+		return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+	};
 
 	/* ---------- the hold timer ---------- */
 	// Timed holds (the Claude Design model): dial the TARGET on the tile,
@@ -132,7 +180,7 @@
 				// the bell: the full target logs itself
 				hold = null;
 				remaining = null;
-				enqueue(h.target, h.target);
+				enqueue(holdMeasure(h.target, h.target));
 			} else {
 				remaining = r;
 			}
@@ -142,16 +190,20 @@
 	// the ceiling is the top of the range: past it the answer is a harder
 	// variation (the exercise note says which), never a longer hold
 	const bumpTarget = (d: number) => {
-		if (!hold) reps = Math.min(ex.hi, Math.max(ex.lo, reps + d));
+		if (!hold && ex) reps = Math.min(ex.hi, Math.max(ex.lo, reps + d));
 	};
 	const bumpReps = (d: number) => (reps = Math.max(1, Math.min(100, reps + d)));
 	/* ± is never a fixed nudge: anything you pick up walks the rack's ladder
 	   (there is no 37.5 lb dumbbell), machines step their per-exercise inc.
 	   One gesture, one behaviour, on every layout (D3). */
 	function bumpLoad(dir: 1 | -1) {
+		if (!ex) return;
 		if (ex.rack) weight = dir > 0 ? nextRung(weight, ex.rack) : prevRung(weight, ex.rack);
 		else weight = Math.max(0, weight + dir * ex.inc);
 	}
+
+	const mLoad = (m: Measure) => (m.of === 'load' ? m.load : m.of === 'hold' ? (m.load ?? 0) : 0);
+	const mCount = (m: Measure) => (m.of === 'load' ? m.reps : m.of === 'hold' ? m.seconds : 0);
 
 	/**
 	 * What the tiles show for the set about to be logged. Per-set progression
@@ -162,48 +214,48 @@
 	 * "the ledger is wrong today" is true of every remaining set.
 	 */
 	function preload(i: number) {
-		const e = exercises[i];
-		if (!e) return;
-		const prior = loggedThis.filter((s) => s.data.exercise === e.name);
+		const s = steps[i];
+		if (!s || s.kind !== 'set' || !s.ex) return;
+		const e = s.ex;
+		const k = Math.min(s.index - 1, e.sets - 1);
+		const prior = entries
+			.filter((x) => x.item === e.name && x.index < s.index && x.measure.of !== 'step')
+			.sort((a, b) => a.index - b.index);
 		const priorLast = prior[prior.length - 1];
-		const nums = [...serverSets, ...optimistic]
-			.filter((s) => s.data.exercise === e.name)
-			.map((s) => s.data.set);
-		const next = nums.length ? Math.max(...nums) + 1 : 1;
-		const k = Math.min(next - 1, e.sets - 1); // ordinal of the set about to be logged
 		const timed = e.mode === 'seconds';
-		const sugg = e.bodyweight ? null : nextLoad(data.events, e, session.id);
+		const sugg = e.bodyweight ? null : (loads.get(e.name) ?? null);
 		let overridden = false;
 		if (sugg && priorLast) {
-			const suggestedPrev = sugg.sets[Math.min(priorLast.data.set - 1, e.sets - 1)].weight;
-			overridden = priorLast.data.weight !== suggestedPrev;
+			const suggestedPrev = sugg.sets[Math.min(priorLast.index - 1, e.sets - 1)].weight;
+			overridden = mLoad(priorLast.measure) !== suggestedPrev;
 		}
 		// weight: 0 for bodyweight; a timed-weighted hold (custom plans) carries
 		// its load in the second tile
-		weight = !sugg ? 0 : overridden ? priorLast!.data.weight : sugg.sets[k].weight;
+		weight = !sugg ? 0 : overridden ? mLoad(priorLast!.measure) : sugg.sets[k].weight;
 		if (timed) {
 			// target seconds: this session's last TARGET (a dropped hold shouldn't
 			// lower the next bell), else the ledger's per-set suggestion. A level-up
 			// on a weighted hold restarts at the bottom of the range, like reps do.
-			if (priorLast) reps = priorLast.data.target ?? priorLast.data.reps;
+			if (priorLast) reps = (priorLast.measure.of === 'hold' ? priorLast.measure.target : undefined) ?? mCount(priorLast.measure);
 			else if (sugg && sugg.sets[k].reason === 'increase') reps = e.lo;
 			else reps = suggestedCount(data.events, e, session.id, k);
 			reps = Math.min(e.hi, reps);
 		} else if (e.bodyweight) {
-			reps = priorLast ? priorLast.data.reps : suggestedCount(data.events, e, session.id, k);
+			reps = priorLast ? mCount(priorLast.measure) : suggestedCount(data.events, e, session.id, k);
 		} else {
 			// what you did last set if you're off-plan, else what this set asks for
-			reps = overridden ? priorLast!.data.reps : sugg!.sets[k].reps;
+			reps = overridden ? mCount(priorLast!.measure) : sugg!.sets[k].reps;
 		}
 		hold = null;
 		remaining = null;
 	}
-	preload(initialEx);
+	preload(initialStep);
 
-	/* ---------- exercise complete: a visible pause, then on ----------------
-	   The last set used to flip the screen 280ms later — a flash. Now the
-	   primary turns to "Next exercise" with a ring that drains for two
-	   seconds: tap it to go now, open the ⋯ sheet to stay. */
+	/* ---------- section complete: a visible pause, then on ----------------
+	   Within a section the next step just arrives (a rest after a set, the
+	   run after its walk). Between sections the primary turns to "Next
+	   exercise" with a ring that drains for two seconds: tap it to go now,
+	   open the ⋯ sheet to stay. */
 	const ADVANCE_MS = 2000;
 	let advance = $state<{ end: number } | null>(null);
 	let advanceLeft = $state(1); // fraction of the ring still full
@@ -214,7 +266,7 @@
 			const left = (a.end - Date.now()) / ADVANCE_MS;
 			if (left <= 0) {
 				advance = null;
-				goTo(exI + 1);
+				goTo(stepI + 1);
 			} else advanceLeft = left;
 		}, 40);
 		return () => clearInterval(t);
@@ -226,101 +278,136 @@
 
 	function goTo(i: number) {
 		advance = null; // any navigation, by hand or by the ring, settles it
-		if (i < 0 || i >= exercises.length || i === exI) return;
-		exI = i;
+		hold = null;
+		remaining = null;
+		if (i < 0 || i >= steps.length) return;
+		stepI = i;
 		preload(i);
-		// shallow routing: URL tracks the exercise, no loads run, no history spam
-		replaceState(`?ex=${i}`, {});
+		// shallow routing: URL tracks the step, no loads run, no history spam
+		replaceState(`?step=${i}`, {});
 	}
 
-	/* ---------- the set table ---------- */
-	let rows = $derived.by((): Row[] => {
-		if (!ex) return [];
-		const logged = [
-			...serverSets
-				.filter((s) => s.data.exercise === ex.name)
-				.map((s) => ({ n: s.data.set, w: s.data.weight, r: s.data.reps, st: 'confirmed' as const })),
-			...optimistic
-				.filter((p) => p.data.exercise === ex.name)
-				.map((p) => ({
-					n: p.data.set,
-					w: p.data.weight,
-					r: p.data.reps,
-					st:
-						p.status === 'failed'
-							? ('failed' as const)
-							: p.status === 'confirmed'
-								? ('confirmed' as const)
-								: ('saving' as const)
-				}))
-		].sort((a, b) => a.n - b.n);
-		const out: Row[] = logged.map((l) => ({
-			set: l.n,
-			weight: l.w,
-			count: l.r,
-			state: l.st,
-			extra: l.n > ex.sets
-		}));
-		if (!exDone) {
-			if (hold) {
-				out.push({
-					set: nextNum,
-					weight,
-					count: null,
-					state: 'running',
-					remaining: remaining ?? hold.target,
-					target: hold.target
-				});
-			} else {
-				out.push({ set: nextNum, weight, count: reps, state: 'current' });
+	/* ---------- the step table: the current section ---------- */
+	function setValue(e: Exercise, w: number, count: number | null): string {
+		const hold = e.mode === 'seconds';
+		const c = count === null ? '—' : hold ? `${count}s` : String(count);
+		if (e.bodyweight) return hold || count === null ? c : `${c} reps`;
+		return `${e.each ? `${w} /hand` : `${w} lb`} × ${c}`;
+	}
+	function localFor(s: Step) {
+		return local.find((p) => same(p.data, { item: s.item, index: s.index } as Entry));
+	}
+	function rowFor(s: Step, i: number): Row {
+		const cur = i === stepI;
+		const e = entryFor(s);
+		const lp = localFor(s);
+		const failed = lp?.status === 'failed' && !serverEntries.some((x) => same(x, lp.data));
+		const saving = !!lp && (lp.status === 'queued' || lp.status === 'inflight');
+		const state = (done: boolean): Row['state'] =>
+			failed ? 'failed' : saving ? 'saving' : done ? 'done' : cur ? 'current' : 'upcoming';
+		switch (s.kind) {
+			case 'prep':
+				return { key: s.key, label: s.label, value: s.text ?? '', note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
+			case 'rest': {
+				const secs = s.seconds ?? 0;
+				const done = progress.done.has(s.key);
+				if (cur && restLeft !== null && !done)
+					return { key: s.key, label: 'REST', value: String(restLeft), note: `of ${secs}s left`, state: 'running', big: true };
+				return { key: s.key, label: 'REST', value: `${secs}s`, note: done ? '✓' : undefined, state: done ? 'done' : cur ? 'current' : 'upcoming' };
 			}
-			// the rest of the exercise, queued by the rule — each with ITS number
-			for (let n = nextNum + 1; n <= ex.sets; n++) {
-				const k = Math.min(n - 1, ex.sets - 1);
-				out.push({ set: n, weight: load ? load.sets[k].weight : 0, count: null, state: 'upcoming' });
+			case 'run': {
+				if (e && e.measure.of === 'duration')
+					return { key: s.key, label: 'RUN', value: `${e.measure.minutes} min`, note: '✓', state: state(true) };
+				if (cur) return { key: s.key, label: 'RUN', value: mmss(runElapsed), note: `of ${s.minutes} min`, state: 'running', big: true };
+				return { key: s.key, label: 'RUN', value: `${s.minutes} min`, state: 'upcoming' };
+			}
+			case 'set': {
+				const x = s.ex!;
+				if (e) return { key: s.key, label: s.label, value: setValue(x, mLoad(e.measure), mCount(e.measure)), note: e ? undefined : undefined, state: state(true) };
+				if (cur && hold) return { key: s.key, label: s.label, value: String(remaining ?? hold.target), note: `of ${hold.target}s left`, state: 'running', big: true };
+				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'logging', state: state(false) };
+				const ld = loads.get(x.name);
+				return { key: s.key, label: s.label, value: setValue(x, ld ? ld.sets[Math.min(s.index - 1, x.sets - 1)].weight : 0, null), state: 'upcoming' };
 			}
 		}
+	}
+	let rows = $derived.by((): Row[] => {
+		if (!st) return [];
+		const out: Row[] = [];
+		steps.forEach((s, i) => {
+			if (s.section === st.section) out.push(rowFor(s, i));
+		});
 		return out;
 	});
 
-	// plan · ledger, one line each — never a control, never volt
-	let planLine = $derived(
-		`TARGET ${rangeLabel(ex).toUpperCase()}${ex.each ? ' · PER HAND' : ''}${ex.bodyweight ? ' · BODYWEIGHT' : ''}`
+	/* ---------- the lines above the table ---------- */
+	let heading = $derived(!st ? 'Done' : st.kind === 'rest' ? 'Rest' : st.kind === 'set' ? st.ex!.name : st.section);
+	let weekMin = $derived(weekRunMinutes(data.events));
+	let meta = $derived.by(() => {
+		if (!st) return '';
+		if (st.kind === 'prep') {
+			if (isRunDay) return `WALK · ${st.minutes} MIN · TRACKED, NOT LOGGED`;
+			const n = steps.filter((s) => s.section === st.section && s.kind === 'prep').length;
+			return `${st.section.toUpperCase()} · STEP ${st.index} OF ${n} · TRACKED, NOT LOGGED`;
+		}
+		if (st.kind === 'rest') return `${st.ex!.name.toUpperCase()} · BEFORE SET ${st.index}`;
+		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${plan.runTarget ?? 150} MIN THIS WEEK`;
+		const x = st.ex!;
+		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.each ? ' · PER HAND' : ''}${x.bodyweight ? ' · BODYWEIGHT' : ''}`;
+		return planLine;
+	});
+	let ledgerLine = $derived(isSet ? (last ? `LAST ${setsLine(last.sets, ex!)}` : 'FIRST TIME') : '');
+	// the reasoning behind the preloaded weight, so a drop is never silent —
+	// only before the first set: after that the table carries the session's
+	// own numbers and the suggestion no longer describes what's on screen
+	let hint = $derived.by(() => {
+		if (!st) return null;
+		if (st.kind === 'prep') return cue ?? null;
+		if (st.kind === 'rest') return 'The bell moves you on — or go now.';
+		if (st.kind === 'run') return plan.run?.note ?? null;
+		const x = st.ex!;
+		if (setsDoneFor(x.name) > 0) return null;
+		if (load) return loadHint(load, x);
+		if (x.mode === 'seconds' && holdMaxed(last, x)) return `At the ceiling (${x.hi}s) — make it harder, not longer.`;
+		return null;
+	});
+	let quietLabel = $derived(
+		st?.kind === 'rest' ? 'Counting down — nothing to dial' : st?.kind === 'run' ? 'The clock is the number — nothing to dial' : 'Nothing to dial — the step is the instruction'
 	);
-	let ledgerLine = $derived(last ? `LAST ${setsLine(last.sets, ex)}` : 'FIRST TIME');
 
 	/* ---------- the write path ---------- */
-	function enqueue(count: number, target?: number) {
+	const holdMeasure = (seconds: number, target: number): Measure => ({
+		of: 'hold',
+		seconds,
+		target,
+		...(weight > 0 ? { load: weight } : {})
+	});
+
+	function enqueue(measure: Measure) {
+		if (!st || st.kind === 'rest') return;
 		errMsg = null;
-		const setNum = nextNum;
+		const s = st;
 		local.push({
 			key: crypto.randomUUID(),
 			status: 'queued',
-			data: {
-				session: session.id,
-				plan: plan.id,
-				day: session.day,
-				exercise: ex.name,
-				weight,
-				reps: count,
-				set: setNum,
-				at: new Date().toISOString(),
-				...(isHold ? { unit: 's' as const, ...(target !== undefined ? { target } : {}) } : {})
-			}
+			data: { session: session.id, plan: plan.id, day: session.day, item: s.item, index: s.index, at: new Date().toISOString(), measure }
 		});
-		// the next set gets its own number — per-set progression, not a carry
-		preload(exI);
 		// instant feedback: the row fills in, the phone taps back. No flash —
 		// the table changing IS the confirmation.
 		navigator.vibrate?.(12);
-		if (done >= ex.sets && exI < exercises.length - 1) armAdvance();
 		void pump();
+		const next = stepI + 1;
+		if (next >= steps.length) return; // the receipt takes over
+		// a rest after a set, the run after its walk: just arrives. A new
+		// section: the ring, so the screen never flips under a finger.
+		if (steps[next].section !== s.section) armAdvance();
+		else goTo(next);
 	}
 
 	function logSetNow() {
 		if (performance.now() - lastPress < 350) return; // accidental double-tap
 		lastPress = performance.now();
-		enqueue(reps);
+		enqueue({ of: 'load', load: weight, reps });
 	}
 
 	/** timed: one button — ring in the hold, or log the early drop */
@@ -332,7 +419,7 @@
 			const t = hold.target;
 			hold = null;
 			remaining = null;
-			enqueue(held, t);
+			enqueue(holdMeasure(held, t));
 		} else {
 			remaining = reps;
 			hold = { end: Date.now() + reps * 1000, target: reps };
@@ -345,7 +432,7 @@
 				const next = local.find((p) => p.status === 'queued');
 				if (!next) break;
 				next.status = 'inflight';
-				const res = await postLogSet(next);
+				const res = await postEntry(next);
 				if (res.ok) next.status = 'confirmed';
 				else await markFailed(next, res.message);
 			}
@@ -354,37 +441,33 @@
 		return pumpPromise;
 	}
 
-	async function postLogSet(
-		p: LocalSet
-	): Promise<{ ok: true } | { ok: false; message: string }> {
+	async function postEntry(p: LocalEntry): Promise<{ ok: true } | { ok: false; message: string }> {
 		const body = new FormData();
-		for (const [k, v] of Object.entries(p.data)) if (v !== undefined) body.set(k, String(v));
+		body.set('session', p.data.session);
+		body.set('plan', p.data.plan);
+		body.set('day', p.data.day);
+		body.set('item', p.data.item);
+		body.set('index', String(p.data.index));
+		body.set('measure', JSON.stringify(p.data.measure));
 		for (let attempt = 0; ; attempt++) {
 			try {
-				const res = await fetch('?/logSet', {
-					method: 'POST',
-					body,
-					headers: { 'x-sveltekit-action': 'true' }
-				});
+				const res = await fetch('?/logEntry', { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
 				const result = deserialize(await res.text());
 				if (result.type === 'success' || result.type === 'redirect') return { ok: true };
 				if (result.type === 'failure')
-					return {
-						ok: false,
-						message: String((result.data as { message?: string })?.message ?? 'Rejected.')
-					};
+					return { ok: false, message: String((result.data as { message?: string })?.message ?? 'Rejected.') };
 				throw new Error('action error');
 			} catch {
 				// ambiguous network failures are safe to retry: the decider treats
-				// a duplicate (exercise, set) as a no-op
+				// a repeated identity as a no-op
 				if (attempt >= 2) return { ok: false, message: 'Could not save — check connection.' };
 				await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
 			}
 		}
 	}
 
-	/** a failed set keeps its row, its numbers and a Retry — never removed (D4) */
-	async function markFailed(p: LocalSet, message: string) {
+	/** a failed entry keeps its row, its numbers and a Retry — never removed (D4) */
+	async function markFailed(p: LocalEntry, message: string) {
 		if (message.includes('No session in progress')) {
 			// finished on another device — resync; the load guard redirects
 			local = [];
@@ -395,10 +478,9 @@
 		errMsg = message;
 	}
 
-	function retrySet(setNum: number) {
-		const p = local.find(
-			(x) => x.status === 'failed' && x.data.exercise === ex.name && x.data.set === setNum
-		);
+	function retryEntry(key: string) {
+		const s = steps.find((x) => x.key === key);
+		const p = s && local.find((x) => x.status === 'failed' && same(x.data, { item: s.item, index: s.index } as Entry));
 		if (!p) return;
 		p.status = 'queued';
 		errMsg = null;
@@ -418,9 +500,9 @@
 
 	async function finishNow() {
 		finishing = true;
-		await drain(); // queued sets must append before SessionFinished
+		await drain(); // queued entries must append before SessionFinished
 		if (local.some((p) => p.status === 'failed')) {
-			errMsg = 'A set didn’t save — Retry it, or finish from the ⋯ menu.';
+			errMsg = 'An entry didn’t save — Retry it, or finish from the ⋯ menu.';
 			finishing = false;
 			return;
 		}
@@ -442,47 +524,126 @@
 	}
 
 	function primaryAction() {
-		if (finishing) return;
+		if (finishing || !st) return;
 		if (allDone) return void finishNow();
-		if (exDone) return goTo(exI + 1);
+		if (stepDone || st.kind === 'rest') return goTo(stepI + 1);
+		if (st.kind === 'prep') return enqueue({ of: 'step' });
+		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
 		if (isHold) return startOrDone();
 		logSetNow();
 	}
 
-	let sideNow = $derived(
-		ex?.side === 'sets' && !isHold ? (nextNum % 2 === 1 ? 'left' : 'right') : null
-	);
+	/* ---------- the one big button ---------- */
+	let nextLabel = $derived.by(() => {
+		const n = steps[stepI + 1];
+		if (!n) return 'Finish workout';
+		if (n.kind === 'set') return n.section === st?.section ? 'Next set' : 'Next exercise';
+		if (n.kind === 'prep') return n.section === COOLDOWN_ITEM ? 'Cooldown' : n.section === WARMUP_ITEM ? 'Warm-up' : 'Next step';
+		if (n.kind === 'run') return 'Run';
+		return 'Next';
+	});
+	let sideNow = $derived(isSet && ex?.side === 'sets' && !isHold ? (st!.index % 2 === 1 ? 'left' : 'right') : null);
 	let primaryLabel = $derived(
 		allDone
 			? finishing
 				? 'Saving…'
 				: 'Finish workout'
-			: exDone
-				? isHold
-					? 'Next pose'
-					: 'Next exercise'
-				: isHold
-					? hold
-						? 'Done early'
-						: `Start ${reps}s hold`
-					: sideNow
-						? `Log ${sideNow} side`
-						: 'Log set'
+			: !st
+				? 'Finish workout'
+				: st.kind === 'rest'
+					? 'Go now'
+					: stepDone
+						? nextLabel
+						: st.kind === 'prep'
+							? 'Done'
+							: st.kind === 'run'
+								? 'Stop here'
+								: isHold
+									? hold
+										? 'Done early'
+										: `Start ${reps}s hold`
+									: sideNow
+										? `Log ${sideNow} side`
+										: 'Log set'
 	);
-	let primaryVariant = $derived((allDone || exDone ? 'advance' : 'commit') as 'advance' | 'commit');
+	let primaryVariant = $derived(
+		(allDone || !st || st.kind === 'rest' || stepDone ? 'advance' : 'commit') as 'advance' | 'commit'
+	);
+
+	/* ---------- the ⋯ sheet: the session, sectioned ---------- */
+	let sections = $derived.by((): SheetSection[] => {
+		const order: string[] = [];
+		const by = new Map<string, { s: Step; i: number }[]>();
+		steps.forEach((s, i) => {
+			if (!by.has(s.section)) {
+				by.set(s.section, []);
+				order.push(s.section);
+			}
+			by.get(s.section)!.push({ s, i });
+		});
+		return order.map((name) => {
+			const items = by.get(name)!;
+			const isPrep = items.every((x) => x.s.kind === 'prep');
+			const work = items.filter((x) => x.s.kind === 'set' || x.s.kind === 'run');
+			const doneWork = work.filter((x) => progress.done.has(x.s.key)).length;
+			const doneAll = items.filter((x) => progress.done.has(x.s.key)).length;
+			const x0 = items[0].s.ex;
+			const ld = x0 ? loads.get(x0.name) : undefined;
+			const meta = isPrep
+				? `${doneAll}/${items.length} · PREP`
+				: `${doneWork}/${work.length}${ld ? ` · ${ld.sets[0].weight} ${x0!.each ? '/HAND' : 'LB'}` : ''}`;
+			return {
+				title: name,
+				meta,
+				active: st?.section === name,
+				rows: items.map(({ s, i }) => {
+					const done = progress.done.has(s.key);
+					const e = entryFor(s);
+					let value = '';
+					if (s.kind === 'prep') value = done ? 'done' : 'prep';
+					else if (s.kind === 'rest') value = i === stepI && restLeft !== null && !done ? `${restLeft}s left` : done ? 'rested' : `${s.seconds}s`;
+					else if (s.kind === 'run') value = e && e.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`;
+					else if (e) value = setValue(s.ex!, mLoad(e.measure), mCount(e.measure));
+					else {
+						const w = ld ? ld.sets[Math.min(s.index - 1, s.ex!.sets - 1)].weight : 0;
+						value = s.ex!.bodyweight ? `${s.ex!.lo}–${s.ex!.hi}${s.ex!.mode === 'seconds' ? 's' : ''}` : `${w} ${s.ex!.each ? '/hand' : 'lb'} × ${s.ex!.lo}–${s.ex!.hi}`;
+					}
+					const name =
+						s.kind === 'prep' ? (s.text ?? s.label) : s.kind === 'rest' ? 'Rest' : s.kind === 'run' ? 'Run' : `${s.ex!.mode === 'seconds' ? 'Hold' : 'Set'} ${s.index}`;
+					return { i, name, value, done, current: i === stepI };
+				})
+			};
+		});
+	});
 
 	/** the receipt: what this session actually wrote, in ledger shape */
 	function receiptSets(name: string): SessionSet[] {
-		return loggedThis
-			.filter((s) => s.data.exercise === name)
-			.sort((a, b) => a.data.set - b.data.set)
-			.map((s) => ({
-				weight: s.data.weight,
-				reps: s.data.reps,
-				...(s.data.unit ? { unit: s.data.unit } : {}),
-				...(s.data.target !== undefined ? { target: s.data.target } : {})
+		return entries
+			.filter((e) => e.item === name && (e.measure.of === 'load' || e.measure.of === 'hold'))
+			.sort((a, b) => a.index - b.index)
+			.map((e) => ({
+				weight: mLoad(e.measure),
+				reps: mCount(e.measure),
+				...(e.measure.of === 'hold' ? { unit: 's' as const, ...(e.measure.target !== undefined ? { target: e.measure.target } : {}) } : {})
 			}));
 	}
+	let runMinutes = $derived(entries.filter((e) => e.measure.of === 'duration').reduce((n, e) => n + (e.measure.of === 'duration' ? e.measure.minutes : 0), 0));
+	let prepLine = $derived.by(() => {
+		const warm = entries.filter((e) => e.item === WARMUP_ITEM).length;
+		const cool = entries.filter((e) => e.item === COOLDOWN_ITEM).length;
+		const rests = steps.filter((s) => s.kind === 'rest' && progress.done.has(s.key)).length;
+		const parts: string[] = [];
+		if (isRunDay) {
+			const walks = warm + cool;
+			if (walks) parts.push(`${walks} ${walks === 1 ? 'walk' : 'walks'}`);
+		} else {
+			if (warm) parts.push(`${warm} warm-up ${warm === 1 ? 'step' : 'steps'}`);
+			if (rests) parts.push(`${rests} ${rests === 1 ? 'rest' : 'rests'}`);
+			if (cool) parts.push(`${cool} cooldown ${cool === 1 ? 'stretch' : 'stretches'}`);
+		}
+		return parts.length ? `+ ${parts.join(', ')} — tracked, kept out of the ledger.` : '';
+	});
+	let minutesLeft = $derived(estimateMinutes(steps, progress.current));
 
 	function onKey(ev: KeyboardEvent) {
 		// typed entry belongs to the tile inputs — never fight the keypad
@@ -501,23 +662,23 @@
 		}
 		if (allDone) return;
 		if (ev.key === 'ArrowUp') {
-			if (isHold) bumpTarget(ex.inc);
+			if (isHold) bumpTarget(ex?.inc ?? 5);
 			else if (isBW) bumpReps(1);
-			else bumpLoad(1);
+			else if (isSet) bumpLoad(1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowDown') {
-			if (isHold) bumpTarget(-ex.inc);
+			if (isHold) bumpTarget(-(ex?.inc ?? 5));
 			else if (isBW) bumpReps(-1);
-			else bumpLoad(-1);
+			else if (isSet) bumpLoad(-1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowRight') {
-			goTo(Math.min(exercises.length - 1, exI + 1));
+			goTo(Math.min(steps.length - 1, stepI + 1));
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowLeft') {
-			goTo(Math.max(0, exI - 1));
+			goTo(Math.max(0, stepI - 1));
 			ev.preventDefault();
-		} else if (!isHold && /^[1-9]$/.test(ev.key)) reps = parseInt(ev.key, 10);
-		else if (!isHold && ev.key === '0') reps = 10;
+		} else if (isSet && !isHold && /^[1-9]$/.test(ev.key)) reps = parseInt(ev.key, 10);
+		else if (isSet && !isHold && ev.key === '0') reps = 10;
 	}
 </script>
 
@@ -529,7 +690,7 @@
 		     both live in the ⋯ sheet -->
 		<header class="fl-top">
 			<span class="fl-crumb">
-				{dayTitle(plan, session.day)} · Ex {Math.min(exI + 1, exercises.length)}/{exercises.length}
+				{title} · Step {Math.min(stepI + 1, steps.length)}/{steps.length}{allDone ? '' : ` · ~${minutesLeft} min`}
 			</span>
 			<button
 				type="button"
@@ -538,57 +699,54 @@
 					advance = null;
 					sheetOpen = true;
 				}}
-				aria-label="More — technique, jump to exercise, finish"
+				aria-label="More — the whole session, technique, finish"
 			>
 				⋯
 			</button>
 		</header>
 
-		{#if ex && !allDone}
+		{#if st && !allDone}
 			<main class="fl-main">
 				<!-- the glyph is Plan-tier content, right of the title block: one
 				     rep when the exercise arrives (keyed, so advancing replays),
 				     then still. Press it to see the rep again. -->
 				<div class="fl-titlerow">
 					<div class="fl-titleblock">
-						<h1 class="fl-name">{ex.name}</h1>
+						<h1 class="fl-name">{heading}</h1>
 						<p class="fl-meta">
-							<span>{planLine}</span>
-							<span class="fl-ledgerline"> · {ledgerLine}</span>
+							<span>{meta}</span>
+							{#if ledgerLine}<span class="fl-ledgerline"> · {ledgerLine}</span>{/if}
 						</p>
 					</div>
 					<div class="fl-glyph">
-						{#key ex.name}
-							<ExerciseGlyph name={ex.name} size={104} />
+						{#key ex?.name}
+							{#if ex}<ExerciseGlyph name={ex.name} size={104} />{/if}
 						{/key}
 					</div>
 				</div>
 
-				<SetTable {ex} {rows} onRetry={retrySet} />
+				<StepTable {rows} onRetry={retryEntry} />
 
 				{#if hint}
 					<p class="fl-hint">{hint}</p>
-				{:else if isHold && done === 0 && holdMaxed(last, ex)}
-					<!-- the ⋯ sheet's note says what "harder" means for this hold -->
-					<p class="fl-hint">At the ceiling ({ex.hi}s) — make it harder, not longer.</p>
 				{/if}
 			</main>
 
 			<div class="fl-bottom">
-				{#if !exDone}
+				{#if isSet && !stepDone}
 					<div class="fl-tiles" class:single={isBW}>
 						{#if isHold}
 							<AdjustTile
-								label={`Hold · +${ex.inc}s`}
+								label={`Hold · +${ex!.inc}s`}
 								bind:value={reps}
-								min={ex.lo}
-								max={ex.hi}
+								min={ex!.lo}
+								max={ex!.hi}
 								disabled={!!hold}
-								onStep={(d) => bumpTarget(d * ex.inc)}
+								onStep={(d) => bumpTarget(d * ex!.inc)}
 							/>
 							{#if !isBW}
 								<AdjustTile
-									label={`Weight · ${stepLabel(ex)}`}
+									label={`Weight · ${stepLabel(ex!)}`}
 									bind:value={weight}
 									decimals
 									min={0}
@@ -600,7 +758,7 @@
 							<AdjustTile label="Reps" bind:value={reps} min={1} max={100} onStep={bumpReps} />
 							{#if !isBW}
 								<AdjustTile
-									label={`Weight · ${stepLabel(ex)}`}
+									label={`Weight · ${stepLabel(ex!)}`}
 									bind:value={weight}
 									decimals
 									min={0}
@@ -609,6 +767,9 @@
 							{/if}
 						{/if}
 					</div>
+				{:else if !stepDone}
+					<!-- nothing to dial: the step is the instruction, the clock is the number -->
+					<div class="fl-quiet">{quietLabel}</div>
 				{/if}
 				{#if errMsg ?? form?.message}<p class="fl-err">{errMsg ?? form?.message}</p>{/if}
 				<FloorPrimary
@@ -619,29 +780,37 @@
 					onclick={primaryAction}
 				/>
 			</div>
-		{:else if allDone}
+		{:else}
 			<!-- workout complete: no adjuster on screen — the table becomes a
-			     receipt in the same two-column shape as the Ledger tab (D6) -->
+			     receipt in the same two-column shape as the Ledger tab (D6);
+			     only what reached the ledger, with prep counted on one line -->
 			<main class="fl-main">
 				<h1 class="fl-name">Done</h1>
 				<p class="fl-meta">
-					<span>{loggedThis.length} SETS LOGGED{syncing ? ' · SAVING…' : ''}</span>
+					<span>{isRunDay ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{syncing ? ' · SAVING…' : ''}</span>
 				</p>
 				<div class="fl-receipt">
-					{#each exercises as e (e.name)}
-						{@const sets = receiptSets(e.name)}
+					{#if isRunDay}
 						<div class="fl-rrow">
-							<span class="fl-rname">{e.name}</span>
-							<span class="fl-rval">{sets.length ? setsLine(sets, e) : '—'}</span>
+							<span class="fl-rname">{title}</span>
+							<span class="fl-rval">{runMinutes ? `${runMinutes} min` : '—'}</span>
 						</div>
-					{/each}
+					{:else}
+						{#each exercises as e (e.name)}
+							{@const sets = receiptSets(e.name)}
+							<div class="fl-rrow">
+								<span class="fl-rname">{e.name}</span>
+								<span class="fl-rval">{sets.length ? setsLine(sets, e) : '—'}</span>
+							</div>
+						{/each}
+					{/if}
 				</div>
-				<p class="fl-hint">Stretch 5 min while you're warm.</p>
+				{#if prepLine}<p class="fl-hint">{prepLine}</p>{/if}
 			</main>
 			<div class="fl-bottom">
 				{#if anyFailed}
 					<p class="fl-err">
-						A set didn’t save.
+						An entry didn’t save.
 						<button type="button" class="fl-retryall" onclick={retryAllFailed}>Retry</button>
 					</p>
 				{:else if errMsg ?? form?.message}
@@ -660,12 +829,12 @@
 
 <FloorSheet
 	open={sheetOpen}
-	{ex}
-	{warmup}
-	{exercises}
-	doneFor={(name) => loggedThis.filter((s) => s.data.exercise === name).length}
-	current={exI}
-	logged={loggedThis.length}
+	title={heading === 'Rest' || heading === 'Done' ? title : heading}
+	ex={isSet || st?.kind === 'rest' ? ex : undefined}
+	cue={st?.kind === 'prep' ? cue : st?.kind === 'run' ? plan.run?.note : undefined}
+	{sections}
+	current={Math.min(stepI, steps.length - 1)}
+	logged={progress.sets}
 	total={totalSets}
 	{allDone}
 	onJump={(i) => {
@@ -760,7 +929,7 @@
 	}
 	/* the title block and the glyph are one pair: centred on each other, the
 	   glyph heavy enough to answer a 32px black title, and the row keeps a
-	   clear 16px before the set table so the figure never stands on it */
+	   clear 16px before the step table so the figure never stands on it */
 	.fl-titlerow {
 		display: flex;
 		align-items: center;
@@ -794,11 +963,12 @@
 	.fl-hint {
 		font-family: var(--font-mono);
 		font-size: 12px;
+		line-height: 1.45;
 		color: var(--ink-2);
 		margin: 10px 0 0;
 		background: var(--volt-tint);
 		display: inline-block;
-		padding: 3px 8px;
+		padding: 4px 8px;
 		border-radius: 4px;
 	}
 
@@ -813,6 +983,24 @@
 		margin-bottom: 10px;
 	}
 	.fl-tiles.single { grid-template-columns: 1fr; }
+	/* the quiet tile: where the adjusters would be, saying why there are none */
+	.fl-quiet {
+		min-height: 68px;
+		margin-bottom: 10px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		padding: 0 14px;
+		background: var(--paper);
+		border: 1px dashed var(--border-soft);
+		border-radius: 14px;
+		font-size: 9.5px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--ink-3);
+	}
 	.fl-err {
 		font-family: var(--font-mono);
 		font-size: 13px;
@@ -889,5 +1077,6 @@
 		.fl-meta { margin: 2px 0 6px; font-size: 12px; }
 		.fl-name { font-size: clamp(22px, 5vh, 26px); }
 		.fl-tiles { gap: 8px; margin-bottom: 8px; }
+		.fl-quiet { min-height: 52px; }
 	}
 </style>

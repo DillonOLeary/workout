@@ -6,7 +6,8 @@ import type { Actions } from './$types';
 export const actions: Actions = {
 	/**
 	 * The event-sourced "delete": appends SessionRemoved rather than deleting
-	 * anything. The decider refuses unknown ids and no-ops repeats.
+	 * anything. The decider refuses unknown ids and no-ops repeats. Runs are
+	 * sessions too, so this is the only removal there is.
 	 */
 	remove: async ({ request, locals }) => {
 		const uid = requireUid(locals);
@@ -16,18 +17,6 @@ export const actions: Actions = {
 		const err = await tryCommand(uid, {
 			type: 'RemoveSession',
 			data: { session, at: new Date().toISOString() }
-		});
-		if (err) return fail(400, { message: err });
-	},
-
-	removeRun: async ({ request, locals }) => {
-		const uid = requireUid(locals);
-		const form = await request.formData();
-		const run = String(form.get('run') ?? '');
-		if (!run) return fail(400, { message: 'Missing run id.' });
-		const err = await tryCommand(uid, {
-			type: 'RemoveRun',
-			data: { run, at: new Date().toISOString() }
 		});
 		if (err) return fail(400, { message: err });
 	}

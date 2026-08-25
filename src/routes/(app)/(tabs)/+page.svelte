@@ -3,7 +3,6 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
-	import Stepper from '$lib/components/Stepper.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
 	import WeekStrip from '$lib/components/WeekStrip.svelte';
 	import WeeklyProgress from '$lib/components/WeeklyProgress.svelte';
@@ -17,7 +16,8 @@
 		weekRunMinutes,
 		weekStrip
 	} from '$lib/domain/projections';
-	import type { SetLogged } from '$lib/domain/events';
+	import { RUN_DAY, type EntryLogged } from '$lib/domain/events';
+	import { estimateMinutes, sessionProgress, sessionSteps, stepOf } from '$lib/domain/steps';
 	import type { Exercise } from '$lib/domain/types';
 	import type { PageProps } from './$types';
 
@@ -54,22 +54,33 @@
 	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, session?.id) })));
 	let openRow = $state<string | null>(null);
 
+	// the session is a list of steps: Today says how long it is, and how far in
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
-	let sessionSets = $derived(
+	let liveSteps = $derived(session ? sessionSteps(floorPlan, session.day) : []);
+	let liveEntries = $derived(
 		session
-			? data.events.filter(
-					(e): e is SetLogged => e.type === 'SetLogged' && e.data.session === session.id
-				).length
-			: 0
+			? data.events
+					.filter((e): e is EntryLogged => e.type === 'EntryLogged' && e.data.session === session.id)
+					.map((e) => e.data)
+			: []
 	);
-	let sessionTotal = $derived(
-		session ? (floorPlan.days[session.day] ?? []).reduce((n, e) => n + e.sets, 0) : 0
-	);
+	let liveProgress = $derived(sessionProgress(liveSteps, liveEntries));
+	let liveLine = $derived.by(() => {
+		if (!session) return '';
+		const left = estimateMinutes(liveSteps, liveProgress.current);
+		if (session.day === RUN_DAY) return `${stepOf(liveProgress.current, liveSteps)} · ~${left} min left`;
+		const warm = liveSteps.filter((s) => s.section === 'Warm-up');
+		const warmDone = warm.length > 0 && warm.every((s) => liveProgress.done.has(s.key));
+		return `${stepOf(liveProgress.current, liveSteps)}${warmDone ? ' · warm-up done' : ''} · ${liveProgress.sets} ${liveProgress.sets === 1 ? 'set' : 'sets'} logged · ~${left} min left`;
+	});
+	let dueSteps = $derived(sessionSteps(plan, due));
+	let dueLine = $derived.by(() => {
+		const prep = dueSteps.some((s) => s.kind === 'prep');
+		return `${dueSteps.length} steps · about ${estimateMinutes(dueSteps)} min${prep ? ' · warm-up and cooldown included' : ''}`;
+	});
 
 	let minutes = $derived(weekRunMinutes(data.events));
 	let runTarget = $derived(plan.runTarget ?? 150);
-	let runMin = $state(30);
-	let runOpen = $state(false);
 
 	const today = new Date().toLocaleDateString('en-US', {
 		weekday: 'short',
@@ -92,7 +103,7 @@
 		<Card interactive>
 			<div class="caps">In progress</div>
 			<div class="title">{dayTitle(floorPlan, session.day)}</div>
-			<div class="mono-sub">{sessionSets} of {sessionTotal} sets</div>
+			<div class="mono-sub">{liveLine}</div>
 			<div class="row gap12 wrap">
 				<a class="resume" href="/log">Resume</a>
 				<form method="POST" action="?/finish" use:enhance class="grow">
@@ -111,14 +122,16 @@
 				</div>
 				<a class="planlink" href="/plan?day={due}">See the plan →</a>
 			</div>
+			<!-- the session's honest length, from its steps -->
+			<div class="mono-sub">{dueLine}</div>
 
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="day" value={due} />
 				<input type="hidden" name="plan" value={plan.id} />
 				<button type="submit" class="startbtn">Start workout</button>
 			</form>
-			<!-- two peers, neither competing with Start: the other day, and the
-			     five-second action you take a couple of times a week -->
+			<!-- peers, none competing with Start: the other lift day, and the
+			     guided run — walk, run, walk, on the same floor -->
 			<div class="secs">
 				{#each dayKeys.filter((d) => d !== due) as d (d)}
 					<form method="POST" action="?/start" use:enhance class="grow">
@@ -128,18 +141,15 @@
 					</form>
 				{/each}
 				{#if plan.runs !== false}
-					<Button variant="secondary" type="button" style="flex: 1" aria-expanded={runOpen} onclick={() => (runOpen = !runOpen)}>
-						{runOpen ? 'Cancel' : 'Log a run'}
-					</Button>
+					<form method="POST" action="?/start" use:enhance class="grow">
+						<input type="hidden" name="day" value={RUN_DAY} />
+						<input type="hidden" name="plan" value={plan.id} />
+						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, RUN_DAY)}</Button>
+					</form>
 				{/if}
 			</div>
-			{#if runOpen && plan.runs !== false}
-				<form method="POST" action="?/logRun" use:enhance class="row gap12 wrap runform">
-					<Stepper bind:value={runMin} step={5} min={5} max={240} unit="min" label="minutes" />
-					<input type="hidden" name="minutes" value={runMin} />
-					<Button variant="accent" size="lg" type="submit" style="flex: 1; min-width: 96px">Log {runMin} min</Button>
-				</form>
-			{/if}
+			<!-- did it without the phone: the same session, written after -->
+			<a class="afterlink" href="/log/after">Already did one? Log it after →</a>
 		</Card>
 	{/if}
 
@@ -246,7 +256,12 @@
 	.startbtn:hover { background: var(--volt-deep); }
 	.startbtn:active { transform: translateY(3px); box-shadow: var(--shadow-pressed); }
 	.secs { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-	.runform { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+	.afterlink {
+		display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; padding: 0 4px;
+		font-size: 13px; font-weight: var(--weight-bold); color: var(--ink-3);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+	}
+	.afterlink:hover { color: var(--ink); background: none; }
 
 	/* Resume is a link (no state change) dressed as the accent button */
 	.resume {

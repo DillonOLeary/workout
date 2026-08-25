@@ -50,13 +50,36 @@ export type Exercise = {
 	rack?: Rack;
 	/** short clarifier shown under the name — for what the fields can't say */
 	note?: string;
+	/** seconds between this exercise's sets; absent = the plan's `rest` */
+	rest?: number;
 };
+
+/**
+ * Warm-up and cooldown are lists of STEPS, one line each — every line takes
+ * a turn on the floor exactly like a set does. A plain string is one step
+ * (older custom plans wrote the warm-up as one sentence).
+ */
+export type Steps = string | string[];
 
 export type DayInfo = {
 	title: string;
 	desc?: string;
-	/** one line shown on the floor before exercise 1 and on the Today card */
-	warmup?: string;
+	warmup?: Steps;
+	cooldown?: Steps;
+	/** one line shown under every prep step (the breathing cue, say) */
+	cue?: string;
+};
+
+/**
+ * The guided run: walk, run, walk. `minutes` is the target the clock counts
+ * toward; `walk` is the easy minutes before and after (0 = none). A run
+ * logged after the fact writes the same session shape with one entry.
+ */
+export type RunDay = {
+	title: string;
+	minutes: number;
+	walk?: number;
+	note?: string;
 };
 
 export type Plan = {
@@ -70,6 +93,12 @@ export type Plan = {
 	runs?: boolean;
 	/** weekly run-minute goal for the meter/badge; absent = 150 */
 	runTarget?: number;
-	/** warm-up line for days whose dayInfo doesn't carry its own */
-	warmup?: string;
+	/** warm-up / cooldown for days whose dayInfo doesn't carry their own */
+	warmup?: Steps;
+	cooldown?: Steps;
+	cue?: string;
+	/** seconds between sets, unless the exercise says otherwise; absent = 60 */
+	rest?: number;
+	/** the guided run this plan offers; absent = a plain run */
+	run?: RunDay;
 };

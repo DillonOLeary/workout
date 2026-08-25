@@ -62,15 +62,36 @@ demand. Current state becomes a cache; history becomes the truth.
 
 | Event | Meaning |
 |---|---|
-| `SessionStarted` | you walked onto the floor |
-| `SetLogged` | one set: exercise, weight, reps |
-| `SessionFinished` | you walked off |
-| `RunLogged` | minutes of running |
+| `SessionStarted` | a workout began — `mode: 'after'` means it was written in one shot, backdated |
+| `EntryLogged` | one entry: `item` + `index` is its identity, `measure` is what it measured |
+| `SessionFinished` | the workout ended |
+| `SessionRemoved` | the event-sourced delete — a fact about a fact |
 | `PlanSelected` | you switched programs |
+
+A **workout is a session: an ordered list of entries, each with one
+measure**. A lift is a session of sets; a run is a session with one
+`duration` entry; a warm-up line is an entry too. The measure is a closed
+union — `load` (weight × reps), `hold` (seconds, the bell, any load),
+`duration` (minutes), `step` (it happened) — so the decider validates each
+variant on its own branch instead of guessing from optional fields.
+*Guided* and *logged after the fact* are not two kinds of thing: they are
+**when** the same events get written.
 
 Names are **past tense** — an event can't be rejected, it already happened.
 Requests that *can* be rejected are **commands**, named in the imperative
-(`StartSession`, `LogSet` — [src/lib/domain/commands.ts](src/lib/domain/commands.ts)).
+(`StartSession`, `LogEntry`, `LogAfter` — [src/lib/domain/commands.ts](src/lib/domain/commands.ts)).
+
+#### Retired names, and the upcaster
+
+The stream still holds `SetLogged`, `RunLogged`, `RunRemoved` and
+`SessionStruck` rows from earlier vocabularies — **nothing in Postgres was
+rewritten**. `upcastLedgerEvents` translates them as they are read, and it
+is one-to-*many*: a stored `RunLogged` comes back as a whole backdated
+session (started · one duration entry · finished), which is exactly what
+logging a run after the fact writes today. Every reader — the decider's
+fold and every projection — sees only the current vocabulary. The old
+projection tests deliberately still feed `SetLogged`, so they prove the
+upcaster every run.
 
 ### The decider — the write side
 
@@ -153,6 +174,19 @@ These projections re-run per request (cheap at personal scale, and events are
 read once per page anyway). When that stops scaling, Emmett can maintain
 **stored projections** (Pongo / SQL) updated as events append — same concept,
 cached.
+
+### The session is a list of steps
+
+[src/lib/domain/steps.ts](src/lib/domain/steps.ts) turns a plan day into
+the list the gym floor walks: warm-up lines, every set with a rest before
+the next, the cooldown — or, for a run, walk · run · walk. Steps are
+**derived from the plan, never stored**. Which ones are done is read from
+the session's entries; a rest is done when the set after it is, or when its
+clock has simply run out — rests are timed from the previous entry's
+timestamp and never written, which is why a reload lands back on the same
+countdown. Warm-up and cooldown lines *are* written (as `step` entries) so
+"Step 6 of 24" is honest after a reload — but the by-day view keeps them to
+one quiet line, and the progression rule never sees them.
 
 ### Not everything is an event
 
@@ -240,6 +274,7 @@ Things to notice:
 | scoped `<style>` | every component — the design system's tokens are global, layout is local |
 | `$effect` | `ExerciseGlyph.svelte` — a canvas that plays one rep: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop, and the function it returns tears both down |
 | `{#key}` | the gym floor wraps the glyph in `{#key ex.name}`: advancing to the next exercise remounts it, and a fresh mount plays once |
+| time as input | `sessionProgress(steps, entries, now)` — the floor passes `now` from a 200 ms ticker, so rests, the run clock and "done" are one pure fold |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 (and a `svelte-ignore state_referenced_locally`) because a session's identity

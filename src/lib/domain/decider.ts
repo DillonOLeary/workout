@@ -1,6 +1,6 @@
 import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
-import { upcastLedgerEvent, type LedgerEvent } from './events';
+import { entryKey, upcastLedgerEvents, type LedgerEvent, type Measure } from './events';
 
 /**
  * The decider: the write-side of the app in three pure functions.
@@ -21,60 +21,47 @@ export type ActiveSession = {
 	id: string;
 	plan: string;
 	day: string;
-	setsLogged: number;
-	/** per-exercise counts — lets LogSet treat duplicate set numbers as no-ops */
-	setsByExercise: Record<string, number>;
+	/** every entry already landed, by identity — a repeat is a no-op, not a duplicate */
+	entries: Record<string, true>;
 };
 
 export type LedgerState = {
 	activeSession: ActiveSession | null;
 	activePlanId: string | null;
-	/** every session id ever started — RemoveSession must refuse unknown ids */
+	/** every session id ever started (runs included) — RemoveSession must refuse unknown ids */
 	sessions: Record<string, true>;
 	/** already removed — removing twice is a no-op, not an error */
 	removedSessions: Record<string, true>;
-	/** every run's `at` timestamp (its natural id) — for RemoveRun */
-	runs: Record<string, true>;
-	removedRuns: Record<string, true>;
 };
 
 export const initialState = (): LedgerState => ({
 	activeSession: null,
 	activePlanId: null,
 	sessions: {},
-	removedSessions: {},
-	runs: {},
-	removedRuns: {}
+	removedSessions: {}
 });
 
-export const evolve = (state: LedgerState, event: LedgerEvent): LedgerState => {
-	// The store replays RAW history — retired event names included — so the
-	// upcaster runs here, at the fold boundary, before any rule sees the event.
-	const { type, data } = upcastLedgerEvent(event);
+function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
+	const { type, data } = event;
 	switch (type) {
-		case 'SessionStarted':
+		case 'SessionStarted': {
+			const sessions: Record<string, true> = { ...state.sessions, [data.session]: true as const };
+			// a backdated session was never open: it is already over by the
+			// time the next event in the same batch closes it
+			if (data.mode === 'after') return { ...state, sessions };
 			return {
 				...state,
-				sessions: { ...state.sessions, [data.session]: true },
-				activeSession: {
-					id: data.session,
-					plan: data.plan,
-					day: data.day,
-					setsLogged: 0,
-					setsByExercise: {}
-				}
+				sessions,
+				activeSession: { id: data.session, plan: data.plan, day: data.day, entries: {} }
 			};
-		case 'SetLogged':
+		}
+		case 'EntryLogged':
 			if (state.activeSession?.id !== data.session) return state;
 			return {
 				...state,
 				activeSession: {
 					...state.activeSession,
-					setsLogged: state.activeSession.setsLogged + 1,
-					setsByExercise: {
-						...state.activeSession.setsByExercise,
-						[data.exercise]: (state.activeSession.setsByExercise[data.exercise] ?? 0) + 1
-					}
+					entries: { ...state.activeSession.entries, [entryKey(data.item, data.index)]: true }
 				}
 			};
 		case 'SessionFinished':
@@ -88,12 +75,50 @@ export const evolve = (state: LedgerState, event: LedgerEvent): LedgerState => {
 			};
 		case 'PlanSelected':
 			return { ...state, activePlanId: data.plan };
-		case 'RunLogged':
-			return { ...state, runs: { ...state.runs, [data.at]: true } };
-		case 'RunRemoved':
-			return { ...state, removedRuns: { ...state.removedRuns, [data.run]: true } };
 	}
-};
+}
+
+/**
+ * The store replays RAW history — retired event names included — so the
+ * upcaster runs here, at the fold boundary, before any rule sees the event.
+ * One stored row can read back as several facts (a RunLogged is a whole
+ * session), which is why this folds a list.
+ */
+export const evolve = (state: LedgerState, event: LedgerEvent): LedgerState =>
+	upcastLedgerEvents(event).reduce(evolveOne, state);
+
+const isInt = (n: unknown): n is number => Number.isInteger(n);
+
+/** Every measure validates on its own branch — the union keeps this exhaustive. */
+function validateMeasure(m: Measure): void {
+	switch (m.of) {
+		case 'load':
+			if (!Number.isFinite(m.load) || m.load < 0 || m.load > 2000)
+				throw new ValidationError('Weight is out of range.');
+			if (!isInt(m.reps) || m.reps < 1 || m.reps > 100) throw new ValidationError('Reps are out of range.');
+			return;
+		case 'hold':
+			if (!isInt(m.seconds) || m.seconds < 1 || m.seconds > 600)
+				throw new ValidationError('Hold time is out of range.');
+			if (m.target !== undefined && (!isInt(m.target) || m.target < 1 || m.target > 600))
+				throw new ValidationError('Hold target is out of range.');
+			if (m.load !== undefined && (!Number.isFinite(m.load) || m.load < 0 || m.load > 2000))
+				throw new ValidationError('Weight is out of range.');
+			return;
+		case 'duration':
+			if (!Number.isFinite(m.minutes) || m.minutes < 1 || m.minutes > 600)
+				throw new ValidationError('Minutes must be between 1 and 600.');
+			return;
+		case 'step':
+			return;
+		default:
+			throw new ValidationError('Unknown measure.');
+	}
+}
+
+/** Minutes land whole; everything else is already discrete. */
+const normalise = (m: Measure): Measure =>
+	m.of === 'duration' ? { of: 'duration', minutes: Math.round(m.minutes) } : m;
 
 export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[] => {
 	switch (command.type) {
@@ -104,22 +129,41 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			return [{ type: 'SessionStarted', data: { session: sessionId, plan, day, at } }];
 		}
 
-		case 'LogSet': {
-			const { session, exercise, weight, reps, set, unit } = command.data;
+		case 'LogEntry': {
+			const { session, item, index, measure } = command.data;
 			if (!state.activeSession || state.activeSession.id !== session)
 				throw new IllegalStateError('No session in progress — start one from Today.');
-			if (!Number.isFinite(weight) || weight < 0 || weight > 2000)
-				throw new ValidationError('Weight is out of range.');
-			if (unit === 's') {
-				if (!Number.isInteger(reps) || reps < 1 || reps > 600)
-					throw new ValidationError('Hold time is out of range.');
-			} else if (!Number.isInteger(reps) || reps < 1 || reps > 100) {
-				throw new ValidationError('Reps are out of range.');
+			if (!item || !isInt(index) || index < 1) throw new ValidationError('Entry has no identity.');
+			validateMeasure(measure);
+			// Same identity = this entry already landed (a retried request or a
+			// double-press). Recording nothing makes retries idempotent.
+			if (state.activeSession.entries[entryKey(item, index)]) return [];
+			return [{ type: 'EntryLogged', data: { ...command.data, measure: normalise(measure) } }];
+		}
+
+		case 'LogAfter': {
+			const { sessionId, plan, day, startAt, at, entries } = command.data;
+			if (!entries.length) throw new ValidationError('Nothing to log.');
+			if (state.sessions[sessionId]) throw new IllegalStateError('That session is already in the ledger.');
+			if (Date.parse(startAt) > Date.parse(at)) throw new ValidationError('A session cannot end before it starts.');
+			const seen = new Set<string>();
+			for (const en of entries) {
+				if (!en.item || !isInt(en.index) || en.index < 1) throw new ValidationError('Entry has no identity.');
+				const key = entryKey(en.item, en.index);
+				if (seen.has(key)) throw new ValidationError(`"${en.item}" ${en.index} is listed twice.`);
+				seen.add(key);
+				validateMeasure(en.measure);
 			}
-			// Duplicate set number = this set already landed (a retried request
-			// or a double-press). Recording nothing makes retries idempotent.
-			if (set <= (state.activeSession.setsByExercise[exercise] ?? 0)) return [];
-			return [{ type: 'SetLogged', data: command.data }];
+			return [
+				{ type: 'SessionStarted', data: { session: sessionId, plan, day, at: startAt, mode: 'after' } },
+				...entries.map(
+					(en): LedgerEvent => ({
+						type: 'EntryLogged',
+						data: { session: sessionId, plan, day, item: en.item, index: en.index, at, measure: normalise(en.measure) }
+					})
+				),
+				{ type: 'SessionFinished', data: { session: sessionId, plan, day, at } }
+			];
 		}
 
 		case 'FinishSession': {
@@ -133,24 +177,9 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 
 		case 'RemoveSession': {
 			const { session, at } = command.data;
-			if (!state.sessions[session])
-				throw new IllegalStateError('No such session in this ledger.');
+			if (!state.sessions[session]) throw new IllegalStateError('No such session in this ledger.');
 			if (state.removedSessions[session]) return []; // already removed — idempotent
 			return [{ type: 'SessionRemoved', data: { session, at } }];
-		}
-
-		case 'RemoveRun': {
-			const { run, at } = command.data;
-			if (!state.runs[run]) throw new IllegalStateError('No such run in this ledger.');
-			if (state.removedRuns[run]) return [];
-			return [{ type: 'RunRemoved', data: { run, at } }];
-		}
-
-		case 'LogRun': {
-			const { minutes, at } = command.data;
-			if (!Number.isFinite(minutes) || minutes < 1 || minutes > 600)
-				throw new ValidationError('Run minutes must be between 1 and 600.');
-			return [{ type: 'RunLogged', data: { minutes: Math.round(minutes), at } }];
 		}
 
 		case 'SelectPlan': {

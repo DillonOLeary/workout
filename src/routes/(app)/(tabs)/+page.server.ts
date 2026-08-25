@@ -7,6 +7,9 @@ import type { Actions } from './$types';
  * Every mutation in the app is a command → the decider → appended events.
  * Note what's generated HERE at the edge: ids and timestamps. The decider
  * stays deterministic; the impure bits are inputs.
+ *
+ * Logging something after the fact lives on /log/after — one sheet for a
+ * run or a whole lift, same session shape, backdated.
  */
 export const actions: Actions = {
 	start: async ({ request, locals }) => {
@@ -29,16 +32,6 @@ export const actions: Actions = {
 		const err = await tryCommand(requireUid(locals), {
 			type: 'FinishSession',
 			data: { at: new Date().toISOString() }
-		});
-		if (err) return fail(400, { message: err });
-	},
-
-	logRun: async ({ request, locals }) => {
-		const uid = requireUid(locals);
-		const form = await request.formData();
-		const err = await tryCommand(uid, {
-			type: 'LogRun',
-			data: { minutes: Number(form.get('minutes')), at: new Date().toISOString() }
 		});
 		if (err) return fail(400, { message: err });
 	}

@@ -7,7 +7,6 @@
 		anySetEarned,
 		loadLabel,
 		projectPlanSwitches,
-		projectRuns,
 		projectSessions,
 		uniformLoad
 	} from '$lib/domain/projections';
@@ -33,16 +32,9 @@
 		removeTimer = setTimeout(() => (removing = null), 3000);
 	}
 
-	let sessions = $derived(projectSessions(data.events));
-	let runs = $derived(projectRuns(data.events));
+	// one list: a run is a session with one entry, so every row is a session
+	let entries = $derived(projectSessions(data.events));
 	let switches = $derived(projectPlanSwitches(data.events));
-
-	let entries = $derived(
-		[
-			...sessions.map((s) => ({ at: s.at, kind: 'session' as const, s })),
-			...runs.map((r) => ({ at: r.at, kind: 'run' as const, r }))
-		].sort((a, b) => b.at.localeCompare(a.at))
-	);
 
 	const PAGE = 20;
 	let shown = $state(PAGE);
@@ -96,22 +88,22 @@
 		<Card><div class="empty">Nothing logged yet. Start Workout A.</div></Card>
 	{/if}
 
-	{#each visible as en (en.kind + en.at + (en.kind === 'session' ? en.s.id : ''))}
-		{#if en.kind === 'run'}
+	{#each visible as s (s.id)}
+		{#if s.isRun && s.rows.length === 0}
+			<!-- a run: one row in the week, one row here, the same Remove -->
 			<Card>
 				<div class="line">
-					<span class="date">{en.r.dateLabel}</span>
-					<span class="runlbl">Run</span>
-					<span class="runmin">{en.r.minutes} min</span>
+					<span class="date">{s.dateLabel}</span>
+					<span class="runlbl">{dayTitle(planById(s.plan), s.day)}</span>
+					{#if !s.finished}<Badge tone="warning">In progress</Badge>{/if}
+					<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
 					{#if editMode}
-						<form method="POST" action="?/removeRun" use:enhance>
-							<input type="hidden" name="run" value={en.r.at} />
-							{#if removing === en.r.at}
+						<form method="POST" action="?/remove" use:enhance>
+							<input type="hidden" name="session" value={s.id} />
+							{#if removing === s.id}
 								<button type="submit" class="remove armed">Remove?</button>
 							{:else}
-								<button type="button" class="remove" onclick={() => armRemove(en.r.at)}>
-									Remove
-								</button>
+								<button type="button" class="remove" onclick={() => armRemove(s.id)}>Remove</button>
 							{/if}
 						</form>
 					{/if}
@@ -120,17 +112,18 @@
 		{:else}
 			<Card pad={false}>
 				<div class="sesshead">
-					<span class="date">{en.s.dateLabel}</span>
+					<span class="date">{s.dateLabel}</span>
 					<span class="sessbadges">
-						{#if !en.s.finished}<Badge tone="warning">In progress</Badge>{/if}
-						<Badge tone="neutral">{dayTitle(planById(en.s.plan), en.s.day)}</Badge>
+						{#if !s.finished}<Badge tone="warning">In progress</Badge>{/if}
+						<Badge tone="neutral">{dayTitle(planById(s.plan), s.day)}</Badge>
+						{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
 						{#if editMode}
 							<form method="POST" action="?/remove" use:enhance>
-								<input type="hidden" name="session" value={en.s.id} />
-								{#if removing === en.s.id}
+								<input type="hidden" name="session" value={s.id} />
+								{#if removing === s.id}
 									<button type="submit" class="remove armed">Remove?</button>
 								{:else}
-									<button type="button" class="remove" onclick={() => armRemove(en.s.id)}>
+									<button type="button" class="remove" onclick={() => armRemove(s.id)}>
 										Remove
 									</button>
 								{/if}
@@ -138,7 +131,7 @@
 						{/if}
 					</span>
 				</div>
-				{#each en.s.rows as row (row.exercise)}
+				{#each s.rows as row (row.exercise)}
 					{@const ex = exByName(row.exercise)}
 					{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
 					<div class="sessrow">
@@ -149,6 +142,16 @@
 						<span class="val">{rowValue(row)}</span>
 					</div>
 				{/each}
+				{#if s.minutes}
+					<div class="sessrow">
+						<span class="exname">Run</span>
+						<span class="val">{s.minutes} min</span>
+					</div>
+				{/if}
+				<!-- prep is present, not itemised: it never leads the row -->
+				{#if s.prep}
+					<div class="prepline">+ {s.prep} prep {s.prep === 1 ? 'step' : 'steps'} — warm-up, cooldown</div>
+				{/if}
 			</Card>
 		{/if}
 	{/each}
@@ -238,8 +241,12 @@
 	/* never break a date mid-word — "Sun, Aug 2" over three lines is what let
 	   the badges keep their full width and push Remove off the card */
 	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
-	.runlbl { font-weight: var(--weight-bold); }
-	.runmin { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; }
+	.runlbl { font-weight: var(--weight-bold); flex: 1; }
+	.runmin { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; white-space: nowrap; }
+	.prepline {
+		padding: 8px 24px 12px; border-top: 1px solid var(--border-soft);
+		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+	}
 
 	.sesshead {
 		display: flex;

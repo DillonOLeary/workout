@@ -1,4 +1,4 @@
-import type { LedgerEvent, RunLogged } from './events';
+import { RUN_DAY, upcastAll, type LedgerEvent } from './events';
 import { nextRung, prevRung, rungLabel, snapToRack } from './racks';
 import type { Exercise, Plan } from './types';
 
@@ -28,9 +28,20 @@ export type SessionView = {
 	at: string;
 	dateLabel: string;
 	finished: boolean;
+	/** 'after' = written in one shot, backdated; 'live' = walked on the floor */
+	mode: 'live' | 'after';
+	/** the lifts: one row per exercise, its sets in order (load and hold entries) */
 	rows: SessionRow[];
+	/** minutes from duration entries — a run session's whole point */
+	minutes: number;
+	/** a run: the run day, or any duration entry */
+	isRun: boolean;
+	/** prep steps that happened (warm-up, cooldown, walks) — tracked, never a ledger line */
+	prep: number;
+	/** every entry, whatever it measured */
+	entries: number;
 };
-export type RunView = { at: string; dateLabel: string; minutes: number };
+export type RunView = { at: string; dateLabel: string; minutes: number; session: string };
 export type PlanSwitchView = { at: string; dateLabel: string; plan: string };
 export type LastEntry = { sets: SessionSet[]; dateLabel: string; at: string };
 
@@ -49,7 +60,10 @@ export function fmtDate(iso: string): string {
  * the whole app behave as if the workout never happened, while the events
  * themselves stay in the stream.
  */
-export function projectSessions(events: LedgerEvent[]): SessionView[] {
+export function projectSessions(raw: LedgerEvent[]): SessionView[] {
+	// every fold enters through here, so this is where retired shapes become
+	// current ones — a test can feed the old SetLogged and still be right
+	const events = upcastAll(raw);
 	const removed = new Set(
 		events.filter((e) => e.type === 'SessionRemoved').map((e) => e.data.session)
 	);
@@ -63,24 +77,42 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 				at: e.data.at,
 				dateLabel: fmtDate(e.data.at),
 				finished: false,
-				rows: []
+				mode: e.data.mode ?? 'live',
+				rows: [],
+				minutes: 0,
+				isRun: e.data.day === RUN_DAY,
+				prep: 0,
+				entries: 0
 			});
-		} else if (e.type === 'SetLogged') {
+		} else if (e.type === 'EntryLogged') {
 			const s = map.get(e.data.session);
 			if (!s) continue;
-			let row = s.rows.find((r) => r.exercise === e.data.exercise);
-			if (!row) {
-				row = { exercise: e.data.exercise, sets: [] };
-				s.rows.push(row);
+			s.entries++;
+			const m = e.data.measure;
+			if (m.of === 'step') {
+				s.prep++;
+			} else if (m.of === 'duration') {
+				s.minutes += m.minutes;
+				s.isRun = true;
+			} else {
+				let row = s.rows.find((r) => r.exercise === e.data.item);
+				if (!row) {
+					row = { exercise: e.data.item, sets: [] };
+					s.rows.push(row);
+				}
+				// append, never overwrite: a single row.weight made the last set win,
+				// so dropping the load mid-exercise erased the heavier sets before it
+				row.sets.push(
+					m.of === 'hold'
+						? {
+								weight: m.load ?? 0,
+								reps: m.seconds,
+								unit: 's',
+								...(m.target !== undefined ? { target: m.target } : {})
+							}
+						: { weight: m.load, reps: m.reps }
+				);
 			}
-			// append, never overwrite: a single row.weight made the last set win,
-			// so dropping the load mid-exercise erased the heavier sets before it
-			row.sets.push({
-				weight: e.data.weight,
-				reps: e.data.reps,
-				...(e.data.unit ? { unit: e.data.unit } : {}),
-				...(e.data.target !== undefined ? { target: e.data.target } : {})
-			});
 		} else if (e.type === 'SessionFinished') {
 			const s = map.get(e.data.session);
 			if (s) s.finished = true;
@@ -91,18 +123,15 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 		.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-/** RunRemoved events point at a run's `at` timestamp — its natural id. */
-function removedRunSet(events: LedgerEvent[]): Set<string> {
-	return new Set(events.filter((e) => e.type === 'RunRemoved').map((e) => e.data.run));
-}
-
-/** Runs newest-first, removed ones excluded. */
+/**
+ * Runs newest-first. A run is a session like any other now; this is the
+ * same fold, filtered — kept for the meter and the week strip, which only
+ * want minutes and a day.
+ */
 export function projectRuns(events: LedgerEvent[]): RunView[] {
-	const removed = removedRunSet(events);
-	return events
-		.filter((e): e is RunLogged => e.type === 'RunLogged' && !removed.has(e.data.at))
-		.map((e) => ({ at: e.data.at, dateLabel: fmtDate(e.data.at), minutes: e.data.minutes }))
-		.sort((a, b) => b.at.localeCompare(a.at));
+	return projectSessions(events)
+		.filter((s) => s.minutes > 0)
+		.map((s) => ({ at: s.at, dateLabel: s.dateLabel, minutes: s.minutes, session: s.id }));
 }
 
 /** Plan switches newest-first, for the ledger. */
@@ -403,15 +432,12 @@ export function loadHint(load: LoadSuggestion, ex: Exercise): string | null {
 	return null;
 }
 
-/** The warm-up line for a day: its own, else the plan's. */
-export function warmupFor(plan: Plan | undefined, day: string): string | undefined {
-	return plan?.dayInfo?.[day]?.warmup ?? plan?.warmup;
-}
-
-/** Which day is due next: alternate from the most recent finished session. */
+/** Which day is due next: alternate from the most recent finished LIFT (runs don't count). */
 export function nextDay(events: LedgerEvent[], plan: Plan): string {
 	const dayKeys = Object.keys(plan.days);
-	const sessions = projectSessions(events).filter((s) => s.finished && s.plan === plan.id);
+	const sessions = projectSessions(events).filter(
+		(s) => s.finished && s.plan === plan.id && dayKeys.includes(s.day)
+	);
 	if (!sessions.length) return dayKeys[0];
 	const i = dayKeys.indexOf(sessions[0].day);
 	return dayKeys[(i + 1) % dayKeys.length];
@@ -618,8 +644,9 @@ export type WeekCell = {
  */
 export function weekStrip(events: LedgerEvent[], now: number = Date.now()): WeekCell[] {
 	const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-	const lifted = new Set(projectSessions(events).map((s) => dayKey(new Date(s.at))));
-	const ran = new Set(projectRuns(events).map((r) => dayKey(new Date(r.at))));
+	const sessions = projectSessions(events);
+	const lifted = new Set(sessions.filter((s) => !s.isRun).map((s) => dayKey(new Date(s.at))));
+	const ran = new Set(sessions.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at))));
 	const today = new Date(now);
 	const todayKey = dayKey(today);
 	const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
@@ -640,7 +667,8 @@ export function dayAges(events: LedgerEvent[], plan: Plan, now: number = Date.no
 	});
 }
 
-/** Display title for a day: dayInfo title if present, else "Workout X". */
+/** Display title for a day: dayInfo title if present, the run's title for a run, else "Workout X". */
 export function dayTitle(plan: Plan | undefined, d: string): string {
+	if (d === RUN_DAY) return plan?.run?.title ?? 'Run';
 	return plan?.dayInfo?.[d]?.title ?? 'Workout ' + d;
 }

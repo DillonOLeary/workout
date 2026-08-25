@@ -1,0 +1,191 @@
+import {
+	COOLDOWN_ITEM,
+	RUN_DAY,
+	RUN_ITEM,
+	WARMUP_ITEM,
+	entryKey,
+	type EntryLogged
+} from './events';
+import type { Exercise, Plan, Steps } from './types';
+
+/**
+ * A session, as a list of STEPS the floor walks one at a time: warm-up lines,
+ * then every set with a rest before the next, then the cooldown — or, for a
+ * run, walk · run · walk. The plan owns the order; you own the numbers.
+ *
+ * Steps are derived from the plan, never stored. Which ones are DONE is read
+ * from the session's entries; a rest is done when the set after it is, or
+ * when its clock has simply run out — rests are never written to the ledger.
+ */
+export type StepKind = 'prep' | 'set' | 'rest' | 'run';
+
+export type Step = {
+	/** entry identity for prep/set/run; `rest:<item>#<set>` for a rest */
+	key: string;
+	kind: StepKind;
+	/** the group the list shows it under: 'Warm-up', an exercise name, 'Cooldown', the run's title */
+	section: string;
+	/** EntryLogged.item — for a rest, the exercise it sits inside */
+	item: string;
+	/** EntryLogged.index — for a rest, the set it precedes */
+	index: number;
+	/** 'STEP 1' · 'SET 2' · 'HOLD 2' · 'REST' · 'WALK' · 'RUN' */
+	label: string;
+	/** prep: the instruction */
+	text?: string;
+	/** set / rest: the exercise */
+	ex?: Exercise;
+	/** rest: the seconds to wait */
+	seconds?: number;
+	/** run: the target minutes; prep walk: its minutes */
+	minutes?: number;
+	/** what this step costs the clock, seconds — for "about N min" */
+	estimate: number;
+};
+
+export const DEFAULT_REST = 60;
+
+/** A warm-up written as one sentence is one step. */
+export const asSteps = (s: Steps | undefined): string[] =>
+	s === undefined ? [] : typeof s === 'string' ? [s] : s;
+
+export function warmupSteps(plan: Plan | undefined, day: string): string[] {
+	return asSteps(plan?.dayInfo?.[day]?.warmup ?? plan?.warmup);
+}
+export function cooldownSteps(plan: Plan | undefined, day: string): string[] {
+	return asSteps(plan?.dayInfo?.[day]?.cooldown ?? plan?.cooldown);
+}
+/** The one line shown under every prep step. */
+export function prepCue(plan: Plan | undefined, day: string): string | undefined {
+	return plan?.dayInfo?.[day]?.cue ?? plan?.cue;
+}
+export function restFor(plan: Plan | undefined, ex: Exercise): number {
+	return ex.rest ?? plan?.rest ?? DEFAULT_REST;
+}
+
+const restKey = (item: string, set: number) => `rest:${entryKey(item, set)}`;
+
+/** The whole day, in order. Unknown day → no steps. */
+export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
+	if (!plan) return [];
+	if (day === RUN_DAY) return runSteps(plan);
+	const exercises = plan.days[day];
+	if (!exercises) return [];
+	const out: Step[] = [];
+	warmupSteps(plan, day).forEach((text, n) =>
+		out.push({
+			key: entryKey(WARMUP_ITEM, n + 1), kind: 'prep', section: WARMUP_ITEM, item: WARMUP_ITEM, index: n + 1,
+			label: `STEP ${n + 1}`, text, estimate: 75
+		})
+	);
+	for (const ex of exercises) {
+		const hold = ex.mode === 'seconds';
+		const rest = restFor(plan, ex);
+		for (let s = 1; s <= ex.sets; s++) {
+			out.push({
+				key: entryKey(ex.name, s), kind: 'set', section: ex.name, item: ex.name, index: s,
+				label: `${hold ? 'HOLD' : 'SET'} ${s}${ex.side === 'sets' ? (s % 2 === 1 ? ' · L' : ' · R') : ''}`,
+				ex, estimate: 45
+			});
+			if (s < ex.sets)
+				out.push({
+					key: restKey(ex.name, s + 1), kind: 'rest', section: ex.name, item: ex.name, index: s + 1,
+					label: 'REST', ex, seconds: rest, estimate: rest
+				});
+		}
+	}
+	cooldownSteps(plan, day).forEach((text, n) =>
+		out.push({
+			key: entryKey(COOLDOWN_ITEM, n + 1), kind: 'prep', section: COOLDOWN_ITEM, item: COOLDOWN_ITEM, index: n + 1,
+			label: `STEP ${n + 1}`, text, estimate: 60
+		})
+	);
+	return out;
+}
+
+/** Walk · run · walk. A plan without a run day still gets the bare run. */
+function runSteps(plan: Plan): Step[] {
+	const run = plan.run ?? { title: 'Run', minutes: 30 };
+	const walk = run.walk ?? 0;
+	const out: Step[] = [];
+	if (walk > 0)
+		out.push({
+			key: entryKey(WARMUP_ITEM, 1), kind: 'prep', section: run.title, item: WARMUP_ITEM, index: 1,
+			label: 'WALK', text: `Walk · ${walk} min`, minutes: walk, estimate: walk * 60
+		});
+	out.push({
+		key: entryKey(RUN_ITEM, 1), kind: 'run', section: run.title, item: RUN_ITEM, index: 1,
+		label: 'RUN', minutes: run.minutes, estimate: run.minutes * 60
+	});
+	if (walk > 0)
+		out.push({
+			key: entryKey(COOLDOWN_ITEM, 1), kind: 'prep', section: run.title, item: COOLDOWN_ITEM, index: 1,
+			label: 'WALK', text: `Walk · ${walk} min`, minutes: walk, estimate: walk * 60
+		});
+	return out;
+}
+
+/** "about N min" — from the steps themselves, so it is the number you'd argue with. */
+export function estimateMinutes(steps: Step[], from = 0): number {
+	let t = 0;
+	for (let k = Math.max(0, from); k < steps.length; k++) t += steps[k].estimate;
+	return Math.round(t / 60);
+}
+
+export type Entry = EntryLogged['data'];
+
+/**
+ * Where a session stands, from its entries and the clock.
+ *   done     — step keys that are behind you (rests included, by the clock)
+ *   current  — the first step that isn't
+ *   restStart / runStart — when the clock for that step began (the previous
+ *              entry's timestamp), so a reload lands back on the timer
+ */
+export type Progress = {
+	done: Set<string>;
+	current: number;
+	sets: number;
+	prep: number;
+};
+
+/** When a rest's clock started: the moment the set before it landed. */
+export function restStart(step: Step, entries: Entry[]): number | null {
+	if (step.kind !== 'rest') return null;
+	const prev = entries.find((e) => e.item === step.item && e.index === step.index - 1);
+	return prev ? Date.parse(prev.at) : null;
+}
+
+/** When a run's clock started: the previous step's entry, else the session itself. */
+export function runStart(steps: Step[], i: number, entries: Entry[], sessionAt: string): number {
+	for (let k = i - 1; k >= 0; k--) {
+		const s = steps[k];
+		if (s.kind === 'rest') continue;
+		const e = entries.find((x) => x.item === s.item && x.index === s.index);
+		if (e) return Date.parse(e.at);
+	}
+	return Date.parse(sessionAt);
+}
+
+export function sessionProgress(steps: Step[], entries: Entry[], now: number = Date.now()): Progress {
+	const logged = new Set(entries.map((e) => entryKey(e.item, e.index)));
+	const done = new Set<string>();
+	for (const s of steps) {
+		if (s.kind === 'rest') {
+			const next = logged.has(entryKey(s.item, s.index));
+			const start = restStart(s, entries);
+			const elapsed = start !== null && now >= start + (s.seconds ?? 0) * 1000;
+			if (next || elapsed) done.add(s.key);
+		} else if (logged.has(s.key)) done.add(s.key);
+	}
+	let current = steps.findIndex((s) => !done.has(s.key));
+	if (current < 0) current = steps.length;
+	return {
+		done,
+		current,
+		sets: entries.filter((e) => e.measure.of === 'load' || e.measure.of === 'hold').length,
+		prep: entries.filter((e) => e.measure.of === 'step').length
+	};
+}
+
+/** "Step 6 of 24" — the crumb, the card, the list all say the same thing. */
+export const stepOf = (i: number, steps: Step[]) => `Step ${Math.min(i + 1, steps.length)} of ${steps.length}`;

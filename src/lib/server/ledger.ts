@@ -2,7 +2,7 @@ import { DeciderCommandHandler, EmmettError } from '@event-driven-io/emmett';
 import { withEventStore } from './eventStore';
 import { decide, evolve, initialState } from '$lib/domain/decider';
 import type { LedgerCommand } from '$lib/domain/commands';
-import { upcastLedgerEvent, type LedgerEvent } from '$lib/domain/events';
+import { upcastAll, type LedgerEvent } from '$lib/domain/events';
 
 /**
  * DeciderCommandHandler is the whole event-sourcing write loop in one call:
@@ -15,7 +15,7 @@ import { upcastLedgerEvent, type LedgerEvent } from '$lib/domain/events';
  */
 // retry.onVersionConflict: a concurrent append (second device) makes Emmett
 // re-read the stream and re-run decide up to 3 times. Safe because decide is
-// idempotent — a duplicate LogSet folds to zero events on the re-decide.
+// idempotent — a duplicate LogEntry folds to zero events on the re-decide.
 const handle = DeciderCommandHandler({
 	decide,
 	evolve,
@@ -38,8 +38,9 @@ export const readLedgerEvents = (uid: string): Promise<LedgerEvent[]> =>
 	withEventStore(async (store) => {
 		const { events } = await store.readStream<LedgerEvent>(streamName(uid));
 		// upcast at the read boundary: projections and the UI only ever see
-		// the current event vocabulary, whatever names the stream stores
-		return events.map((e) => upcastLedgerEvent({ type: e.type, data: e.data }));
+		// the current event vocabulary, whatever names the stream stores — and
+		// one stored RunLogged comes back as the three events of a run session
+		return upcastAll(events.map((e) => ({ type: e.type, data: e.data })));
 	});
 
 /**
