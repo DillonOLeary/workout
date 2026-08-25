@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setsLine } from '$lib/domain/projections';
+	import { setsLine, unitOf } from '$lib/domain/labels';
 	import type { Trend } from '$lib/domain/projections';
 	import type { Exercise } from '$lib/domain/plan';
 
@@ -15,7 +15,7 @@
 		ontoggle
 	}: { ex: Exercise; trend: Trend; open?: boolean; ontoggle: () => void } = $props();
 
-	const unit = $derived(ex.kind === 'load' ? 'lb' : ex.kind === 'hold' ? 's' : '');
+	const unit = $derived(unitOf(ex));
 	// plain divs, not SVG: one bar per session, normalised to this exercise's
 	// own min/max over the window, plus the load the rule has queued next
 	const bars = $derived.by(() => {

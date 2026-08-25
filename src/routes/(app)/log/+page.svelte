@@ -9,22 +9,11 @@
 	import type { SheetSection } from '$lib/components/floor/FloorSheet.svelte';
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
-	import { nextRung, prevRung } from '$lib/domain/racks';
 	import { COOLDOWN_ITEM, RUN_DAY, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
-	import { countOf, isSet, loadOf, type Measure } from '$lib/domain/measure';
-	import {
-		dayTitle,
-		holdMaxed,
-		lastEntryFor,
-		loadHint,
-		nextLoad,
-		rangeLabel,
-		setsLine,
-		stepLabel,
-		suggestedCount,
-		weekRunMinutes
-	} from '$lib/domain/projections';
-	import type { LoadSuggestion } from '$lib/domain/projections';
+	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
+	import { dayTitle, historyFor, lastEntryFor, weekRunMinutes } from '$lib/domain/projections';
+	import { bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
+	import { loadHint, loadShort, plannedValue, rangeLabel, setValue, setsLine, stepLabel } from '$lib/domain/labels';
 	import {
 		estimateMinutes,
 		restStart,
@@ -59,9 +48,14 @@
 	const sessionAt = session.at;
 	// the rule's answer per exercise, once: data.events never refreshes mid-session
 	// svelte-ignore state_referenced_locally
-	const loads = new Map<string, LoadSuggestion>(
-		exercises.filter((e) => e.kind === 'load').map((e) => [e.name, nextLoad(data.events, e, session.id, opened)])
+	const loads = new Map<string, Suggestion>(
+		exercises.map((e) => [e.name, suggest(historyFor(data.events, e.name, session.id), e, opened)])
 	);
+	/** the rule's weight for set k of a loaded exercise; 0 where there is no load */
+	const plannedWeight = (x: Exercise, k: number) => {
+		const s = loads.get(x.name);
+		return s?.kind === 'load' ? s.sets[Math.min(k, x.sets - 1)].weight : 0;
+	};
 
 	/* ---------- optimistic queue ----------------------------------------
 	   Pressing the primary appends to `local` and the UI updates in the same
@@ -131,7 +125,7 @@
 	let stepDone = $derived(!!st && progress.done.has(st.key));
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
-	let load = $derived(ex && ex.kind === 'load' ? (loads.get(ex.name) ?? null) : null);
+	let load = $derived(ex ? (loads.get(ex.name) ?? null) : null);
 	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && isSet(e.measure)).length;
 
 	// only tick while something on screen is counting
@@ -185,62 +179,29 @@
 		}, 200);
 		return () => clearInterval(t);
 	});
-	// the ceiling is the top of the range: past it the answer is a harder
-	// variation (the exercise note says which), never a longer hold
-	const bumpTarget = (d: number) => {
-		if (!hold && ex) reps = Math.min(ex.hi, Math.max(ex.lo, reps + d));
+	/* ± is never a fixed nudge: it is the rule's own one-size step (D3). A
+	   hold stops at the top of its range — past it the answer is a harder
+	   variation (the exercise note says which), never a longer hold. */
+	const bumpReps = (dir: 1 | -1) => {
+		if (ex && !hold) reps = bumpCount(ex, reps, dir);
 	};
-	const bumpReps = (d: number) => (reps = Math.max(1, Math.min(100, reps + d)));
-	/* ± is never a fixed nudge: anything you pick up walks the rack's ladder
-	   (there is no 37.5 lb dumbbell), machines step their per-exercise inc.
-	   One gesture, one behaviour, on every layout (D3). */
-	function bumpLoad(dir: 1 | -1) {
-		if (!ex || ex.kind !== 'load') return;
-		if (ex.rack) weight = dir > 0 ? nextRung(weight, ex.rack) : prevRung(weight, ex.rack);
-		else weight = Math.max(0, weight + dir * ex.inc);
-	}
+	const bumpWeight = (dir: 1 | -1) => {
+		if (ex?.kind === 'load') weight = bumpLoad(ex, weight, dir);
+	};
 
-	/**
-	 * What the tiles show for the set about to be logged. Per-set progression
-	 * means set 2 can legitimately ask for LESS than set 1, so the preload
-	 * follows the ledger's suggestion for THIS set number — unless you
-	 * overrode the ledger on the previous set (a different machine, a sore
-	 * shoulder). Then the override sticks for the rest of the exercise, because
-	 * "the ledger is wrong today" is true of every remaining set.
-	 */
+	/** What the tiles show for the set about to be logged: the rule's nextSet, from this session's own entries. */
 	function preload(i: number) {
 		const s = steps[i];
 		if (!s || s.kind !== 'set' || !s.ex) return;
 		const e = s.ex;
-		const k = Math.min(s.index - 1, e.sets - 1);
 		const prior = entries
 			.filter((x) => x.item === e.name && x.index < s.index && isSet(x.measure))
-			.sort((a, b) => a.index - b.index);
-		const priorLast = prior[prior.length - 1];
-		const timed = e.kind === 'hold';
-		const sugg = e.kind !== 'load' ? null : (loads.get(e.name) ?? null);
-		let overridden = false;
-		if (sugg && priorLast) {
-			const suggestedPrev = sugg.sets[Math.min(priorLast.index - 1, e.sets - 1)].weight;
-			overridden = loadOf(priorLast.measure) !== suggestedPrev;
-		}
-		// weight: 0 for bodyweight; a timed-weighted hold (custom plans) carries
-		// its load in the second tile
-		weight = !sugg ? 0 : overridden ? loadOf(priorLast!.measure) : sugg.sets[k].weight;
-		if (timed) {
-			// target seconds: this session's last TARGET (a dropped hold shouldn't
-			// lower the next bell), else the ledger's per-set suggestion. A level-up
-			// on a weighted hold restarts at the bottom of the range, like reps do.
-			if (priorLast) reps = (priorLast.measure.of === 'hold' ? priorLast.measure.target : undefined) ?? countOf(priorLast.measure);
-			else if (sugg && sugg.sets[k].reason === 'increase') reps = e.lo;
-			else reps = suggestedCount(data.events, e, session.id, k);
-			reps = Math.min(e.hi, reps);
-		} else if (e.kind === 'reps') {
-			reps = priorLast ? countOf(priorLast.measure) : suggestedCount(data.events, e, session.id, k);
-		} else {
-			// what you did last set if you're off-plan, else what this set asks for
-			reps = overridden ? countOf(priorLast!.measure) : sugg!.sets[k].reps;
-		}
+			.sort((a, b) => a.index - b.index)
+			.map((x) => ({ index: x.index, measure: x.measure }));
+		const sugg = loads.get(e.name);
+		const next = sugg ? nextSet(sugg, e, prior, s.index - 1) : { weight: 0, count: e.lo };
+		weight = next.weight;
+		reps = next.count;
 		hold = null;
 		remaining = null;
 	}
@@ -283,12 +244,6 @@
 	}
 
 	/* ---------- the step table: the current section ---------- */
-	function setValue(e: Exercise, w: number, count: number | null): string {
-		const hold = e.kind === 'hold';
-		const c = count === null ? '—' : hold ? `${count}s` : String(count);
-		if (e.kind !== 'load') return hold || count === null ? c : `${c} reps`;
-		return `${e.each ? `${w} /hand` : `${w} lb`} × ${c}`;
-	}
 	function localFor(s: Step) {
 		return local.find((p) => same(p.data, { item: s.item, index: s.index } as Entry));
 	}
@@ -323,8 +278,7 @@
 				// "now", not "logging": the write is what saving… means — this row is
 				// simply the one you're on, same word the prep steps use
 				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'now', state: state(false) };
-				const ld = loads.get(x.name);
-				return { key: s.key, label: s.label, value: setValue(x, ld ? ld.sets[Math.min(s.index - 1, x.sets - 1)].weight : 0, null), state: 'upcoming' };
+				return { key: s.key, label: s.label, value: setValue(x, plannedWeight(x, s.index - 1), null), state: 'upcoming' };
 			}
 		}
 	}
@@ -364,21 +318,15 @@
 		if (st.kind === 'run') return plan.run?.note ?? null;
 		const x = st.ex!;
 		if (setsDoneFor(x.name) > 0) return null;
-		if (load) return loadHint(load, x);
-		if (x.kind === 'hold' && holdMaxed(last, x)) return `At the ceiling (${x.hi}s) — make it harder, not longer.`;
-		return null;
+		return load ? loadHint(load, x) : null;
 	});
 	let quietLabel = $derived(
 		st?.kind === 'rest' ? 'Counting down — nothing to dial' : st?.kind === 'run' ? 'The clock is the number — nothing to dial' : 'Nothing to dial — the step is the instruction'
 	);
 
 	/* ---------- the write path ---------- */
-	const holdMeasure = (seconds: number, target: number): Measure => ({
-		of: 'hold',
-		seconds,
-		target,
-		...(weight > 0 ? { load: weight } : {})
-	});
+	// the exercise decides which variant a set writes — never the screen
+	const holdMeasure = (seconds: number, target: number): Measure => measureFor(ex!, { load: 0, count: seconds, target });
 
 	function enqueue(measure: Measure) {
 		if (!st || st.kind === 'rest') return;
@@ -404,8 +352,7 @@
 	function logSetNow() {
 		if (performance.now() - lastPress < 350) return; // accidental double-tap
 		lastPress = performance.now();
-		// a bodyweight set is a count, never a load of 0
-		enqueue(isBW ? { of: 'reps', reps } : { of: 'load', load: weight, reps });
+		enqueue(measureFor(ex!, { load: weight, count: reps }));
 	}
 
 	/** timed: one button — ring in the hold, or log the early drop */
@@ -587,7 +534,7 @@
 			const ld = x0 ? loads.get(x0.name) : undefined;
 			const meta = isPrep
 				? `${doneAll}/${items.length} · PREP`
-				: `${doneWork}/${work.length}${ld ? ` · ${ld.sets[0].weight} ${x0!.kind === 'load' && x0!.each ? '/HAND' : 'LB'}` : ''}`;
+				: `${doneWork}/${work.length}${ld?.kind === 'load' ? ` · ${loadShort(ld.weight, x0!).toUpperCase()}` : ''}`;
 			return {
 				title: name,
 				meta,
@@ -600,11 +547,7 @@
 					else if (s.kind === 'rest') value = i === stepI && restLeft !== null && !done ? `${restLeft}s left` : done ? 'rested' : `${s.seconds}s`;
 					else if (s.kind === 'run') value = e && e.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`;
 					else if (e) value = setValue(s.ex!, loadOf(e.measure), countOf(e.measure));
-					else {
-						const x = s.ex!;
-						const w = ld ? ld.sets[Math.min(s.index - 1, x.sets - 1)].weight : 0;
-						value = x.kind !== 'load' ? `${x.lo}–${x.hi}${x.kind === 'hold' ? 's' : ''}` : `${w} ${x.each ? '/hand' : 'lb'} × ${x.lo}–${x.hi}`;
-					}
+					else value = plannedValue(s.ex!, plannedWeight(s.ex!, s.index - 1));
 					const name =
 						s.kind === 'prep' ? (s.text ?? s.label) : s.kind === 'rest' ? 'Rest' : s.kind === 'run' ? 'Run' : `${s.ex!.kind === 'hold' ? 'Hold' : 'Set'} ${s.index}`;
 					return { i, name, value, done, current: i === stepI };
@@ -655,14 +598,12 @@
 		}
 		if (allDone) return;
 		if (ev.key === 'ArrowUp') {
-			if (isHold) bumpTarget(holdInc);
-			else if (isBW) bumpReps(1);
-			else if (atSet) bumpLoad(1);
+			if (isHold || isBW) bumpReps(1);
+			else if (atSet) bumpWeight(1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowDown') {
-			if (isHold) bumpTarget(-holdInc);
-			else if (isBW) bumpReps(-1);
-			else if (atSet) bumpLoad(-1);
+			if (isHold || isBW) bumpReps(-1);
+			else if (atSet) bumpWeight(-1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowRight') {
 			goTo(Math.min(steps.length - 1, stepI + 1));
@@ -735,7 +676,7 @@
 								min={ex!.lo}
 								max={ex!.hi}
 								disabled={!!hold}
-								onStep={(d) => bumpTarget(d * holdInc)}
+								onStep={bumpReps}
 							/>
 							{#if !isBW}
 								<AdjustTile
@@ -744,7 +685,7 @@
 									decimals
 									min={0}
 									disabled={!!hold}
-									onStep={bumpLoad}
+									onStep={bumpWeight}
 								/>
 							{/if}
 						{:else}
@@ -755,7 +696,7 @@
 									bind:value={weight}
 									decimals
 									min={0}
-									onStep={bumpLoad}
+									onStep={bumpWeight}
 								/>
 							{/if}
 						{/if}

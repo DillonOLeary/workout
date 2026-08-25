@@ -69,6 +69,32 @@ export function loadOf(m: Measure): number {
 	}
 }
 
+/** True when every set carried the same load — the ledger collapses these to one number. */
+export function uniformLoad(sets: Measure[]): boolean {
+	return sets.every((m) => loadOf(m) === loadOf(sets[0]));
+}
+
+/* ---------- writing a measure -------------------------------------------- */
+
+/**
+ * The measure a set of this exercise writes — the ONE place "kind → variant"
+ * is decided. The floor and the after-the-fact sheet both dial a load and a
+ * count; which variant that becomes is the exercise's business, not theirs.
+ */
+export function measureFor(
+	ex: { kind: 'load' | 'hold' | 'reps' },
+	v: { load: number; count: number; target?: number }
+): Measure {
+	switch (ex.kind) {
+		case 'load':
+			return { of: 'load', load: v.load, reps: v.count };
+		case 'reps':
+			return { of: 'reps', reps: v.count };
+		case 'hold':
+			return { of: 'hold', seconds: v.count, ...(v.target !== undefined ? { target: v.target } : {}) };
+	}
+}
+
 /* ---------- accepting a measure ------------------------------------------ */
 
 const isInt = (n: unknown): n is number => Number.isInteger(n);

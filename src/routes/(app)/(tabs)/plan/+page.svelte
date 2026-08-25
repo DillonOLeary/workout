@@ -4,8 +4,9 @@
 	import Chip from '$lib/components/Chip.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { RUN_DAY } from '$lib/domain/events';
+	import { doseLabel } from '$lib/domain/labels';
 	import { dayTitle } from '$lib/domain/projections';
-	import { cooldownFor, hasRuns, restFor, runTarget, warmupFor, type Exercise } from '$lib/domain/plan';
+	import { cooldownFor, hasRuns, restFor, runTarget, warmupFor } from '$lib/domain/plan';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
@@ -18,11 +19,6 @@
 	// Today can link straight to the day that is due
 	let day = $state(page.url.searchParams.get('day') ?? '');
 	let shownDay = $derived(plan.days[day] ? day : dayKeys[0]);
-
-	/** "3 × 6–12" · "3 × 10–20s" · "2 × 5–15 · L/R" · "3 × 8–12 · per side" */
-	const dose = (ex: Exercise) =>
-		`${ex.sets} × ${ex.lo}–${ex.hi}${ex.kind === 'hold' ? 's' : ''}` +
-		(ex.side === 'sets' ? ' · L/R' : ex.side === 'reps' ? ' · per side' : '');
 
 	// the day is a list of steps, and its length is honest about all of them
 	let warm = $derived(warmupFor(plan, shownDay));
@@ -70,7 +66,7 @@
 					<div class="exname">{ex.name}</div>
 					<div class="exequip">{ex.equip}{ex.kind === 'load' && ex.each ? ' · weight is per hand' : ''}</div>
 				</div>
-				<span class="exdose">{dose(ex)}</span>
+				<span class="exdose">{doseLabel(ex)}</span>
 			</div>
 		{/each}
 		{#if cool.length}

@@ -2,16 +2,9 @@
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
-	import {
-		dayTitle,
-		anySetEarned,
-		loadLabel,
-		projectPlanSwitches,
-		projectSessions,
-		uniformLoad
-	} from '$lib/domain/projections';
-	import type { SessionRow } from '$lib/domain/projections';
-	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
+	import { setsLine } from '$lib/domain/labels';
+	import { anySetEarned } from '$lib/domain/progression';
+	import { dayTitle, projectPlanSwitches, projectSessions } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -46,26 +39,6 @@
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 
-	/** "45 lb · 12 · 11 · 10" · "8 L · 8 R" · "30s L · 30s R" · "50×12 · 45×10" */
-	function rowValue(row: SessionRow): string {
-		const ex = exByName(row.item);
-		const hold = ex?.kind === 'hold' || row.sets.some((st) => st.of === 'hold');
-		const n = (st: Measure) => (hold || st.of === 'hold' ? `${countOf(st)}s` : String(countOf(st)));
-		// side: 'sets' — each set is one side, so say which (matches the floor)
-		if (ex?.side === 'sets')
-			return row.sets.map((st, i) => `${n(st)} ${i % 2 === 0 ? 'L' : 'R'}`).join(' · ');
-		if (ex && ex.kind !== 'load') return row.sets.map(n).join(' · ');
-		// a row whose load moved shows every set: collapsing it to one number
-		// is what used to hide the heavier sets before a back-off
-		if (uniformLoad(row.sets)) {
-			const w = ex ? loadLabel(loadOf(row.sets[0]), ex) : loadOf(row.sets[0]) ? `${loadOf(row.sets[0])} lb` : '';
-			const reps = row.sets.map(n).join(' · ');
-			return w ? `${w} · ${reps}` : reps;
-		}
-		return (
-			row.sets.map((st) => `${loadOf(st)}×${n(st)}`).join(' · ') + (ex?.kind === 'load' && ex.each ? ' each hand' : '')
-		);
-	}
 </script>
 
 <div class="col">
@@ -136,7 +109,7 @@
 							{row.item}
 							{#if lvl}<span class="uppill">↑</span>{/if}
 						</span>
-						<span class="val">{rowValue(row)}</span>
+						<span class="val">{setsLine(row.sets, ex)}</span>
 					</div>
 				{/each}
 				{#if s.minutes}

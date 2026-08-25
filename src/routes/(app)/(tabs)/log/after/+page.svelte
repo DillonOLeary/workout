@@ -6,8 +6,9 @@
 	import Stepper from '$lib/components/Stepper.svelte';
 	import type { AfterEntry } from '$lib/domain/commands';
 	import { RUN_DAY, RUN_ITEM } from '$lib/domain/events';
-	import { dayTitle, nextLoad, suggestedCount } from '$lib/domain/projections';
-	import { nextRung, prevRung } from '$lib/domain/racks';
+	import { measureFor } from '$lib/domain/measure';
+	import { dayTitle, historyFor } from '$lib/domain/projections';
+	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
@@ -56,22 +57,16 @@
 	let lines = $state<Line[]>([]);
 	$effect(() => {
 		const exs = isRun ? [] : (plan.days[whatKey] ?? []);
-		lines = exs.map((ex) => ({
-			ex,
-			sets: ex.sets,
-			weight: ex.kind !== 'load' ? 0 : nextLoad(data.events, ex, undefined, opened).weight,
-			count: ex.kind !== 'load' ? suggestedCount(data.events, ex, undefined, 0) : nextLoad(data.events, ex, undefined, opened).sets[0].reps
-		}));
+		lines = exs.map((ex) => {
+			const s = suggest(historyFor(data.events, ex.name), ex, opened);
+			return { ex, sets: ex.sets, weight: s.kind === 'load' ? s.weight : 0, count: s.kind === 'load' ? s.sets[0].reps : s.sets[0].count };
+		});
 	});
-	function bumpWeight(l: Line, dir: 1 | -1) {
-		if (l.ex.kind !== 'load') return;
-		if (l.ex.rack) l.weight = dir > 0 ? nextRung(l.weight, l.ex.rack) : prevRung(l.weight, l.ex.rack);
-		else l.weight = Math.max(0, l.weight + dir * l.ex.inc);
-	}
-	function bumpCount(l: Line, dir: 1 | -1) {
-		const step = l.ex.kind === 'hold' ? l.ex.inc : 1;
-		l.count = Math.max(1, Math.min(l.ex.kind === 'hold' ? 600 : 100, l.count + dir * step));
-	}
+	// the same ± as the floor: the rule's own one-size step
+	const bumpWeight = (l: Line, dir: 1 | -1) => {
+		if (l.ex.kind === 'load') l.weight = bumpLoad(l.ex, l.weight, dir);
+	};
+	const bumpReps = (l: Line, dir: 1 | -1) => (l.count = bumpCount(l.ex, l.count, dir));
 	const bumpSets = (l: Line, dir: 1 | -1) => (l.sets = Math.max(0, Math.min(8, l.sets + dir)));
 
 	let entries = $derived.by((): AfterEntry[] => {
@@ -82,12 +77,8 @@
 				out.push({
 					item: l.ex.name,
 					index: k,
-					measure:
-						l.ex.kind === 'hold'
-							? { of: 'hold', seconds: l.count, target: l.count, ...(l.weight > 0 ? { load: l.weight } : {}) }
-							: l.ex.kind === 'reps'
-								? { of: 'reps', reps: l.count }
-								: { of: 'load', load: l.weight, reps: l.count }
+					// a backdated hold rang its bell: target = seconds, so the rule reads it as earned
+					measure: measureFor(l.ex, { load: l.weight, count: l.count, target: l.count })
 				});
 		return out;
 	});
@@ -153,9 +144,9 @@
 									<span class="times">×</span>
 								{/if}
 								<span class="ctl">
-									<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpCount(l, -1)}>−</button>
+									<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpReps(l, -1)}>−</button>
 									<span class="num">{l.count}<span class="unit">{l.ex.kind === 'hold' ? 's' : l.ex.kind === 'reps' ? ' reps' : ''}</span></span>
-									<button type="button" class="pm" aria-label="More" onclick={() => bumpCount(l, 1)}>+</button>
+									<button type="button" class="pm" aria-label="More" onclick={() => bumpReps(l, 1)}>+</button>
 								</span>
 							</div>
 						</div>

@@ -6,9 +6,8 @@
 	import TrendRow from '$lib/components/TrendRow.svelte';
 	import WeekStrip from '$lib/components/WeekStrip.svelte';
 	import WeeklyProgress from '$lib/components/WeeklyProgress.svelte';
+	import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry } from '$lib/domain/progression';
 	import {
-		REENTRY_DAYS,
-		REENTRY_WARN_DAYS,
 		dayAges,
 		dayTitle,
 		nextDay,
@@ -16,7 +15,7 @@
 		weekRunMinutes,
 		weekStrip
 	} from '$lib/domain/projections';
-	import { RUN_DAY, type EntryLogged } from '$lib/domain/events';
+	import { RUN_DAY, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
 	import { estimateMinutes, sessionProgress, sessionSteps, stepOf } from '$lib/domain/steps';
 	import { hasRuns, runTarget, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
@@ -44,7 +43,6 @@
 			(a) => a.daysSince !== null && a.daysSince >= REENTRY_WARN_DAYS && a.daysSince <= REENTRY_DAYS
 		)
 	);
-	const runway = (days: number) => Math.max(1, Math.ceil(REENTRY_DAYS - days));
 
 	// every exercise on the plan, in plan order, once (calves are on both days)
 	let planExercises = $derived.by(() => {
@@ -71,7 +69,7 @@
 		if (!session) return '';
 		const left = estimateMinutes(liveSteps, liveProgress.current);
 		if (session.day === RUN_DAY) return `${stepOf(liveProgress.current, liveSteps)} · ~${left} min left`;
-		const warm = liveSteps.filter((s) => s.section === 'Warm-up');
+		const warm = liveSteps.filter((s) => s.section === WARMUP_ITEM);
 		const warmDone = warm.length > 0 && warm.every((s) => liveProgress.done.has(s.key));
 		return `${stepOf(liveProgress.current, liveSteps)}${warmDone ? ' · warm-up done' : ''} · ${liveProgress.sets} ${liveProgress.sets === 1 ? 'set' : 'sets'} logged · ~${left} min left`;
 	});
@@ -170,7 +168,7 @@
 			{#each nudges as n (n.day)}
 				<p>
 					<b>{dayTitle(plan, n.day)}</b> — {Math.floor(n.daysSince ?? 0)} days ago. Re-entry haircut in
-					{runway(n.daysSince ?? 0)} {runway(n.daysSince ?? 0) === 1 ? 'day' : 'days'}: past two weeks, every
+					{daysUntilReentry(n.daysSince ?? 0)} {daysUntilReentry(n.daysSince ?? 0) === 1 ? 'day' : 'days'}: past two weeks, every
 					set comes back one size lighter.
 				</p>
 			{/each}
