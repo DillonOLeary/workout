@@ -7,7 +7,7 @@ import {
 	type EntryLogged
 } from './events';
 import { isSet } from './measure';
-import type { Exercise, Plan, Steps } from './types';
+import { cooldownFor, restFor, warmupFor, type Exercise, type Plan } from './plan';
 
 /**
  * A session, as a list of STEPS the floor walks one at a time: warm-up lines,
@@ -44,26 +44,6 @@ export type Step = {
 	estimate: number;
 };
 
-export const DEFAULT_REST = 60;
-
-/** A warm-up written as one sentence is one step. */
-export const asSteps = (s: Steps | undefined): string[] =>
-	s === undefined ? [] : typeof s === 'string' ? [s] : s;
-
-export function warmupSteps(plan: Plan | undefined, day: string): string[] {
-	return asSteps(plan?.dayInfo?.[day]?.warmup ?? plan?.warmup);
-}
-export function cooldownSteps(plan: Plan | undefined, day: string): string[] {
-	return asSteps(plan?.dayInfo?.[day]?.cooldown ?? plan?.cooldown);
-}
-/** The one line shown under every prep step. */
-export function prepCue(plan: Plan | undefined, day: string): string | undefined {
-	return plan?.dayInfo?.[day]?.cue ?? plan?.cue;
-}
-export function restFor(plan: Plan | undefined, ex: Exercise): number {
-	return ex.rest ?? plan?.rest ?? DEFAULT_REST;
-}
-
 const restKey = (item: string, set: number) => `rest:${entryKey(item, set)}`;
 
 /** The whole day, in order. Unknown day → no steps. */
@@ -73,14 +53,14 @@ export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
 	const exercises = plan.days[day];
 	if (!exercises) return [];
 	const out: Step[] = [];
-	warmupSteps(plan, day).forEach((text, n) =>
+	warmupFor(plan, day).forEach((text, n) =>
 		out.push({
 			key: entryKey(WARMUP_ITEM, n + 1), kind: 'prep', section: WARMUP_ITEM, item: WARMUP_ITEM, index: n + 1,
 			label: `STEP ${n + 1}`, text, estimate: 75
 		})
 	);
 	for (const ex of exercises) {
-		const hold = ex.mode === 'seconds';
+		const hold = ex.kind === 'hold';
 		const rest = restFor(plan, ex);
 		for (let s = 1; s <= ex.sets; s++) {
 			out.push({
@@ -95,7 +75,7 @@ export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
 				});
 		}
 	}
-	cooldownSteps(plan, day).forEach((text, n) =>
+	cooldownFor(plan, day).forEach((text, n) =>
 		out.push({
 			key: entryKey(COOLDOWN_ITEM, n + 1), kind: 'prep', section: COOLDOWN_ITEM, item: COOLDOWN_ITEM, index: n + 1,
 			label: `STEP ${n + 1}`, text, estimate: 60

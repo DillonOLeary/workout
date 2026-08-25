@@ -1,7 +1,7 @@
 import { RUN_DAY, type LedgerEvent } from './events';
 import { countOf, loadOf } from './measure';
 import { nextRung, prevRung, rungLabel, snapToRack } from './racks';
-import type { Exercise, Plan } from './types';
+import type { Exercise, Loaded, Plan } from './plan';
 
 /**
  * Projections: the read-side. Each is a pure fold over the event list that
@@ -197,12 +197,12 @@ export function holdMaxed(entry: { sets: SessionSet[] } | null, ex: Exercise): b
 }
 
 /** One level-up: the next size on the rack, or +inc where a rack can't say. */
-export function increasedWeight(weight: number, ex: Exercise): number {
+export function increasedWeight(weight: number, ex: Loaded): number {
 	return ex.rack ? nextRung(weight, ex.rack) : weight + ex.inc;
 }
 
 /** One size down: the previous rung, or −inc off a rack. Never negative. */
-export function decreasedWeight(weight: number, ex: Exercise): number {
+export function decreasedWeight(weight: number, ex: Loaded): number {
 	return ex.rack ? prevRung(weight, ex.rack) : Math.max(0, weight - ex.inc);
 }
 
@@ -284,26 +284,26 @@ export function nextLoad(
 	excludeSession?: string,
 	now: number = Date.now()
 ): LoadSuggestion {
-	const startWeight = ex.rack ? snapToRack(ex.start, ex.rack) : ex.start;
 	const history = historyFor(events, ex.name, excludeSession);
 	const last = history[0];
 	const sets: SetSuggestion[] = [];
 
-	if (!last) {
+	// No load to move: the count is the axis, and suggestedCount owns it.
+	// This stays well-formed so Today can map a whole day blind.
+	if (ex.kind !== 'load') {
+		const since = last ? (now - Date.parse(last.at)) / DAY : null;
 		for (let k = 0; k < ex.sets; k++)
-			sets.push({ weight: ex.bodyweight ? 0 : startWeight, reason: 'start', reps: ex.lo, missed: false });
+			sets.push({ weight: 0, reason: last ? 'hold' : 'start', reps: suggestedCount(events, ex, excludeSession, k), missed: false });
+		return summarise(sets, since);
+	}
+
+	const startWeight = ex.rack ? snapToRack(ex.start, ex.rack) : ex.start;
+	if (!last) {
+		for (let k = 0; k < ex.sets; k++) sets.push({ weight: startWeight, reason: 'start', reps: ex.lo, missed: false });
 		return summarise(sets, null);
 	}
 
 	const daysSince = (now - Date.parse(last.at)) / DAY;
-
-	// Bodyweight: no load to move. The count is the axis, and suggestedCount
-	// owns it; this stays well-formed so Today can map a whole day blind.
-	if (ex.bodyweight) {
-		for (let k = 0; k < ex.sets; k++)
-			sets.push({ weight: 0, reason: 'hold', reps: suggestedCount(events, ex, excludeSession, k), missed: false });
-		return summarise(sets, daysSince);
-	}
 
 	if (daysSince > REENTRY_DAYS) {
 		let base = last.sets[0].weight;
@@ -379,7 +379,7 @@ export function suggestedCount(
 	if (!entry) return ex.lo;
 	const s = entry.sets[Math.min(set, entry.sets.length - 1)];
 	let next = s.reps;
-	if (ex.mode === 'seconds') {
+	if (ex.kind === 'hold') {
 		// holds logged before the timer existed carry no target: you counted
 		// the seconds yourself, so what you logged is what you held
 		const rang = s.reps >= (s.target ?? s.reps);
@@ -404,7 +404,7 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * level-up, then a warning about a miss. One sentence, never a list.
  */
 export function loadHint(load: LoadSuggestion, ex: Exercise): string | null {
-	if (load.reason === 'start' || ex.bodyweight) return null;
+	if (load.reason === 'start' || ex.kind !== 'load') return null;
 	const where = (r: SetReason) =>
 		load.sets.map((s, i) => (s.reason === r ? i : -1)).filter((i) => i >= 0);
 	if (load.reason === 'reentry')
@@ -461,20 +461,20 @@ export function weekRunMinutes(events: LedgerEvent[], now: number = Date.now()):
 
 /** "40 lb each hand" vs "35 lb" — never a bare number for a two-dumbbell lift. */
 export function loadLabel(weight: number, ex: Exercise): string {
-	if (ex.bodyweight) return '';
+	if (ex.kind !== 'load') return '';
 	return ex.each ? `${weight} lb each hand` : `${weight} lb`;
 }
 
 /** "8–12 reps per side" · "20–45 sec" — the rep range, with its side rule. */
 export function rangeLabel(ex: Exercise): string {
-	const unit = ex.mode === 'seconds' ? 'sec' : 'reps';
+	const unit = ex.kind === 'hold' ? 'sec' : 'reps';
 	return `${ex.lo}–${ex.hi} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
 }
 
 /** "35 lb · 12 · 12 · 11", or per-set pairs when the load moved mid-exercise. */
 export function setsLine(sets: SessionSet[], ex: Exercise): string {
-	const n = (r: number) => (ex.mode === 'seconds' ? `${r}s` : String(r));
-	if (ex.bodyweight) return sets.map((s) => n(s.reps)).join(' · ');
+	const n = (r: number) => (ex.kind === 'hold' ? `${r}s` : String(r));
+	if (ex.kind !== 'load') return sets.map((s) => n(s.reps)).join(' · ');
 	if (uniformLoad(sets)) return `${loadLabel(sets[0].weight, ex)} · ${sets.map((s) => n(s.reps)).join(' · ')}`;
 	return sets.map((s) => `${s.weight}×${n(s.reps)}`).join(' · ') + (ex.each ? ' each hand' : '');
 }
@@ -483,7 +483,8 @@ export function setsLine(sets: SessionSet[], ex: Exercise): string {
 export function stepLabel(ex: Exercise): string {
 	// no "at the top" — the rule section under the list says when, once, and
 	// repeating it per row pushed the column wide enough to wrap the name
-	if (ex.bodyweight) return `+${ex.inc}${ex.mode === 'seconds' ? 's' : ' rep'}`;
+	if (ex.kind === 'hold') return `+${ex.inc}s`;
+	if (ex.kind === 'reps') return '+1 rep';
 	if (ex.rack) return rungLabel(ex.rack);
 	return `+${ex.inc} lb`;
 }
@@ -499,8 +500,8 @@ export function setsLabel(ex: Exercise): string {
 
 /** "35 lb" · "40 lb each hand" · "15s" · "8 reps" — one number in this exercise's own unit. */
 export function unitLabel(n: number, ex: Exercise): string {
-	if (!ex.bodyweight) return loadLabel(n, ex);
-	return ex.mode === 'seconds' ? `${n}s` : `${n} reps`;
+	if (ex.kind === 'load') return loadLabel(n, ex);
+	return ex.kind === 'hold' ? `${n}s` : `${n} reps`;
 }
 
 /** "Jul 11" — the date without its weekday, for a sentence. */
@@ -550,7 +551,7 @@ export function trendFor(
 	window: number = TREND_WINDOW
 ): Trend {
 	const history = historyFor(events, ex.name, excludeSession); // newest first
-	const axis = (s: SessionSet) => (ex.bodyweight ? s.reps : s.weight);
+	const axis = (s: SessionSet) => (ex.kind !== 'load' ? s.reps : s.weight);
 	const all = history.slice().reverse();
 	const points: TrendPoint[] = all.slice(-window).map((h) => ({
 		at: h.at,
@@ -561,7 +562,7 @@ export function trendFor(
 		missed: h.sets.some((s) => s.reps < ex.lo)
 	}));
 	const load = nextLoad(events, ex, excludeSession, now);
-	const next = ex.bodyweight ? suggestedCount(events, ex, excludeSession, 0) : load.weight;
+	const next = ex.kind !== 'load' ? suggestedCount(events, ex, excludeSession, 0) : load.weight;
 	const base = { points, next, sessions: history.length };
 	const last = history[0];
 	if (!last) return { ...base, tone: 'start', sentence: `Starts at ${unitLabel(next, ex)}` };
@@ -588,9 +589,9 @@ export function trendFor(
 	}
 	const earnedIdx = last.sets.map((s, i) => (setEarned(s, ex) ? i : -1)).filter((i) => i >= 0);
 	if (earnedIdx.length) {
-		if (ex.bodyweight && ex.mode === 'seconds' && holdMaxed(last, ex))
+		if (ex.kind === 'hold' && holdMaxed(last, ex))
 			return { ...base, tone: 'up', sentence: `At the ceiling (${ex.hi}s) — make it harder, not longer` };
-		if (ex.bodyweight)
+		if (ex.kind !== 'load')
 			return { ...base, tone: 'up', sentence: `Hit the top of the range — ${unitLabel(next, ex)} next time` };
 		const who = earnedIdx.length >= ex.sets ? 'Every set' : capitalise(setsPhrase(earnedIdx));
 		const to = unitLabel(load.sets[Math.min(earnedIdx[0], load.sets.length - 1)].weight, ex);

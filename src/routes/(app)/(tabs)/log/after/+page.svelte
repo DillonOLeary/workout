@@ -9,7 +9,7 @@
 	import { dayTitle, nextLoad, suggestedCount } from '$lib/domain/projections';
 	import { nextRung, prevRung } from '$lib/domain/racks';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
-	import type { Exercise } from '$lib/domain/types';
+	import type { Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -58,17 +58,18 @@
 		lines = exs.map((ex) => ({
 			ex,
 			sets: ex.sets,
-			weight: ex.bodyweight ? 0 : nextLoad(data.events, ex).weight,
-			count: ex.bodyweight || ex.mode === 'seconds' ? suggestedCount(data.events, ex) : nextLoad(data.events, ex).sets[0].reps
+			weight: ex.kind !== 'load' ? 0 : nextLoad(data.events, ex).weight,
+			count: ex.kind !== 'load' ? suggestedCount(data.events, ex) : nextLoad(data.events, ex).sets[0].reps
 		}));
 	});
 	function bumpWeight(l: Line, dir: 1 | -1) {
+		if (l.ex.kind !== 'load') return;
 		if (l.ex.rack) l.weight = dir > 0 ? nextRung(l.weight, l.ex.rack) : prevRung(l.weight, l.ex.rack);
 		else l.weight = Math.max(0, l.weight + dir * l.ex.inc);
 	}
 	function bumpCount(l: Line, dir: 1 | -1) {
-		const step = l.ex.mode === 'seconds' ? l.ex.inc : 1;
-		l.count = Math.max(1, Math.min(l.ex.mode === 'seconds' ? 600 : 100, l.count + dir * step));
+		const step = l.ex.kind === 'hold' ? l.ex.inc : 1;
+		l.count = Math.max(1, Math.min(l.ex.kind === 'hold' ? 600 : 100, l.count + dir * step));
 	}
 	const bumpSets = (l: Line, dir: 1 | -1) => (l.sets = Math.max(0, Math.min(8, l.sets + dir)));
 
@@ -81,9 +82,9 @@
 					item: l.ex.name,
 					index: k,
 					measure:
-						l.ex.mode === 'seconds'
+						l.ex.kind === 'hold'
 							? { of: 'hold', seconds: l.count, target: l.count, ...(l.weight > 0 ? { load: l.weight } : {}) }
-							: l.ex.bodyweight
+							: l.ex.kind === 'reps'
 								? { of: 'reps', reps: l.count }
 								: { of: 'load', load: l.weight, reps: l.count }
 				});
@@ -142,7 +143,7 @@
 								</span>
 							</div>
 							<div class="lctls">
-								{#if !l.ex.bodyweight}
+								{#if l.ex.kind === 'load'}
 									<span class="ctl">
 										<button type="button" class="pm" aria-label="Less weight" onclick={() => bumpWeight(l, -1)}>−</button>
 										<span class="num">{l.weight} <span class="unit">{l.ex.each ? '/hand' : 'lb'}</span></span>
@@ -152,7 +153,7 @@
 								{/if}
 								<span class="ctl">
 									<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpCount(l, -1)}>−</button>
-									<span class="num">{l.count}<span class="unit">{l.ex.mode === 'seconds' ? 's' : l.ex.bodyweight ? ' reps' : ''}</span></span>
+									<span class="num">{l.count}<span class="unit">{l.ex.kind === 'hold' ? 's' : l.ex.kind === 'reps' ? ' reps' : ''}</span></span>
 									<button type="button" class="pm" aria-label="More" onclick={() => bumpCount(l, 1)}>+</button>
 								</span>
 							</div>

@@ -6,10 +6,9 @@ import {
 	runStart,
 	sessionProgress,
 	sessionSteps,
-	warmupSteps,
 	type Entry
 } from './steps';
-import type { Plan } from './types';
+import type { Plan } from './plan';
 
 const NOW = Date.parse('2026-08-25T18:00:00Z');
 const iso = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -24,8 +23,8 @@ const plan: Plan = {
 	dayInfo: { A: { title: 'Day A', warmup: ['Bike 5 min', 'Squats ×10'] } },
 	days: {
 		A: [
-			{ name: 'Goblet Squat', equip: '', tag: '', sets: 3, lo: 6, hi: 12, start: 35, inc: 5 },
-			{ name: 'Plank', equip: '', tag: '', sets: 2, lo: 10, hi: 20, start: 0, inc: 5, mode: 'seconds', bodyweight: true, rest: 30 }
+			{ name: 'Goblet Squat', equip: '', tag: '', kind: 'load', sets: 3, lo: 6, hi: 12, start: 35, inc: 5 },
+			{ name: 'Plank', equip: '', tag: '', kind: 'hold', sets: 2, lo: 10, hi: 20, inc: 5, rest: 30 }
 		]
 	}
 };
@@ -48,9 +47,6 @@ describe('sessionSteps', () => {
 		expect(steps[8].seconds).toBe(30); // the exercise's own rest wins
 		expect(steps[0].key).toBe(entryKey('Warm-up', 1));
 		expect(steps[steps.length - 1].key).toBe(entryKey('Cooldown', 2));
-	});
-	it('reads a one-line warm-up as one step', () => {
-		expect(warmupSteps({ ...plan, dayInfo: { A: { title: 'A', warmup: 'Easy 5 min' } } }, 'A')).toEqual(['Easy 5 min']);
 	});
 	it('makes a run walk · run · walk, and a plan without walks a bare run', () => {
 		expect(sessionSteps(plan, RUN_DAY).map((s) => s.label)).toEqual(['WALK', 'RUN', 'WALK']);
@@ -90,7 +86,7 @@ describe('sessionProgress', () => {
 	});
 	it('is finished when every non-rest step is', () => {
 		const all: Entry[] = steps.filter((s) => s.kind !== 'rest').map((s) =>
-			entry(s.item, s.index, iso(0), s.kind === 'set' ? (s.ex!.mode === 'seconds' ? { of: 'hold', seconds: 10 } : { of: 'load', load: 35, reps: 10 }) : { of: 'step' })
+			entry(s.item, s.index, iso(0), s.kind === 'set' ? (s.ex!.kind === 'hold' ? { of: 'hold', seconds: 10 } : { of: 'load', load: 35, reps: 10 }) : { of: 'step' })
 		);
 		const p = sessionProgress(steps, all, NOW);
 		expect(p.current).toBe(steps.length);

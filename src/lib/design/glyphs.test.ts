@@ -19,7 +19,7 @@ describe('exercise glyphs', () => {
 	it('every lifting-plan exercise has a pose; the yoga plan has none', () => {
 		for (const plan of DEFAULT_PLANS) {
 			for (const ex of Object.values(plan.days).flat()) {
-				if (plan.name === 'Hold Steady') expect(poseFor(ex.name), ex.name).toBeNull();
+				if (plan.id === 'yoga-2day-v1') expect(poseFor(ex.name), ex.name).toBeNull();
 				else expect(poseFor(ex.name), ex.name).not.toBeNull();
 			}
 		}

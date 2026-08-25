@@ -48,12 +48,12 @@
 	/** "45 lb · 12 · 11 · 10" · "8 L · 8 R" · "30s L · 30s R" · "50×12 · 45×10" */
 	function rowValue(row: SessionRow): string {
 		const ex = exByName(row.exercise);
-		const hold = ex?.mode === 'seconds' || row.sets.some((st) => st.unit === 's');
+		const hold = ex?.kind === 'hold' || row.sets.some((st) => st.unit === 's');
 		const n = (st: SessionSet) => (hold || st.unit === 's' ? `${st.reps}s` : String(st.reps));
 		// side: 'sets' — each set is one side, so say which (matches the floor)
 		if (ex?.side === 'sets')
 			return row.sets.map((st, i) => `${n(st)} ${i % 2 === 0 ? 'L' : 'R'}`).join(' · ');
-		if (ex?.bodyweight) return row.sets.map(n).join(' · ');
+		if (ex && ex.kind !== 'load') return row.sets.map(n).join(' · ');
 		// a row whose load moved shows every set: collapsing it to one number
 		// is what used to hide the heavier sets before a back-off
 		if (uniformLoad(row.sets)) {
@@ -66,7 +66,7 @@
 			return w ? `${w} · ${reps}` : reps;
 		}
 		return (
-			row.sets.map((st) => `${st.weight}×${n(st)}`).join(' · ') + (ex?.each ? ' each hand' : '')
+			row.sets.map((st) => `${st.weight}×${n(st)}`).join(' · ') + (ex?.kind === 'load' && ex.each ? ' each hand' : '')
 		);
 	}
 </script>

@@ -5,7 +5,7 @@
 </script>
 
 <script lang="ts">
-	import type { Exercise } from '$lib/domain/types';
+	import type { Exercise } from '$lib/domain/plan';
 
 	/**
 	 * The ⋯ sheet: the list is where you look, the floor is where you are.
@@ -58,7 +58,7 @@
 		</div>
 		{#if ex}
 			<section>
-				<p class="equip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</p>
+				<p class="equip">{ex.equip}{ex.kind === 'load' && ex.each ? ' · weight is per hand' : ''}</p>
 				{#if ex.note}<p class="note">{ex.note}</p>{/if}
 			</section>
 		{:else if cue}

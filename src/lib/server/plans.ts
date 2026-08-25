@@ -1,6 +1,6 @@
 import { withClient } from './db';
 import { DEFAULT_PLANS } from '$lib/domain/plans';
-import type { Exercise, Plan } from '$lib/domain/types';
+import { parsePlan, type Plan } from '$lib/domain/plan';
 
 /**
  * Plans are reference data, NOT events — a deliberate contrast with the
@@ -38,10 +38,20 @@ function ensureReady(): Promise<void> {
 export async function listPlans(): Promise<Plan[]> {
 	await ensureReady();
 	return withClient(async (db) => {
-		const { rows } = await db.query<{ data: Plan }>(
-			'select data from ledger_plans order by created_at'
+		const { rows } = await db.query<{ id: string; data: unknown }>(
+			'select id, data from ledger_plans order by created_at'
 		);
-		return rows.map((r) => r.data);
+		// the plan's read boundary: a row is parsed on the way in, the way an
+		// event row is upcast. A row nobody can read is logged and skipped —
+		// one bad custom plan must never take the whole app down with a 500.
+		return rows.flatMap((r) => {
+			try {
+				return [parsePlan(r.data)];
+			} catch (e) {
+				console.error(`ledger_plans "${r.id}" skipped:`, e instanceof Error ? e.message : e);
+				return [];
+			}
+		});
 	});
 }
 
@@ -54,64 +64,4 @@ export async function insertPlan(plan: Plan): Promise<void> {
 			[plan.id, JSON.stringify(plan)]
 		)
 	);
-}
-
-/** Validate a pasted JSON row before it goes anywhere near the table. */
-export function parsePlan(json: string): Plan {
-	const p = JSON.parse(json) as Partial<Plan>;
-	if (!p.id || !p.name || !p.days) throw new Error('needs id, name, days');
-	if (typeof p.id !== 'string' || typeof p.name !== 'string') throw new Error('id and name must be strings');
-	if (p.runs !== undefined && typeof p.runs !== 'boolean') throw new Error('runs must be a boolean');
-	if (p.runTarget !== undefined && (typeof p.runTarget !== 'number' || p.runTarget <= 0))
-		throw new Error('runTarget must be a positive number of minutes');
-	// warm-up and cooldown are step lists (a string is one step); each line
-	// takes a turn on the floor, so a typo here would be a step nobody asked for
-	const stepsOk = (v: unknown) =>
-		v === undefined || typeof v === 'string' || (Array.isArray(v) && v.every((x) => typeof x === 'string'));
-	if (!stepsOk(p.warmup)) throw new Error('warmup must be a string or a list of strings');
-	if (!stepsOk(p.cooldown)) throw new Error('cooldown must be a string or a list of strings');
-	if (p.cue !== undefined && typeof p.cue !== 'string') throw new Error('cue must be a string');
-	if (p.rest !== undefined && (typeof p.rest !== 'number' || p.rest <= 0))
-		throw new Error('rest must be a positive number of seconds');
-	if (p.run !== undefined) {
-		const r = p.run;
-		if (typeof r !== 'object' || !r || typeof r.title !== 'string' || typeof r.minutes !== 'number' || r.minutes <= 0)
-			throw new Error('run needs a title and positive minutes');
-		if (r.walk !== undefined && (typeof r.walk !== 'number' || r.walk < 0)) throw new Error('run walk must be minutes ≥ 0');
-		if (r.note !== undefined && typeof r.note !== 'string') throw new Error('run note must be a string');
-	}
-	for (const [d, info] of Object.entries(p.dayInfo ?? {})) {
-		if (!stepsOk(info.warmup)) throw new Error(`dayInfo "${d}" warmup must be a string or a list of strings`);
-		if (!stepsOk(info.cooldown)) throw new Error(`dayInfo "${d}" cooldown must be a string or a list of strings`);
-		if (info.cue !== undefined && typeof info.cue !== 'string') throw new Error(`dayInfo "${d}" cue must be a string`);
-	}
-	const days = p.days as Record<string, Exercise[]>;
-	if (typeof days !== 'object' || !Object.keys(days).length) throw new Error('days must be a non-empty object');
-	for (const [day, exercises] of Object.entries(days)) {
-		if (!Array.isArray(exercises) || !exercises.length) throw new Error(`day "${day}" needs a non-empty exercise list`);
-		for (const ex of exercises) {
-			if (!ex.name) throw new Error(`exercise in day "${day}" is missing a name`);
-			// bodyweight exercises have no weight axis — start is optional (0)
-			const required = ex.bodyweight === true
-				? (['sets', 'lo', 'hi', 'inc'] as const)
-				: (['sets', 'lo', 'hi', 'start', 'inc'] as const);
-			for (const k of required) {
-				if (typeof ex[k] !== 'number') throw new Error(`"${ex.name}" needs numeric ${k}`);
-			}
-			if (ex.bodyweight === true && typeof ex.start !== 'number') ex.start = 0;
-			// the per-hand / per-side fields exist to kill an ambiguity; a typo in
-			// them would quietly reintroduce it, so they are checked, not coerced
-			if (ex.side !== undefined && ex.side !== 'reps' && ex.side !== 'sets')
-				throw new Error(`"${ex.name}" side must be "reps" (per side) or "sets" (one per side)`);
-			if (ex.each !== undefined && typeof ex.each !== 'boolean')
-				throw new Error(`"${ex.name}" each must be a boolean`);
-			if (ex.note !== undefined && typeof ex.note !== 'string')
-				throw new Error(`"${ex.name}" note must be a string`);
-			if (ex.rest !== undefined && (typeof ex.rest !== 'number' || ex.rest <= 0))
-				throw new Error(`"${ex.name}" rest must be a positive number of seconds`);
-			if (ex.rack !== undefined && !['kettlebell', 'dumbbell', 'medball'].includes(ex.rack))
-				throw new Error(`"${ex.name}" rack must be kettlebell, dumbbell or medball (omit it for machines)`);
-		}
-	}
-	return { schedule: '', ...p } as Plan;
 }

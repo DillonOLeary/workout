@@ -10,7 +10,7 @@ import {
 	suggestedCount,
 	suggestedWeight
 } from './projections';
-import type { Exercise } from './types';
+import type { Exercise } from './plan';
 
 const DAY = 86400000;
 const NOW = Date.parse('2026-08-23T18:00:00Z');
@@ -57,11 +57,11 @@ function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
 	return upcastAll(out);
 }
 
-const goblet: Exercise = { name: 'Goblet Squat', equip: '', tag: '', sets: 3, lo: 6, hi: 12, start: 35, inc: 5, rack: 'dumbbell' };
+const goblet: Exercise = { name: 'Goblet Squat', equip: '', tag: '', kind: 'load', sets: 3, lo: 6, hi: 12, start: 35, inc: 5, rack: 'dumbbell' };
 const rdl: Exercise = { ...goblet, name: 'Romanian Deadlift', start: 40, each: true };
-const press: Exercise = { name: 'Chest Press', equip: '', tag: '', sets: 3, lo: 8, hi: 12, start: 45, inc: 5 };
-const plank: Exercise = { name: 'Long-Lever Plank', equip: '', tag: '', sets: 3, lo: 10, hi: 20, start: 0, inc: 5, mode: 'seconds', bodyweight: true };
-const copenhagen: Exercise = { name: 'Copenhagen Plank', equip: '', tag: '', sets: 2, lo: 5, hi: 15, start: 0, inc: 1, bodyweight: true, side: 'sets' };
+const press: Exercise = { name: 'Chest Press', equip: '', tag: '', kind: 'load', sets: 3, lo: 8, hi: 12, start: 45, inc: 5 };
+const plank: Exercise = { name: 'Long-Lever Plank', equip: '', tag: '', kind: 'hold', sets: 3, lo: 10, hi: 20, inc: 5 };
+const copenhagen: Exercise = { name: 'Copenhagen Plank', equip: '', tag: '', kind: 'reps', sets: 2, lo: 5, hi: 15, side: 'sets' };
 
 const weights = (ex: Exercise, ev: LedgerEvent[]) => nextLoad(ev, ex, undefined, NOW).sets.map((s) => s.weight);
 const reasons = (ex: Exercise, ev: LedgerEvent[]) => nextLoad(ev, ex, undefined, NOW).sets.map((s) => s.reason);
@@ -359,7 +359,7 @@ describe('dayAges', () => {
 /* ---------- runs are sessions now ---------- */
 import { RUN_DAY } from './events';
 import { dayTitle, nextDay, projectRuns, projectSessions, weekRunMinutes } from './projections';
-import type { Plan } from './types';
+import type { Plan } from './plan';
 
 describe('runs as sessions', () => {
 	const at = new Date(NOW - 2 * DAY).toISOString();

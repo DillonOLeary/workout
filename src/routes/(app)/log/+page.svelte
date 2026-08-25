@@ -27,7 +27,6 @@
 	import type { LoadSuggestion, SessionSet } from '$lib/domain/projections';
 	import {
 		estimateMinutes,
-		prepCue,
 		restStart,
 		runStart,
 		sessionProgress,
@@ -35,7 +34,7 @@
 		type Entry,
 		type Step
 	} from '$lib/domain/steps';
-	import type { Exercise } from '$lib/domain/types';
+	import { cueFor, runTarget, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -53,14 +52,14 @@
 	const steps = sessionSteps(plan, session.day);
 	const isRunDay = session.day === RUN_DAY;
 	const title = dayTitle(plan, session.day);
-	const cue = prepCue(plan, session.day);
+	const cue = cueFor(plan, session.day);
 	const exercises = isRunDay ? [] : (plan.days[session.day] ?? []);
 	const totalSets = steps.filter((s) => s.kind === 'set').length;
 	const sessionAt = session.at;
 	// the rule's answer per exercise, once: data.events never refreshes mid-session
 	// svelte-ignore state_referenced_locally
 	const loads = new Map<string, LoadSuggestion>(
-		exercises.filter((e) => !e.bodyweight).map((e) => [e.name, nextLoad(data.events, e, session.id)])
+		exercises.filter((e) => e.kind === 'load').map((e) => [e.name, nextLoad(data.events, e, session.id)])
 	);
 
 	/* ---------- optimistic queue ----------------------------------------
@@ -124,14 +123,14 @@
 	let st = $derived<Step | undefined>(steps[stepI]);
 	let ex = $derived<Exercise | undefined>(st?.ex);
 	let atSet = $derived(st?.kind === 'set');
-	let isHold = $derived(atSet && ex?.mode === 'seconds');
-	// bodyweight ≠ seconds: a med-ball plank is a WEIGHTED hold. Weight UI
-	// keys off bodyweight; the hold timer keys off mode.
-	let isBW = $derived(!!ex?.bodyweight);
+	let isHold = $derived(atSet && ex?.kind === 'hold');
+	// no weight tile for a hold or a count: the kind says what there is to dial
+	let isBW = $derived(!!ex && ex.kind !== 'load');
+	let holdInc = $derived(ex?.kind === 'hold' ? ex.inc : 5);
 	let stepDone = $derived(!!st && progress.done.has(st.key));
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
-	let load = $derived(ex && !ex.bodyweight ? (loads.get(ex.name) ?? null) : null);
+	let load = $derived(ex && ex.kind === 'load' ? (loads.get(ex.name) ?? null) : null);
 	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && isSet(e.measure)).length;
 
 	// only tick while something on screen is counting
@@ -195,7 +194,7 @@
 	   (there is no 37.5 lb dumbbell), machines step their per-exercise inc.
 	   One gesture, one behaviour, on every layout (D3). */
 	function bumpLoad(dir: 1 | -1) {
-		if (!ex) return;
+		if (!ex || ex.kind !== 'load') return;
 		if (ex.rack) weight = dir > 0 ? nextRung(weight, ex.rack) : prevRung(weight, ex.rack);
 		else weight = Math.max(0, weight + dir * ex.inc);
 	}
@@ -217,8 +216,8 @@
 			.filter((x) => x.item === e.name && x.index < s.index && isSet(x.measure))
 			.sort((a, b) => a.index - b.index);
 		const priorLast = prior[prior.length - 1];
-		const timed = e.mode === 'seconds';
-		const sugg = e.bodyweight ? null : (loads.get(e.name) ?? null);
+		const timed = e.kind === 'hold';
+		const sugg = e.kind !== 'load' ? null : (loads.get(e.name) ?? null);
 		let overridden = false;
 		if (sugg && priorLast) {
 			const suggestedPrev = sugg.sets[Math.min(priorLast.index - 1, e.sets - 1)].weight;
@@ -235,7 +234,7 @@
 			else if (sugg && sugg.sets[k].reason === 'increase') reps = e.lo;
 			else reps = suggestedCount(data.events, e, session.id, k);
 			reps = Math.min(e.hi, reps);
-		} else if (e.bodyweight) {
+		} else if (e.kind === 'reps') {
 			reps = priorLast ? countOf(priorLast.measure) : suggestedCount(data.events, e, session.id, k);
 		} else {
 			// what you did last set if you're off-plan, else what this set asks for
@@ -284,9 +283,9 @@
 
 	/* ---------- the step table: the current section ---------- */
 	function setValue(e: Exercise, w: number, count: number | null): string {
-		const hold = e.mode === 'seconds';
+		const hold = e.kind === 'hold';
 		const c = count === null ? '—' : hold ? `${count}s` : String(count);
-		if (e.bodyweight) return hold || count === null ? c : `${c} reps`;
+		if (e.kind !== 'load') return hold || count === null ? c : `${c} reps`;
 		return `${e.each ? `${w} /hand` : `${w} lb`} × ${c}`;
 	}
 	function localFor(s: Step) {
@@ -348,9 +347,9 @@
 			return `${st.section.toUpperCase()} · STEP ${st.index} OF ${n} · TRACKED, NOT LOGGED`;
 		}
 		if (st.kind === 'rest') return `${st.ex!.name.toUpperCase()} · BEFORE SET ${st.index}`;
-		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${plan.runTarget ?? 150} MIN THIS WEEK`;
+		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${runTarget(plan)} MIN THIS WEEK`;
 		const x = st.ex!;
-		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.each ? ' · PER HAND' : ''}${x.bodyweight ? ' · BODYWEIGHT' : ''}`;
+		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind !== 'load' ? ' · BODYWEIGHT' : ''}`;
 		return planLine;
 	});
 	let ledgerLine = $derived(atSet ? (last ? `LAST ${setsLine(last.sets, ex!)}` : 'FIRST TIME') : '');
@@ -365,7 +364,7 @@
 		const x = st.ex!;
 		if (setsDoneFor(x.name) > 0) return null;
 		if (load) return loadHint(load, x);
-		if (x.mode === 'seconds' && holdMaxed(last, x)) return `At the ceiling (${x.hi}s) — make it harder, not longer.`;
+		if (x.kind === 'hold' && holdMaxed(last, x)) return `At the ceiling (${x.hi}s) — make it harder, not longer.`;
 		return null;
 	});
 	let quietLabel = $derived(
@@ -587,7 +586,7 @@
 			const ld = x0 ? loads.get(x0.name) : undefined;
 			const meta = isPrep
 				? `${doneAll}/${items.length} · PREP`
-				: `${doneWork}/${work.length}${ld ? ` · ${ld.sets[0].weight} ${x0!.each ? '/HAND' : 'LB'}` : ''}`;
+				: `${doneWork}/${work.length}${ld ? ` · ${ld.sets[0].weight} ${x0!.kind === 'load' && x0!.each ? '/HAND' : 'LB'}` : ''}`;
 			return {
 				title: name,
 				meta,
@@ -601,11 +600,12 @@
 					else if (s.kind === 'run') value = e && e.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`;
 					else if (e) value = setValue(s.ex!, loadOf(e.measure), countOf(e.measure));
 					else {
-						const w = ld ? ld.sets[Math.min(s.index - 1, s.ex!.sets - 1)].weight : 0;
-						value = s.ex!.bodyweight ? `${s.ex!.lo}–${s.ex!.hi}${s.ex!.mode === 'seconds' ? 's' : ''}` : `${w} ${s.ex!.each ? '/hand' : 'lb'} × ${s.ex!.lo}–${s.ex!.hi}`;
+						const x = s.ex!;
+						const w = ld ? ld.sets[Math.min(s.index - 1, x.sets - 1)].weight : 0;
+						value = x.kind !== 'load' ? `${x.lo}–${x.hi}${x.kind === 'hold' ? 's' : ''}` : `${w} ${x.each ? '/hand' : 'lb'} × ${x.lo}–${x.hi}`;
 					}
 					const name =
-						s.kind === 'prep' ? (s.text ?? s.label) : s.kind === 'rest' ? 'Rest' : s.kind === 'run' ? 'Run' : `${s.ex!.mode === 'seconds' ? 'Hold' : 'Set'} ${s.index}`;
+						s.kind === 'prep' ? (s.text ?? s.label) : s.kind === 'rest' ? 'Rest' : s.kind === 'run' ? 'Run' : `${s.ex!.kind === 'hold' ? 'Hold' : 'Set'} ${s.index}`;
 					return { i, name, value, done, current: i === stepI };
 				})
 			};
@@ -658,12 +658,12 @@
 		}
 		if (allDone) return;
 		if (ev.key === 'ArrowUp') {
-			if (isHold) bumpTarget(ex?.inc ?? 5);
+			if (isHold) bumpTarget(holdInc);
 			else if (isBW) bumpReps(1);
 			else if (atSet) bumpLoad(1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowDown') {
-			if (isHold) bumpTarget(-(ex?.inc ?? 5));
+			if (isHold) bumpTarget(-holdInc);
 			else if (isBW) bumpReps(-1);
 			else if (atSet) bumpLoad(-1);
 			ev.preventDefault();
@@ -733,12 +733,12 @@
 					<div class="fl-tiles" class:single={isBW}>
 						{#if isHold}
 							<AdjustTile
-								label={`Hold · +${ex!.inc}s`}
+								label={`Hold · +${holdInc}s`}
 								bind:value={reps}
 								min={ex!.lo}
 								max={ex!.hi}
 								disabled={!!hold}
-								onStep={(d) => bumpTarget(d * ex!.inc)}
+								onStep={(d) => bumpTarget(d * holdInc)}
 							/>
 							{#if !isBW}
 								<AdjustTile

@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
-import { insertPlan, parsePlan } from '$lib/server/plans';
+import { insertPlan } from '$lib/server/plans';
+import { parsePlan } from '$lib/domain/plan';
 import { requireUid } from '$lib/server/auth';
 import type { Actions } from './$types';
 

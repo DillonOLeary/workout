@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { setsLine } from '$lib/domain/projections';
 	import type { Trend } from '$lib/domain/projections';
-	import type { Exercise } from '$lib/domain/types';
+	import type { Exercise } from '$lib/domain/plan';
 
 	/**
 	 * One exercise over time: name · load strip · what the rule has queued,
@@ -15,7 +15,7 @@
 		ontoggle
 	}: { ex: Exercise; trend: Trend; open?: boolean; ontoggle: () => void } = $props();
 
-	const unit = $derived(ex.bodyweight ? (ex.mode === 'seconds' ? 's' : '') : 'lb');
+	const unit = $derived(ex.kind === 'load' ? 'lb' : ex.kind === 'hold' ? 's' : '');
 	// plain divs, not SVG: one bar per session, normalised to this exercise's
 	// own min/max over the window, plus the load the rule has queued next
 	const bars = $derived.by(() => {

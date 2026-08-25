@@ -5,8 +5,8 @@
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { RUN_DAY } from '$lib/domain/events';
 	import { dayTitle } from '$lib/domain/projections';
-	import { cooldownSteps, estimateMinutes, restFor, sessionSteps, warmupSteps } from '$lib/domain/steps';
-	import type { Exercise } from '$lib/domain/types';
+	import { cooldownFor, hasRuns, restFor, runTarget, warmupFor, type Exercise } from '$lib/domain/plan';
+	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -21,15 +21,15 @@
 
 	/** "3 × 6–12" · "3 × 10–20s" · "2 × 5–15 · L/R" · "3 × 8–12 · per side" */
 	const dose = (ex: Exercise) =>
-		`${ex.sets} × ${ex.lo}–${ex.hi}${ex.mode === 'seconds' ? 's' : ''}` +
+		`${ex.sets} × ${ex.lo}–${ex.hi}${ex.kind === 'hold' ? 's' : ''}` +
 		(ex.side === 'sets' ? ' · L/R' : ex.side === 'reps' ? ' · per side' : '');
 
 	// the day is a list of steps, and its length is honest about all of them
-	let warm = $derived(warmupSteps(plan, shownDay));
-	let cool = $derived(cooldownSteps(plan, shownDay));
+	let warm = $derived(warmupFor(plan, shownDay));
+	let cool = $derived(cooldownFor(plan, shownDay));
 	let rests = $derived([...new Set((plan.days[shownDay] ?? []).map((ex) => restFor(plan, ex)))]);
 	let dayLen = $derived(estimateMinutes(sessionSteps(plan, shownDay)));
-	let runLen = $derived(plan.runs !== false ? estimateMinutes(sessionSteps(plan, RUN_DAY)) : 0);
+	let runLen = $derived(hasRuns(plan) ? estimateMinutes(sessionSteps(plan, RUN_DAY)) : 0);
 </script>
 
 <div class="col">
@@ -39,7 +39,7 @@
 	<div class="titleblock">
 		<h1>{plan.name}</h1>
 		<div class="activemeta">
-			{plan.schedule}{plan.runs !== false ? ` · ${plan.runTarget ?? 150} min/wk` : ''}
+			{plan.schedule}{hasRuns(plan) ? ` · ${runTarget(plan)} min/wk` : ''}
 		</div>
 	</div>
 
@@ -68,7 +68,7 @@
 				<ExerciseGlyph name={ex.name} size={48} play={false} />
 				<div class="exmain">
 					<div class="exname">{ex.name}</div>
-					<div class="exequip">{ex.equip}{ex.each ? ' · weight is per hand' : ''}</div>
+					<div class="exequip">{ex.equip}{ex.kind === 'load' && ex.each ? ' · weight is per hand' : ''}</div>
 				</div>
 				<span class="exdose">{dose(ex)}</span>
 			</div>
@@ -79,7 +79,7 @@
 				<span class="preptext">{cool.join(' · ')}</span>
 			</div>
 		{/if}
-		{#if plan.runs !== false}
+		{#if hasRuns(plan)}
 			<div class="preprow">
 				<span class="prepcaps">{dayTitle(plan, RUN_DAY)}</span>
 				<span class="preptext">

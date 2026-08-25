@@ -18,7 +18,7 @@
 	} from '$lib/domain/projections';
 	import { RUN_DAY, type EntryLogged } from '$lib/domain/events';
 	import { estimateMinutes, sessionProgress, sessionSteps, stepOf } from '$lib/domain/steps';
-	import type { Exercise } from '$lib/domain/types';
+	import { hasRuns, runTarget, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -80,7 +80,7 @@
 	});
 
 	let minutes = $derived(weekRunMinutes(data.events));
-	let runTarget = $derived(plan.runTarget ?? 150);
+	let target = $derived(runTarget(plan));
 
 	const today = new Date().toLocaleDateString('en-US', {
 		weekday: 'short',
@@ -140,7 +140,7 @@
 						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, d)}</Button>
 					</form>
 				{/each}
-				{#if plan.runs !== false}
+				{#if hasRuns(plan)}
 					<form method="POST" action="?/start" use:enhance class="grow">
 						<input type="hidden" name="day" value={RUN_DAY} />
 						<input type="hidden" name="plan" value={plan.id} />
@@ -157,8 +157,8 @@
 	<Card>
 		<div class="caps mb10">This week</div>
 		<WeekStrip {cells} />
-		{#if plan.runs !== false}
-			<WeeklyProgress {minutes} target={runTarget} label="Running" bare />
+		{#if hasRuns(plan)}
+			<WeeklyProgress {minutes} target={target} label="Running" bare />
 		{/if}
 	</Card>
 
