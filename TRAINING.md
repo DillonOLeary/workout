@@ -130,7 +130,7 @@ Two sessions alternating (A/B), so each week is roughly 1.5 of each.
 | Vertical push | Shoulder Press (B) |
 | Horizontal pull | Seated Row (B) |
 | Vertical pull | Lat Pulldown (A) |
-| Rear delt / external rotation | Band Pull-Apart (A) |
+| Rear delt / external rotation | Band Face Pull (A) |
 | Calves | Standing Calf Raise (A, B) |
 | Core | Long-Lever Plank (A), Copenhagen Plank (B) |
 | Adductors | Copenhagen Plank (B) |
@@ -141,9 +141,9 @@ things a *runner's* lifting plan most often lacks. The soleus produces more
 force than any other muscle in running, and calf strength tracks running
 economy [17]; it had zero sets here, and now has nine a week. And nothing
 trained external rotation at the shoulder, which is the one shoulder-health
-input with a trial behind it [22] — two light sets of band pull-aparts after
-the press fix that (a band, because this gym has no cable-and-rope station;
-it loads the same muscles the same way). The hinge still appears on both days: RDL on A, KB deadlift on
+input with a trial behind it [22] — two light sets of band face pulls after
+the press fix that (a tube band anchored at face height, because this gym
+has no cable-and-rope station; the movement is the same). The hinge still appears on both days: RDL on A, KB deadlift on
 B, so it runs every session on top of three runs. That is comfortable at
 these loads, and it is the first place recovery will run short as the
 weights climb.
@@ -204,7 +204,7 @@ the ~10-set growth mark [1, 4].
 | Vertical push | Shoulder Press (2) |
 | Horizontal pull | Seated Row (2) |
 | Vertical pull | Lat Pulldown (1) |
-| Rear delt / external rotation | Band Pull-Apart (1) |
+| Rear delt / external rotation | Band Face Pull (1) |
 | Hip extension | DB Glute Bridge (2) |
 | Hamstrings | Leg Curl (2) |
 | Calves | Standing Calf Raise (2) |
@@ -243,7 +243,7 @@ heels helps), hinge as far as the back stays flat.
 exactly" the adductors and hip external rotation this plan lacks. It
 doesn't: passive holds at realistic durations build essentially no strength
 or muscle [23] — yoga is mobility, not load. The loaded coverage now lives
-here instead: band pull-aparts for the rear delts and external rotators, and the
+here instead: band face pulls for the rear delts and external rotators, and the
 side plank's own upgrade path ends at the Copenhagen plank, the one adductor
 exercise with an injury-prevention trial behind it [24]. Hold Steady remains
 a fine mobility complement; it is no longer asked to be a strength program.

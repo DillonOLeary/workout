@@ -83,9 +83,10 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'Goblet Squat', equip: 'Kettlebell / Dumbbell', tag: 'Squat', kind: 'load', sets: 3, lo: 6, hi: 12, start: 35, inc: 5, rack: 'dumbbell', note: 'Bell at the sternum, elbows down. Sit between the knees, knees over toes, chest tall. As deep as the back stays flat. 35 is the whole load.' },
 				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 8, hi: 12, start: 45, inc: 5, note: 'Seat so the handles meet mid-chest. Shoulder blades back on the pad; press to nearly straight, lower until the handles touch the chest.' },
 				// Nothing else here trains external rotation or the rear delt: the one
-				// shoulder-health input with trial evidence behind it. A band, not a
-				// cable — this gym has no rope station — light, after the press.
-				{ name: 'Band Pull-Apart', equip: 'Light band', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, note: 'Arms straight at shoulder height, band at chest width. Pull it to the chest, squeeze the blades, thumbs back. At 20 clean: a heavier band, or hands closer together.' },
+				// shoulder-health input with trial evidence behind it. A tube band anchored
+				// at face height stands in for the cable — no rope station at this gym.
+				// Light, after the press.
+				{ name: 'Band Face Pull', equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 12, start: 65, inc: 10, note: 'Slight lean back, chest up. Drive the elbows down; bar to the upper chest, in front of the face. Control it back to a full stretch.' },
 				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, start: 40, inc: 5, rack: 'dumbbell', each: true, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
 				CALF_RAISE,
@@ -147,7 +148,7 @@ export const DEFAULT_PLANS: Plan[] = [
 				// inside the range instead of reading as a miss.
 				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 6, hi: 15, start: 20, inc: 5, note: 'Seat so the handles meet mid-chest; feet flat, on a step if they don’t reach. Shoulder blades back; press to nearly straight, lower to the chest.' },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 15, start: 40, inc: 5, note: 'Thigh pad snug so the hips can’t lift. Slight lean back, chest up; bar to the upper chest, in front of the face. Control back to a full stretch.' },
-				{ name: 'Band Pull-Apart', equip: 'Light band', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, note: 'Arms straight at shoulder height, band at chest width. Pull it to the chest, squeeze the blades, thumbs back. At 20 clean: a heavier band, or hands closer together.' },
+				{ name: 'Band Face Pull', equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
 				{ name: 'Dead Bug', equip: 'Mat', tag: 'Core', kind: 'reps', sets: 3, lo: 8, hi: 12, side: 'reps', note: 'Low back and ribs pressed down; exhale as the opposite arm and leg lower slowly. Too hard? Tap the heels. Easy at 12? Take 3 seconds to lower.' }
 			],
 			'2': [

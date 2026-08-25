@@ -264,7 +264,7 @@
 			balanced in both planes, an A/B alternation that gives every muscle two exposures.
 			The audit added what a runner’s plan most often lacks — calves, which absorb more force
 			in running than any other muscle and track running economy in trials
-			<a href="#ref-17" class="cite" onclick={(e) => goRef(e, 17)}>[17]</a>, and band pull-aparts, the one shoulder-health input
+			<a href="#ref-17" class="cite" onclick={(e) => goRef(e, 17)}>[17]</a>, and band face pulls, the one shoulder-health input
 			with a trial behind it <a href="#ref-22" class="cite" onclick={(e) => goRef(e, 22)}>[22]</a> — and swapped the long
 			holds for planks that get harder instead <a href="#ref-18" class="cite" onclick={(e) => goRef(e, 18)}>[18]</a>.
 			Two honest limits stand. Chest and shoulders sit at maintenance volume, below the
