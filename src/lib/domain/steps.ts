@@ -1,11 +1,4 @@
-import {
-	COOLDOWN_ITEM,
-	RUN_DAY,
-	RUN_ITEM,
-	WARMUP_ITEM,
-	entryKey,
-	type EntryLogged
-} from './events';
+import { COOLDOWN_ITEM, RUN_ITEM, WARMUP_ITEM, entryKey, type EntryLogged, type Workout } from './events';
 import { isSet } from './measure';
 import { cooldownFor, restFor, warmupFor, type Exercise, type Plan } from './plan';
 
@@ -52,10 +45,11 @@ export type Step = {
 
 const restKey = (item: string, set: number) => `rest:${entryKey(item, set)}`;
 
-/** The whole day, in order. Unknown day → no steps. */
-export function sessionSteps(plan: Plan | undefined, day: string): Step[] {
+/** The whole workout, in order. A lift day the plan doesn't have → no steps. */
+export function sessionSteps(plan: Plan | undefined, w: Workout): Step[] {
 	if (!plan) return [];
-	if (day === RUN_DAY) return runSteps(plan);
+	if (w.kind === 'run') return runSteps(plan);
+	const day = w.day;
 	const exercises = plan.days[day];
 	if (!exercises) return [];
 	const out: Step[] = [];

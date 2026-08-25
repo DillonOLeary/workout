@@ -1,4 +1,4 @@
-import { RUN_DAY, RUN_ITEM, type LedgerEvent, type StoredEvent } from './events';
+import { RUN, RUN_ITEM, type LedgerEvent, type StoredEvent, type Workout } from './events';
 import type { Measure } from './measure';
 
 /**
@@ -33,10 +33,13 @@ type SetLoggedV1 = {
 type RunLoggedV1 = { type: 'RunLogged'; data: { minutes: number; at: string } };
 type RunRemovedV1 = { type: 'RunRemoved'; data: { run: string; at: string } };
 type SessionStruckV1 = { type: 'SessionStruck'; data: { session: string; at: string } };
-/** SessionStarted before `mode` existed — every live session until 2026-08-25. */
+/**
+ * SessionStarted as first written: no `mode` (every live session until
+ * 2026-08-25), and a run said `day: 'run'` instead of carrying a kind.
+ */
 type SessionStartedV1 = {
 	type: 'SessionStarted';
-	data: { session: string; plan: string; day: string; at: string; mode?: 'live' | 'after' };
+	data: { session: string; plan: string; at: string; day?: string; kind?: 'lift' | 'run'; mode?: 'live' | 'after' };
 };
 /** EntryLogged and SessionFinished as first written: carrying plan/day nobody read. */
 type EntryLoggedV1 = {
@@ -61,9 +64,9 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 	switch (e.type) {
 		case 'SessionStarted': {
 			const d = (e as SessionStartedV1).data;
-			return [
-				{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, day: d.day, at: d.at, mode: d.mode ?? 'live' } }
-			];
+			// the first shape spelled a run as day: 'run' — the one sentinel, retired here
+			const workout: Workout = d.kind === 'run' || d.day === 'run' ? RUN : { kind: 'lift', day: d.day ?? '' };
+			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', ...workout } }];
 		}
 		case 'EntryLogged': {
 			// rebuilt, not passed through: the first EntryLogged rows carried
@@ -100,7 +103,7 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			const session = runSessionId(at);
 			const startAt = new Date(Date.parse(at) - minutes * 60000).toISOString();
 			return [
-				{ type: 'SessionStarted', data: { session, plan: '', day: RUN_DAY, at: startAt, mode: 'after' } },
+				{ type: 'SessionStarted', data: { session, plan: '', at: startAt, mode: 'after', ...RUN } },
 				{ type: 'EntryLogged', data: { session, item: RUN_ITEM, index: 1, at, measure: { of: 'duration', minutes } } },
 				{ type: 'SessionFinished', data: { session, at } }
 			];

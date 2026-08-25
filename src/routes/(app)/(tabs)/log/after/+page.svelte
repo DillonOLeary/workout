@@ -5,7 +5,8 @@
 	import Chip from '$lib/components/Chip.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { RUN_DAY, RUN_ITEM } from '$lib/domain/events';
+	import { RUN, RUN_ITEM, lift, type Workout } from '$lib/domain/events';
+	import { hasRuns } from '$lib/domain/plan';
 	import { measureFor } from '$lib/domain/measure';
 	import { dayTitle, historyFor } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
@@ -24,10 +25,10 @@
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let dayKeys = $derived(Object.keys(plan.days));
-	let hasRun = $derived(plan.runs !== false);
-	let what = $state<string>('');
-	let whatKey = $derived(what || (hasRun ? RUN_DAY : dayKeys[0]));
-	let isRun = $derived(whatKey === RUN_DAY);
+	let hasRun = $derived(hasRuns(plan));
+	let what = $state<Workout | null>(null);
+	let workout = $derived(what ?? (hasRun ? RUN : lift(dayKeys[0])));
+	let isRun = $derived(workout.kind === 'run');
 
 	// when: today, or one of the last few days at noon — a backdated
 	// session needs a day, not a minute
@@ -56,7 +57,7 @@
 	type Line = { ex: Exercise; sets: number; weight: number; count: number };
 	let lines = $state<Line[]>([]);
 	$effect(() => {
-		const exs = isRun ? [] : (plan.days[whatKey] ?? []);
+		const exs = workout.kind === 'lift' ? (plan.days[workout.day] ?? []) : [];
 		lines = exs.map((ex) => {
 			const s = suggest(historyFor(data.events, ex.name), ex, opened);
 			return { ex, sets: ex.sets, weight: s.kind === 'load' ? s.weight : 0, count: s.kind === 'load' ? s.sets[0].reps : s.sets[0].count };
@@ -82,9 +83,9 @@
 				});
 		return out;
 	});
-	let durationMin = $derived(isRun ? minutes : estimateMinutes(sessionSteps(plan, whatKey)));
+	let durationMin = $derived(isRun ? minutes : estimateMinutes(sessionSteps(plan, workout)));
 	let startAt = $derived(new Date(endAt.getTime() - durationMin * 60000));
-	let title = $derived(dayTitle(plan, whatKey));
+	let title = $derived(dayTitle(plan, workout));
 	let submitLabel = $derived(isRun ? `Log ${minutes} min` : `Log ${title}`);
 	let shapeLine = $derived(
 		isRun
@@ -104,10 +105,10 @@
 			<div class="caps">What</div>
 			<div class="chips">
 				{#if hasRun}
-					<Chip selected={isRun} onclick={() => (what = RUN_DAY)}>{dayTitle(plan, RUN_DAY)}</Chip>
+					<Chip selected={isRun} onclick={() => (what = RUN)}>{dayTitle(plan, RUN)}</Chip>
 				{/if}
 				{#each dayKeys as d (d)}
-					<Chip selected={whatKey === d} onclick={() => (what = d)}>{dayTitle(plan, d)}</Chip>
+					<Chip selected={workout.kind === 'lift' && workout.day === d} onclick={() => (what = lift(d))}>{dayTitle(plan, lift(d))}</Chip>
 				{/each}
 			</div>
 
@@ -158,7 +159,8 @@
 			{#if form?.message}<p class="err">{form.message}</p>{/if}
 
 			<input type="hidden" name="plan" value={plan.id} />
-			<input type="hidden" name="day" value={whatKey} />
+			<input type="hidden" name="kind" value={workout.kind} />
+			<input type="hidden" name="day" value={workout.kind === 'lift' ? workout.day : ''} />
 			<input type="hidden" name="startAt" value={startAt.toISOString()} />
 			<input type="hidden" name="at" value={endAt.toISOString()} />
 			<input type="hidden" name="entries" value={JSON.stringify(entries)} />

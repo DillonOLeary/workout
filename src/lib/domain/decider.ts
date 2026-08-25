@@ -1,6 +1,6 @@
 import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
-import { entryKey, type LedgerEvent, type StoredEvent } from './events';
+import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure } from './measure';
 import { upcast } from './upcast';
 
@@ -97,8 +97,8 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 		case 'StartSession': {
 			if (state.activeSession)
 				throw new IllegalStateError('A session is already in progress — finish it first.');
-			const { session, plan, day, at } = command.data;
-			return [{ type: 'SessionStarted', data: { session, plan, day, at, mode: 'live' } }];
+			const { session, plan, at } = command.data;
+			return [{ type: 'SessionStarted', data: { session, plan, at, mode: 'live', ...workoutOf(command.data) } }];
 		}
 
 		case 'LogEntry': {
@@ -114,7 +114,7 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 		}
 
 		case 'LogAfter': {
-			const { session, plan, day, startAt, at, entries } = command.data;
+			const { session, plan, startAt, at, entries } = command.data;
 			if (!entries.length) throw new ValidationError('Nothing to log.');
 			if (state.sessions[session]) throw new IllegalStateError('That session is already in the ledger.');
 			if (Date.parse(startAt) > Date.parse(at)) throw new ValidationError('A session cannot end before it starts.');
@@ -127,7 +127,7 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 				validateMeasure(en.measure);
 			}
 			return [
-				{ type: 'SessionStarted', data: { session, plan, day, at: startAt, mode: 'after' } },
+				{ type: 'SessionStarted', data: { session, plan, at: startAt, mode: 'after', ...workoutOf(command.data) } },
 				...entries.map(
 					(en): LedgerEvent => ({
 						type: 'EntryLogged',

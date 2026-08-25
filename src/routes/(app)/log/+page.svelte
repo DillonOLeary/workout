@@ -9,7 +9,7 @@
 	import type { SheetSection } from '$lib/components/floor/FloorSheet.svelte';
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
-	import { COOLDOWN_ITEM, RUN_DAY, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
+	import { COOLDOWN_ITEM, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { dayTitle, historyFor, lastEntryFor, weekRunMinutes } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
@@ -39,11 +39,12 @@
 	/* The session is a LIST OF STEPS — warm-up lines, every set with the rest
 	   before the next, the cooldown; or walk · run · walk. The plan owns the
 	   order; this screen shows exactly one step at a time with one big button. */
-	const steps = sessionSteps(plan, session.day);
-	const isRunDay = session.day === RUN_DAY;
-	const title = dayTitle(plan, session.day);
-	const cue = cueFor(plan, session.day);
-	const exercises = isRunDay ? [] : (plan.days[session.day] ?? []);
+	const workout = session.workout;
+	const steps = sessionSteps(plan, workout);
+	const isRunDay = workout.kind === 'run';
+	const title = dayTitle(plan, workout);
+	const cue = workout.kind === 'lift' ? cueFor(plan, workout.day) : plan.cue;
+	const exercises = workout.kind === 'lift' ? (plan.days[workout.day] ?? []) : [];
 	const totalSets = steps.filter((s) => s.kind === 'set').length;
 	const sessionAt = session.at;
 	// the rule's answer per exercise, once: data.events never refreshes mid-session

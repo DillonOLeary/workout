@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RUN_DAY, type LedgerEvent, type StoredEvent } from './events';
+import { RUN, lift, type LedgerEvent, type StoredEvent } from './events';
 import type { Exercise, Plan } from './plan';
 import { REENTRY_WARN_DAYS, suggest } from './progression';
 import { dayAges, dayTitle, historyFor, nextDay, projectRuns, projectSessions, trendFor, weekRunMinutes, weekStrip } from './projections';
@@ -177,7 +177,7 @@ describe('runs as sessions', () => {
 	it('reads a retired RunLogged as a finished, backdated, one-entry run', () => {
 		const ev = raw('RunLogged', { minutes: 32, at });
 		const [s] = projectSessions(ev);
-		expect(s.isRun).toBe(true);
+		expect(s.workout).toEqual(RUN);
 		expect(s.minutes).toBe(32);
 		expect(s.mode).toBe('after');
 		expect(s.finished).toBe(true);
@@ -193,7 +193,7 @@ describe('runs as sessions', () => {
 	});
 	it('counts prep entries without making them rows', () => {
 		const ev: LedgerEvent[] = [
-			{ type: 'SessionStarted', data: { session: 'x', plan: 'p', day: 'A', at, mode: 'live' } },
+			{ type: 'SessionStarted', data: { session: 'x', plan: 'p', kind: 'lift', day: 'A', at, mode: 'live' } },
 			{ type: 'EntryLogged', data: { session: 'x', item: 'Warm-up', index: 1, at, measure: { of: 'step' } } },
 			{ type: 'EntryLogged', data: { session: 'x', item: 'Goblet Squat', index: 1, at, measure: { of: 'load', load: 35, reps: 10 } } },
 			{ type: 'EntryLogged', data: { session: 'x', item: 'Plank', index: 1, at, measure: { of: 'hold', seconds: 20, target: 20 } } }
@@ -201,7 +201,7 @@ describe('runs as sessions', () => {
 		const [s] = projectSessions(ev);
 		expect(s.prep).toBe(1);
 		expect(s.entries).toBe(3);
-		expect(s.isRun).toBe(false);
+		expect(s.workout).toEqual(lift('A'));
 		expect(s.mode).toBe('live');
 		expect(s.rows).toEqual([
 			{ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 10 }] },
@@ -209,7 +209,8 @@ describe('runs as sessions', () => {
 		]);
 	});
 	it('names a run by the plan', () => {
-		expect(dayTitle(plan, RUN_DAY)).toBe('Easy run');
-		expect(dayTitle(undefined, RUN_DAY)).toBe('Run');
+		expect(dayTitle(plan, RUN)).toBe('Easy run');
+		expect(dayTitle(undefined, RUN)).toBe('Run');
+		expect(dayTitle(plan, lift('A'))).toBe('Workout A');
 	});
 });

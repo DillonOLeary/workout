@@ -2,11 +2,11 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import { describe, expect, it } from 'vitest';
 import type { LedgerCommand } from './commands';
 import { currentState, decide, evolve, initialState } from './decider';
-import { RUN_DAY, type LedgerEvent } from './events';
+import type { LedgerEvent } from './events';
 import type { Measure } from './measure';
 
 const AT = '2026-08-23T18:00:00.000Z';
-const started: LedgerEvent = { type: 'SessionStarted', data: { session: 's1', plan: 'p', day: 'A', at: AT, mode: 'live' } };
+const started: LedgerEvent = { type: 'SessionStarted', data: { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT, mode: 'live' } };
 const open = () => evolve(initialState(), started);
 const log = (measure: Measure, over: Partial<Extract<LedgerCommand, { type: 'LogEntry' }>['data']> = {}): LedgerCommand => ({
 	type: 'LogEntry',
@@ -17,11 +17,11 @@ const set = (load = 35, reps = 10) => log({ of: 'load', load, reps });
 describe('decide — sessions', () => {
 	it('refuses a second session while one is open', () => {
 		expect(() =>
-			decide({ type: 'StartSession', data: { session: 's2', plan: 'p', day: 'B', at: AT } }, open())
+			decide({ type: 'StartSession', data: { session: 's2', plan: 'p', kind: 'lift', day: 'B', at: AT } }, open())
 		).toThrow(IllegalStateError);
 	});
 	it('opens a live session', () => {
-		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', day: 'A', at: AT } }, initialState());
+		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT } }, initialState());
 		expect(e).toEqual(started);
 	});
 	it('refuses an entry with no session in progress', () => {
@@ -37,7 +37,7 @@ describe('decide — sessions', () => {
 
 describe('evolve — the one live slot', () => {
 	it('a start takes the slot only when nothing is open', () => {
-		const second: LedgerEvent = { type: 'SessionStarted', data: { session: 's2', plan: 'p', day: 'B', at: AT, mode: 'live' } };
+		const second: LedgerEvent = { type: 'SessionStarted', data: { session: 's2', plan: 'p', kind: 'lift', day: 'B', at: AT, mode: 'live' } };
 		const state = evolve(open(), second);
 		expect(state.activeSession?.id).toBe('s1');
 		expect(state.sessions).toEqual({ s1: true, s2: true });
@@ -90,10 +90,12 @@ describe('decide — the measure validates on its own branch', () => {
 });
 
 describe('decide — LogAfter writes a closed session in one shot', () => {
-	const after = (over: Partial<Extract<LedgerCommand, { type: 'LogAfter' }>['data']> = {}): LedgerCommand => ({
+	// the overridable part: everything but the workout, which is the run throughout
+	type AfterData = Omit<Extract<LedgerCommand, { type: 'LogAfter' }>['data'], 'kind' | 'day'>;
+	const after = (over: Partial<AfterData> = {}): LedgerCommand => ({
 		type: 'LogAfter',
 		data: {
-			session: 'r1', plan: 'p', day: RUN_DAY,
+			session: 'r1', plan: 'p', kind: 'run',
 			startAt: '2026-08-23T17:28:00.000Z', at: AT,
 			entries: [{ item: 'Run', index: 1, measure: { of: 'duration', minutes: 32 } }],
 			...over

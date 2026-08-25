@@ -15,7 +15,7 @@
 		weekRunMinutes,
 		weekStrip
 	} from '$lib/domain/projections';
-	import { RUN_DAY, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
+	import { RUN, WARMUP_ITEM, lift, type EntryLogged } from '$lib/domain/events';
 	import { estimateMinutes, sessionProgress, sessionSteps, stepOf } from '$lib/domain/steps';
 	import { hasRuns, runTarget, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
@@ -56,7 +56,7 @@
 
 	// the session is a list of steps: Today says how long it is, and how far in
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
-	let liveSteps = $derived(session ? sessionSteps(floorPlan, session.day) : []);
+	let liveSteps = $derived(session ? sessionSteps(floorPlan, session.workout) : []);
 	let liveEntries = $derived(
 		session
 			? data.events
@@ -68,12 +68,12 @@
 	let liveLine = $derived.by(() => {
 		if (!session) return '';
 		const left = estimateMinutes(liveSteps, liveProgress.current);
-		if (session.day === RUN_DAY) return `${stepOf(liveProgress.current, liveSteps)} · ~${left} min left`;
+		if (session.workout.kind === 'run') return `${stepOf(liveProgress.current, liveSteps)} · ~${left} min left`;
 		const warm = liveSteps.filter((s) => s.section === WARMUP_ITEM);
 		const warmDone = warm.length > 0 && warm.every((s) => liveProgress.done.has(s.key));
 		return `${stepOf(liveProgress.current, liveSteps)}${warmDone ? ' · warm-up done' : ''} · ${liveProgress.sets} ${liveProgress.sets === 1 ? 'set' : 'sets'} logged · ~${left} min left`;
 	});
-	let dueSteps = $derived(sessionSteps(plan, due));
+	let dueSteps = $derived(sessionSteps(plan, lift(due)));
 	let dueLine = $derived.by(() => {
 		const prep = dueSteps.some((s) => s.kind === 'prep');
 		return `${dueSteps.length} steps · about ${estimateMinutes(dueSteps)} min${prep ? ' · warm-up and cooldown included' : ''}`;
@@ -102,7 +102,7 @@
 	{#if session}
 		<Card interactive>
 			<div class="caps">In progress</div>
-			<div class="title">{dayTitle(floorPlan, session.day)}</div>
+			<div class="title">{dayTitle(floorPlan, session.workout)}</div>
 			<div class="mono-sub">{liveLine}</div>
 			<div class="row gap12 wrap">
 				<a class="resume" href="/log">Resume</a>
@@ -118,7 +118,7 @@
 			<div class="headrow">
 				<div>
 					<div class="caps">Next up</div>
-					<div class="title">{dayTitle(plan, due)}</div>
+					<div class="title">{dayTitle(plan, lift(due))}</div>
 				</div>
 				<a class="planlink" href="/plan?day={due}">See the plan →</a>
 			</div>
@@ -126,6 +126,7 @@
 			<div class="mono-sub">{dueLine}</div>
 
 			<form method="POST" action="?/start" use:enhance>
+				<input type="hidden" name="kind" value="lift" />
 				<input type="hidden" name="day" value={due} />
 				<input type="hidden" name="plan" value={plan.id} />
 				<button type="submit" class="startbtn">Start workout</button>
@@ -135,16 +136,17 @@
 			<div class="secs">
 				{#each dayKeys.filter((d) => d !== due) as d (d)}
 					<form method="POST" action="?/start" use:enhance class="grow">
+						<input type="hidden" name="kind" value="lift" />
 						<input type="hidden" name="day" value={d} />
 						<input type="hidden" name="plan" value={plan.id} />
-						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, d)}</Button>
+						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, lift(d))}</Button>
 					</form>
 				{/each}
 				{#if hasRuns(plan)}
 					<form method="POST" action="?/start" use:enhance class="grow">
-						<input type="hidden" name="day" value={RUN_DAY} />
+						<input type="hidden" name="kind" value="run" />
 						<input type="hidden" name="plan" value={plan.id} />
-						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, RUN_DAY)}</Button>
+						<Button variant="secondary" type="submit" style="width: 100%">or {dayTitle(plan, RUN)}</Button>
 					</form>
 				{/if}
 			</div>
@@ -167,7 +169,7 @@
 			<span class="caps">Heads up</span>
 			{#each nudges as n (n.day)}
 				<p>
-					<b>{dayTitle(plan, n.day)}</b> — {Math.floor(n.daysSince ?? 0)} days ago. Re-entry haircut in
+					<b>{dayTitle(plan, lift(n.day))}</b> — {Math.floor(n.daysSince ?? 0)} days ago. Re-entry haircut in
 					{daysUntilReentry(n.daysSince ?? 0)} {daysUntilReentry(n.daysSince ?? 0) === 1 ? 'day' : 'days'}: past two weeks, every
 					set comes back one size lighter.
 				</p>

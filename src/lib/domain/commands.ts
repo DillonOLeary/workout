@@ -1,4 +1,5 @@
 import type { Command } from '@event-driven-io/emmett';
+import type { Workout } from './events';
 import type { Measure } from './measure';
 
 /**
@@ -9,7 +10,7 @@ import type { Measure } from './measure';
  * Anything non-deterministic (ids, timestamps) is generated at the edge —
  * in the form actions — and passed IN, so the decider stays a pure function.
  */
-export type StartSession = Command<'StartSession', { session: string; plan: string; day: string; at: string }>;
+export type StartSession = Command<'StartSession', { session: string; plan: string; at: string } & Workout>;
 
 /** One entry, live, into the session in progress. */
 export type LogEntry = Command<
@@ -31,13 +32,12 @@ export type LogAfter = Command<
 	{
 		session: string;
 		plan: string;
-		day: string;
 		/** when it began */
 		startAt: string;
 		/** when it ended — the entries' timestamp */
 		at: string;
 		entries: AfterEntry[];
-	}
+	} & Workout
 >;
 
 export type FinishSession = Command<'FinishSession', { at: string }>;

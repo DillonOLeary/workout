@@ -3,7 +3,7 @@
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
-	import { RUN_DAY } from '$lib/domain/events';
+	import { RUN, lift } from '$lib/domain/events';
 	import { doseLabel } from '$lib/domain/labels';
 	import { dayTitle } from '$lib/domain/projections';
 	import { cooldownFor, hasRuns, restFor, runTarget, warmupFor } from '$lib/domain/plan';
@@ -24,8 +24,8 @@
 	let warm = $derived(warmupFor(plan, shownDay));
 	let cool = $derived(cooldownFor(plan, shownDay));
 	let rests = $derived([...new Set((plan.days[shownDay] ?? []).map((ex) => restFor(plan, ex)))]);
-	let dayLen = $derived(estimateMinutes(sessionSteps(plan, shownDay)));
-	let runLen = $derived(hasRuns(plan) ? estimateMinutes(sessionSteps(plan, RUN_DAY)) : 0);
+	let dayLen = $derived(estimateMinutes(sessionSteps(plan, lift(shownDay))));
+	let runLen = $derived(hasRuns(plan) ? estimateMinutes(sessionSteps(plan, RUN)) : 0);
 </script>
 
 <div class="col">
@@ -43,7 +43,7 @@
 		<div class="dayhead">
 			<div class="chips">
 				{#each dayKeys as d (d)}
-					<Chip selected={shownDay === d} onclick={() => (day = d)}>{dayTitle(plan, d)}</Chip>
+					<Chip selected={shownDay === d} onclick={() => (day = d)}>{dayTitle(plan, lift(d))}</Chip>
 				{/each}
 			</div>
 			{#if plan.dayInfo?.[shownDay]?.desc}
@@ -77,7 +77,7 @@
 		{/if}
 		{#if hasRuns(plan)}
 			<div class="preprow">
-				<span class="prepcaps">{dayTitle(plan, RUN_DAY)}</span>
+				<span class="prepcaps">{dayTitle(plan, RUN)}</span>
 				<span class="preptext">
 					{plan.run ? `${plan.run.minutes} min${plan.run.walk ? `, walk ${plan.run.walk} before and after` : ''} · about ${runLen} min` : 'Guided, or logged after'}
 				</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RUN_DAY, entryKey } from './events';
+import { RUN, entryKey, lift } from './events';
 import {
 	estimateMinutes,
 	restStart,
@@ -35,7 +35,7 @@ const entry = (item: string, index: number, at: string, measure: Entry['measure'
 
 describe('sessionSteps', () => {
 	it('walks warm-up, every set with a rest before the next, then the cooldown', () => {
-		const steps = sessionSteps(plan, 'A');
+		const steps = sessionSteps(plan, lift('A'));
 		expect(steps.map((s) => s.label)).toEqual([
 			'STEP 1', 'STEP 2',
 			'SET 1', 'REST', 'SET 2', 'REST', 'SET 3',
@@ -49,22 +49,22 @@ describe('sessionSteps', () => {
 		expect(steps[steps.length - 1].key).toBe(entryKey('Cooldown', 2));
 	});
 	it('makes a run walk · run · walk, and a plan without walks a bare run', () => {
-		expect(sessionSteps(plan, RUN_DAY).map((s) => s.label)).toEqual(['WALK', 'RUN', 'WALK']);
-		expect(sessionSteps({ ...plan, run: { title: 'Run', minutes: 20 } }, RUN_DAY).map((s) => s.label)).toEqual(['RUN']);
+		expect(sessionSteps(plan, RUN).map((s) => s.label)).toEqual(['WALK', 'RUN', 'WALK']);
+		expect(sessionSteps({ ...plan, run: { title: 'Run', minutes: 20 } }, RUN).map((s) => s.label)).toEqual(['RUN']);
 	});
 	it('estimates from the steps themselves', () => {
 		// 2×75 + 3×45 + 2×60 + 2×45 + 30 + 2×60 = 645s ≈ 11 min
-		expect(estimateMinutes(sessionSteps(plan, 'A'))).toBe(11);
-		expect(estimateMinutes(sessionSteps(plan, RUN_DAY))).toBe(40);
+		expect(estimateMinutes(sessionSteps(plan, lift('A')))).toBe(11);
+		expect(estimateMinutes(sessionSteps(plan, RUN))).toBe(40);
 	});
 	it('gives an unknown day nothing', () => {
-		expect(sessionSteps(plan, 'Z')).toEqual([]);
-		expect(sessionSteps(undefined, 'A')).toEqual([]);
+		expect(sessionSteps(plan, lift('Z'))).toEqual([]);
+		expect(sessionSteps(undefined, lift('A'))).toEqual([]);
 	});
 });
 
 describe('sessionProgress', () => {
-	const steps = sessionSteps(plan, 'A');
+	const steps = sessionSteps(plan, lift('A'));
 	it('starts at step one with nothing done', () => {
 		const p = sessionProgress(steps, [], NOW);
 		expect(p.current).toBe(0);
@@ -94,7 +94,7 @@ describe('sessionProgress', () => {
 		expect(p.sets).toBe(5);
 	});
 	it('starts the run clock when the walk before it ended, else at the session', () => {
-		const run = sessionSteps(plan, RUN_DAY);
+		const run = sessionSteps(plan, RUN);
 		const walked = [entry('Warm-up', 1, iso(30000))];
 		expect(runStart(run, 1, walked, iso(600000))).toBe(NOW - 30000);
 		expect(runStart(run, 1, [], iso(600000))).toBe(NOW - 600000);

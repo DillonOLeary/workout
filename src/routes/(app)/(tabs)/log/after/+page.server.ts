@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
 import type { AfterEntry } from '$lib/domain/commands';
+import { parseWorkout } from '$lib/domain/events';
 import type { Actions } from './$types';
 
 /**
@@ -15,10 +16,10 @@ export const actions: Actions = {
 		const uid = requireUid(locals);
 		const form = await request.formData();
 		const plan = String(form.get('plan') ?? '');
-		const day = String(form.get('day') ?? '');
+		const workout = parseWorkout(form.get('kind'), form.get('day'));
 		const startAt = String(form.get('startAt') ?? '');
 		const at = String(form.get('at') ?? '');
-		if (!plan || !day) return fail(400, { message: 'Missing day or plan.' });
+		if (!plan || !workout) return fail(400, { message: 'Missing workout or plan.' });
 		if (Number.isNaN(Date.parse(startAt)) || Number.isNaN(Date.parse(at)))
 			return fail(400, { message: 'When did it happen?' });
 		let entries: AfterEntry[];
@@ -35,7 +36,7 @@ export const actions: Actions = {
 		}
 		const err = await tryCommand(uid, {
 			type: 'LogAfter',
-			data: { session: crypto.randomUUID(), plan, day, startAt, at, entries }
+			data: { session: crypto.randomUUID(), plan, startAt, at, entries, ...workout }
 		});
 		if (err) return fail(400, { message: err });
 		redirect(303, '/');

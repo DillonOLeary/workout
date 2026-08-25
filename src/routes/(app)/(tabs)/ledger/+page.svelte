@@ -59,12 +59,12 @@
 	{/if}
 
 	{#each visible as s (s.id)}
-		{#if s.isRun && s.rows.length === 0}
+		{#if s.workout.kind === 'run' && s.rows.length === 0}
 			<!-- a run: one row in the week, one row here, the same Remove -->
 			<Card>
 				<div class="line">
 					<span class="date">{s.dateLabel}</span>
-					<span class="runlbl">{dayTitle(planById(s.plan), s.day)}</span>
+					<span class="runlbl">{dayTitle(planById(s.plan), s.workout)}</span>
 					{#if !s.finished}<Badge tone="warning">In progress</Badge>{/if}
 					<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
 					{#if editMode}
@@ -85,7 +85,7 @@
 					<span class="date">{s.dateLabel}</span>
 					<span class="sessbadges">
 						{#if !s.finished}<Badge tone="warning">In progress</Badge>{/if}
-						<Badge tone="neutral">{dayTitle(planById(s.plan), s.day)}</Badge>
+						<Badge tone="neutral">{dayTitle(planById(s.plan), s.workout)}</Badge>
 						{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
 						{#if editMode}
 							<form method="POST" action="?/remove" use:enhance>

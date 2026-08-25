@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
+import { parseWorkout } from '$lib/domain/events';
 import type { Actions } from './$types';
 
 /**
@@ -15,13 +16,13 @@ export const actions: Actions = {
 	start: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();
-		const day = String(form.get('day') ?? '');
+		const workout = parseWorkout(form.get('kind'), form.get('day'));
 		const plan = String(form.get('plan') ?? '');
-		if (!day || !plan) return fail(400, { message: 'Missing day or plan.' });
+		if (!workout || !plan) return fail(400, { message: 'Missing workout or plan.' });
 
 		const err = await tryCommand(uid, {
 			type: 'StartSession',
-			data: { session: crypto.randomUUID(), plan, day, at: new Date().toISOString() }
+			data: { session: crypto.randomUUID(), plan, at: new Date().toISOString(), ...workout }
 		});
 		if (err) return fail(400, { message: err });
 

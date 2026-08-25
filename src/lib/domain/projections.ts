@@ -1,4 +1,4 @@
-import { RUN_DAY, type LedgerEvent } from './events';
+import { workoutOf, type LedgerEvent, type Workout } from './events';
 import { capitalise, fmtDate, fmtShort, setsPhrase, unitLabel } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
 import type { Exercise, Plan } from './plan';
@@ -36,7 +36,8 @@ import {
 export type SessionRow = { item: string; sets: Measure[] };
 export type SessionView = {
 	id: string;
-	day: string;
+	/** what it was: one of the plan's lift days, or the run */
+	workout: Workout;
 	plan: string;
 	at: string;
 	dateLabel: string;
@@ -47,8 +48,6 @@ export type SessionView = {
 	rows: SessionRow[];
 	/** minutes from duration entries — a run session's whole point */
 	minutes: number;
-	/** a run: the run day, or any duration entry */
-	isRun: boolean;
 	/** prep steps that happened (warm-up, cooldown, walks) — tracked, never a ledger line */
 	prep: number;
 	/** every entry, whatever it measured */
@@ -72,7 +71,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 		if (e.type === 'SessionStarted') {
 			map.set(e.data.session, {
 				id: e.data.session,
-				day: e.data.day,
+				workout: workoutOf(e.data),
 				plan: e.data.plan,
 				at: e.data.at,
 				dateLabel: fmtDate(e.data.at),
@@ -80,7 +79,6 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 				mode: e.data.mode,
 				rows: [],
 				minutes: 0,
-				isRun: e.data.day === RUN_DAY,
 				prep: 0,
 				entries: 0
 			});
@@ -93,7 +91,6 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 				s.prep++;
 			} else if (m.of === 'duration') {
 				s.minutes += m.minutes;
-				s.isRun = true;
 			} else if (isSet(m)) {
 				let row = s.rows.find((r) => r.item === e.data.item);
 				if (!row) {
@@ -166,11 +163,11 @@ export function lastEntryFor(events: LedgerEvent[], exercise: string, excludeSes
 /** Which day is due next: alternate from the most recent finished LIFT (runs don't count). */
 export function nextDay(events: LedgerEvent[], plan: Plan): string {
 	const dayKeys = Object.keys(plan.days);
-	const sessions = projectSessions(events).filter(
-		(s) => s.finished && s.plan === plan.id && dayKeys.includes(s.day)
+	const days = projectSessions(events).flatMap((s) =>
+		s.finished && s.plan === plan.id && s.workout.kind === 'lift' && dayKeys.includes(s.workout.day) ? [s.workout.day] : []
 	);
-	if (!sessions.length) return dayKeys[0];
-	const i = dayKeys.indexOf(sessions[0].day);
+	if (!days.length) return dayKeys[0];
+	const i = dayKeys.indexOf(days[0]);
 	return dayKeys[(i + 1) % dayKeys.length];
 }
 
@@ -329,7 +326,7 @@ export type WeekCell = {
 export function weekStrip(events: LedgerEvent[], now: number): WeekCell[] {
 	const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 	const sessions = projectSessions(events);
-	const lifted = new Set(sessions.filter((s) => !s.isRun).map((s) => dayKey(new Date(s.at))));
+	const lifted = new Set(sessions.filter((s) => s.workout.kind === 'lift').map((s) => dayKey(new Date(s.at))));
 	const ran = new Set(sessions.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at))));
 	const today = new Date(now);
 	const todayKey = dayKey(today);
@@ -346,13 +343,13 @@ export type DayAge = { day: string; daysSince: number | null };
 export function dayAges(events: LedgerEvent[], plan: Plan, now: number): DayAge[] {
 	const sessions = projectSessions(events).filter((s) => s.finished && s.plan === plan.id);
 	return Object.keys(plan.days).map((day) => {
-		const s = sessions.find((x) => x.day === day); // newest first
+		const s = sessions.find((x) => x.workout.kind === 'lift' && x.workout.day === day); // newest first
 		return { day, daysSince: s ? (now - Date.parse(s.at)) / DAY : null };
 	});
 }
 
-/** Display title for a day: dayInfo title if present, the run's title for a run, else "Workout X". */
-export function dayTitle(plan: Plan | undefined, d: string): string {
-	if (d === RUN_DAY) return plan?.run?.title ?? 'Run';
-	return plan?.dayInfo?.[d]?.title ?? 'Workout ' + d;
+/** Display title for a workout: the run's title, the day's dayInfo title, else "Workout X". */
+export function dayTitle(plan: Plan | undefined, w: Workout): string {
+	if (w.kind === 'run') return plan?.run?.title ?? 'Run';
+	return plan?.dayInfo?.[w.day]?.title ?? 'Workout ' + w.day;
 }

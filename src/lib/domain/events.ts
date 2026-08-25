@@ -23,16 +23,32 @@ import type { Measure } from './measure';
  * depend on store-specific metadata.
  */
 
+/**
+ * What a session IS: one of the plan's lift days, or the run. A closed
+ * union, so "is this a run?" has one answer everywhere — no sentinel day
+ * key, no "any duration entry counts".
+ */
+export type Workout = { kind: 'lift'; day: string } | { kind: 'run' };
+export const RUN: Workout = { kind: 'run' };
+export const lift = (day: string): Workout => ({ kind: 'lift', day });
+/** Just the workout, from anything that carries one (an event's data, a command's). */
+export const workoutOf = (w: Workout): Workout => (w.kind === 'run' ? RUN : { kind: 'lift', day: w.day });
+/** A workout from a form: kind=run, or kind=lift with a day. */
+export function parseWorkout(kind: unknown, day: unknown): Workout | null {
+	if (kind === 'run') return RUN;
+	if (kind === 'lift' && typeof day === 'string' && day) return { kind: 'lift', day };
+	return null;
+}
+
 export type SessionStarted = Event<
 	'SessionStarted',
 	{
 		session: string;
 		plan: string;
-		day: string;
 		at: string;
 		/** 'live' = the floor walked it; 'after' = written in one shot, backdated */
 		mode: 'live' | 'after';
-	}
+	} & Workout
 >;
 
 export type EntryLogged = Event<
@@ -72,8 +88,6 @@ export type LedgerEvent =
  */
 export type StoredEvent = { type: string; data: unknown };
 
-/** The day key every run session uses — a plan's days never use it. */
-export const RUN_DAY = 'run';
 /** The item a run's duration entry is logged under. */
 export const RUN_ITEM = 'Run';
 /** Prep items — steps that are tracked, but never a ledger line. */
