@@ -83,7 +83,9 @@
 					measure:
 						l.ex.mode === 'seconds'
 							? { of: 'hold', seconds: l.count, target: l.count, ...(l.weight > 0 ? { load: l.weight } : {}) }
-							: { of: 'load', load: l.weight, reps: l.count }
+							: l.ex.bodyweight
+								? { of: 'reps', reps: l.count }
+								: { of: 'load', load: l.weight, reps: l.count }
 				});
 		return out;
 	});

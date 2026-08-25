@@ -21,7 +21,7 @@ export const actions: Actions = {
 
 		const err = await tryCommand(uid, {
 			type: 'StartSession',
-			data: { sessionId: crypto.randomUUID(), plan, day, at: new Date().toISOString() }
+			data: { session: crypto.randomUUID(), plan, day, at: new Date().toISOString() }
 		});
 		if (err) return fail(400, { message: err });
 

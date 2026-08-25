@@ -10,7 +10,8 @@
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
 	import { nextRung, prevRung } from '$lib/domain/racks';
-	import { COOLDOWN_ITEM, RUN_DAY, WARMUP_ITEM, type EntryLogged, type Measure } from '$lib/domain/events';
+	import { COOLDOWN_ITEM, RUN_DAY, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
+	import { countOf, isSet, loadOf, type Measure } from '$lib/domain/measure';
 	import {
 		dayTitle,
 		holdMaxed,
@@ -55,10 +56,7 @@
 	const cue = prepCue(plan, session.day);
 	const exercises = isRunDay ? [] : (plan.days[session.day] ?? []);
 	const totalSets = steps.filter((s) => s.kind === 'set').length;
-	// svelte-ignore state_referenced_locally
-	const sessionAt =
-		data.events.find((e) => e.type === 'SessionStarted' && e.data.session === session.id)?.data.at ??
-		new Date().toISOString();
+	const sessionAt = session.at;
 	// the rule's answer per exercise, once: data.events never refreshes mid-session
 	// svelte-ignore state_referenced_locally
 	const loads = new Map<string, LoadSuggestion>(
@@ -125,8 +123,8 @@
 
 	let st = $derived<Step | undefined>(steps[stepI]);
 	let ex = $derived<Exercise | undefined>(st?.ex);
-	let isSet = $derived(st?.kind === 'set');
-	let isHold = $derived(isSet && ex?.mode === 'seconds');
+	let atSet = $derived(st?.kind === 'set');
+	let isHold = $derived(atSet && ex?.mode === 'seconds');
 	// bodyweight ≠ seconds: a med-ball plank is a WEIGHTED hold. Weight UI
 	// keys off bodyweight; the hold timer keys off mode.
 	let isBW = $derived(!!ex?.bodyweight);
@@ -134,7 +132,7 @@
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
 	let load = $derived(ex && !ex.bodyweight ? (loads.get(ex.name) ?? null) : null);
-	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && e.measure.of !== 'step').length;
+	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && isSet(e.measure)).length;
 
 	// only tick while something on screen is counting
 	let timed = $derived(st?.kind === 'rest' || st?.kind === 'run');
@@ -202,9 +200,6 @@
 		else weight = Math.max(0, weight + dir * ex.inc);
 	}
 
-	const mLoad = (m: Measure) => (m.of === 'load' ? m.load : m.of === 'hold' ? (m.load ?? 0) : 0);
-	const mCount = (m: Measure) => (m.of === 'load' ? m.reps : m.of === 'hold' ? m.seconds : 0);
-
 	/**
 	 * What the tiles show for the set about to be logged. Per-set progression
 	 * means set 2 can legitimately ask for LESS than set 1, so the preload
@@ -219,7 +214,7 @@
 		const e = s.ex;
 		const k = Math.min(s.index - 1, e.sets - 1);
 		const prior = entries
-			.filter((x) => x.item === e.name && x.index < s.index && x.measure.of !== 'step')
+			.filter((x) => x.item === e.name && x.index < s.index && isSet(x.measure))
 			.sort((a, b) => a.index - b.index);
 		const priorLast = prior[prior.length - 1];
 		const timed = e.mode === 'seconds';
@@ -227,24 +222,24 @@
 		let overridden = false;
 		if (sugg && priorLast) {
 			const suggestedPrev = sugg.sets[Math.min(priorLast.index - 1, e.sets - 1)].weight;
-			overridden = mLoad(priorLast.measure) !== suggestedPrev;
+			overridden = loadOf(priorLast.measure) !== suggestedPrev;
 		}
 		// weight: 0 for bodyweight; a timed-weighted hold (custom plans) carries
 		// its load in the second tile
-		weight = !sugg ? 0 : overridden ? mLoad(priorLast!.measure) : sugg.sets[k].weight;
+		weight = !sugg ? 0 : overridden ? loadOf(priorLast!.measure) : sugg.sets[k].weight;
 		if (timed) {
 			// target seconds: this session's last TARGET (a dropped hold shouldn't
 			// lower the next bell), else the ledger's per-set suggestion. A level-up
 			// on a weighted hold restarts at the bottom of the range, like reps do.
-			if (priorLast) reps = (priorLast.measure.of === 'hold' ? priorLast.measure.target : undefined) ?? mCount(priorLast.measure);
+			if (priorLast) reps = (priorLast.measure.of === 'hold' ? priorLast.measure.target : undefined) ?? countOf(priorLast.measure);
 			else if (sugg && sugg.sets[k].reason === 'increase') reps = e.lo;
 			else reps = suggestedCount(data.events, e, session.id, k);
 			reps = Math.min(e.hi, reps);
 		} else if (e.bodyweight) {
-			reps = priorLast ? mCount(priorLast.measure) : suggestedCount(data.events, e, session.id, k);
+			reps = priorLast ? countOf(priorLast.measure) : suggestedCount(data.events, e, session.id, k);
 		} else {
 			// what you did last set if you're off-plan, else what this set asks for
-			reps = overridden ? mCount(priorLast!.measure) : sugg!.sets[k].reps;
+			reps = overridden ? countOf(priorLast!.measure) : sugg!.sets[k].reps;
 		}
 		hold = null;
 		remaining = null;
@@ -323,7 +318,7 @@
 			}
 			case 'set': {
 				const x = s.ex!;
-				if (e) return { key: s.key, label: s.label, value: setValue(x, mLoad(e.measure), mCount(e.measure)), note: e ? undefined : undefined, state: state(true) };
+				if (e) return { key: s.key, label: s.label, value: setValue(x, loadOf(e.measure), countOf(e.measure)), note: e ? undefined : undefined, state: state(true) };
 				if (cur && hold) return { key: s.key, label: s.label, value: String(remaining ?? hold.target), note: `of ${hold.target}s left`, state: 'running', big: true };
 				// "now", not "logging": the write is what saving… means — this row is
 				// simply the one you're on, same word the prep steps use
@@ -358,7 +353,7 @@
 		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.each ? ' · PER HAND' : ''}${x.bodyweight ? ' · BODYWEIGHT' : ''}`;
 		return planLine;
 	});
-	let ledgerLine = $derived(isSet ? (last ? `LAST ${setsLine(last.sets, ex!)}` : 'FIRST TIME') : '');
+	let ledgerLine = $derived(atSet ? (last ? `LAST ${setsLine(last.sets, ex!)}` : 'FIRST TIME') : '');
 	// the reasoning behind the preloaded weight, so a drop is never silent —
 	// only before the first set: after that the table carries the session's
 	// own numbers and the suggestion no longer describes what's on screen
@@ -392,7 +387,7 @@
 		local.push({
 			key: crypto.randomUUID(),
 			status: 'queued',
-			data: { session: session.id, plan: plan.id, day: session.day, item: s.item, index: s.index, at: new Date().toISOString(), measure }
+			data: { session: session.id, item: s.item, index: s.index, at: new Date().toISOString(), measure }
 		});
 		// instant feedback: the row fills in, the phone taps back. No flash —
 		// the table changing IS the confirmation.
@@ -409,7 +404,8 @@
 	function logSetNow() {
 		if (performance.now() - lastPress < 350) return; // accidental double-tap
 		lastPress = performance.now();
-		enqueue({ of: 'load', load: weight, reps });
+		// a bodyweight set is a count, never a load of 0
+		enqueue(isBW ? { of: 'reps', reps } : { of: 'load', load: weight, reps });
 	}
 
 	/** timed: one button — ring in the hold, or log the early drop */
@@ -446,8 +442,6 @@
 	async function postEntry(p: LocalEntry): Promise<{ ok: true } | { ok: false; message: string }> {
 		const body = new FormData();
 		body.set('session', p.data.session);
-		body.set('plan', p.data.plan);
-		body.set('day', p.data.day);
 		body.set('item', p.data.item);
 		body.set('index', String(p.data.index));
 		body.set('measure', JSON.stringify(p.data.measure));
@@ -544,7 +538,7 @@
 		if (n.kind === 'run') return 'Run';
 		return 'Next';
 	});
-	let sideNow = $derived(isSet && ex?.side === 'sets' && !isHold ? (st!.index % 2 === 1 ? 'left' : 'right') : null);
+	let sideNow = $derived(atSet && ex?.side === 'sets' && !isHold ? (st!.index % 2 === 1 ? 'left' : 'right') : null);
 	let primaryLabel = $derived(
 		allDone
 			? finishing
@@ -605,7 +599,7 @@
 					if (s.kind === 'prep') value = done ? 'done' : 'prep';
 					else if (s.kind === 'rest') value = i === stepI && restLeft !== null && !done ? `${restLeft}s left` : done ? 'rested' : `${s.seconds}s`;
 					else if (s.kind === 'run') value = e && e.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`;
-					else if (e) value = setValue(s.ex!, mLoad(e.measure), mCount(e.measure));
+					else if (e) value = setValue(s.ex!, loadOf(e.measure), countOf(e.measure));
 					else {
 						const w = ld ? ld.sets[Math.min(s.index - 1, s.ex!.sets - 1)].weight : 0;
 						value = s.ex!.bodyweight ? `${s.ex!.lo}–${s.ex!.hi}${s.ex!.mode === 'seconds' ? 's' : ''}` : `${w} ${s.ex!.each ? '/hand' : 'lb'} × ${s.ex!.lo}–${s.ex!.hi}`;
@@ -621,11 +615,11 @@
 	/** the receipt: what this session actually wrote, in ledger shape */
 	function receiptSets(name: string): SessionSet[] {
 		return entries
-			.filter((e) => e.item === name && (e.measure.of === 'load' || e.measure.of === 'hold'))
+			.filter((e) => e.item === name && isSet(e.measure))
 			.sort((a, b) => a.index - b.index)
 			.map((e) => ({
-				weight: mLoad(e.measure),
-				reps: mCount(e.measure),
+				weight: loadOf(e.measure),
+				reps: countOf(e.measure),
 				...(e.measure.of === 'hold' ? { unit: 's' as const, ...(e.measure.target !== undefined ? { target: e.measure.target } : {}) } : {})
 			}));
 	}
@@ -666,12 +660,12 @@
 		if (ev.key === 'ArrowUp') {
 			if (isHold) bumpTarget(ex?.inc ?? 5);
 			else if (isBW) bumpReps(1);
-			else if (isSet) bumpLoad(1);
+			else if (atSet) bumpLoad(1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowDown') {
 			if (isHold) bumpTarget(-(ex?.inc ?? 5));
 			else if (isBW) bumpReps(-1);
-			else if (isSet) bumpLoad(-1);
+			else if (atSet) bumpLoad(-1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowRight') {
 			goTo(Math.min(steps.length - 1, stepI + 1));
@@ -679,8 +673,8 @@
 		} else if (ev.key === 'ArrowLeft') {
 			goTo(Math.max(0, stepI - 1));
 			ev.preventDefault();
-		} else if (isSet && !isHold && /^[1-9]$/.test(ev.key)) reps = parseInt(ev.key, 10);
-		else if (isSet && !isHold && ev.key === '0') reps = 10;
+		} else if (atSet && !isHold && /^[1-9]$/.test(ev.key)) reps = parseInt(ev.key, 10);
+		else if (atSet && !isHold && ev.key === '0') reps = 10;
 	}
 </script>
 
@@ -735,7 +729,7 @@
 			</main>
 
 			<div class="fl-bottom">
-				{#if isSet && !stepDone}
+				{#if atSet && !stepDone}
 					<div class="fl-tiles" class:single={isBW}>
 						{#if isHold}
 							<AdjustTile
@@ -832,7 +826,7 @@
 <FloorSheet
 	open={sheetOpen}
 	title={heading === 'Rest' || heading === 'Done' ? title : heading}
-	ex={isSet || st?.kind === 'rest' ? ex : undefined}
+	ex={atSet || st?.kind === 'rest' ? ex : undefined}
 	cue={st?.kind === 'prep' ? cue : st?.kind === 'run' ? plan.run?.note : undefined}
 	{sections}
 	current={Math.min(stepI, steps.length - 1)}

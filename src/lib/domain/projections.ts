@@ -1,4 +1,5 @@
-import { RUN_DAY, upcastAll, type LedgerEvent } from './events';
+import { RUN_DAY, type LedgerEvent } from './events';
+import { countOf, loadOf } from './measure';
 import { nextRung, prevRung, rungLabel, snapToRack } from './racks';
 import type { Exercise, Plan } from './types';
 
@@ -60,10 +61,9 @@ export function fmtDate(iso: string): string {
  * the whole app behave as if the workout never happened, while the events
  * themselves stay in the stream.
  */
-export function projectSessions(raw: LedgerEvent[]): SessionView[] {
-	// every fold enters through here, so this is where retired shapes become
-	// current ones — a test can feed the old SetLogged and still be right
-	const events = upcastAll(raw);
+export function projectSessions(events: LedgerEvent[]): SessionView[] {
+	// events arrive in the current vocabulary: the read boundary
+	// (readLedgerEvents) upcast them once, so no fold sniffs shapes
 	const removed = new Set(
 		events.filter((e) => e.type === 'SessionRemoved').map((e) => e.data.session)
 	);
@@ -77,7 +77,7 @@ export function projectSessions(raw: LedgerEvent[]): SessionView[] {
 				at: e.data.at,
 				dateLabel: fmtDate(e.data.at),
 				finished: false,
-				mode: e.data.mode ?? 'live',
+				mode: e.data.mode,
 				rows: [],
 				minutes: 0,
 				isRun: e.data.day === RUN_DAY,
@@ -110,7 +110,7 @@ export function projectSessions(raw: LedgerEvent[]): SessionView[] {
 								unit: 's',
 								...(m.target !== undefined ? { target: m.target } : {})
 							}
-						: { weight: m.load, reps: m.reps }
+						: { weight: loadOf(m), reps: countOf(m) }
 				);
 			}
 		} else if (e.type === 'SessionFinished') {

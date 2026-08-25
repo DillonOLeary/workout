@@ -2,7 +2,8 @@ import { DeciderCommandHandler, EmmettError } from '@event-driven-io/emmett';
 import { withEventStore } from './eventStore';
 import { decide, evolve, initialState } from '$lib/domain/decider';
 import type { LedgerCommand } from '$lib/domain/commands';
-import { upcastAll, type LedgerEvent } from '$lib/domain/events';
+import type { LedgerEvent } from '$lib/domain/events';
+import { upcastAll } from '$lib/domain/upcast';
 
 /**
  * DeciderCommandHandler is the whole event-sourcing write loop in one call:

@@ -1,5 +1,5 @@
 import type { Command } from '@event-driven-io/emmett';
-import type { Measure } from './events';
+import type { Measure } from './measure';
 
 /**
  * Commands are requests in the imperative ("StartSession") — they can be
@@ -9,26 +9,15 @@ import type { Measure } from './events';
  * Anything non-deterministic (ids, timestamps) is generated at the edge —
  * in the form actions — and passed IN, so the decider stays a pure function.
  */
-export type StartSession = Command<
-	'StartSession',
-	{ sessionId: string; plan: string; day: string; at: string }
->;
+export type StartSession = Command<'StartSession', { session: string; plan: string; day: string; at: string }>;
 
 /** One entry, live, into the session in progress. */
 export type LogEntry = Command<
 	'LogEntry',
-	{
-		session: string;
-		plan: string;
-		day: string;
-		item: string;
-		index: number;
-		at: string;
-		measure: Measure;
-	}
+	{ session: string; item: string; index: number; at: string; measure: Measure }
 >;
 
-/** What an after-the-fact session contains: the same identity + measure as a live entry. */
+/** What any entry is made of: an identity and a measure. */
 export type AfterEntry = { item: string; index: number; measure: Measure };
 
 /**
@@ -40,7 +29,7 @@ export type AfterEntry = { item: string; index: number; measure: Measure };
 export type LogAfter = Command<
 	'LogAfter',
 	{
-		sessionId: string;
+		session: string;
 		plan: string;
 		day: string;
 		/** when it began */
@@ -57,10 +46,4 @@ export type RemoveSession = Command<'RemoveSession', { session: string; at: stri
 
 export type SelectPlan = Command<'SelectPlan', { plan: string; at: string }>;
 
-export type LedgerCommand =
-	| StartSession
-	| LogEntry
-	| LogAfter
-	| FinishSession
-	| RemoveSession
-	| SelectPlan;
+export type LedgerCommand = StartSession | LogEntry | LogAfter | FinishSession | RemoveSession | SelectPlan;

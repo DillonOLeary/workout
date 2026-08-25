@@ -6,6 +6,7 @@ import {
 	entryKey,
 	type EntryLogged
 } from './events';
+import { isSet } from './measure';
 import type { Exercise, Plan, Steps } from './types';
 
 /**
@@ -182,7 +183,7 @@ export function sessionProgress(steps: Step[], entries: Entry[], now: number = D
 	return {
 		done,
 		current,
-		sets: entries.filter((e) => e.measure.of === 'load' || e.measure.of === 'hold').length,
+		sets: entries.filter((e) => isSet(e.measure)).length,
 		prep: entries.filter((e) => e.measure.of === 'step').length
 	};
 }

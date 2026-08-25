@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LedgerEvent } from './events';
+import type { LedgerEvent, StoredEvent } from './events';
+import { upcastAll } from './upcast';
 import {
 	REENTRY_DAYS,
 	anySetEarned,
@@ -22,15 +23,18 @@ type Entry = {
 	session?: string;
 };
 
-/** A stream with one exercise logged across several sessions. */
+/**
+ * A stream with one exercise logged across several sessions — written in the
+ * RETIRED SetLogged shape on purpose and upcast on the way out, so every fold
+ * below also proves the read boundary.
+ */
 function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
-	const out: LedgerEvent[] = [];
+	const out: StoredEvent[] = [];
 	entries.forEach((e, i) => {
 		const session = e.session ?? `s${i}`;
 		const at = new Date(now - e.daysAgo * DAY).toISOString();
 		out.push({ type: 'SessionStarted', data: { session, plan: 'p', day: 'A', at } });
 		e.sets.forEach(([weight, reps, target], j) =>
-			// the RETIRED shape on purpose: every fold below also proves the upcaster
 			out.push({
 				type: 'SetLogged',
 				data: {
@@ -45,12 +49,12 @@ function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
 					...(e.unit ? { unit: e.unit } : {}),
 					...(target !== undefined ? { target } : {})
 				}
-			} as unknown as LedgerEvent)
+			})
 		);
 		out.push({ type: 'SessionFinished', data: { session, plan: 'p', day: 'A', at } });
 		if (e.removed) out.push({ type: 'SessionRemoved', data: { session, at } });
 	});
-	return out;
+	return upcastAll(out);
 }
 
 const goblet: Exercise = { name: 'Goblet Squat', equip: '', tag: '', sets: 3, lo: 6, hi: 12, start: 35, inc: 5, rack: 'dumbbell' };
@@ -328,8 +332,10 @@ describe('trendFor — the status sentence', () => {
 describe('weekStrip', () => {
 	it('marks lifts, runs and today, Monday first', () => {
 		// NOW is a Sunday: the week runs Mon (6 days ago) → today
-		const ev = ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]] }]);
-		ev.push({ type: 'RunLogged', data: { minutes: 30, at: new Date(NOW - 5 * DAY).toISOString() } } as unknown as LedgerEvent);
+		const ev = [
+			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]] }]),
+			...upcastAll([{ type: 'RunLogged', data: { minutes: 30, at: new Date(NOW - 5 * DAY).toISOString() } }])
+		];
 		const cells = weekStrip(ev, NOW);
 		expect(cells.map((c) => c.label).join('')).toBe('MTWTFSS');
 		expect(cells[6].today).toBe(true);
@@ -357,11 +363,11 @@ import type { Plan } from './types';
 
 describe('runs as sessions', () => {
 	const at = new Date(NOW - 2 * DAY).toISOString();
-	const raw = (type: string, data: unknown) => ({ type, data }) as unknown as LedgerEvent;
+	const raw = (type: string, data: unknown): LedgerEvent[] => upcastAll([{ type, data }]);
 	const plan: Plan = { id: 'p', name: 'P', schedule: '', days: { A: [goblet], B: [press] }, run: { title: 'Easy run', minutes: 30 } };
 
 	it('reads a retired RunLogged as a finished, backdated, one-entry run', () => {
-		const ev = [raw('RunLogged', { minutes: 32, at })];
+		const ev = raw('RunLogged', { minutes: 32, at });
 		const [s] = projectSessions(ev);
 		expect(s.isRun).toBe(true);
 		expect(s.minutes).toBe(32);
@@ -371,18 +377,18 @@ describe('runs as sessions', () => {
 		expect(s.entries).toBe(1);
 		expect(projectRuns(ev)).toEqual([{ at: s.at, dateLabel: s.dateLabel, minutes: 32, session: s.id }]);
 		expect(weekRunMinutes(ev, NOW)).toBe(32);
-		expect(weekRunMinutes([...ev, raw('RunRemoved', { run: at, at })], NOW)).toBe(0);
+		expect(weekRunMinutes([...ev, ...raw('RunRemoved', { run: at, at })], NOW)).toBe(0);
 	});
 	it('keeps runs out of the day rotation', () => {
-		const ev = [...ledger('Goblet Squat', [{ daysAgo: 4, sets: [[35, 10]] }]), raw('RunLogged', { minutes: 30, at })];
+		const ev = [...ledger('Goblet Squat', [{ daysAgo: 4, sets: [[35, 10]] }]), ...raw('RunLogged', { minutes: 30, at })];
 		expect(nextDay(ev, plan)).toBe('B');
 	});
 	it('counts prep entries without making them rows', () => {
 		const ev: LedgerEvent[] = [
-			{ type: 'SessionStarted', data: { session: 'x', plan: 'p', day: 'A', at } },
-			{ type: 'EntryLogged', data: { session: 'x', plan: 'p', day: 'A', item: 'Warm-up', index: 1, at, measure: { of: 'step' } } },
-			{ type: 'EntryLogged', data: { session: 'x', plan: 'p', day: 'A', item: 'Goblet Squat', index: 1, at, measure: { of: 'load', load: 35, reps: 10 } } },
-			{ type: 'EntryLogged', data: { session: 'x', plan: 'p', day: 'A', item: 'Plank', index: 1, at, measure: { of: 'hold', seconds: 20, target: 20 } } }
+			{ type: 'SessionStarted', data: { session: 'x', plan: 'p', day: 'A', at, mode: 'live' } },
+			{ type: 'EntryLogged', data: { session: 'x', item: 'Warm-up', index: 1, at, measure: { of: 'step' } } },
+			{ type: 'EntryLogged', data: { session: 'x', item: 'Goblet Squat', index: 1, at, measure: { of: 'load', load: 35, reps: 10 } } },
+			{ type: 'EntryLogged', data: { session: 'x', item: 'Plank', index: 1, at, measure: { of: 'hold', seconds: 20, target: 20 } } }
 		];
 		const [s] = projectSessions(ev);
 		expect(s.prep).toBe(1);

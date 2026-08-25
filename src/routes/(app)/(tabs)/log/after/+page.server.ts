@@ -35,7 +35,7 @@ export const actions: Actions = {
 		}
 		const err = await tryCommand(uid, {
 			type: 'LogAfter',
-			data: { sessionId: crypto.randomUUID(), plan, day, startAt, at, entries }
+			data: { session: crypto.randomUUID(), plan, day, startAt, at, entries }
 		});
 		if (err) return fail(400, { message: err });
 		redirect(303, '/');

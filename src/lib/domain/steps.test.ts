@@ -31,7 +31,7 @@ const plan: Plan = {
 };
 
 const entry = (item: string, index: number, at: string, measure: Entry['measure'] = { of: 'step' }): Entry => ({
-	session: 's', plan: 'p', day: 'A', item, index, at, measure
+	session: 's', item, index, at, measure
 });
 
 describe('sessionSteps', () => {
