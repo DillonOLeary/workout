@@ -13,7 +13,7 @@
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { dayTitle, historyFor, lastEntryFor, weekRunMinutes } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
-	import { loadHint, loadShort, plannedValue, rangeLabel, setValue, setsLine, stepLabel } from '$lib/domain/labels';
+	import { loadHint, rangeLabel, setValue, setsLine, stepLabel } from '$lib/domain/labels';
 	import {
 		estimateMinutes,
 		restStart,
@@ -514,7 +514,10 @@
 		(allDone || !st || st.kind === 'rest' || stepDone ? 'advance' : 'commit') as 'advance' | 'commit'
 	);
 
-	/* ---------- the ⋯ sheet: the session, sectioned ---------- */
+	/* ---------- the ⋯ sheet: the session, by section ----------
+	   One row per section — never the sets: the sheet is for finding your
+	   place, the floor is for the set. A row says "done" when the whole
+	   section is, else how far in; rests count for "done", never for the tally. */
 	let sections = $derived.by((): SheetSection[] => {
 		const order: string[] = [];
 		const by = new Map<string, { s: Step; i: number }[]>();
@@ -527,33 +530,11 @@
 		});
 		return order.map((name) => {
 			const items = by.get(name)!;
-			const isPrep = items.every((x) => x.s.kind === 'prep');
-			const work = items.filter((x) => x.s.kind === 'set' || x.s.kind === 'run');
-			const doneWork = work.filter((x) => progress.done.has(x.s.key)).length;
-			const doneAll = items.filter((x) => progress.done.has(x.s.key)).length;
-			const x0 = items[0].s.ex;
-			const ld = x0 ? loads.get(x0.name) : undefined;
-			const meta = isPrep
-				? `${doneAll}/${items.length} · PREP`
-				: `${doneWork}/${work.length}${ld?.kind === 'load' ? ` · ${loadShort(ld.weight, x0!).toUpperCase()}` : ''}`;
-			return {
-				title: name,
-				meta,
-				active: st?.section === name,
-				rows: items.map(({ s, i }) => {
-					const done = progress.done.has(s.key);
-					const e = entryFor(s);
-					let value = '';
-					if (s.kind === 'prep') value = done ? 'done' : 'prep';
-					else if (s.kind === 'rest') value = i === stepI && restLeft !== null && !done ? `${restLeft}s left` : done ? 'rested' : `${s.seconds}s`;
-					else if (s.kind === 'run') value = e && e.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`;
-					else if (e) value = setValue(s.ex!, loadOf(e.measure), countOf(e.measure));
-					else value = plannedValue(s.ex!, plannedWeight(s.ex!, s.index - 1));
-					const name =
-						s.kind === 'prep' ? (s.text ?? s.label) : s.kind === 'rest' ? 'Rest' : s.kind === 'run' ? 'Run' : `${s.ex!.kind === 'hold' ? 'Hold' : 'Set'} ${s.index}`;
-					return { i, name, value, done, current: i === stepI };
-				})
-			};
+			const counted = items.filter((x) => x.s.kind !== 'rest');
+			const done = counted.filter((x) => progress.done.has(x.s.key)).length;
+			const complete = done === counted.length;
+			const next = items.find((x) => !progress.done.has(x.s.key)) ?? items[0];
+			return { title: name, status: complete ? 'done' : `${done}/${counted.length}`, active: st?.section === name, done: complete, jump: next.i };
 		});
 	});
 
