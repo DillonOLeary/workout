@@ -305,7 +305,7 @@
 		if (st.kind === 'rest') return `${st.ex!.name.toUpperCase()} · BEFORE SET ${st.index}`;
 		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${runTarget(plan)} MIN THIS WEEK`;
 		const x = st.ex!;
-		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind !== 'load' ? ' · BODYWEIGHT' : ''}`;
+		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind === 'reps' ? ` · ${x.equip.toUpperCase()}` : x.kind === 'hold' ? ' · BODYWEIGHT' : ''}`;
 		return planLine;
 	});
 	let ledgerLine = $derived(atSet ? (last ? `LAST ${setsLine(last.sets, ex!)}` : 'FIRST TIME') : '');

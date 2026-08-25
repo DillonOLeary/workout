@@ -248,6 +248,8 @@ export const POSE_BY_NAME: Record<string, string> = {
 	'Deep Goblet Squat': 'gobletdeep',
 	'Chest Press': 'chestpress',
 	'Face Pull': 'facepull',
+	// a stand-in: the same arms-out, pull-wide shape — author a real pose in Claude Design when there is one
+	'Band Pull-Apart': 'facepull',
 	'Lat Pulldown': 'pulldown',
 	'Romanian Deadlift': 'rdl',
 	'KB Deadlift': 'kbdl',
