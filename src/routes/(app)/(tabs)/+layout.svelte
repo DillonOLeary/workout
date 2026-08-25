@@ -15,10 +15,10 @@
 	<div class="tabwrap">
 		<div class="tabwrap-inner">
 			<!-- two tabs: your state now (and over time), and the plan. "By day"
-			     is a child of Today, so it keeps that tab lit. -->
+			     and "Log it after" are children of Today, so they keep that tab lit. -->
 			<TabBar
 				tabs={[
-					{ label: 'Today', href: '/', also: ['/ledger'] },
+					{ label: 'Today', href: '/', also: ['/ledger', '/log/after'] },
 					{ label: 'The Plan', href: '/plan' }
 				]}
 			/>
