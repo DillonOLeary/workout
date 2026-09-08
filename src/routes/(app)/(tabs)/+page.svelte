@@ -20,10 +20,12 @@
 	 * Tab 1 is your state now and your state over time, in one scroll: this
 	 * week, what to do next, and how each exercise is going. Hands-off by
 	 * default, control on demand: Today answers "what should I do?" with one
-	 * button, and every further choice — the stretch, the run, the other
-	 * day, one stretch on its own, a lift logged after — is one deliberate
-	 * tap deeper, never on the button's level. Nothing chronological lives
-	 * here — "By day" is one tap away at the foot.
+	 * button. Under it, one list of everything else you can START — the
+	 * stretch, the run, the other day — each with the same one word; one
+	 * door for anything you did already; and a disclosure for a session
+	 * that is just one stretch. Two verbs in the whole card, one place
+	 * each. Nothing chronological lives here — "By day" is one tap away at
+	 * the foot.
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
@@ -114,9 +116,10 @@
 				<button type="submit" class="startbtn">Start <span class="startmin">~{dueMinutes} min</span></button>
 			</form>
 
-			<!-- the quiet rows: the stretch routine, and the run — Log first
-			     (the habit), Guided second. Paper, never volt. -->
-			{#if stretchDay || hasRuns(plan)}
+			<!-- the paper list: everything else you can start, one word each —
+			     the stretch, the run, the other day. White with an ink outline:
+			     quiet actions, never volt, never a second verb. -->
+			{#if stretchDay || hasRuns(plan) || others.length}
 				<div class="rows">
 					{#if stretchDay}
 						<div class="rowline">
@@ -128,7 +131,7 @@
 								<input type="hidden" name="kind" value="lift" />
 								<input type="hidden" name="day" value={stretchDay} />
 								<input type="hidden" name="plan" value={plan.id} />
-								<button type="submit" class="rowbtn strong">Start</button>
+								<button type="submit" class="rowbtn">Start</button>
 							</form>
 						</div>
 					{/if}
@@ -138,30 +141,34 @@
 								<span class="rowname">{dayTitle(plan, RUN)}</span>
 								<span class="rowsub">{minutes} of {target} min this week</span>
 							</span>
-							<span class="rowbtns">
-								<a class="rowbtn strong" href="/log/after?what=run">Log</a>
-								<form method="POST" action="?/start" use:enhance>
-									<input type="hidden" name="kind" value="run" />
-									<input type="hidden" name="plan" value={plan.id} />
-									<button type="submit" class="rowbtn">Guided</button>
-								</form>
-							</span>
+							<form method="POST" action="?/start" use:enhance>
+								<input type="hidden" name="kind" value="run" />
+								<input type="hidden" name="plan" value={plan.id} />
+								<button type="submit" class="rowbtn">Start</button>
+							</form>
 						</div>
 					{/if}
+					{#each others as d (d)}
+						<div class="rowline">
+							<span class="rowtext">
+								<span class="rowname">{dayTitle(plan, lift(d))}</span>
+								<span class="rowsub">~{estimateMinutes(sessionSteps(plan, lift(d)))} min</span>
+							</span>
+							<form method="POST" action="?/start" use:enhance>
+								<input type="hidden" name="kind" value="lift" />
+								<input type="hidden" name="day" value={d} />
+								<input type="hidden" name="plan" value={plan.id} />
+								<button type="submit" class="rowbtn">Start</button>
+							</form>
+						</div>
+					{/each}
 				</div>
 			{/if}
 
-			<!-- the text links: the other lift day, and a lift done without the phone -->
+			<!-- after the fact: one door, whatever it was — the page has a chip
+			     for the run, each day and the stretch, and opens on the run -->
 			<div class="links">
-				{#each others as d (d)}
-					<form method="POST" action="?/start" use:enhance>
-						<input type="hidden" name="kind" value="lift" />
-						<input type="hidden" name="day" value={d} />
-						<input type="hidden" name="plan" value={plan.id} />
-						<button type="submit" class="textlink">{dayTitle(plan, lift(d))} instead ▸</button>
-					</form>
-				{/each}
-				<a class="textlink" href="/log/after?what=lift">Log a lift after →</a>
+				<a class="textlink" href="/log/after">Did one already? Log it after →</a>
 			</div>
 
 			<!-- one more tap deeper: a session that is just one stretch -->
@@ -284,23 +291,22 @@
 	.rowtext { display: flex; flex-direction: column; min-width: 0; }
 	.rowname { font-weight: var(--weight-bold); font-size: 15px; }
 	.rowsub { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
-	.rowbtns { display: flex; gap: 8px; flex: none; }
-	/* white with an ink outline: a quiet action — never volt */
+	/* white with an ink outline: a quiet action — never volt, and the same on every row */
 	.rowbtn {
-		display: inline-flex; align-items: center; justify-content: center;
+		display: inline-flex; align-items: center; justify-content: center; flex: none;
 		min-height: 44px; padding: 0 16px;
 		background: var(--white); color: var(--ink);
-		border: 1px solid var(--border-soft); border-radius: var(--radius-md);
-		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 13px;
+		border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
+		box-shadow: var(--shadow-raised);
+		font-family: var(--font-body); font-weight: var(--weight-black); font-size: 13px;
 		letter-spacing: var(--tracking-caps); text-transform: uppercase;
 		text-decoration: none; cursor: pointer; touch-action: manipulation;
-		transition: background var(--dur-med) var(--ease-snap);
+		transition: background var(--dur-med) var(--ease-snap), transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) var(--ease-snap);
 	}
-	.rowbtn.strong { border: var(--border-w) solid var(--ink); box-shadow: var(--shadow-raised); font-weight: var(--weight-black); }
 	.rowbtn:hover { background: var(--volt-tint); }
 	.rowbtn:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
-	.links { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+	.links { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
 	.textlink {
 		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
 		background: none; border: none; cursor: pointer;
