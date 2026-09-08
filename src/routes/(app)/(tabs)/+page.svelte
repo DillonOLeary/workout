@@ -7,7 +7,7 @@
 	import WeekStrip from '$lib/components/WeekStrip.svelte';
 	import { dayTitle, nextWorkout, sessionEntries, trendFor, weekRunMinutes, weekStrip } from '$lib/domain/projections';
 	import { RUN, lift } from '$lib/domain/events';
-	import { holdDose, stretchDose } from '$lib/domain/labels';
+	import { stretchDose } from '$lib/domain/labels';
 	import { estimateMinutes, loggedOutside, positionLabel, sessionProgress, sessionSteps } from '$lib/domain/steps';
 	import { hasRuns, liftDays, runTarget, stretchDays, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
@@ -20,12 +20,13 @@
 	 * Tab 1 is your state now and your state over time, in one scroll: this
 	 * week, what to do next, and how each exercise is going. Hands-off by
 	 * default, control on demand: Today answers "what should I do?" with one
-	 * button. Under it, one list of everything else you can START — the
-	 * stretch, the run, the other day — each with the same one word; one
-	 * door for anything you did already; and a disclosure for a session
-	 * that is just one stretch. Two verbs in the whole card, one place
-	 * each. Nothing chronological lives here — "By day" is one tap away at
-	 * the foot.
+	 * button. The card is the three decisions there are — the workout, the
+	 * stretch, the run — then the odd case (you already did one) as one
+	 * link, then the rare case (the other day) as the quietest line on the
+	 * card. Two verbs, one place each. A single stretch on its own is not
+	 * a fourth decision: the floor's ⋯ sheet adds one to any session.
+	 * Nothing chronological lives here — "By day" is one tap away at the
+	 * foot.
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
@@ -40,8 +41,6 @@
 			? stretchDose(estimateMinutes(stretchSteps), plan.days[stretchDay].length, stretchSteps.filter((s) => s.kind === 'set').length)
 			: ''
 	);
-	// the one-offs: every stretch, with the day it lives on
-	let stretches = $derived(stretchDays(plan).flatMap((d) => plan.days[d].map((ex) => ({ day: d, ex }))));
 
 	let cells = $derived(weekStrip(data.events, now, data.plans));
 
@@ -116,10 +115,9 @@
 				<button type="submit" class="startbtn">Start <span class="startmin">~{dueMinutes} min</span></button>
 			</form>
 
-			<!-- the paper list: everything else you can start, one word each —
-			     the stretch, the run, the other day. White with an ink outline:
-			     quiet actions, never volt, never a second verb. -->
-			{#if stretchDay || hasRuns(plan) || others.length}
+			<!-- the other two decisions: the stretch and the run. White with an
+			     ink outline: quiet actions, never volt, never a second verb. -->
+			{#if stretchDay || hasRuns(plan)}
 				<div class="rows">
 					{#if stretchDay}
 						<div class="rowline">
@@ -148,20 +146,6 @@
 							</form>
 						</div>
 					{/if}
-					{#each others as d (d)}
-						<div class="rowline">
-							<span class="rowtext">
-								<span class="rowname">{dayTitle(plan, lift(d))}</span>
-								<span class="rowsub">~{estimateMinutes(sessionSteps(plan, lift(d)))} min</span>
-							</span>
-							<form method="POST" action="?/start" use:enhance>
-								<input type="hidden" name="kind" value="lift" />
-								<input type="hidden" name="day" value={d} />
-								<input type="hidden" name="plan" value={plan.id} />
-								<button type="submit" class="rowbtn">Start</button>
-							</form>
-						</div>
-					{/each}
 				</div>
 			{/if}
 
@@ -171,29 +155,15 @@
 				<a class="textlink" href="/log/after">Did one already? Log it after →</a>
 			</div>
 
-			<!-- one more tap deeper: a session that is just one stretch -->
-			{#if stretches.length}
-				<details class="else">
-					<summary class="textlink">Something else ▸</summary>
-					<div class="rows">
-						{#each stretches as s (s.ex.name)}
-							<div class="rowline">
-								<span class="rowtext">
-									<span class="rowname">{s.ex.name}</span>
-									<span class="rowsub">{holdDose(s.ex)}</span>
-								</span>
-								<form method="POST" action="?/start" use:enhance>
-									<input type="hidden" name="kind" value="lift" />
-									<input type="hidden" name="day" value={s.day} />
-									<input type="hidden" name="plan" value={plan.id} />
-									<input type="hidden" name="pick" value={JSON.stringify([s.ex.name])} />
-									<button type="submit" class="rowbtn">Start</button>
-								</form>
-							</div>
-						{/each}
-					</div>
-				</details>
-			{/if}
+			<!-- the rare case: the other day, one quiet line, never at the run's level -->
+			{#each others as d (d)}
+				<form method="POST" action="?/start" use:enhance class="links">
+					<input type="hidden" name="kind" value="lift" />
+					<input type="hidden" name="day" value={d} />
+					<input type="hidden" name="plan" value={plan.id} />
+					<button type="submit" class="textlink">{dayTitle(plan, lift(d))} instead ▸</button>
+				</form>
+			{/each}
 		</Card>
 	{/if}
 
@@ -306,7 +276,7 @@
 	.rowbtn:hover { background: var(--volt-tint); }
 	.rowbtn:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
-	.links { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+	.links { display: flex; align-items: center; gap: 12px; margin-top: 2px; }
 	.textlink {
 		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
 		background: none; border: none; cursor: pointer;
@@ -314,9 +284,6 @@
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 	.textlink:hover { color: var(--ink); background: none; }
-	.else > summary { list-style: none; }
-	.else > summary::-webkit-details-marker { display: none; }
-	.else .rows { margin-top: 4px; }
 
 	/* Resume is a link (no state change) dressed as the accent button */
 	.resume {
