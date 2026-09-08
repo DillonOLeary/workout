@@ -49,12 +49,6 @@ export type SessionStarted = Event<
 		at: string;
 		/** 'live' = the floor walked it; 'after' = written in one shot, backdated */
 		mode: 'live' | 'after';
-		/**
-		 * A subset of the day's exercises, by name — "just the calf stretch".
-		 * Absent = the whole day. The plan still says what each one is; this
-		 * only says which of them this session set out to do.
-		 */
-		pick?: string[];
 	} & Workout
 >;
 

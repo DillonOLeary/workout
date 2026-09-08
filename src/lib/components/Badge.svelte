@@ -2,14 +2,12 @@
 	import type { Snippet } from 'svelte';
 
 	/**
-	 * One vocabulary: volt = earned (the level-up); paper-2 with an ink
-	 * outline = where you are now (a session still open); paper-2 alone = a
-	 * plain fact. No amber anywhere — nothing in the app is a warning.
+	 * One vocabulary: paper-2 with an ink outline = where you are now (a
+	 * session still open); paper-2 alone = a plain fact. The ↑ pill that
+	 * marks an earned set is its own span where it appears — never a badge.
+	 * No amber anywhere — nothing in the app is a warning.
 	 */
-	let {
-		tone = 'neutral',
-		children
-	}: { tone?: 'neutral' | 'levelup' | 'open'; children: Snippet } = $props();
+	let { tone = 'neutral', children }: { tone?: 'neutral' | 'open'; children: Snippet } = $props();
 </script>
 
 <span class="badge {tone}">{@render children()}</span>
@@ -30,6 +28,5 @@
 		color: var(--ink-2);
 		white-space: nowrap;
 	}
-	.badge.levelup { background: var(--volt); border-color: var(--ink); color: var(--ink); }
 	.badge.open { background: var(--paper-2); border-color: var(--ink); color: var(--ink); }
 </style>

@@ -59,7 +59,6 @@
 	const title = dayTitle(plan, workout);
 	const cue = workout.kind === 'lift' ? cueFor(plan, workout.day) : plan.cue;
 	const sessionAt = session.at;
-	const pick = session.pick;
 	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch days */
 	const stretchPool: Exercise[] = stretchDays(plan).flatMap((d) => plan.days[d]);
 
@@ -112,12 +111,12 @@
 	// svelte-ignore state_referenced_locally
 	const initialAdd = (page.url.searchParams.get('add') ?? '').split(',').filter(Boolean);
 	let added = $state<string[]>(initialAdd);
-	let extra = $derived([...added, ...loggedOutside(plan, workout, pick, entries)]);
-	let steps = $derived(sessionSteps(plan, workout, { pick, extra }));
+	let extra = $derived([...added, ...loggedOutside(plan, workout, entries)]);
+	let steps = $derived(sessionSteps(plan, workout, extra));
 	let exercises = $derived.by(() => {
 		const seen = new Set<string>();
 		const out: Exercise[] = [];
-		for (const s of steps) if (s.ex && !seen.has(s.ex.name)) { seen.add(s.ex.name); out.push(s.ex); }
+		for (const s of steps) if (s.kind === 'set' && !seen.has(s.ex.name)) { seen.add(s.ex.name); out.push(s.ex); }
 		return out;
 	});
 	let totalSets = $derived(steps.filter((s) => s.kind === 'set').length);
@@ -152,7 +151,7 @@
 	const initialStep = (() => {
 		// svelte-ignore state_referenced_locally
 		const known = sessionEntries(data.events, session.id);
-		const ss = sessionSteps(plan, workout, { pick, extra: [...initialAdd, ...loggedOutside(plan, workout, pick, known)] });
+		const ss = sessionSteps(plan, workout, [...initialAdd, ...loggedOutside(plan, workout, known)]);
 		// Number(null) is 0 — a missing param must not read as "step 0"
 		// svelte-ignore state_referenced_locally
 		const raw = page.url.searchParams.get('step');
@@ -168,9 +167,9 @@
 	let editing = $state<string | null>(null);
 
 	let st = $derived<Step | undefined>(steps[stepI]);
-	let ex = $derived<Exercise | undefined>(st?.ex);
+	// the step's kind says what it carries: only a set has an exercise
+	let ex = $derived<Exercise | undefined>(st?.kind === 'set' ? st.ex : undefined);
 	let atSet = $derived(st?.kind === 'set');
-	let isHold = $derived(atSet && ex?.kind === 'hold');
 	/** a stretch: a fixed hold, nothing to dial — Start 45s, the bell, the other side */
 	let fixed = $derived(!!ex && isFixedHold(ex));
 	let stepDone = $derived(!!st && progress.done.has(st.key));
@@ -178,8 +177,9 @@
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
 	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && isSet(e.measure)).length;
 	let editStep = $derived(editing ? steps.find((s) => s.key === editing) : undefined);
+	let editEx = $derived(editStep?.kind === 'set' ? editStep.ex : undefined);
 	/** what the tiles are dialling: the set being fixed, else the current one */
-	let dialEx = $derived(editStep?.ex ?? ex);
+	let dialEx = $derived(editEx ?? ex);
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileBW = $derived(!!dialEx && dialEx.kind !== 'load');
 
@@ -188,7 +188,9 @@
 	   stage counts DOWN and the bell logs it: the full target for a hold,
 	   "it happened" for a drill. Drop early and the primary logs what was
 	   actually done. */
-	let hold = $state<{ end: number; target: number; kind: 'hold' | 'timed' } | null>(null);
+	// a hold knows its exercise (the bell writes that exercise's measure); a drill is just a length
+	type Countdown = { target: number } & ({ kind: 'hold'; ex: Exercise } | { kind: 'timed' });
+	let hold = $state<(Countdown & { end: number }) | null>(null);
 	let remaining = $state<number | null>(null);
 	let live = $state(''); // the screen reader hears ten, and the bell — nothing else
 
@@ -199,7 +201,7 @@
 	let restEnd = $derived(st?.kind === 'set' && !stepDone ? restUntil(st, entries, plan) : null);
 	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
 	let resting = $derived(restEnd !== null && restLeft > 0);
-	let restTotal = $derived(st?.ex ? restFor(plan, st.ex) : 0);
+	let restTotal = $derived(st?.kind === 'set' ? restFor(plan, st.ex) : 0);
 	let restFrac = $derived(resting && restTotal ? restLeft / restTotal : 0);
 	let counting: number | null = null; // the rest whose bell is still owed
 	$effect(() => {
@@ -233,7 +235,7 @@
 				remaining = null;
 				ringBell();
 				live = 'Done';
-				enqueue(h.kind === 'hold' ? holdMeasure(h.target, h.target) : { of: 'step' });
+				enqueue(h.kind === 'hold' ? holdMeasure(h.ex, h.target, h.target) : { of: 'step' });
 			} else {
 				remaining = r;
 			}
@@ -265,7 +267,7 @@
 	/** What the tiles show for the set about to be logged: the rule's nextSet, from this session's own entries. */
 	function preload(i: number) {
 		const s = steps[i];
-		if (!s || s.kind !== 'set' || !s.ex) return;
+		if (!s || s.kind !== 'set') return;
 		const e = s.ex;
 		const prior = entries
 			.filter((x) => x.item === e.name && x.index < s.index && isSet(x.measure))
@@ -307,7 +309,7 @@
 		if (editing === key || (st && key === st.key)) return cancelEdit();
 		const s = steps.find((x) => x.key === key);
 		const e = s && entryFor(s);
-		if (!s || !e || s.kind !== 'set' || !s.ex) return;
+		if (!s || !e || s.kind !== 'set') return;
 		editing = key;
 		hold = null;
 		remaining = null;
@@ -321,7 +323,7 @@
 	function saveEdit() {
 		const s = editStep;
 		const e = s && entryFor(s);
-		if (!s || !e || !s.ex) return;
+		if (!s || s.kind !== 'set' || !e) return;
 		const target = e.measure.of === 'hold' ? e.measure.target : undefined;
 		const measure = measureFor(s.ex, { load: weight, count: reps, ...(target !== undefined ? { target } : {}) });
 		if (JSON.stringify(measure) !== JSON.stringify(e.measure)) push('correct', s, measure);
@@ -343,10 +345,10 @@
 			failed ? 'failed' : saving ? 'saving' : done ? 'done' : cur ? 'current' : 'upcoming';
 		switch (s.kind) {
 			case 'prep':
-				return { key: s.key, label: s.label, value: s.text ?? '', note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
+				return { key: s.key, label: s.label, value: s.text, note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
 			case 'timed':
-				if (cur && hold && !e) return { key: s.key, label: s.label, value: s.text ?? '', note: 'now', state: 'running', prose: true };
-				return { key: s.key, label: s.label, value: s.text ?? '', note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
+				if (cur && hold && !e) return { key: s.key, label: s.label, value: s.text, note: 'now', state: 'running', prose: true };
+				return { key: s.key, label: s.label, value: s.text, note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
 			case 'run': {
 				if (e && e.measure.of === 'duration')
 					return { key: s.key, label: 'RUN', value: `${e.measure.minutes} min`, note: '✓', state: state(true) };
@@ -354,7 +356,7 @@
 				return { key: s.key, label: 'RUN', value: `${s.minutes} min`, state: 'upcoming' };
 			}
 			case 'set': {
-				const x = s.ex!;
+				const x = s.ex;
 				// last time's count for THIS set, muted after the value — the one
 				// place the ledger speaks on the floor
 				const was = last?.sets[s.index - 1];
@@ -386,7 +388,7 @@
 	});
 
 	/* ---------- the lines above the table ---------- */
-	let heading = $derived(!st ? 'Done' : st.kind === 'set' ? st.ex!.name : st.section);
+	let heading = $derived(!st ? 'Done' : st.kind === 'set' ? st.ex.name : st.section);
 	let weekMin = $derived(weekRunMinutes(data.events, opened));
 	let meta = $derived.by(() => {
 		if (!st) return '';
@@ -395,7 +397,7 @@
 			return `${st.section.toUpperCase()} · STEP ${st.index} OF ${n}`;
 		}
 		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${runTarget(plan)} MIN THIS WEEK`;
-		const x = st.ex!;
+		const x = st.ex;
 		// a stretch has no target to state — it says how long, and which side
 		if (isFixedHold(x)) return holdLine(x, st.index);
 		return `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind === 'reps' ? ` · ${x.equip.toUpperCase()}` : ''}`;
@@ -407,7 +409,7 @@
 		if (!st || editing) return null;
 		if (st.kind === 'prep' || st.kind === 'timed') return cue ?? null;
 		if (st.kind === 'run') return plan.run?.note ?? null;
-		const x = st.ex!;
+		const x = st.ex;
 		if (setsDoneFor(x.name) > 0) return null;
 		return loadHint(suggestionFor(x), x);
 	});
@@ -422,7 +424,7 @@
 		if (!st || allDone) return null;
 		if (hold) {
 			const left = remaining ?? hold.target;
-			const what = hold.kind === 'hold' ? 'HOLD' : (st.name ?? 'GO').toUpperCase();
+			const what = hold.kind === 'hold' ? 'HOLD' : st.kind === 'timed' ? st.name.toUpperCase() : 'GO';
 			return {
 				value: hold.target >= 60 ? mmss(left * 1000) : String(left),
 				note: `${what} · OF ${durationLabel(hold.target).toUpperCase()}`,
@@ -431,17 +433,17 @@
 		}
 		if (resting) return { value: String(restLeft), note: `REST · OF ${restTotal}S`, frac: restFrac };
 		if (st.kind === 'run') {
-			const total = (st.minutes ?? 0) * 60000;
+			const total = st.minutes * 60000;
 			return { value: mmss(runElapsed), note: `RUN · OF ${st.minutes} MIN`, frac: total ? Math.max(0, 1 - runElapsed / total) : 0 };
 		}
 		return null;
 	});
-	let glyphName = $derived(editStep?.ex?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : undefined) ?? '');
+	let glyphName = $derived(editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : undefined) ?? '');
 	let holdRunning = $derived(hold !== null);
 
 	/* ---------- the write path ---------- */
 	// the exercise decides which variant a set writes — never the screen
-	const holdMeasure = (seconds: number, target: number): Measure => measureFor(ex!, { load: 0, count: seconds, target });
+	const holdMeasure = (x: Exercise, seconds: number, target: number): Measure => measureFor(x, { load: 0, count: seconds, target });
 
 	function push(op: LocalEntry['op'], s: Step, measure: Measure) {
 		errMsg = null;
@@ -469,14 +471,14 @@
 		if (steps[next].section === s.section) goTo(next);
 	}
 
-	function logSetNow() {
+	function logSetNow(x: Exercise) {
 		if (performance.now() - lastPress < 350) return; // accidental double-tap
 		lastPress = performance.now();
-		enqueue(measureFor(ex!, { load: weight, count: reps }));
+		enqueue(measureFor(x, { load: weight, count: reps }));
 	}
 
 	/** timed: one button — start the countdown, or log the early drop */
-	function startOrDone(kind: 'hold' | 'timed', target: number) {
+	function startOrDone(next: Countdown) {
 		if (performance.now() - lastPress < 350) return;
 		lastPress = performance.now();
 		if (hold) {
@@ -484,10 +486,10 @@
 			const h = hold;
 			hold = null;
 			remaining = null;
-			enqueue(h.kind === 'hold' ? holdMeasure(held, h.target) : { of: 'step' });
+			enqueue(h.kind === 'hold' ? holdMeasure(h.ex, held, h.target) : { of: 'step' });
 		} else {
-			remaining = target;
-			hold = { end: Date.now() + target * 1000, target, kind };
+			remaining = next.target;
+			hold = { ...next, end: Date.now() + next.target * 1000 };
 		}
 	}
 
@@ -603,10 +605,10 @@
 		if (allDone) return void finishNow();
 		if (stepDone) return goTo(stepI + 1);
 		if (st.kind === 'prep') return enqueue({ of: 'step' });
-		if (st.kind === 'timed') return startOrDone('timed', st.seconds ?? 0);
+		if (st.kind === 'timed') return startOrDone({ kind: 'timed', target: st.seconds });
 		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
-		if (isHold) return startOrDone('hold', reps);
-		logSetNow();
+		if (st.ex.kind === 'hold') return startOrDone({ kind: 'hold', target: reps, ex: st.ex });
+		logSetNow(st.ex);
 	}
 
 	/* ---------- the one big button ---------- */
@@ -616,10 +618,12 @@
 		if (n.section === st?.section) return n.kind === 'set' ? 'Next set' : 'Next step';
 		return `Next: ${n.section}`;
 	});
-	let sideNow = $derived(atSet && ex?.side === 'sets' && !isHold ? (st!.index % 2 === 1 ? 'left' : 'right') : null);
+	let sideNow = $derived(
+		st?.kind === 'set' && st.ex.side === 'sets' && st.ex.kind !== 'hold' ? (st.index % 2 === 1 ? 'left' : 'right') : null
+	);
 	let primaryLabel = $derived(
 		editing
-			? `Save ${editStep?.ex?.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`
+			? `Save ${editEx?.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`
 			: allDone
 				? finishing
 					? 'Saving…'
@@ -633,10 +637,10 @@
 							: st.kind === 'timed'
 								? hold
 									? 'Done early'
-									: `Start ${durationLabel(st.seconds ?? 0)}`
+									: `Start ${durationLabel(st.seconds)}`
 								: st.kind === 'run'
 									? 'Stop here'
-									: isHold
+									: st.ex.kind === 'hold'
 										? hold
 											? 'Done early'
 											: `Start ${reps}s`

@@ -58,7 +58,7 @@
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
 	let liveEntries = $derived(session ? sessionEntries(data.events, session.id) : []);
 	let liveSteps = $derived(
-		session ? sessionSteps(floorPlan, session.workout, { pick: session.pick, extra: loggedOutside(floorPlan, session.workout, session.pick, liveEntries) }) : []
+		session ? sessionSteps(floorPlan, session.workout, loggedOutside(floorPlan, session.workout, liveEntries)) : []
 	);
 	let liveProgress = $derived(sessionProgress(liveSteps, liveEntries));
 	let liveLine = $derived.by(() => {

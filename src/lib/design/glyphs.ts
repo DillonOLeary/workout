@@ -382,8 +382,7 @@ export const POSE_BY_NAME: Record<string, string> = {
 	'Goblet Squat': 'goblet',
 	'Deep Goblet Squat': 'gobletdeep',
 	'Chest Press': 'chestpress',
-	'Face Pull': 'facepull',
-	// the same movement with a band for the cable — the pose fits as drawn
+	// drawn for the cable version; the movement is the same with a band
 	'Band Face Pull': 'facepull',
 	'Lat Pulldown': 'pulldown',
 	'Romanian Deadlift': 'rdl',

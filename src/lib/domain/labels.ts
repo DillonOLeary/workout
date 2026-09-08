@@ -98,11 +98,6 @@ export function receiptLine(minutes: number, warm: boolean, cool: boolean): stri
 	return `${minutes} min${did ? ` · ${did}` : ''}.`;
 }
 
-/** "3 sets" · "2 sets, one per side" — what a "set" counts on this movement. */
-export function setsLabel(ex: Exercise): string {
-	return ex.side === 'sets' ? `${ex.sets} sets, one per side` : `${ex.sets} sets`;
-}
-
 /** What a level-up costs here: a rack step, or a fixed increment. */
 export function stepLabel(ex: Exercise): string {
 	if (ex.kind === 'hold') return `+${ex.inc}s`;

@@ -10,10 +10,7 @@ import type { Measure } from './measure';
  * Anything non-deterministic (ids, timestamps) is generated at the edge —
  * in the form actions — and passed IN, so the decider stays a pure function.
  */
-export type StartSession = Command<
-	'StartSession',
-	{ session: string; plan: string; at: string; pick?: string[] } & Workout
->;
+export type StartSession = Command<'StartSession', { session: string; plan: string; at: string } & Workout>;
 
 /** One entry, live, into the session in progress. */
 export type LogEntry = Command<

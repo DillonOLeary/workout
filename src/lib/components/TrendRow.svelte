@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import { durationMs } from '$lib/design/motion';
 	import { setsLine, unitOf } from '$lib/domain/labels';
 	import type { Trend } from '$lib/domain/projections';
 	import type { Exercise } from '$lib/domain/plan';
@@ -31,6 +32,7 @@
 		];
 	});
 	const recent = $derived([...trend.points].reverse());
+	const OPEN = durationMs('--dur-med', 180);
 </script>
 
 <div class="row" class:open>
@@ -43,7 +45,7 @@
 		<span class="sentence {trend.tone}" class:clip={!open}>{trend.sentence}</span>
 	</button>
 	{#if open}
-		<div class="hist" transition:slide={{ duration: 180 }}>
+		<div class="hist" transition:slide={{ duration: OPEN }}>
 			{#each recent as p (p.at)}
 				<div class="hrow">
 					<span class="hdate">{p.dateLabel}</span>

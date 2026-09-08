@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, plannedValue, prepLabel, rangeLabel, receiptLine, setValue, setsLabel, setsLine, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
+import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, plannedValue, prepLabel, rangeLabel, receiptLine, setValue, setsLine, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
@@ -75,9 +75,7 @@ describe('the plan’s numbers', () => {
 		expect(receiptLine(38, true, false)).toBe('38 min · warm-up done.');
 		expect(receiptLine(12, false, false)).toBe('12 min.');
 	});
-	it('says what a set counts and what a level-up costs', () => {
-		expect(setsLabel(goblet)).toBe('3 sets');
-		expect(setsLabel(copenhagen)).toBe('2 sets, one per side');
+	it('says what a level-up costs', () => {
 		expect(stepLabel(goblet)).toBe('next dumbbell up');
 		expect(stepLabel(press)).toBe('+5 lb');
 		expect(stepLabel(plank)).toBe('+5s');

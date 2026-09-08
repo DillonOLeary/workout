@@ -13,34 +13,17 @@
   --volt-deep: #A8D32A;
   --volt-tint: #EAF9C4;
 
-  --signal-green: #2E7D32;
+  /* the one signal: red, and only ever after intent. No amber, no green. */
   --signal-red: #C43D2B;
-  /* no amber: red is the only signal, and only ever after intent */
 
-  /* Semantic aliases */
+  /* Semantic aliases — only the ones a screen reaches for */
   --text-body: var(--ink);
-  --text-muted: var(--ink-3);
-  --text-secondary: var(--ink-2);
-  --text-on-ink: var(--paper);
-  --text-on-volt: var(--ink);
 
   --surface-page: var(--paper);
   --surface-card: var(--white);
   --surface-sunken: var(--paper-2);
-  --surface-inverse: var(--ink);
 
-  --action-primary: var(--ink);
-  --action-accent: var(--volt);
-  --action-accent-hover: var(--volt-deep);
-
-  --border-strong: var(--ink);
   --border-soft: var(--paper-3);
 
-  --levelup: var(--volt);
-  --levelup-text: var(--ink);
   --danger: var(--signal-red);
-  --success: var(--signal-green);
-
-  --focus-ring: var(--ink);
-  --focus-ring-offset: var(--volt);
 }

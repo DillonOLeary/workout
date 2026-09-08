@@ -80,29 +80,30 @@ describe('sessionSteps', () => {
 		expect(sessionSteps(plan, lift('Z'))).toEqual([]);
 		expect(sessionSteps(undefined, lift('A'))).toEqual([]);
 	});
-	it('honours a pick — just the exercises the session set out to do', () => {
-		expect(dayExercises(plan, lift('S'), ['Hip flexor stretch']).map((e) => e.name)).toEqual(['Hip flexor stretch']);
-		const steps = sessionSteps(plan, lift('S'), { pick: ['Hip flexor stretch'] });
-		expect(steps.map((s) => s.label)).toEqual(['HOLD 1 · L', 'HOLD 2 · R']);
-		expect(steps[0].section).toBe('Hip flexor stretch');
-	});
 	it('appends an added exercise as a section after the plan, once, from any day', () => {
-		const steps = sessionSteps(plan, lift('A'), { extra: ['Calf stretch', 'Calf stretch', 'Goblet Squat', 'Nope'] });
+		const steps = sessionSteps(plan, lift('A'), ['Calf stretch', 'Calf stretch', 'Goblet Squat', 'Nope']);
 		expect(steps.slice(-2).map((s) => s.label)).toEqual(['HOLD 1 · L', 'HOLD 2 · R']);
 		expect(steps.filter((s) => s.section === 'Calf stretch')).toHaveLength(2);
 		expect(steps.filter((s) => s.section === 'Goblet Squat')).toHaveLength(3);
-		expect(sessionSteps(plan, RUN, { extra: ['Calf stretch'] }).slice(-1)[0].section).toBe('Calf stretch');
+		expect(sessionSteps(plan, RUN, ['Calf stretch']).slice(-1)[0].section).toBe('Calf stretch');
 	});
-	it('finds what a session logged outside its steps, so a reload keeps the section', () => {
+	it('finds what a session logged outside its day, so a reload keeps the section', () => {
 		const logged = [
 			entry('Goblet Squat', 1, iso(0), { of: 'load', load: 35, reps: 10 }),
 			entry('Calf stretch', 1, iso(0), { of: 'hold', seconds: 45, target: 45 }),
 			entry('Calf stretch', 2, iso(0), { of: 'hold', seconds: 45, target: 45 }),
 			entry('Warm-up', 1, iso(0))
 		];
-		expect(loggedOutside(plan, lift('A'), undefined, logged)).toEqual(['Calf stretch']);
-		// a pick narrows the plan, so anything outside it — from any day — is an extra
-		expect(loggedOutside(plan, lift('S'), ['Hip flexor stretch'], logged)).toEqual(['Goblet Squat', 'Calf stretch']);
+		expect(loggedOutside(plan, lift('A'), logged)).toEqual(['Calf stretch']);
+		expect(loggedOutside(plan, lift('S'), logged)).toEqual(['Goblet Squat']);
+		expect(dayExercises(plan, RUN)).toEqual([]);
+	});
+	it('carries only what its kind needs', () => {
+		for (const s of sessionSteps(plan, RUN)) {
+			if (s.kind === 'timed') expect(s.seconds).toBeGreaterThan(0);
+			if (s.kind === 'run') expect(s.minutes).toBe(30);
+			expect('ex' in s).toBe(s.kind === 'set');
+		}
 	});
 });
 
@@ -120,11 +121,10 @@ describe('sessionProgress', () => {
 	});
 	it('is finished when every step is', () => {
 		const all: Entry[] = steps.map((s) =>
-			entry(s.item, s.index, iso(0), s.kind === 'set' ? (s.ex!.kind === 'hold' ? { of: 'hold', seconds: 10 } : { of: 'load', load: 35, reps: 10 }) : { of: 'step' })
+			entry(s.item, s.index, iso(0), s.kind === 'set' ? (s.ex.kind === 'hold' ? { of: 'hold', seconds: 10 } : { of: 'load', load: 35, reps: 10 }) : { of: 'step' })
 		);
 		const p = sessionProgress(steps, all);
 		expect(p.current).toBe(steps.length);
-		expect(p.prep).toBe(4);
 		expect(p.sets).toBe(5);
 	});
 	it('starts the run clock when the step before it ended, else at the session', () => {

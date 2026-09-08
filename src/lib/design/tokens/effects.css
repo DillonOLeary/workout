@@ -1,7 +1,6 @@
 /* LEDGER — borders, radii, shadows */
 :root {
   --border-w: 2px;
-  --border-w-heavy: 3px;
 
   --radius-sm: 8px;
   --radius-md: 12px;

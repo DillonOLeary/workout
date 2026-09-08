@@ -10,6 +10,7 @@
 
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
+	import { durationMs } from '$lib/design/motion';
 	import { holdDose } from '$lib/domain/labels';
 	import type { Exercise } from '$lib/domain/plan';
 
@@ -60,10 +61,10 @@
 	$effect(() => {
 		if (!open) confirming = false;
 	});
-	// the sheet slides, the scrim fades — unless motion is unwelcome
-	const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-	const SLIDE = still ? 0 : 320;
-	const FADE = still ? 0 : 180;
+	// the sheet slides (a reveal), the scrim fades (a hover's beat) — the
+	// tokens say how long, and reduced motion says not at all
+	const SLIDE = durationMs('--dur-slow', 320);
+	const FADE = durationMs('--dur-med', 180);
 </script>
 
 {#if open}

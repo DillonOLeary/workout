@@ -197,12 +197,11 @@ function parsePrepItem(v: unknown, where: string): PrepItem {
 	throw new Error(`${where} must be a string or a list of strings and timed items`);
 }
 
-/** A step list: a plain string is one step (older plans wrote the warm-up as one sentence). */
+/** A step list: one item per line, each a string or a timed item. */
 function stepList(v: unknown, where: string): PrepItem[] | undefined {
 	if (v === undefined) return undefined;
-	if (typeof v === 'string') return [v];
 	if (Array.isArray(v)) return v.map((x) => parsePrepItem(x, where));
-	throw new Error(`${where} must be a string or a list of strings and timed items`);
+	throw new Error(`${where} must be a list of strings and timed items`);
 }
 
 function parseExercise(raw: unknown, day: string): Exercise {
@@ -231,10 +230,11 @@ function parseExercise(raw: unknown, day: string): Exercise {
 		...(e.note !== undefined ? { note: e.note as string } : {}),
 		...(e.rest !== undefined ? { rest: e.rest as number } : {})
 	};
-	// the legacy encoding: before `kind`, a hold was mode: 'seconds' +
-	// bodyweight: true and a bodyweight count was bodyweight: true alone
-	const kind = e.kind ?? (e.bodyweight === true ? (e.mode === 'seconds' ? 'hold' : 'reps') : 'load');
-	switch (kind) {
+	// the numbers must agree with each other, not just be numbers
+	if (base.lo > base.hi) throw new Error(`"${name}" lo must not exceed hi`);
+	if (base.side === 'sets' && base.sets % 2 !== 0)
+		throw new Error(`"${name}" side "sets" needs an even number of sets — one per side`);
+	switch (e.kind) {
 		case 'load': {
 			if (e.rack !== undefined && !Object.keys(RACKS).includes(e.rack as string))
 				throw new Error(`"${name}" rack must be ${Object.keys(RACKS).join(', ')} (omit it for machines)`);
@@ -248,8 +248,12 @@ function parseExercise(raw: unknown, day: string): Exercise {
 				...(e.each !== undefined ? { each: e.each as boolean } : {})
 			};
 		}
-		case 'hold':
-			return { ...base, kind: 'hold', inc: num('inc') };
+		case 'hold': {
+			const inc = num('inc');
+			// a hold with a range climbs by inc; a fixed hold (a stretch) has nowhere to climb
+			if (base.lo < base.hi && inc <= 0) throw new Error(`"${name}" needs a positive inc to progress`);
+			return { ...base, kind: 'hold', inc };
+		}
 		case 'reps':
 			return { ...base, kind: 'reps' };
 		default:
@@ -260,17 +264,8 @@ function parseExercise(raw: unknown, day: string): Exercise {
 function parseRun(v: unknown): RunDay {
 	if (!isObj(v) || typeof v.title !== 'string' || !positive(v.minutes)) throw new Error('run needs a title and positive minutes');
 	if (v.note !== undefined && typeof v.note !== 'string') throw new Error('run note must be a string');
-	let warmup = stepList(v.warmup, 'run warmup');
-	let cooldown = stepList(v.cooldown, 'run cooldown');
-	// the retired shape: `walk: N` was N easy minutes before and after — the
-	// same thing as one timed item on each side, so it reads back as that
-	if (v.walk !== undefined) {
-		if (typeof v.walk !== 'number' || v.walk < 0) throw new Error('run walk must be minutes ≥ 0');
-		if (v.walk > 0) {
-			warmup ??= [{ name: 'Walk', minutes: v.walk }];
-			cooldown ??= [{ name: 'Walk', minutes: v.walk }];
-		}
-	}
+	const warmup = stepList(v.warmup, 'run warmup');
+	const cooldown = stepList(v.cooldown, 'run cooldown');
 	return {
 		title: v.title,
 		minutes: v.minutes,
@@ -305,10 +300,12 @@ function parseDayInfo(v: unknown): Record<string, DayInfo> {
 
 /**
  * A plan from the outside — a pasted JSON row, or a row read back from the
- * table. Parse, don't validate: the result is rebuilt field by field, so a
- * stored row in last month's shape reads back in this month's, and a typo
- * in a pasted plan is refused with a sentence instead of becoming a step
- * nobody asked for.
+ * table. Parse, don't validate: the result is rebuilt field by field, and
+ * anything the fields can't say about each other (a range upside down, a
+ * stretch day with a squat on it, a run on a plan that has none) is refused
+ * here with a sentence, instead of becoming a step nobody asked for. There
+ * are no legacy readers: the shipped plans are rewritten from code on every
+ * boot, and the table has never held a custom row (checked 2026-09-08).
  */
 export function parsePlan(raw: unknown): Plan {
 	const p = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
@@ -323,12 +320,16 @@ export function parsePlan(raw: unknown): Plan {
 	const warmup = stepList(p.warmup, 'warmup');
 	const cooldown = stepList(p.cooldown, 'cooldown');
 	const run = p.run === undefined ? undefined : parseRun(p.run);
+	if (p.runs === false && run) throw new Error('runs is false but a run is defined');
 	const dayInfo = p.dayInfo === undefined ? undefined : parseDayInfo(p.dayInfo);
 	if (!isObj(p.days) || !Object.keys(p.days).length) throw new Error('days must be a non-empty object');
 	const days: Record<string, Exercise[]> = {};
 	for (const [day, list] of Object.entries(p.days)) {
 		if (!Array.isArray(list) || !list.length) throw new Error(`day "${day}" needs a non-empty exercise list`);
 		days[day] = list.map((e) => parseExercise(e, day));
+		// a stretch day is a day of holds — that is what makes it one
+		if (dayInfo?.[day]?.kind === 'stretch' && days[day].some((ex) => ex.kind !== 'hold'))
+			throw new Error(`day "${day}" is a stretch day: every exercise must be a hold`);
 	}
 	return {
 		id: p.id,

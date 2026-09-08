@@ -104,7 +104,7 @@ bodyweight": a convention is exactly what a union exists to remove.
 
 | Event | Meaning |
 |---|---|
-| `SessionStarted` | a workout began: which plan, which **workout** (`{ kind: 'lift', day }` or `{ kind: 'run' }`), `mode` — `live` (the floor walked it) or `after` (written in one shot, backdated) — and, for a session that is just one stretch, a `pick` of the day's exercises |
+| `SessionStarted` | a workout began: which plan, which **workout** (`{ kind: 'lift', day }` or `{ kind: 'run' }`), and `mode` — `live` (the floor walked it) or `after` (written in one shot, backdated) |
 | `EntryLogged` | one entry: `item` + `index` is its identity, `measure` is what it measured |
 | `EntryCorrected` | a set you fixed: the same identity, the measure it should have carried. The original stays in the stream; every reader takes the last word |
 | `SessionFinished` | the workout ended |
@@ -149,6 +149,15 @@ read as `reps`) was checked against the whole stream before it was written,
 and its comment says so. `upcast.test.ts` pins every case, including that
 reading twice is reading once.
 
+A fourth habit keeps the file from growing stale: every case is **backed by
+rows**, and the file's header says how many (counted 2026-09-08 — 288
+`SetLogged`, 22 `RunLogged`, 66 `SessionStarted` without a `mode`, and so
+on). A legacy reader that reads nothing is dead code wearing a good excuse;
+a case leaves this file only when a fresh count says zero. That is the same
+test the plan parser was held to, and it has no legacy readers at all — the
+shipped plans are rewritten from code on every boot, and the table has never
+held a custom row.
+
 ### The decider — the write side
 
 [decider.ts](src/lib/domain/decider.ts) is three pure functions:
@@ -174,8 +183,10 @@ This file owns every "no" in the app. The two rules that protect history are
 the ones to study: `CorrectEntry` is allowed on the session in progress and on
 the latest finished one — anything older has already been read by the rule,
 and rewriting it would silently change what the next suggestion was based on
-— while `RemoveSession` works on any session, because removal is itself a
-fact and nothing is lost. A screen never re-checks either rule; it hides what
+— and a correction keeps what the set *measured* (state remembers each entry's
+variant, so a run's minutes can't be rewritten as a set), while
+`RemoveSession` works on any session, because removal is itself a fact and
+nothing is lost. A screen never re-checks either rule; it hides what
 the decider would refuse (By day opens rows inline on the latest card only,
 from `latestSession` in the layout's data), and the decider refuses it anyway.
 
@@ -312,10 +323,16 @@ set that hasn't reached the server yet still starts one. A warm-up line is a
 `prep` step you tick, or a `timed` one the floor counts down for you (a
 three-minute jog, thirty seconds of carioca per side); both *are* written, as
 `step` entries, so "Set 4/20" is honest after a reload — but the by-day view
-keeps them to one quiet line, and the progression rule never sees them. Two
-options shape a session: a `pick` narrows the day to the exercises it set
-out to do, and `extra` appends exercises added on the floor (a stretch from
-the ⋯ sheet) as sections after the plan's own.
+keeps them to one quiet line, and the progression rule never sees them. An
+`extra` list appends exercises added on the floor (a stretch from the ⋯
+sheet) as sections after the plan's own.
+
+`Step` is a discriminated union on `kind`, and each kind carries only what it
+needs — a `prep` step its text, a `timed` one its name and countdown, a `set`
+its exercise, the `run` its target. That is the same move as `Measure` and
+`Exercise`: a consumer switches on `kind`, the compiler narrows, and there is
+no set without an exercise to reach for with a `!`. The floor's `rowFor` is
+the place to see it pay off.
 
 ### Not everything is an event — and the plan has a boundary too
 
@@ -344,10 +361,15 @@ behind `restFor` / `runTarget` / `hasRuns` — no screen writes `?? 150` for
 itself.
 
 A plan row is data from outside, exactly like an event row — so `parsePlan`
-is its read boundary, and it runs on *read* as well as insert: legacy flags
-become a kind, a one-line warm-up becomes a list, the run's retired `walk: 5`
-becomes a timed item on each side, a pasted typo is refused with a sentence,
-and a stored row nobody can read is logged and skipped, never a 500. One consequence worth knowing: editing `DEFAULT_PLANS` in
+is its read boundary, and it runs on *read* as well as insert. It refuses
+more than bad types: anything the fields can't say about each other — a
+range upside down (`lo > hi`), a per-side movement with an odd set count, a
+hold with a range but no `inc` to climb it, a "stretch" day with a squat on
+it, a run on a plan that says it has none — is refused with a sentence, and a
+stored row nobody can read is logged and skipped, never a 500. Unlike the
+event stream, the plan table has no upcasters: the shipped plans are rewritten
+from code on every boot and the table has never held a custom row, so there
+is no old shape to read. One consequence worth knowing: editing `DEFAULT_PLANS` in
 [plans.ts](src/lib/domain/plans.ts) *is* the migration. `ensureReady`
 upserts the shipped plans on every boot, so a new exercise, a widened rep
 range or a rewritten note reaches every database the next time a worker
@@ -360,15 +382,16 @@ retired "Weighted Plank" is still `45s`, not `45`.
 
 `pnpm test` runs vitest over [src/lib/domain](src/lib/domain), one suite per
 layer: `decider.test.ts` (the write-side rules — including that a correction
-on anything but the latest session fails, and a removal on an older one does
-not), `upcast.test.ts` (every retired shape, and that reading twice is
-reading once), `progression.test.ts` (the rule, against a `History` literal —
+on anything but the latest session fails, that one changing a set's variant
+fails, and that a removal on an older one does not), `upcast.test.ts` (every
+retired shape, and that reading twice is reading once), `progression.test.ts` (the rule, against a `History` literal —
 no events needed), `labels.test.ts` (every phrase, as a string),
 `projections.test.ts` (the folds, fed the retired `SetLogged` shape on
 purpose so the boundary is proved every run; that a correction replaces its
 set; that `nextWorkout` skips the stretch day), `plan.test.ts` (the plan's
-boundary and its defaults), `steps.test.ts` (that `restUntil` counts from the
-local timestamp, that a pick narrows and an extra appends) and
+boundary — every contradiction it refuses — and its defaults),
+`steps.test.ts` (that `restUntil` counts from the local timestamp, that an
+extra appends, that a step carries only what its kind needs) and
 `racks.test.ts`. Two things make these cheap to write: nothing in the domain
 does I/O, and every fold that needs the time takes `now` as an argument — a
 test builds a history with "15 days ago" arithmetic and never touches the

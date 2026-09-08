@@ -39,8 +39,6 @@ export type SessionView = {
 	id: string;
 	/** what it was: one of the plan's lift days, or the run */
 	workout: Workout;
-	/** the subset of the day it set out to do; absent = the whole day */
-	pick?: string[];
 	plan: string;
 	at: string;
 	dateLabel: string;
@@ -80,7 +78,6 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 				view: {
 					id: e.data.session,
 					workout: workoutOf(e.data),
-					...(e.data.pick ? { pick: e.data.pick } : {}),
 					plan: e.data.plan,
 					at: e.data.at,
 					dateLabel: fmtDate(e.data.at),

@@ -1,7 +1,7 @@
 import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
-import { normaliseMeasure, validateMeasure } from './measure';
+import { normaliseMeasure, validateMeasure, type Measure } from './measure';
 import { upcast } from './upcast';
 
 /**
@@ -40,10 +40,11 @@ export type LedgerState = {
 	/** already removed — removing twice is a no-op, not an error */
 	removedSessions: Record<string, true>;
 	/**
-	 * every entry that landed, by session then identity. A repeat is a no-op,
-	 * not a duplicate; a correction needs an original to correct.
+	 * every entry that landed, by session then identity, and WHAT it measured.
+	 * A repeat is a no-op, not a duplicate; a correction needs an original to
+	 * correct, and keeps its variant — a run's minutes never become a set.
 	 */
-	logged: Record<string, Record<string, true>>;
+	logged: Record<string, Record<string, Measure['of']>>;
 };
 
 export const initialState = (): LedgerState => ({
@@ -81,7 +82,7 @@ function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
 			if (!forSession) return state;
 			return {
 				...state,
-				logged: { ...state.logged, [data.session]: { ...forSession, [entryKey(data.item, data.index)]: true } }
+				logged: { ...state.logged, [data.session]: { ...forSession, [entryKey(data.item, data.index)]: data.measure.of } }
 			};
 		}
 		case 'EntryCorrected':
@@ -113,27 +114,13 @@ export const evolve = (state: LedgerState, event: StoredEvent): LedgerState =>
 
 const isInt = (n: unknown): n is number => Number.isInteger(n);
 
-/** A pick is a list of names, or nothing — never an empty list, never a stray field. */
-function parsePick(pick: unknown): string[] | undefined {
-	if (pick === undefined) return undefined;
-	if (!Array.isArray(pick) || !pick.length || !pick.every((n) => typeof n === 'string' && n))
-		throw new ValidationError('A pick is a list of exercise names.');
-	return pick;
-}
-
 export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[] => {
 	switch (command.type) {
 		case 'StartSession': {
 			if (state.activeSession)
 				throw new IllegalStateError('A session is already in progress — finish it first.');
 			const { session, plan, at } = command.data;
-			const pick = parsePick(command.data.pick);
-			return [
-				{
-					type: 'SessionStarted',
-					data: { session, plan, at, mode: 'live', ...(pick ? { pick } : {}), ...workoutOf(command.data) }
-				}
-			];
+			return [{ type: 'SessionStarted', data: { session, plan, at, mode: 'live', ...workoutOf(command.data) } }];
 		}
 
 		case 'LogEntry': {
@@ -157,8 +144,11 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			if (session !== state.activeSession && session !== latestSessionOf(state))
 				throw new IllegalStateError('Only the latest session can be changed.');
 			if (!item || !isInt(index) || index < 1) throw new ValidationError('Entry has no identity.');
-			if (!state.logged[session]?.[entryKey(item, index)])
-				throw new IllegalStateError('Nothing logged there to correct.');
+			const was = state.logged[session]?.[entryKey(item, index)];
+			if (!was) throw new IllegalStateError('Nothing logged there to correct.');
+			// a correction changes the numbers, never what they measure: a run's
+			// minutes stay minutes, a set stays a set
+			if (was !== measure.of) throw new IllegalStateError('A correction keeps what the set measured.');
 			validateMeasure(measure);
 			return [{ type: 'EntryCorrected', data: { ...command.data, measure: normaliseMeasure(measure) } }];
 		}

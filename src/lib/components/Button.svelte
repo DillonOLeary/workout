@@ -3,7 +3,7 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	type Props = HTMLButtonAttributes & {
-		variant?: 'primary' | 'secondary' | 'accent' | 'ghost';
+		variant?: 'secondary' | 'accent' | 'ghost';
 		size?: 'md' | 'lg';
 		children: Snippet;
 	};
@@ -38,9 +38,6 @@
 	}
 	.btn:hover { background: var(--volt-tint); }
 	.btn:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
-
-	.btn.primary { background: var(--ink); color: var(--paper); }
-	.btn.primary:hover { background: var(--ink-2); }
 
 	.btn.accent { background: var(--volt); }
 	.btn.accent:hover { background: var(--volt-deep); }

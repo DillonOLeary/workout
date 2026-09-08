@@ -22,7 +22,6 @@ import {
  * is never written to the ledger. This file is the only place that knows
  * what a session IS; the floor renders steps, it never invents one.
  */
-export type StepKind = 'prep' | 'timed' | 'set' | 'run';
 
 /* what each step costs the clock, seconds — the honest "about N min" is the
    sum of these, rests included, not a guess per session */
@@ -30,10 +29,9 @@ const PREP_SECONDS = 75;
 const SET_SECONDS = 45;
 const COOLDOWN_SECONDS = 60;
 
-export type Step = {
+type StepBase = {
 	/** the entry identity — item#index */
 	key: string;
-	kind: StepKind;
 	/** the group the list shows it under: 'Warm-up', an exercise name, 'Cooldown', the run's title */
 	section: string;
 	/** EntryLogged.item */
@@ -42,32 +40,29 @@ export type Step = {
 	index: number;
 	/** 'STEP 1' · 'STEP 2 · L' · 'SET 2' · 'HOLD 2 · R' · 'RUN' */
 	label: string;
-	/** prep / timed: what the row says */
-	text?: string;
-	/** timed: the drill's name, for a glyph */
-	name?: string;
-	/** timed: the countdown */
-	seconds?: number;
-	/** set: the exercise */
-	ex?: Exercise;
-	/** run: the target minutes */
-	minutes?: number;
 	/** what this step costs the clock, seconds — for "about N min" */
 	estimate: number;
 };
 
-export type SessionOptions = {
-	/** the subset of the day's exercises this session set out to do (SessionStarted.pick) */
-	pick?: string[];
-	/** exercises added on the floor, by name — each becomes a section after the plan's */
-	extra?: string[];
-};
+/**
+ * Four kinds of step, and each carries only what its kind needs: a prep
+ * line has its text, a timed one its name and countdown, a set its
+ * exercise, the run its target. A consumer switches on `kind` and the
+ * compiler narrows — there is no set without an exercise to reach for.
+ */
+export type Step = StepBase &
+	(
+		| { kind: 'prep'; text: string }
+		| { kind: 'timed'; text: string; name: string; seconds: number }
+		| { kind: 'set'; ex: Exercise }
+		| { kind: 'run'; minutes: number }
+	);
+export type StepKind = Step['kind'];
 
-/** The day's exercises, narrowed to the pick when there is one. */
-export function dayExercises(plan: Plan | undefined, w: Workout, pick?: string[]): Exercise[] {
+/** The day's exercises; nothing for a run or a day the plan doesn't have. */
+export function dayExercises(plan: Plan | undefined, w: Workout): Exercise[] {
 	if (!plan || w.kind !== 'lift') return [];
-	const exercises = plan.days[w.day] ?? [];
-	return pick ? exercises.filter((ex) => pick.includes(ex.name)) : exercises;
+	return plan.days[w.day] ?? [];
 }
 
 /** Prep items as steps: a string is a line you tick, a timed item counts down — twice when it is per side. */
@@ -111,14 +106,17 @@ function setSteps(plan: Plan, ex: Exercise): Step[] {
 	return out;
 }
 
-/** The whole workout, in order. A lift day the plan doesn't have → no steps. */
-export function sessionSteps(plan: Plan | undefined, w: Workout, opts: SessionOptions = {}): Step[] {
+/**
+ * The whole workout, in order. A lift day the plan doesn't have → no steps.
+ * `extra` is exercises added on the floor, by name — each becomes a section
+ * after the plan's own, once.
+ */
+export function sessionSteps(plan: Plan | undefined, w: Workout, extra: string[] = []): Step[] {
 	if (!plan) return [];
-	const out: Step[] = w.kind === 'run' ? runSteps(plan) : liftSteps(plan, w.day, opts.pick);
 	if (w.kind === 'lift' && !plan.days[w.day]) return [];
-	// anything added on the floor comes after the plan's own sections, once
+	const out: Step[] = w.kind === 'run' ? runSteps(plan) : liftSteps(plan, w.day);
 	const have = new Set(out.map((s) => s.section));
-	for (const name of opts.extra ?? []) {
+	for (const name of extra) {
 		const ex = exerciseNamed(plan, name);
 		if (!ex || have.has(ex.name)) continue;
 		have.add(ex.name);
@@ -127,10 +125,9 @@ export function sessionSteps(plan: Plan | undefined, w: Workout, opts: SessionOp
 	return out;
 }
 
-function liftSteps(plan: Plan, day: string, pick?: string[]): Step[] {
-	if (!plan.days[day]) return [];
+function liftSteps(plan: Plan, day: string): Step[] {
 	const out: Step[] = prepSteps(warmupFor(plan, day), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
-	for (const ex of dayExercises(plan, { kind: 'lift', day }, pick)) out.push(...setSteps(plan, ex));
+	for (const ex of plan.days[day] ?? []) out.push(...setSteps(plan, ex));
 	out.push(...prepSteps(cooldownFor(plan, day), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
 	return out;
 }
@@ -158,11 +155,11 @@ export function estimateMinutes(steps: Step[], from = 0): number {
 export type Entry = EntryLogged['data'];
 
 /**
- * Exercises this session logged that its steps don't cover — a stretch added
- * from the ⋯ sheet, say. Handed back as `extra` so a reload keeps the section.
+ * Exercises this session logged that its plan day doesn't cover — a stretch
+ * added from the ⋯ sheet, say. Handed back as `extra` so a reload keeps the section.
  */
-export function loggedOutside(plan: Plan | undefined, w: Workout, pick: string[] | undefined, entries: Entry[]): string[] {
-	const planned = new Set(dayExercises(plan, w, pick).map((ex) => ex.name));
+export function loggedOutside(plan: Plan | undefined, w: Workout, entries: Entry[]): string[] {
+	const planned = new Set(dayExercises(plan, w).map((ex) => ex.name));
 	const out: string[] = [];
 	for (const e of entries) {
 		if (!isSet(e.measure) || planned.has(e.item) || out.includes(e.item)) continue;
@@ -175,12 +172,12 @@ export function loggedOutside(plan: Plan | undefined, w: Workout, pick: string[]
  * Where a session stands, from its entries.
  *   done     — step keys that are behind you
  *   current  — the first step that isn't
+ *   sets     — how many sets have landed, for the crumb and the sheet
  */
 export type Progress = {
 	done: Set<string>;
 	current: number;
 	sets: number;
-	prep: number;
 };
 
 /**
@@ -190,7 +187,7 @@ export type Progress = {
  * logged has nothing to wait for.
  */
 export function restUntil(step: Step, entries: Entry[], plan: Plan | undefined): number | null {
-	if (step.kind !== 'set' || step.index === 1 || !step.ex) return null;
+	if (step.kind !== 'set' || step.index === 1) return null;
 	const prev = entries.find((e) => e.item === step.item && e.index === step.index - 1);
 	return prev ? Date.parse(prev.at) + restFor(plan, step.ex) * 1000 : null;
 }
@@ -211,12 +208,7 @@ export function sessionProgress(steps: Step[], entries: Entry[]): Progress {
 	for (const s of steps) if (logged.has(s.key)) done.add(s.key);
 	let current = steps.findIndex((s) => !done.has(s.key));
 	if (current < 0) current = steps.length;
-	return {
-		done,
-		current,
-		sets: entries.filter((e) => isSet(e.measure)).length,
-		prep: entries.filter((e) => e.measure.of === 'step').length
-	};
+	return { done, current, sets: entries.filter((e) => isSet(e.measure)).length };
 }
 
 /**
@@ -230,7 +222,7 @@ export function positionLabel(i: number, steps: Step[]): string {
 	if (s.kind === 'run') return 'Run';
 	if (s.kind === 'set') {
 		const sets = steps.filter((x) => x.kind === 'set');
-		const word = sets.every((x) => x.ex?.kind === 'hold') ? 'Hold' : 'Set';
+		const word = sets.every((x) => x.kind === 'set' && x.ex.kind === 'hold') ? 'Hold' : 'Set';
 		return `${word} ${sets.indexOf(s) + 1}/${sets.length}`;
 	}
 	const peers = steps.filter((x) => x.section === s.section);

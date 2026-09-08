@@ -24,16 +24,6 @@ describe('decide — sessions', () => {
 		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT } }, initialState());
 		expect(e).toEqual(started);
 	});
-	it('carries a pick — a subset of the day — and refuses an empty one', () => {
-		const [e] = decide(
-			{ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'S', at: AT, pick: ['Calf stretch'] } },
-			initialState()
-		);
-		expect(e.type === 'SessionStarted' && e.data.pick).toEqual(['Calf stretch']);
-		expect(() =>
-			decide({ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'S', at: AT, pick: [] } }, initialState())
-		).toThrow(ValidationError);
-	});
 	it('refuses an entry with no session in progress', () => {
 		expect(() => decide(set(), initialState())).toThrow(IllegalStateError);
 	});
@@ -179,6 +169,12 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 		expect(() => decide(correct('s1', 2), withSet)).toThrow('Nothing logged there to correct.');
 		expect(() => decide(correct('s1', 1, { of: 'load', load: 40, reps: 0 }), withSet)).toThrow(ValidationError);
 		expect(() => decide(correct('nope'), withSet)).toThrow(IllegalStateError);
+	});
+	it('keeps what the set measured — the numbers change, the variant never does', () => {
+		expect(withSet.logged.s1['Goblet Squat#1']).toBe('load');
+		expect(() => decide(correct('s1', 1, { of: 'hold', seconds: 20 }), withSet)).toThrow('A correction keeps what the set measured.');
+		expect(() => decide(correct('s1', 1, { of: 'reps', reps: 8 }), withSet)).toThrow(IllegalStateError);
+		expect(decide(correct('s1', 1, { of: 'load', load: 30, reps: 12 }), withSet)).toHaveLength(1);
 	});
 	it('falls back to the previous session when the latest is removed', () => {
 		const two = [finish('s1'), start('s2'), finish('s2')].reduce(evolve, withSet);

@@ -11,13 +11,10 @@
   --text-lg: 20px;        /* buttons, primary body */
   --text-md: 17px;        /* body */
   --text-sm: 14px;        /* labels, captions */
-  --text-data-lg: 44px;   /* weight/rep readouts */
   --text-data: 22px;      /* inline data */
 
   --weight-black: 900;
   --weight-bold: 700;
-  --weight-medium: 500;
-  --weight-regular: 400;
 
   --leading-tight: 1.05;
   --leading-snug: 1.25;

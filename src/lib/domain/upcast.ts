@@ -18,6 +18,12 @@ import type { Measure } from './measure';
  * It is one-to-MANY: a stored RunLogged reads back as a whole backdated
  * session (started · one duration entry · finished), which is exactly what
  * logging a run after the fact writes today.
+ *
+ * Every case below is backed by rows. Counted in the store on 2026-09-08:
+ *   SetLogged 288 (56 timed, 71 at weight 0) · RunLogged 22 · RunRemoved 2 ·
+ *   SessionStruck 7 · SessionStarted without mode 66, with day: 'run' 5 ·
+ *   EntryLogged carrying plan/day 77, at load 0 4.
+ * Delete a case only when its count is zero — and count again first.
  */
 
 /* ---------- retired shapes, kept only so the cases below can read them ---- */
@@ -39,10 +45,7 @@ type SessionStruckV1 = { type: 'SessionStruck'; data: { session: string; at: str
  */
 type SessionStartedV1 = {
 	type: 'SessionStarted';
-	data: {
-		session: string; plan: string; at: string;
-		day?: string; kind?: 'lift' | 'run'; mode?: 'live' | 'after'; pick?: string[];
-	};
+	data: { session: string; plan: string; at: string; day?: string; kind?: 'lift' | 'run'; mode?: 'live' | 'after' };
 };
 /** EntryLogged and SessionFinished as first written: carrying plan/day nobody read. */
 type EntryLoggedV1 = {
@@ -69,12 +72,7 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			const d = (e as SessionStartedV1).data;
 			// the first shape spelled a run as day: 'run' — the one sentinel, retired here
 			const workout: Workout = d.kind === 'run' || d.day === 'run' ? RUN : { kind: 'lift', day: d.day ?? '' };
-			return [
-				{
-					type: 'SessionStarted',
-					data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', ...(d.pick ? { pick: d.pick } : {}), ...workout }
-				}
-			];
+			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', ...workout } }];
 		}
 		case 'EntryLogged': {
 			// rebuilt, not passed through: the first EntryLogged rows carried
