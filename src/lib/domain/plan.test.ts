@@ -63,6 +63,7 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(one({ ...stretch, sets: 4 })).toMatchObject({ sets: 4 });
 		expect(() => one({ name: 'Plank', kind: 'hold', sets: 3, lo: 10, hi: 20, inc: 0 })).toThrow('"Plank" needs a positive inc to progress');
 		expect(one(stretch)).toMatchObject({ inc: 0 }); // a fixed hold has nowhere to climb
+		expect(() => one({ ...stretch, inc: 5 })).toThrow('"Calf stretch" is a fixed hold: inc must be 0');
 	});
 	it('refuses a plan that contradicts itself', () => {
 		expect(() =>

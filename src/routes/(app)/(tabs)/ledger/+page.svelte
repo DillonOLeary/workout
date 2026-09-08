@@ -57,8 +57,9 @@
 		if (editingRow === key) return (editingRow = null);
 		const ex = exByName(row.item);
 		original = row.sets;
+		// the set number the entry was logged as — a skipped set 1 must not shift the rest
 		edit = row.sets.map((m, i) => ({
-			item: row.item, index: i + 1, ex, of: m.of, weight: loadOf(m), count: countOf(m),
+			item: row.item, index: row.indices[i], ex, of: m.of, weight: loadOf(m), count: countOf(m),
 			...(m.of === 'hold' && m.target !== undefined ? { target: m.target } : {})
 		}));
 		editingRow = key;

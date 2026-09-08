@@ -34,7 +34,17 @@ import {
  * drop it, and both facts are already in the stream. A hold stays a hold
  * even after its exercise has left every plan, because the measure says so.
  */
-export type SessionRow = { item: string; sets: Measure[] };
+export type SessionRow = {
+	item: string;
+	/** every set, in set order — what the rule and the ledger line read */
+	sets: Measure[];
+	/**
+	 * the set number each of `sets` was logged as. Usually 1, 2, 3 — but the
+	 * floor lets you skip a set, and a correction must name the set that
+	 * exists, not the position it sits in.
+	 */
+	indices: number[];
+};
 export type SessionView = {
 	id: string;
 	/** what it was: one of the plan's lift days, or the run */
@@ -109,7 +119,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 	return Array.from(map.values())
 		.filter((b) => !removed.has(b.view.id))
 		.map(({ view, entries }) => {
-			const rows: (SessionRow & { indices: number[] })[] = [];
+			const rows: SessionRow[] = [];
 			for (const en of entries.values()) {
 				view.entries++;
 				const m = en.measure;
@@ -131,7 +141,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 					row.indices.splice(pos, 0, en.index);
 				}
 			}
-			view.rows = rows.map(({ item, sets }) => ({ item, sets }));
+			view.rows = rows;
 			return view;
 		})
 		.sort((a, b) => b.at.localeCompare(a.at));

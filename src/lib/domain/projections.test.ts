@@ -161,14 +161,17 @@ describe('corrections — the last word on an entry', () => {
 	];
 	it('replaces the set in place, so the rule and the ledger read the corrected number', () => {
 		const [s] = projectSessions(fixed);
-		expect(s.rows).toEqual([{ item: 'Goblet Squat', sets: [{ of: 'load', load: 40, reps: 8 }, { of: 'load', load: 35, reps: 9 }] }]);
+		expect(s.rows).toEqual([{ item: 'Goblet Squat', sets: [{ of: 'load', load: 40, reps: 8 }, { of: 'load', load: 35, reps: 9 }], indices: [1, 2] }]);
 		expect(s.minutes).toBe(32);
 		expect(s.entries).toBe(3);
 		expect(historyFor(fixed, 'Goblet Squat')[0].sets[0]).toEqual({ of: 'load', load: 40, reps: 8 });
 	});
-	it('keeps sets in set order whatever order they arrived', () => {
+	it('keeps sets in set order whatever order they arrived, and says which set each was', () => {
 		const swapped = [base[0], base[2], base[1]];
 		expect(projectSessions(swapped)[0].rows[0].sets.map((m) => countOf(m))).toEqual([10, 9]);
+		// set 1 skipped: the row still knows the one set it has is set 2
+		const skipped = [base[0], base[2]];
+		expect(projectSessions(skipped)[0].rows[0]).toEqual({ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 9 }], indices: [2] });
 	});
 	it('hands the floor its entries with the correction applied and the original clock kept', () => {
 		const entries = sessionEntries(fixed, 'x');
@@ -300,8 +303,8 @@ describe('runs as sessions', () => {
 		expect(s.workout).toEqual(lift('A'));
 		expect(s.mode).toBe('live');
 		expect(s.rows).toEqual([
-			{ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 10 }] },
-			{ item: 'Plank', sets: [{ of: 'hold', seconds: 20, target: 20 }] }
+			{ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 10 }], indices: [1] },
+			{ item: 'Plank', sets: [{ of: 'hold', seconds: 20, target: 20 }], indices: [1] }
 		]);
 	});
 	it('names a run by the plan', () => {

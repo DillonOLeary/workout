@@ -23,7 +23,9 @@ import { RACKS, type Rack } from './racks';
  *          the number is per hand.
  *   hold — a timed hold. Progress the SECONDS: ring the bell and the next
  *          target is +inc, capped at `hi` — past the ceiling, make the pose
- *          harder, never longer.
+ *          harder, never longer. A range of ONE number (`lo === hi`) is a
+ *          stretch: nothing to dial, nothing to progress, `inc` is 0 — the
+ *          floor says Start 45s and rings the bell (isFixedHold).
  *   reps — a bodyweight count. Carry last time's number, capped at `hi`.
  *
  * Three kinds, a closed union: every consumer switches on `kind`, and a
@@ -250,8 +252,10 @@ function parseExercise(raw: unknown, day: string): Exercise {
 		}
 		case 'hold': {
 			const inc = num('inc');
-			// a hold with a range climbs by inc; a fixed hold (a stretch) has nowhere to climb
+			// a hold with a range climbs by inc; a fixed hold (a stretch) has
+			// nowhere to climb, and says so — the two fields must agree
 			if (base.lo < base.hi && inc <= 0) throw new Error(`"${name}" needs a positive inc to progress`);
+			if (base.lo === base.hi && inc !== 0) throw new Error(`"${name}" is a fixed hold: inc must be 0`);
 			return { ...base, kind: 'hold', inc };
 		}
 		case 'reps':

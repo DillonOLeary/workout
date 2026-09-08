@@ -360,7 +360,8 @@
 				// last time's count for THIS set, muted after the value — the one
 				// place the ledger speaks on the floor
 				const was = last?.sets[s.index - 1];
-				const lastN = was ? countLabel(was) : undefined;
+				// a stretch has no number to beat, so it gets no number to look at
+				const lastN = was && !isFixedHold(x) ? countLabel(was) : undefined;
 				if (editing === s.key)
 					return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'editing', state: 'editing', tappable: true };
 				if (e)
