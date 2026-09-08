@@ -15,7 +15,7 @@
 
   --signal-green: #2E7D32;
   --signal-red: #C43D2B;
-  --signal-amber: #B97F10;
+  /* no amber: red is the only signal, and only ever after intent */
 
   /* Semantic aliases */
   --text-body: var(--ink);
@@ -40,7 +40,6 @@
   --levelup-text: var(--ink);
   --danger: var(--signal-red);
   --success: var(--signal-green);
-  --warning: var(--signal-amber);
 
   --focus-ring: var(--ink);
   --focus-ring-offset: var(--volt);

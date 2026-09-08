@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PLANS } from './plans';
-import { cooldownFor, cueFor, hasRuns, parsePlan, restFor, runTarget, warmupFor, type Exercise, type Plan } from './plan';
+import { cooldownFor, cueFor, dayKind, hasRuns, isFixedHold, liftDays, parsePlan, prepSeconds, restFor, runTarget, stretchDays, warmupFor, type Exercise, type Plan } from './plan';
 
 const day = (ex: Record<string, unknown>) => ({ id: 'p', name: 'P', days: { A: [ex] } });
 const one = (ex: Record<string, unknown>) => parsePlan(day(ex)).days.A[0];
@@ -30,6 +30,27 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(p.warmup).toEqual(['Easy 5 min']);
 		expect(p.dayInfo?.A.cooldown).toEqual(['Stretch']);
 	});
+	it('reads timed prep items, and the retired run walk as one on each side', () => {
+		const p = parsePlan({
+			...day(goblet),
+			warmup: ['Bike', { name: 'Carioca', seconds: 30, each: true }, { name: 'Easy jog', minutes: 3 }],
+			run: { title: 'Easy run', minutes: 30, walk: 5 }
+		});
+		expect(p.warmup).toEqual(['Bike', { name: 'Carioca', seconds: 30, each: true }, { name: 'Easy jog', minutes: 3 }]);
+		expect(p.run).toEqual({ title: 'Easy run', minutes: 30, warmup: [{ name: 'Walk', minutes: 5 }], cooldown: [{ name: 'Walk', minutes: 5 }] });
+		expect(parsePlan({ ...day(goblet), run: { title: 'Run', minutes: 30, walk: 0 } }).run).toEqual({ title: 'Run', minutes: 30 });
+		expect(p.warmup!.map(prepSeconds)).toEqual([0, 30, 180]);
+	});
+	it('reads a day’s kind, and refuses one it doesn’t know', () => {
+		const p = parsePlan({ id: 'p', name: 'P', dayInfo: { S: { title: 'Stretch', kind: 'stretch' } }, days: { A: [goblet], S: [goblet] } });
+		expect(dayKind(p, 'S')).toBe('stretch');
+		expect(dayKind(p, 'A')).toBe('lift');
+		expect(liftDays(p)).toEqual(['A']);
+		expect(stretchDays(p)).toEqual(['S']);
+		expect(() => parsePlan({ ...day(goblet), dayInfo: { A: { title: 'A', kind: 'rest' } } })).toThrow(/kind must be "lift" or "stretch"/);
+		expect(isFixedHold({ name: 'Calf stretch', equip: '', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, inc: 0 })).toBe(true);
+		expect(isFixedHold({ name: 'Plank', equip: '', tag: '', kind: 'hold', sets: 2, lo: 10, hi: 20, inc: 5 })).toBe(false);
+	});
 	it('refuses what it cannot read, with a sentence', () => {
 		expect(() => parsePlan('{"id":"p"}')).toThrow('needs id, name, days');
 		expect(() => one({ ...goblet, name: '' })).toThrow('missing a name');
@@ -39,7 +60,9 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(() => one({ ...goblet, kind: 'time' })).toThrow(/kind must be load, hold or reps/);
 		expect(() => one({ name: 'Plank', kind: 'hold', sets: 3, lo: 10, hi: 20 })).toThrow('"Plank" needs numeric inc');
 		expect(() => parsePlan({ id: 'p', name: 'P', days: {} })).toThrow('days must be a non-empty object');
-		expect(() => parsePlan({ ...day(goblet), warmup: 5 })).toThrow('warmup must be a string or a list of strings');
+		expect(() => parsePlan({ ...day(goblet), warmup: 5 })).toThrow('warmup must be a string or a list of strings and timed items');
+		expect(() => parsePlan({ ...day(goblet), warmup: [{ name: 'Jog' }] })).toThrow(/warmup must be/);
+		expect(() => parsePlan({ ...day(goblet), warmup: [{ name: 'Jog', seconds: 30, minutes: 1 }] })).toThrow(/warmup must be/);
 		expect(() => parsePlan({ ...day(goblet), run: { title: 'Run' } })).toThrow('run needs a title and positive minutes');
 	});
 });

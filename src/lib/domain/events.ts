@@ -2,9 +2,10 @@ import type { Event } from '@event-driven-io/emmett';
 import type { Measure } from './measure';
 
 /**
- * The five facts this app can record — the vocabulary. Note the tense: every
+ * The six facts this app can record — the vocabulary. Note the tense: every
  * name is past tense because an event is something that already happened —
- * it can be appended, never edited. (Corrections are new events, not UPDATEs.)
+ * it can be appended, never edited. (A correction is itself a new event —
+ * EntryCorrected — not an UPDATE of the one it corrects.)
  *
  * A workout is a SESSION: an ordered list of ENTRIES, each carrying one
  * MEASURE (measure.ts). A lift is a session of sets; a run is a session with
@@ -48,6 +49,12 @@ export type SessionStarted = Event<
 		at: string;
 		/** 'live' = the floor walked it; 'after' = written in one shot, backdated */
 		mode: 'live' | 'after';
+		/**
+		 * A subset of the day's exercises, by name — "just the calf stretch".
+		 * Absent = the whole day. The plan still says what each one is; this
+		 * only says which of them this session set out to do.
+		 */
+		pick?: string[];
 	} & Workout
 >;
 
@@ -64,6 +71,17 @@ export type EntryLogged = Event<
 	}
 >;
 
+/**
+ * A set you fixed: the same identity as the entry it corrects, and the
+ * measure it should have carried. The original stays in the stream; every
+ * reader takes the last word. The decider allows this on the latest session
+ * only — older sets have already been read by the rule.
+ */
+export type EntryCorrected = Event<
+	'EntryCorrected',
+	{ session: string; item: string; index: number; at: string; measure: Measure }
+>;
+
 export type SessionFinished = Event<'SessionFinished', { session: string; at: string }>;
 
 /**
@@ -78,6 +96,7 @@ export type PlanSelected = Event<'PlanSelected', { plan: string; at: string }>;
 export type LedgerEvent =
 	| SessionStarted
 	| EntryLogged
+	| EntryCorrected
 	| SessionFinished
 	| SessionRemoved
 	| PlanSelected;

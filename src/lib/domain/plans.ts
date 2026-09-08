@@ -1,4 +1,4 @@
-import type { Exercise, Plan } from './plan';
+import type { Exercise, Plan, RunDay } from './plan';
 
 /**
  * The three shipped plans. These are seeded into the `ledger_plans` table on
@@ -52,13 +52,53 @@ const HER_WARMUP = ['5 min easy bike', '10 bodyweight squats', '10 hip hinges', 
 const HER_COOLDOWN = ['Hip flexor stretch · 60s each', 'Hamstring stretch · 60s each', 'Doorway chest stretch · 60s'];
 const HER_CUE = 'Exhale through the hard part — never hold your breath.';
 
-/** The guided run both lifting plans offer: walk, run, walk. */
-const EASY_RUN = {
+/**
+ * The guided run both lifting plans offer. The warm-up is a jog, then drills
+ * and dynamic stretches — each a countdown the floor runs; the cooldown is a
+ * walk and the static stretches. A run logged after the fact skips all of
+ * it: the humans decided when to run, the app just keeps the minutes.
+ */
+const EASY_RUN: RunDay = {
 	title: 'Easy run',
 	minutes: 30,
-	walk: 5,
-	note: 'Conversational — able to talk in full sentences.'
+	note: 'Conversational — able to talk in full sentences.',
+	warmup: [
+		{ name: 'Easy jog', minutes: 3 },
+		{ name: 'High knees', seconds: 30 },
+		{ name: 'Carioca', seconds: 30, each: true },
+		{ name: 'Walking lunges', seconds: 45 },
+		{ name: 'Leg swings', seconds: 30, each: true },
+		{ name: 'A-skips', seconds: 30 }
+	],
+	cooldown: [
+		{ name: 'Walk', minutes: 3 },
+		{ name: 'Calf stretch', seconds: 45, each: true },
+		{ name: 'Hip flexor stretch', seconds: 45, each: true },
+		{ name: 'Hamstring stretch', seconds: 45, each: true }
+	]
 };
+
+/**
+ * A stretch is a timed hold at a fixed length — lo === hi, so the rule never
+ * asks for more and the floor has nothing to dial: Start 45s, the bell, the
+ * other side. Ten seconds between sides is a breath and a change of position.
+ * The morning stretch is a plan DAY of these, so the floor, the ⋯ sheet, the
+ * receipt and By day all work unchanged; Today offers it as a row, never as
+ * the pick, and the week marks it "stretched", not "lifted".
+ */
+const HOLD45 = (name: string, note?: string): Exercise => ({
+	name,
+	equip: 'Mat',
+	tag: 'Stretch',
+	kind: 'hold',
+	sets: 2,
+	lo: 45,
+	hi: 45,
+	inc: 0,
+	side: 'sets',
+	rest: 10,
+	...(note ? { note } : {})
+});
 
 export const DEFAULT_PLANS: Plan[] = [
 	{
@@ -74,7 +114,8 @@ export const DEFAULT_PLANS: Plan[] = [
 		run: EASY_RUN,
 		dayInfo: {
 			A: { title: 'Squat & Shove', desc: 'Squat · push · pull · hinge · calves · core', warmup: WARMUP },
-			B: { title: 'Hinge & Haul', desc: 'Hinge · press · row · lunge · calves · core', warmup: WARMUP }
+			B: { title: 'Hinge & Haul', desc: 'Hinge · press · row · lunge · calves · core', warmup: WARMUP },
+			S: { title: 'Morning stretch', kind: 'stretch', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] }
 		},
 		days: {
 			A: [
@@ -109,6 +150,16 @@ export const DEFAULT_PLANS: Plan[] = [
 				// adductors, which nothing else in a front-to-back plan touches.
 				// Progress by reps, then by lever — never by seconds.
 				{ name: 'Copenhagen Plank', equip: 'Bench', tag: 'Core / adductors', kind: 'reps', sets: 2, lo: 5, hi: 15, side: 'sets', note: 'Side plank with the top knee on a bench, bottom leg lifting to meet it. One rep = lift and lower. At 15 clean, straighten the top leg.' }
+			],
+			// Not strength work — static holds at realistic doses build none
+			// (TRAINING.md [23]). This is the runner's five, held long enough to
+			// feel, on a morning that isn't a lift.
+			S: [
+				HOLD45('Calf stretch', 'Heel down, knee straight, lean into the wall.'),
+				HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
+				HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
+				HOLD45('Figure-4 stretch', 'Ankle over the knee, sit back until the glute pulls.'),
+				{ ...HOLD45('Doorway chest stretch', 'Forearms on the frame, elbows at shoulder height, step through until the chest opens.'), sets: 1, side: undefined }
 			]
 		}
 	},

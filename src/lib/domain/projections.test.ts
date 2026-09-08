@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { RUN, lift, type LedgerEvent, type StoredEvent } from './events';
+import { countOf } from './measure';
 import type { Exercise, Plan } from './plan';
 import { REENTRY_WARN_DAYS, suggest } from './progression';
-import { dayAges, dayTitle, historyFor, nextDay, projectRuns, projectSessions, trendFor, weekRunMinutes, weekStrip } from './projections';
+import { dayAges, dayTitle, historyFor, nextDay, nextWorkout, projectRuns, projectSessions, sessionEntries, trendFor, weekRunMinutes, weekStrip } from './projections';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -14,6 +15,7 @@ type Entry = {
 	unit?: 's';
 	removed?: boolean;
 	session?: string;
+	day?: string;
 };
 
 /**
@@ -26,7 +28,7 @@ function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
 	entries.forEach((e, i) => {
 		const session = e.session ?? `s${i}`;
 		const at = new Date(now - e.daysAgo * DAY).toISOString();
-		out.push({ type: 'SessionStarted', data: { session, plan: 'p', day: 'A', at } });
+		out.push({ type: 'SessionStarted', data: { session, plan: 'p', day: e.day ?? 'A', at } });
 		e.sets.forEach(([weight, reps, target], j) =>
 			out.push({
 				type: 'SetLogged',
@@ -143,7 +145,101 @@ describe('trendFor — the status sentence', () => {
 	});
 });
 
+describe('corrections — the last word on an entry', () => {
+	const at = new Date(NOW - DAY).toISOString();
+	const base: LedgerEvent[] = [
+		{ type: 'SessionStarted', data: { session: 'x', plan: 'p', kind: 'lift', day: 'A', at, mode: 'live' } },
+		{ type: 'EntryLogged', data: { session: 'x', item: 'Goblet Squat', index: 1, at, measure: { of: 'load', load: 35, reps: 10 } } },
+		{ type: 'EntryLogged', data: { session: 'x', item: 'Goblet Squat', index: 2, at, measure: { of: 'load', load: 35, reps: 9 } } },
+		{ type: 'EntryLogged', data: { session: 'x', item: 'Run', index: 1, at, measure: { of: 'duration', minutes: 30 } } }
+	];
+	const fixed: LedgerEvent[] = [
+		...base,
+		{ type: 'EntryCorrected', data: { session: 'x', item: 'Goblet Squat', index: 1, at: new Date(NOW).toISOString(), measure: { of: 'load', load: 40, reps: 8 } } },
+		{ type: 'EntryCorrected', data: { session: 'x', item: 'Run', index: 1, at: new Date(NOW).toISOString(), measure: { of: 'duration', minutes: 32 } } },
+		{ type: 'EntryCorrected', data: { session: 'x', item: 'Goblet Squat', index: 3, at, measure: { of: 'load', load: 1, reps: 1 } } } // never logged: ignored
+	];
+	it('replaces the set in place, so the rule and the ledger read the corrected number', () => {
+		const [s] = projectSessions(fixed);
+		expect(s.rows).toEqual([{ item: 'Goblet Squat', sets: [{ of: 'load', load: 40, reps: 8 }, { of: 'load', load: 35, reps: 9 }] }]);
+		expect(s.minutes).toBe(32);
+		expect(s.entries).toBe(3);
+		expect(historyFor(fixed, 'Goblet Squat')[0].sets[0]).toEqual({ of: 'load', load: 40, reps: 8 });
+	});
+	it('keeps sets in set order whatever order they arrived', () => {
+		const swapped = [base[0], base[2], base[1]];
+		expect(projectSessions(swapped)[0].rows[0].sets.map((m) => countOf(m))).toEqual([10, 9]);
+	});
+	it('hands the floor its entries with the correction applied and the original clock kept', () => {
+		const entries = sessionEntries(fixed, 'x');
+		expect(entries.map((e) => e.measure)).toEqual([
+			{ of: 'load', load: 40, reps: 8 },
+			{ of: 'load', load: 35, reps: 9 },
+			{ of: 'duration', minutes: 32 }
+		]);
+		expect(entries[0].at).toBe(at);
+		expect(sessionEntries(fixed, 'other')).toEqual([]);
+	});
+});
+
+describe('nextWorkout — the pick, and why', () => {
+	const stretch: Exercise = { name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, inc: 0, side: 'sets' };
+	const plan: Plan = {
+		id: 'p', name: 'P', schedule: '',
+		dayInfo: { A: { title: 'Squat & Shove' }, B: { title: 'Hinge & Haul' }, S: { title: 'Morning stretch', kind: 'stretch' } },
+		days: { A: [goblet], B: [press], S: [stretch] }
+	};
+	it('says "first session" before any history', () => {
+		expect(nextWorkout([], plan, NOW)).toEqual({ day: 'A', why: 'First session' });
+	});
+	it('alternates lifts, skipping the stretch day, and names what the rule moves', () => {
+		// A two days ago with set 1 at the top → B is due, and A's stretch session yesterday changes nothing
+		const ev: LedgerEvent[] = [
+			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 12], [35, 9], [35, 5]] }]),
+			{ type: 'SessionStarted', data: { session: 'st', plan: 'p', kind: 'lift', day: 'S', at: new Date(NOW - DAY).toISOString(), mode: 'live' } },
+			{ type: 'SessionFinished', data: { session: 'st', at: new Date(NOW - DAY).toISOString() } }
+		];
+		expect(nextDay(ev, plan)).toBe('B');
+		expect(nextWorkout(ev, plan, NOW)).toEqual({ day: 'B', why: '2 days since Squat & Shove' });
+		// the day that is due has something to say
+		const back: LedgerEvent[] = [
+			...ledger('Chest Press', [{ daysAgo: 4, sets: [[45, 12], [45, 12], [45, 10]], day: 'B', session: 'b' }]),
+			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]], session: 'a' }])
+		];
+		expect(nextWorkout(back, plan, NOW).why).toBe('2 days since Squat & Shove · sets 1–2 go up on the Chest Press');
+	});
+	it('folds the re-entry warning into the line, and a haircut into the move', () => {
+		// A twelve days ago → B is the pick; B has no age of its own, so no warning — just the distance
+		const evA = ledger('Goblet Squat', [{ daysAgo: 12, sets: [[35, 10], [35, 10], [35, 10]] }]);
+		expect(nextWorkout(evA, plan, NOW)).toEqual({ day: 'B', why: '12 days since Squat & Shove' });
+		// B twelve days ago and A yesterday → B is the pick, and about to take the haircut
+		const evB = [
+			...ledger('Chest Press', [{ daysAgo: 12, sets: [[45, 10], [45, 10], [45, 10]], day: 'B', session: 'b' }]),
+			...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10], [35, 10], [35, 10]], session: 'a' }])
+		];
+		expect(nextWorkout(evB, plan, NOW)).toEqual({ day: 'B', why: 'Re-entry haircut in 2 days · 1 day since Squat & Shove' });
+		// past the fortnight, the move says so instead (55 → 50: re-entry never goes below the plan's start)
+		const gone = [
+			...ledger('Chest Press', [{ daysAgo: 16, sets: [[55, 10], [55, 10], [55, 10]], day: 'B', session: 'b' }]),
+			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]], session: 'a' }])
+		];
+		expect(nextWorkout(gone, plan, NOW)).toEqual({ day: 'B', why: '2 days since Squat & Shove · Chest Press comes back a size' });
+	});
+});
+
 describe('weekStrip', () => {
+	it('marks a stretch day as stretched, never lifted', () => {
+		const plan: Plan = { id: 'p', name: 'P', schedule: '', dayInfo: { S: { title: 'Stretch', kind: 'stretch' } }, days: { A: [goblet], S: [] } };
+		const at = new Date(NOW - 2 * DAY).toISOString();
+		const ev: LedgerEvent[] = [
+			{ type: 'SessionStarted', data: { session: 'st', plan: 'p', kind: 'lift', day: 'S', at, mode: 'live' } },
+			{ type: 'SessionFinished', data: { session: 'st', at } }
+		];
+		const cells = weekStrip(ev, NOW, [plan]);
+		expect(cells[4]).toMatchObject({ stretched: true, lifted: false });
+		// without the plans, a stretch session reads as a lift — the plan's word is what tells them apart
+		expect(weekStrip(ev, NOW)[4]).toMatchObject({ stretched: false, lifted: true });
+	});
 	it('marks lifts, runs and today, Monday first', () => {
 		// NOW is a Sunday: the week runs Mon (6 days ago) → today
 		const ev = [

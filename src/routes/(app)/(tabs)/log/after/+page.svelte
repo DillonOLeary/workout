@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
 	import Stepper from '$lib/components/Stepper.svelte';
 	import type { AfterEntry } from '$lib/domain/commands';
 	import { RUN, RUN_ITEM, lift, type Workout } from '$lib/domain/events';
-	import { hasRuns } from '$lib/domain/plan';
+	import { hasRuns, liftDays } from '$lib/domain/plan';
 	import { measureFor } from '$lib/domain/measure';
 	import { dayTitle, historyFor } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
@@ -26,8 +27,13 @@
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let dayKeys = $derived(Object.keys(plan.days));
 	let hasRun = $derived(hasRuns(plan));
+	// Today says what it sent you for: ?what=run, or ?what=lift for the first lift day
+	// svelte-ignore state_referenced_locally
+	const asked = page.url.searchParams.get('what');
 	let what = $state<Workout | null>(null);
-	let workout = $derived(what ?? (hasRun ? RUN : lift(dayKeys[0])));
+	let workout = $derived(
+		what ?? (asked === 'lift' ? lift(liftDays(plan)[0] ?? dayKeys[0]) : hasRun ? RUN : lift(dayKeys[0]))
+	);
 	let isRun = $derived(workout.kind === 'run');
 
 	// when: today, or one of the last few days at noon — a backdated

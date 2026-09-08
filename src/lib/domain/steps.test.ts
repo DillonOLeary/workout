@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { RUN, entryKey, lift } from './events';
 import {
+	dayExercises,
 	estimateMinutes,
-	restStart,
+	loggedOutside,
+	positionLabel,
+	restUntil,
 	runStart,
 	sessionProgress,
 	sessionSteps,
@@ -19,12 +22,21 @@ const plan: Plan = {
 	schedule: '',
 	rest: 60,
 	cooldown: ['Stretch A', 'Stretch B'],
-	run: { title: 'Easy run', minutes: 30, walk: 5 },
-	dayInfo: { A: { title: 'Day A', warmup: ['Bike 5 min', 'Squats ×10'] } },
+	run: {
+		title: 'Easy run',
+		minutes: 30,
+		warmup: [{ name: 'Easy jog', minutes: 3 }, { name: 'Carioca', seconds: 30, each: true }],
+		cooldown: [{ name: 'Walk', minutes: 3 }]
+	},
+	dayInfo: { A: { title: 'Day A', warmup: ['Bike 5 min', 'Squats ×10'] }, S: { title: 'Stretch', kind: 'stretch', warmup: [], cooldown: [] } },
 	days: {
 		A: [
 			{ name: 'Goblet Squat', equip: '', tag: '', kind: 'load', sets: 3, lo: 6, hi: 12, start: 35, inc: 5 },
 			{ name: 'Plank', equip: '', tag: '', kind: 'hold', sets: 2, lo: 10, hi: 20, inc: 5, rest: 30 }
+		],
+		S: [
+			{ name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, inc: 0, side: 'sets', rest: 10 },
+			{ name: 'Hip flexor stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, inc: 0, side: 'sets', rest: 10 }
 		]
 	}
 };
@@ -34,69 +46,118 @@ const entry = (item: string, index: number, at: string, measure: Entry['measure'
 });
 
 describe('sessionSteps', () => {
-	it('walks warm-up, every set with a rest before the next, then the cooldown', () => {
+	it('walks warm-up, every set, then the cooldown — a rest is a clock, not a step', () => {
 		const steps = sessionSteps(plan, lift('A'));
 		expect(steps.map((s) => s.label)).toEqual([
 			'STEP 1', 'STEP 2',
-			'SET 1', 'REST', 'SET 2', 'REST', 'SET 3',
-			'HOLD 1', 'REST', 'HOLD 2',
+			'SET 1', 'SET 2', 'SET 3',
+			'HOLD 1', 'HOLD 2',
 			'STEP 1', 'STEP 2'
 		]);
 		expect(steps.map((s) => s.section)[2]).toBe('Goblet Squat');
-		expect(steps[3].seconds).toBe(60);
-		expect(steps[8].seconds).toBe(30); // the exercise's own rest wins
 		expect(steps[0].key).toBe(entryKey('Warm-up', 1));
 		expect(steps[steps.length - 1].key).toBe(entryKey('Cooldown', 2));
+		// the rest before a set is in that set's estimate; set 1 has none
+		expect(steps.slice(2, 5).map((s) => s.estimate)).toEqual([45, 105, 105]);
+		expect(steps.slice(5, 7).map((s) => s.estimate)).toEqual([20, 50]); // a hold costs its ceiling, plus its own rest
 	});
-	it('makes a run walk · run · walk, and a plan without walks a bare run', () => {
-		expect(sessionSteps(plan, RUN).map((s) => s.label)).toEqual(['WALK', 'RUN', 'WALK']);
+	it('makes a run warm-up · run · cooldown, timed items counting down once per side', () => {
+		const steps = sessionSteps(plan, RUN);
+		expect(steps.map((s) => s.label)).toEqual(['STEP 1', 'STEP 2 · L', 'STEP 3 · R', 'RUN', 'STEP 1']);
+		expect(steps.map((s) => s.kind)).toEqual(['timed', 'timed', 'timed', 'run', 'timed']);
+		expect(steps.map((s) => s.section)).toEqual(['Warm-up', 'Warm-up', 'Warm-up', 'Easy run', 'Cooldown']);
+		expect(steps[0]).toMatchObject({ text: 'Easy jog · 3 min', name: 'Easy jog', seconds: 180, estimate: 180 });
+		expect(steps[1]).toMatchObject({ text: 'Carioca · 30s', seconds: 30, key: entryKey('Warm-up', 2) });
 		expect(sessionSteps({ ...plan, run: { title: 'Run', minutes: 20 } }, RUN).map((s) => s.label)).toEqual(['RUN']);
 	});
 	it('estimates from the steps themselves', () => {
-		// 2×75 + 3×45 + 2×60 + 2×45 + 30 + 2×60 = 645s ≈ 11 min
-		expect(estimateMinutes(sessionSteps(plan, lift('A')))).toBe(11);
-		expect(estimateMinutes(sessionSteps(plan, RUN))).toBe(40);
+		// 2×75 + (45 + 105 + 105) + (20 + 50) + 2×60 = 595s ≈ 10 min
+		expect(estimateMinutes(sessionSteps(plan, lift('A')))).toBe(10);
+		// 180 + 30 + 30 + 1800 + 180 = 2220s = 37 min
+		expect(estimateMinutes(sessionSteps(plan, RUN))).toBe(37);
 	});
 	it('gives an unknown day nothing', () => {
 		expect(sessionSteps(plan, lift('Z'))).toEqual([]);
 		expect(sessionSteps(undefined, lift('A'))).toEqual([]);
+	});
+	it('honours a pick — just the exercises the session set out to do', () => {
+		expect(dayExercises(plan, lift('S'), ['Hip flexor stretch']).map((e) => e.name)).toEqual(['Hip flexor stretch']);
+		const steps = sessionSteps(plan, lift('S'), { pick: ['Hip flexor stretch'] });
+		expect(steps.map((s) => s.label)).toEqual(['HOLD 1 · L', 'HOLD 2 · R']);
+		expect(steps[0].section).toBe('Hip flexor stretch');
+	});
+	it('appends an added exercise as a section after the plan, once, from any day', () => {
+		const steps = sessionSteps(plan, lift('A'), { extra: ['Calf stretch', 'Calf stretch', 'Goblet Squat', 'Nope'] });
+		expect(steps.slice(-2).map((s) => s.label)).toEqual(['HOLD 1 · L', 'HOLD 2 · R']);
+		expect(steps.filter((s) => s.section === 'Calf stretch')).toHaveLength(2);
+		expect(steps.filter((s) => s.section === 'Goblet Squat')).toHaveLength(3);
+		expect(sessionSteps(plan, RUN, { extra: ['Calf stretch'] }).slice(-1)[0].section).toBe('Calf stretch');
+	});
+	it('finds what a session logged outside its steps, so a reload keeps the section', () => {
+		const logged = [
+			entry('Goblet Squat', 1, iso(0), { of: 'load', load: 35, reps: 10 }),
+			entry('Calf stretch', 1, iso(0), { of: 'hold', seconds: 45, target: 45 }),
+			entry('Calf stretch', 2, iso(0), { of: 'hold', seconds: 45, target: 45 }),
+			entry('Warm-up', 1, iso(0))
+		];
+		expect(loggedOutside(plan, lift('A'), undefined, logged)).toEqual(['Calf stretch']);
+		// a pick narrows the plan, so anything outside it — from any day — is an extra
+		expect(loggedOutside(plan, lift('S'), ['Hip flexor stretch'], logged)).toEqual(['Goblet Squat', 'Calf stretch']);
 	});
 });
 
 describe('sessionProgress', () => {
 	const steps = sessionSteps(plan, lift('A'));
 	it('starts at step one with nothing done', () => {
-		const p = sessionProgress(steps, [], NOW);
+		const p = sessionProgress(steps, []);
 		expect(p.current).toBe(0);
 		expect(p.done.size).toBe(0);
 	});
-	it('lands on the rest timer right after a set, and past it once the clock has run out', () => {
+	it('lands on the next set right after a set — the rest runs under it', () => {
 		const set1 = [entry('Warm-up', 1, iso(300000)), entry('Warm-up', 2, iso(240000)), entry('Goblet Squat', 1, iso(10000), { of: 'load', load: 35, reps: 10 })];
-		expect(sessionProgress(steps, set1, NOW).current).toBe(3); // REST before set 2, 50s left
-		expect(restStart(steps[3], set1)).toBe(NOW - 10000);
-		expect(sessionProgress(steps, set1, NOW + 60000).current).toBe(4); // SET 2
+		expect(sessionProgress(steps, set1).current).toBe(3); // SET 2
+		expect(sessionProgress(steps, set1).sets).toBe(1);
 	});
-	it('counts a rest as done when the set after it landed', () => {
-		const two = [entry('Goblet Squat', 1, iso(100000), { of: 'load', load: 35, reps: 10 }), entry('Goblet Squat', 2, iso(1000), { of: 'load', load: 35, reps: 9 })];
-		const p = sessionProgress(steps, two, NOW);
-		expect(p.done.has(steps[3].key)).toBe(true);
-		expect(p.current).toBe(0); // warm-up never happened — the first undone step
-		expect(p.sets).toBe(2);
-		expect(p.prep).toBe(0);
-	});
-	it('is finished when every non-rest step is', () => {
-		const all: Entry[] = steps.filter((s) => s.kind !== 'rest').map((s) =>
+	it('is finished when every step is', () => {
+		const all: Entry[] = steps.map((s) =>
 			entry(s.item, s.index, iso(0), s.kind === 'set' ? (s.ex!.kind === 'hold' ? { of: 'hold', seconds: 10 } : { of: 'load', load: 35, reps: 10 }) : { of: 'step' })
 		);
-		const p = sessionProgress(steps, all, NOW);
+		const p = sessionProgress(steps, all);
 		expect(p.current).toBe(steps.length);
 		expect(p.prep).toBe(4);
 		expect(p.sets).toBe(5);
 	});
-	it('starts the run clock when the walk before it ended, else at the session', () => {
+	it('starts the run clock when the step before it ended, else at the session', () => {
 		const run = sessionSteps(plan, RUN);
-		const walked = [entry('Warm-up', 1, iso(30000))];
-		expect(runStart(run, 1, walked, iso(600000))).toBe(NOW - 30000);
-		expect(runStart(run, 1, [], iso(600000))).toBe(NOW - 600000);
+		const jogged = [entry('Warm-up', 3, iso(30000))];
+		expect(runStart(run, 3, jogged, iso(600000))).toBe(NOW - 30000);
+		expect(runStart(run, 3, [], iso(600000))).toBe(NOW - 600000);
+	});
+});
+
+describe('restUntil — the clock under the next set', () => {
+	const steps = sessionSteps(plan, lift('A'));
+	it('counts from the previous set’s own timestamp, local or not', () => {
+		const set1 = [entry('Goblet Squat', 1, iso(10000), { of: 'load', load: 35, reps: 10 })];
+		expect(restUntil(steps[3], set1, plan)).toBe(NOW - 10000 + 60000); // SET 2: 60s from set 1
+		expect(restUntil(steps[6], [entry('Plank', 1, iso(0), { of: 'hold', seconds: 10 })], plan)).toBe(NOW + 30000); // the exercise's own rest
+	});
+	it('has nothing to wait for on set 1, or when the set before never landed', () => {
+		expect(restUntil(steps[2], [], plan)).toBeNull();
+		expect(restUntil(steps[3], [], plan)).toBeNull();
+		expect(restUntil(steps[0], [], plan)).toBeNull();
+	});
+});
+
+describe('positionLabel — where you are, the way the crumb says it', () => {
+	it('counts sets across the session and prep within its section', () => {
+		const steps = sessionSteps(plan, lift('A'));
+		expect(positionLabel(0, steps)).toBe('Warm-up 1/2');
+		expect(positionLabel(3, steps)).toBe('Set 2/5');
+		expect(positionLabel(6, steps)).toBe('Set 5/5');
+		expect(positionLabel(8, steps)).toBe('Cooldown 2/2');
+		expect(positionLabel(9, steps)).toBe('Done');
+		expect(positionLabel(3, sessionSteps(plan, RUN))).toBe('Run');
+		expect(positionLabel(1, sessionSteps(plan, lift('S')))).toBe('Hold 2/4');
 	});
 });

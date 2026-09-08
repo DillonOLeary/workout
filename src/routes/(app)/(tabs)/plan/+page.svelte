@@ -4,7 +4,7 @@
 	import Chip from '$lib/components/Chip.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { RUN, lift } from '$lib/domain/events';
-	import { doseLabel } from '$lib/domain/labels';
+	import { doseLabel, prepLabel } from '$lib/domain/labels';
 	import { dayTitle } from '$lib/domain/projections';
 	import { cooldownFor, hasRuns, restFor, runTarget, warmupFor } from '$lib/domain/plan';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
@@ -54,7 +54,7 @@
 		{#if warm.length}
 			<div class="preprow first">
 				<span class="prepcaps">Warm-up</span>
-				<span class="preptext">{warm.join(' · ')}</span>
+				<span class="preptext">{warm.map(prepLabel).join(' · ')}</span>
 			</div>
 		{/if}
 		{#each plan.days[shownDay] as ex, i (ex.name)}
@@ -72,36 +72,34 @@
 		{#if cool.length}
 			<div class="preprow">
 				<span class="prepcaps">Cooldown</span>
-				<span class="preptext">{cool.join(' · ')}</span>
+				<span class="preptext">{cool.map(prepLabel).join(' · ')}</span>
 			</div>
 		{/if}
 		{#if hasRuns(plan)}
 			<div class="preprow">
 				<span class="prepcaps">{dayTitle(plan, RUN)}</span>
 				<span class="preptext">
-					{plan.run ? `${plan.run.minutes} min${plan.run.walk ? `, walk ${plan.run.walk} before and after` : ''} · about ${runLen} min` : 'Guided, or logged after'}
+					{plan.run ? `${plan.run.minutes} min · about ${runLen} min with the warm-up and cooldown` : 'Guided, or logged after'}
 				</span>
+				{#if plan.run?.warmup?.length}
+					<span class="preptext quiet">Warm-up: {plan.run.warmup.map(prepLabel).join(' · ')}</span>
+				{/if}
+				{#if plan.run?.cooldown?.length}
+					<span class="preptext quiet">Cooldown: {plan.run.cooldown.map(prepLabel).join(' · ')}</span>
+				{/if}
 			</div>
 		{/if}
-		<!-- The rule belongs INSIDE the plan, under the exercises it governs. -->
+		<!-- The rule belongs INSIDE the plan, under the exercises it governs:
+		     the one sentence. The rest of it is on /plan/why. -->
 		<div class="rulebox">
 			<div class="caps mb8">How it progresses</div>
 			<div class="rule">
 				Each set climbs on its own. Top of the range on a set → <span class="hl">that set takes the next size up</span> next time; the others keep climbing where they are.
 			</div>
-			<div class="ruledown">
-				Miss the bottom of the range on the same set twice in a row → it backs off one size.
-				Two weeks away → everything comes back one size lighter and builds back. Holds stop
-				at the top of the range — past that, make them harder, not longer. Every number is
-				a size the rack actually has.
-			</div>
 		</div>
-		<!-- rare acts, text-sized, on the card's bottom border row -->
+		<!-- the one rare act, text-sized, on the card's bottom border row -->
 		<div class="bottomrow">
 			<a class="textlink" href="/plan/change">Change plan</a>
-			<form method="POST" action="/logout">
-				<button type="submit" class="textlink">Sign out</button>
-			</form>
 		</div>
 	</Card>
 
@@ -153,6 +151,7 @@
 		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);
 	}
 	.preptext { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+	.preptext.quiet { color: var(--ink-3); }
 	.exrow {
 		min-width: 0;
 		display: flex;
@@ -169,9 +168,8 @@
 	.exdose { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); white-space: nowrap; flex: none; }
 	/* the rule, as the closing section of the plan card it governs */
 	.rulebox { padding: 18px 24px 20px; border-top: var(--border-w) solid var(--ink); background: var(--paper-2); }
-	.ruledown { font-size: 14px; color: var(--ink-2); margin-top: 10px; }
 	.bottomrow {
-		display: flex; justify-content: space-between; align-items: center; gap: 12px;
+		display: flex; justify-content: flex-end; align-items: center; gap: 12px;
 		padding: 4px 16px; border-top: 1px solid var(--border-soft);
 		background: var(--paper-2); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 	}

@@ -78,7 +78,7 @@ feels like it belongs in two places, the table says which. The smell that
 produced this shape was `projections.ts` holding the read model, the rule
 *and* the words at once, while every screen re-derived the words for itself.
 
-### The measure, and the five facts
+### The measure, and the six facts
 
 [measure.ts](src/lib/domain/measure.ts) is the heart of the vocabulary. An
 entry measures exactly one of:
@@ -100,12 +100,13 @@ they govern; `measureFor(exercise, …)` is the one place "which variant does
 this exercise write" is decided. Note there is no "load of 0 means
 bodyweight": a convention is exactly what a union exists to remove.
 
-[events.ts](src/lib/domain/events.ts) then names the five facts:
+[events.ts](src/lib/domain/events.ts) then names the six facts:
 
 | Event | Meaning |
 |---|---|
-| `SessionStarted` | a workout began: which plan, which **workout** (`{ kind: 'lift', day }` or `{ kind: 'run' }`), and `mode` — `live` (the floor walked it) or `after` (written in one shot, backdated) |
+| `SessionStarted` | a workout began: which plan, which **workout** (`{ kind: 'lift', day }` or `{ kind: 'run' }`), `mode` — `live` (the floor walked it) or `after` (written in one shot, backdated) — and, for a session that is just one stretch, a `pick` of the day's exercises |
 | `EntryLogged` | one entry: `item` + `index` is its identity, `measure` is what it measured |
+| `EntryCorrected` | a set you fixed: the same identity, the measure it should have carried. The original stays in the stream; every reader takes the last word |
 | `SessionFinished` | the workout ended |
 | `SessionRemoved` | the event-sourced delete — a fact about a fact |
 | `PlanSelected` | you switched programs |
@@ -122,7 +123,9 @@ an entry names its session, and the session says the rest).
 
 Names are **past tense** — an event can't be rejected, it already happened.
 Requests that *can* be rejected are **commands**, named in the imperative
-(`StartSession`, `LogEntry`, `LogAfter` — [commands.ts](src/lib/domain/commands.ts)).
+(`StartSession`, `LogEntry`, `CorrectEntry`, `LogAfter` —
+[commands.ts](src/lib/domain/commands.ts)). One command per verb, and
+nothing else writes: every tap in the app maps to exactly one of them.
 
 ### The read boundary — the upcaster
 
@@ -156,15 +159,25 @@ reading twice is reading once.
   (`IllegalStateError: A session is already in progress — finish it first.`)
 
 Notice what state holds: **only what the rules need** — the id of the open
-session and the entries it has (so a retried request is a no-op), which plan
-is active, which sessions exist and which were removed. Not the workout
-history, and not even what the open session *is*: the layout asks each layer
-its own question — "is a session open?" to the decider, "what is it?" to
-`projectSessions` — and they cannot disagree, because both fold the same
-events. The one-live-slot rule is plain: a start takes the slot only when
-nothing is open, which is all a backdated `LogAfter` batch (started ·
-entries · finished, in one append) ever needed. `mode` is a recorded fact,
-not a rule input.
+session, every session in the order it started (the last one not removed is
+the **latest**), which entries each has (so a retried request is a no-op and
+a correction has something to correct), which plan is active, which sessions
+were removed. Not the workout history, and not even what a session *is*: the
+layout asks each layer its own question — "is a session open? which is the
+latest?" to the decider, "what is it?" to `projectSessions` — and they cannot
+disagree, because both fold the same events. The one-live-slot rule is plain:
+a start takes the slot only when nothing is open, which is all a backdated
+`LogAfter` batch (started · entries · finished, in one append) ever needed.
+`mode` is a recorded fact, not a rule input.
+
+This file owns every "no" in the app. The two rules that protect history are
+the ones to study: `CorrectEntry` is allowed on the session in progress and on
+the latest finished one — anything older has already been read by the rule,
+and rewriting it would silently change what the next suggestion was based on
+— while `RemoveSession` works on any session, because removal is itself a
+fact and nothing is lost. A screen never re-checks either rule; it hides what
+the decider would refuse (By day opens rows inline on the latest card only,
+from `latestSession` in the layout's data), and the decider refuses it anyway.
 
 Notice also what's *not* here: `crypto.randomUUID()` and `new Date()` live in
 the form actions and are passed **into** commands, so the decider is
@@ -210,7 +223,11 @@ else lives there:
 - `projectSessions` → the "By day" view's history cards: each session's rows,
   each row's sets *as the measures the entries carried*. Removed sessions are
   excluded here, and only here, so one exclusion makes the whole app behave
-  as if the workout never happened
+  as if the workout never happened; a correction replaces its set in place,
+  so the rule and the ledger read the corrected number without knowing it was
+  corrected
+- `sessionEntries` → one session's entries as the floor sees them, corrections
+  applied, original timestamps kept (a fix must not restart the rest clock)
 - `historyFor` → the seam between the read model and the rule: one exercise's
   sets per session, newest first, the session in progress left out — exactly
   what `suggest` reads
@@ -219,10 +236,14 @@ else lives there:
   sessions, no change", "Set 1 at the top of the range — 40 lb next time",
   "Re-entry haircut in 3 days"). Today's "How it's going" list is this fold
   run per exercise at request time — no stored projection, no new events
-- `weekStrip` / `dayAges` → this week's seven cells (lifted / ran / today) and
-  how old each plan day is, for the re-entry nudge
-- `nextDay` → which lift is due (alternate from the last finished lift; runs
-  don't count)
+- `weekStrip` / `dayAges` → this week's seven cells (lifted / ran / stretched /
+  today — the plans come along, because "a stretch day" is the plan's word,
+  not the session's) and how old each plan day is
+- `nextDay` / `nextWorkout` → which lift is due (alternate from the last
+  finished lift; runs don't count, and neither does a stretch day), and the
+  one mono line under Today's button that says *why*: days since the last
+  lift, the first set the rule is about to move, the re-entry warning if one
+  is due — one line, same place, instead of a separate nudge
 - `weekRunMinutes` → run minutes in the trailing 7 days, against the plan's
   own `runTarget`
 - `activePlanId` → last `PlanSelected` wins
@@ -279,15 +300,22 @@ retired exercise still renders exactly as it was logged.
 ### The session is a list of steps
 
 [src/lib/domain/steps.ts](src/lib/domain/steps.ts) turns a workout (a plan
-day, or the run) into the list the gym floor walks: warm-up lines, every set with a rest before
-the next, the cooldown — or, for a run, walk · run · walk. Steps are
-**derived from the plan, never stored**. Which ones are done is read from
-the session's entries; a rest is done when the set after it is, or when its
-clock has simply run out — rests are timed from the previous entry's
-timestamp and never written, which is why a reload lands back on the same
-countdown. Warm-up and cooldown lines *are* written (as `step` entries) so
-"Step 6 of 24" is honest after a reload — but the by-day view keeps them to
-one quiet line, and the progression rule never sees them.
+day, or the run) into the list the gym floor walks: warm-up lines, every
+set, the cooldown — or, for a run, its warm-up drills, the run, its cooldown
+stretches. Steps are **derived from the plan, never stored**, and this file
+is the only one that knows what a session *is*: the floor renders steps, it
+never invents one. Which steps are done is read from the session's entries.
+A **rest is not a step** — it is a clock that runs under the next set
+(`restUntil`: the previous set's timestamp plus the exercise's rest), never
+written, which is why a reload lands back on the same countdown and why a
+set that hasn't reached the server yet still starts one. A warm-up line is a
+`prep` step you tick, or a `timed` one the floor counts down for you (a
+three-minute jog, thirty seconds of carioca per side); both *are* written, as
+`step` entries, so "Set 4/20" is honest after a reload — but the by-day view
+keeps them to one quiet line, and the progression rule never sees them. Two
+options shape a session: a `pick` narrows the day to the exercises it set
+out to do, and `extra` appends exercises added on the floor (a stretch from
+the ⋯ sheet) as sections after the plan's own.
 
 ### Not everything is an event — and the plan has a boundary too
 
@@ -303,15 +331,23 @@ which axis progression moves and how a number reads; a field that only means
 something for one kind (`start`, `inc`, `rack`, `each`) exists only on that
 kind, so every consumer switches on `kind` and the compiler checks the
 switch. That is the whole "escalation path": a named choice per exercise,
-three of them, not a combination of flags. The plan's defaults (rest 60 s,
-run target 150 min, runs on) live here once, behind `restFor` / `runTarget`
-/ `hasRuns` — no screen writes `?? 150` for itself.
+three of them, not a combination of flags. A stretch is not a fourth kind:
+it is a `hold` whose range is one number (`lo === hi`, 45 s), so the rule
+never asks for more and the floor has nothing to dial — Start 45s, the bell,
+the other side. A stretch *day* is a plan day of those, marked
+`dayInfo[day].kind: 'stretch'`, which is all Today needs to offer it as a
+row instead of the pick and the week needs to mark it "stretched". Warm-ups
+and cooldowns are lists of `PrepItem`s — a string you tick, or a timed item
+(`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down. The
+plan's defaults (rest 60 s, run target 150 min, runs on) live here once,
+behind `restFor` / `runTarget` / `hasRuns` — no screen writes `?? 150` for
+itself.
 
 A plan row is data from outside, exactly like an event row — so `parsePlan`
 is its read boundary, and it runs on *read* as well as insert: legacy flags
-become a kind, a one-line warm-up becomes a list, a pasted typo is refused
-with a sentence, and a stored row nobody can read is logged and skipped,
-never a 500. One consequence worth knowing: editing `DEFAULT_PLANS` in
+become a kind, a one-line warm-up becomes a list, the run's retired `walk: 5`
+becomes a timed item on each side, a pasted typo is refused with a sentence,
+and a stored row nobody can read is logged and skipped, never a 500. One consequence worth knowing: editing `DEFAULT_PLANS` in
 [plans.ts](src/lib/domain/plans.ts) *is* the migration. `ensureReady`
 upserts the shipped plans on every boot, so a new exercise, a widened rep
 range or a rewritten note reaches every database the next time a worker
@@ -323,12 +359,16 @@ retired "Weighted Plank" is still `45s`, not `45`.
 ### Tests — the domain is pure, so test it like arithmetic
 
 `pnpm test` runs vitest over [src/lib/domain](src/lib/domain), one suite per
-layer: `decider.test.ts` (the write-side rules), `upcast.test.ts` (every
-retired shape, and that reading twice is reading once), `progression.test.ts`
-(the rule, against a `History` literal — no events needed), `labels.test.ts`
-(every phrase, as a string), `projections.test.ts` (the folds, fed the
-retired `SetLogged` shape on purpose so the boundary is proved every run),
-`plan.test.ts` (the plan's boundary and its defaults), `steps.test.ts` and
+layer: `decider.test.ts` (the write-side rules — including that a correction
+on anything but the latest session fails, and a removal on an older one does
+not), `upcast.test.ts` (every retired shape, and that reading twice is
+reading once), `progression.test.ts` (the rule, against a `History` literal —
+no events needed), `labels.test.ts` (every phrase, as a string),
+`projections.test.ts` (the folds, fed the retired `SetLogged` shape on
+purpose so the boundary is proved every run; that a correction replaces its
+set; that `nextWorkout` skips the stretch day), `plan.test.ts` (the plan's
+boundary and its defaults), `steps.test.ts` (that `restUntil` counts from the
+local timestamp, that a pick narrows and an extra appends) and
 `racks.test.ts`. Two things make these cheap to write: nothing in the domain
 does I/O, and every fold that needs the time takes `now` as an argument — a
 test builds a history with "15 days ago" arithmetic and never touches the
@@ -371,9 +411,9 @@ Things to notice:
 - **Form actions are the only mutations.** No API routes, no fetch handlers —
   `<form method="POST" action="?/logSet">` works with JS disabled, and
   `use:enhance` upgrades it to a fetch that re-runs `load` and updates `data`
-  in place. The one exception that proves the rule is the gym floor's set
-  queue, which POSTs the same `?/logSet` action by hand (§4½) — but even
-  there, Finish is a real hidden `<form use:enhance>`.
+  in place. The one exception that proves the rule is the gym floor's queue,
+  which POSTs the same `?/logEntry` and `?/correctEntry` actions by hand
+  (§4½) — but even there, Finish is a real hidden `<form use:enhance>`.
 - **Errors flow as data.** The decider throws → the action catches
   (`tryCommand`) → `fail(400, { message })` → the page renders `form.message`.
   Infrastructure errors still crash to a 500, as they should.
@@ -390,9 +430,10 @@ Things to notice:
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ weight, 1–9 reps, Enter logs |
 | `class:` directive | `class:single={isBW}` on the floor's adjust tiles; row states on the set table |
 | scoped `<style>` | every component — the design system's tokens are global, layout is local |
-| `$effect` | `ExerciseGlyph.svelte` — a canvas that plays one rep: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop, and the function it returns tears both down |
-| `{#key}` | the gym floor wraps the glyph in `{#key ex.name}`: advancing to the next exercise remounts it, and a fresh mount plays once |
-| time as input | `sessionProgress(steps, entries, now)` — the floor passes `now` from a 200 ms ticker, so rests, the run clock and "done" are one pure fold |
+| `$effect` | `ExerciseGlyph.svelte` — a canvas that plays one rep: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop, and the function it returns tears both down; a second effect loops the frames at one a second while `loop` is set (a hold in progress) |
+| `{#key}` | the gym floor wraps the glyph in `{#key glyphName}`: advancing to the next exercise remounts it, and a fresh mount plays once — a rest on the *same* exercise does not |
+| time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
+| `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 (and a `svelte-ignore state_referenced_locally`) because a session's identity
@@ -422,9 +463,13 @@ patterns worth studying:
   `retry: { onVersionConflict: true }` absorbs concurrent appends. A set the
   server rejects stays on the table as a failed row with a Retry — marked,
   never silently removed — and the floor draws the whole queue as rows of a
-  set table (confirmed / saving… / current / upcoming), which replaced the
-  old progress rail. Exiting the screen drains the queue, then
-  `goto(..., { invalidateAll: true })` restores server truth.
+  step table (confirmed / saving… / current / resting / editing / upcoming),
+  which replaced the old progress rail. A correction rides the same queue
+  with `op: 'correct'`: the merge that builds `entries` lays the queue over
+  the server's, a log adding a row and a correction replacing a measure, and
+  that merged list is what the rest clock reads — so a set that hasn't
+  reached the server yet still starts the clock. Exiting the screen drains
+  the queue, then `goto(..., { invalidateAll: true })` restores server truth.
 - **Schema evolution without migration**
   ([events.ts](src/lib/domain/events.ts)): planks became seconds-based by
   ADDING an optional `unit?: 'reps' | 's'` field whose absence means what old
@@ -454,17 +499,25 @@ patterns worth studying:
 
 ## 5. Exercises
 
-1. **Corrections, the event-sourced way.** Add a `SetCorrected` event
-   (retract/assert — never mutate `SetLogged`). Touch: `events.ts`,
-   `commands.ts`, `decide`/`evolve`, and make `projectSessions` apply it.
-   A worked example now exists: `SessionRemoved` (the Ledger's "Remove"
-   button, born as `SessionStruck`) — deleting a workout appends a fact
-   instead of removing one,
-   the decider's state tracks known/struck ids to refuse nonsense and
-   no-op repeats, and one exclusion inside `projectSessions` makes every
-   downstream view (progression, next-day, history) forget it at once.
-2. **Rest timer.** 90s countdown on the gym floor after each logged set —
-   your first `$effect` (start it in `enhanceLog`, clean it up properly).
+1. **Corrections, the event-sourced way — done.** `EntryCorrected` is the
+   worked example: the same identity as the entry it fixes and a new
+   measure, appended, never an UPDATE. Follow one through: a tap on a done
+   row on the floor (or a row on By day's latest card) → `CorrectEntry` →
+   the decider's two rules (latest session only; something must be there to
+   correct) → `projectSessions` replaces the set in place → `historyFor`,
+   `suggest` and the trend all read the corrected number without knowing.
+   Its older sibling, `SessionRemoved` (born as `SessionStruck`), is the
+   same move for a whole session. Now try: a correction to a *duration*
+   entry (By day already offers it on a run) — what does `sessionEntries`
+   need that `projectSessions` doesn't?
+2. **Rest timer — done, and then removed as a screen.** The first version
+   made every rest its own step with a "Go now" button; thirteen of a
+   day's thirty-nine steps were that screen. Now a rest is `restUntil`: a
+   clock under the *next* set, drawn as an ink bar along its row and a big
+   number on the stage, with the bell at zero. Read the floor's `$effect`
+   that rings it — it fires once, for the rest that was counting, and not
+   when you simply walk away from one — and try adding a "skip the rest"
+   gesture without adding a step.
 3. **Import.** `export/+server.ts` dumps events; write the reverse (validate,
    then append — through the decider or not? decide and defend it).
 4. **Stored projection.** Move `projectSessions` into a Pongo projection with

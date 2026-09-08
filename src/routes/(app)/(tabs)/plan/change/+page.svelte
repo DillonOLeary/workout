@@ -5,8 +5,9 @@
 	import type { PageProps } from './$types';
 
 	/**
-	 * The admin surface: the other shipped plans, and the raw plans table.
-	 * Off the tab on purpose — switching is a once-in-a-while act.
+	 * The admin surface: the other shipped plans, the raw plans table, and
+	 * the two rarest acts — the export, and signing out. Off the tab on
+	 * purpose: none of this is something you do at the gym.
 	 */
 	let { data, form }: PageProps = $props();
 
@@ -80,6 +81,14 @@
 			</Button>
 		</form>
 	</Card>
+
+	<!-- rare acts, text-sized: the ledger is just events, so the export is just events -->
+	<div class="rare">
+		<a class="textlink" href="/export" download="training-ledger-events.json">Export JSON</a>
+		<form method="POST" action="/logout">
+			<button type="submit" class="textlink">Sign out</button>
+		</form>
+	</div>
 </div>
 
 <style>
@@ -144,4 +153,14 @@
 		background: var(--paper); color: var(--ink); resize: vertical;
 	}
 	.err { margin: 6px 0 0; color: var(--danger); font-size: var(--text-sm); font-weight: var(--weight-bold); }
+
+	.rare { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+	.textlink {
+		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
+		background: none; border: none; cursor: pointer;
+		font-family: var(--font-body); font-size: 12px; font-weight: var(--weight-bold);
+		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+	}
+	.textlink:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
 </style>

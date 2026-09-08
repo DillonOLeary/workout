@@ -10,11 +10,24 @@ import type { Measure } from './measure';
  * Anything non-deterministic (ids, timestamps) is generated at the edge —
  * in the form actions — and passed IN, so the decider stays a pure function.
  */
-export type StartSession = Command<'StartSession', { session: string; plan: string; at: string } & Workout>;
+export type StartSession = Command<
+	'StartSession',
+	{ session: string; plan: string; at: string; pick?: string[] } & Workout
+>;
 
 /** One entry, live, into the session in progress. */
 export type LogEntry = Command<
 	'LogEntry',
+	{ session: string; item: string; index: number; at: string; measure: Measure }
+>;
+
+/**
+ * Fix an entry that already landed — the same identity, a new measure.
+ * Allowed on the session in progress and on the latest one; anything older
+ * is history, and the decider says so.
+ */
+export type CorrectEntry = Command<
+	'CorrectEntry',
 	{ session: string; item: string; index: number; at: string; measure: Measure }
 >;
 
@@ -46,4 +59,11 @@ export type RemoveSession = Command<'RemoveSession', { session: string; at: stri
 
 export type SelectPlan = Command<'SelectPlan', { plan: string; at: string }>;
 
-export type LedgerCommand = StartSession | LogEntry | LogAfter | FinishSession | RemoveSession | SelectPlan;
+export type LedgerCommand =
+	| StartSession
+	| LogEntry
+	| CorrectEntry
+	| LogAfter
+	| FinishSession
+	| RemoveSession
+	| SelectPlan;

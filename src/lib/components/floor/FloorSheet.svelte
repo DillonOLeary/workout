@@ -9,13 +9,16 @@
 </script>
 
 <script lang="ts">
+	import { fade, fly } from 'svelte/transition';
+	import { holdDose } from '$lib/domain/labels';
 	import type { Exercise } from '$lib/domain/plan';
 
 	/**
 	 * The ⋯ sheet: the list is where you look, the floor is where you are.
 	 * Reference material (the technique note), the session as a short list
-	 * of sections, keyboard hints, and the rare acts — finishing early,
-	 * leaving. None of it competes with the primary on the floor itself.
+	 * of sections, the stretches you can add to it, keyboard hints, and the
+	 * rare acts — finishing early, leaving. None of it competes with the
+	 * primary on the floor itself.
 	 */
 	let {
 		open,
@@ -23,11 +26,13 @@
 		ex,
 		cue,
 		sections,
-		current,
+		stretches = [],
+		backLabel,
 		logged,
 		total,
 		allDone,
 		onJump,
+		onAdd,
 		onFinishEarly,
 		onExit,
 		onClose
@@ -37,11 +42,15 @@
 		ex?: Exercise;
 		cue?: string;
 		sections: SheetSection[];
-		current: number;
+		/** the stretches not already in this session — one tap appends one as a section */
+		stretches?: Exercise[];
+		/** "Set 4/20" — where the way back lands */
+		backLabel: string;
 		logged: number;
 		total: number;
 		allDone: boolean;
 		onJump: (i: number) => void;
+		onAdd?: (name: string) => void;
 		onFinishEarly: () => void;
 		onExit: () => void;
 		onClose: () => void;
@@ -51,11 +60,21 @@
 	$effect(() => {
 		if (!open) confirming = false;
 	});
+	// the sheet slides, the scrim fades — unless motion is unwelcome
+	const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const SLIDE = still ? 0 : 320;
+	const FADE = still ? 0 : 180;
 </script>
 
 {#if open}
-	<button type="button" class="scrim" aria-label="Close" onclick={onClose}></button>
-	<div class="sheet" role="dialog" aria-modal="true" aria-label="The session, and session actions">
+	<button type="button" class="scrim" aria-label="Close" onclick={onClose} transition:fade={{ duration: FADE }}></button>
+	<div
+		class="sheet"
+		role="dialog"
+		aria-modal="true"
+		aria-label="The session, and session actions"
+		transition:fly={{ y: 80, duration: SLIDE, easing: (t) => 1 - Math.pow(1 - t, 4) }}
+	>
 		<div class="tophead">
 			<span class="caps">{title}</span>
 			<button type="button" class="close" onclick={onClose} aria-label="Close">×</button>
@@ -79,6 +98,21 @@
 				{/each}
 			</div>
 		</section>
+		{#if stretches.length && onAdd}
+			<!-- a one-off: the stretch day's holds, appended as a section of THIS
+			     session — nothing new in the ledger, just entries under it -->
+			<section>
+				<div class="caps">Add a stretch</div>
+				<div class="list">
+					{#each stretches as s (s.name)}
+						<button type="button" class="secrow" onclick={() => onAdd(s.name)}>
+							<span class="sectitle">{s.name}</span>
+							<span class="secstatus">+ {holdDose(s)}</span>
+						</button>
+					{/each}
+				</div>
+			</section>
+		{/if}
 		<section class="kbd-only">
 			<div class="caps">Keyboard</div>
 			<p class="note mono">↑↓ value · ←→ step · 1–9 reps · Enter log / start · Esc closes this</p>
@@ -87,22 +121,23 @@
 			{#if !allDone}
 				{#if confirming}
 					<div class="confirm">
-						<span class="ctext">Finish with {logged} / {total} sets logged?</span>
+						<span class="ctext">{total ? `Finish with ${logged} / ${total} sets logged?` : 'Finish now?'}</span>
 						<div class="cbtns">
 							<button type="button" class="cyes" onclick={onFinishEarly}>Finish now</button>
 							<button type="button" class="cno" onclick={() => (confirming = false)}>Cancel</button>
 						</div>
 					</div>
 				{:else}
+					<!-- a run has no sets to count -->
 					<button type="button" class="arow" onclick={() => (confirming = true)}>
-						Finish early — {logged} / {total} sets logged
+						Finish early{total ? ` — ${logged} / ${total} sets logged` : ''}
 					</button>
 				{/if}
 			{/if}
 			<button type="button" class="arow" onclick={onExit}>Pause and go back — the session stays open</button>
 		</section>
 		<div class="backrow">
-			<button type="button" class="back" onclick={onClose}>Back to step {current + 1}</button>
+			<button type="button" class="back" onclick={onClose}>Back to {backLabel}</button>
 		</div>
 	</div>
 {/if}
@@ -151,9 +186,10 @@
 		min-height: 48px; padding: 0 14px;
 		background: transparent; border: none; border-top: 1px solid var(--border-soft);
 		font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.secrow:first-child { border-top: none; }
-	.secrow:hover { filter: brightness(0.97); }
+	.secrow:hover { background: var(--volt-tint); }
 	.secrow.now { background: var(--volt); }
 	.secrow.now .sectitle { font-weight: var(--weight-bold); }
 	.secrow.done .sectitle { color: var(--ink-3); }

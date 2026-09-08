@@ -1,7 +1,7 @@
 import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import { describe, expect, it } from 'vitest';
 import type { LedgerCommand } from './commands';
-import { currentState, decide, evolve, initialState } from './decider';
+import { currentState, decide, evolve, initialState, latestSessionOf } from './decider';
 import type { LedgerEvent } from './events';
 import type { Measure } from './measure';
 
@@ -24,6 +24,16 @@ describe('decide — sessions', () => {
 		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT } }, initialState());
 		expect(e).toEqual(started);
 	});
+	it('carries a pick — a subset of the day — and refuses an empty one', () => {
+		const [e] = decide(
+			{ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'S', at: AT, pick: ['Calf stretch'] } },
+			initialState()
+		);
+		expect(e.type === 'SessionStarted' && e.data.pick).toEqual(['Calf stretch']);
+		expect(() =>
+			decide({ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'S', at: AT, pick: [] } }, initialState())
+		).toThrow(ValidationError);
+	});
 	it('refuses an entry with no session in progress', () => {
 		expect(() => decide(set(), initialState())).toThrow(IllegalStateError);
 	});
@@ -39,12 +49,13 @@ describe('evolve — the one live slot', () => {
 	it('a start takes the slot only when nothing is open', () => {
 		const second: LedgerEvent = { type: 'SessionStarted', data: { session: 's2', plan: 'p', kind: 'lift', day: 'B', at: AT, mode: 'live' } };
 		const state = evolve(open(), second);
-		expect(state.activeSession?.id).toBe('s1');
-		expect(state.sessions).toEqual({ s1: true, s2: true });
+		expect(state.activeSession).toBe('s1');
+		expect(state.started).toEqual(['s1', 's2']);
+		expect(latestSessionOf(state)).toBe('s2');
 	});
 	it('a finish for another session leaves the slot alone', () => {
 		const state = evolve(open(), { type: 'SessionFinished', data: { session: 's2', at: AT } });
-		expect(state.activeSession?.id).toBe('s1');
+		expect(state.activeSession).toBe('s1');
 	});
 });
 
@@ -110,11 +121,11 @@ describe('decide — LogAfter writes a closed session in one shot', () => {
 	});
 	it('never leaves a session open — with or without a lift in progress', () => {
 		const busy = decide(after(), open()).reduce(evolve, open());
-		expect(busy.activeSession?.id).toBe('s1');
-		expect(busy.sessions.r1).toBe(true);
+		expect(busy.activeSession).toBe('s1');
+		expect(busy.started).toContain('r1');
 		const idle = decide(after(), initialState()).reduce(evolve, initialState());
 		expect(idle.activeSession).toBeNull();
-		expect(idle.sessions.r1).toBe(true);
+		expect(idle.started).toContain('r1');
 	});
 	it('refuses an empty session, a duplicate id, or a session that ends before it starts', () => {
 		expect(() => decide(after({ entries: [] }), initialState())).toThrow(ValidationError);
@@ -137,6 +148,47 @@ describe('decide — LogAfter writes a closed session in one shot', () => {
 				initialState()
 			)
 		).toThrow(ValidationError);
+	});
+});
+
+describe('decide — CorrectEntry: freedom inside the latest session, immutability before it', () => {
+	const correct = (session: string, index = 1, measure: Measure = { of: 'load', load: 40, reps: 8 }): LedgerCommand => ({
+		type: 'CorrectEntry',
+		data: { session, item: 'Goblet Squat', index, at: AT, measure }
+	});
+	// s1 open with one set, then finished; s2 started and finished after it
+	const finish = (id: string): LedgerEvent => ({ type: 'SessionFinished', data: { session: id, at: AT } });
+	const start = (id: string): LedgerEvent => ({ type: 'SessionStarted', data: { session: id, plan: 'p', kind: 'lift', day: 'B', at: AT, mode: 'live' } });
+	const withSet = evolve(open(), decide(set(), open())[0]);
+
+	it('corrects a set in the session in progress', () => {
+		const [e] = decide(correct('s1'), withSet);
+		expect(e).toEqual({ type: 'EntryCorrected', data: { session: 's1', item: 'Goblet Squat', index: 1, at: AT, measure: { of: 'load', load: 40, reps: 8 } } });
+		// a correction changes what a reader sees, never what a rule needs
+		expect(evolve(withSet, e)).toEqual(withSet);
+	});
+	it('corrects a set in the latest finished session, and no older one', () => {
+		const latest = [finish('s1')].reduce(evolve, withSet);
+		expect(latestSessionOf(latest)).toBe('s1');
+		expect(decide(correct('s1'), latest)).toHaveLength(1);
+		const older = [start('s2'), finish('s2')].reduce(evolve, latest);
+		expect(latestSessionOf(older)).toBe('s2');
+		expect(() => decide(correct('s1'), older)).toThrow('Only the latest session can be changed.');
+	});
+	it('refuses what was never logged, and validates the new measure', () => {
+		expect(() => decide(correct('s1', 2), withSet)).toThrow('Nothing logged there to correct.');
+		expect(() => decide(correct('s1', 1, { of: 'load', load: 40, reps: 0 }), withSet)).toThrow(ValidationError);
+		expect(() => decide(correct('nope'), withSet)).toThrow(IllegalStateError);
+	});
+	it('falls back to the previous session when the latest is removed', () => {
+		const two = [finish('s1'), start('s2'), finish('s2')].reduce(evolve, withSet);
+		const removed = evolve(two, { type: 'SessionRemoved', data: { session: 's2', at: AT } });
+		expect(latestSessionOf(removed)).toBe('s1');
+		expect(decide(correct('s1'), removed)).toHaveLength(1);
+	});
+	it('still lets an OLDER session be removed — removal is how history gets fixed', () => {
+		const older = [finish('s1'), start('s2'), finish('s2')].reduce(evolve, withSet);
+		expect(decide({ type: 'RemoveSession', data: { session: 's1', at: AT } }, older)).toHaveLength(1);
 	});
 });
 
@@ -165,7 +217,7 @@ describe('the fold reads raw history', () => {
 			{ type: 'SessionStarted', data: { session: 's1', plan: 'p', day: 'A', at: AT } }, // no mode: the first shape
 			{ type: 'SetLogged', data: { session: 's1', plan: 'p', day: 'A', exercise: 'Goblet Squat', weight: 35, reps: 10, set: 1, at: AT } }
 		]);
-		expect(state.activeSession?.id).toBe('s1');
+		expect(state.activeSession).toBe('s1');
 		expect(decide(set(), state)).toEqual([]); // the duplicate rule counts the upcast set
 		const struck = currentState([started, { type: 'SessionStruck', data: { session: 's1', at: AT } }]);
 		expect(struck.removedSessions.s1).toBe(true);

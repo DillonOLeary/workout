@@ -1,10 +1,15 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	/**
+	 * One vocabulary: volt = earned (the level-up); paper-2 with an ink
+	 * outline = where you are now (a session still open); paper-2 alone = a
+	 * plain fact. No amber anywhere — nothing in the app is a warning.
+	 */
 	let {
 		tone = 'neutral',
 		children
-	}: { tone?: 'neutral' | 'levelup' | 'warning'; children: Snippet } = $props();
+	}: { tone?: 'neutral' | 'levelup' | 'open'; children: Snippet } = $props();
 </script>
 
 <span class="badge {tone}">{@render children()}</span>
@@ -26,5 +31,5 @@
 		white-space: nowrap;
 	}
 	.badge.levelup { background: var(--volt); border-color: var(--ink); color: var(--ink); }
-	.badge.warning { background: var(--paper-2); border-color: var(--warning); color: var(--warning); }
+	.badge.open { background: var(--paper-2); border-color: var(--ink); color: var(--ink); }
 </style>

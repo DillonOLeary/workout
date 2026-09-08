@@ -1,11 +1,12 @@
-import { workoutOf, type LedgerEvent, type Workout } from './events';
+import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
 import { capitalise, fmtDate, fmtShort, setsPhrase, unitLabel } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
-import type { Exercise, Plan } from './plan';
+import { dayKind, liftDays, type Exercise, type Plan } from './plan';
 import {
 	REENTRY_DAYS,
 	REENTRY_WARN_DAYS,
 	anySetEarned,
+	daysUntilReentry,
 	setEarned,
 	suggest,
 	type History,
@@ -38,6 +39,8 @@ export type SessionView = {
 	id: string;
 	/** what it was: one of the plan's lift days, or the run */
 	workout: Workout;
+	/** the subset of the day it set out to do; absent = the whole day */
+	pick?: string[];
 	plan: string;
 	at: string;
 	dateLabel: string;
@@ -61,54 +64,99 @@ export type PlanSwitchView = { at: string; dateLabel: string; plan: string };
  * excluded HERE, and only here — every consumer (historyFor, nextDay, the
  * By day view) goes through this fold, so one exclusion makes the whole app
  * behave as if the workout never happened, while the events themselves stay
- * in the stream. Events arrive in the current vocabulary: the read boundary
- * (readLedgerEvents) upcast them once, so no fold sniffs shapes.
+ * in the stream. A correction REPLACES the entry it names, in place: the set
+ * keeps its number, every reader downstream sees the corrected measure, and
+ * the original stays in the stream too. Events arrive in the current
+ * vocabulary: the read boundary (readLedgerEvents) upcast them once, so no
+ * fold sniffs shapes.
  */
 export function projectSessions(events: LedgerEvent[]): SessionView[] {
 	const removed = new Set(events.filter((e) => e.type === 'SessionRemoved').map((e) => e.data.session));
-	const map = new Map<string, SessionView>();
+	type Building = { view: SessionView; entries: Map<string, EntryLogged['data']> };
+	const map = new Map<string, Building>();
 	for (const e of events) {
 		if (e.type === 'SessionStarted') {
 			map.set(e.data.session, {
-				id: e.data.session,
-				workout: workoutOf(e.data),
-				plan: e.data.plan,
-				at: e.data.at,
-				dateLabel: fmtDate(e.data.at),
-				finished: false,
-				mode: e.data.mode,
-				rows: [],
-				minutes: 0,
-				prep: 0,
-				entries: 0
+				view: {
+					id: e.data.session,
+					workout: workoutOf(e.data),
+					...(e.data.pick ? { pick: e.data.pick } : {}),
+					plan: e.data.plan,
+					at: e.data.at,
+					dateLabel: fmtDate(e.data.at),
+					finished: false,
+					mode: e.data.mode,
+					rows: [],
+					minutes: 0,
+					prep: 0,
+					entries: 0
+				},
+				entries: new Map()
 			});
 		} else if (e.type === 'EntryLogged') {
 			const s = map.get(e.data.session);
-			if (!s) continue;
-			s.entries++;
-			const m = e.data.measure;
-			if (m.of === 'step') {
-				s.prep++;
-			} else if (m.of === 'duration') {
-				s.minutes += m.minutes;
-			} else if (isSet(m)) {
-				let row = s.rows.find((r) => r.item === e.data.item);
-				if (!row) {
-					row = { item: e.data.item, sets: [] };
-					s.rows.push(row);
-				}
-				// append, never overwrite: a single row.weight once made the last set
-				// win, so dropping the load mid-exercise erased the heavier sets before it
-				row.sets.push(m);
-			}
+			// insertion order is arrival order; a repeat of an identity can't
+			// happen (the decider refuses it), but if one did, the first wins
+			const key = entryKey(e.data.item, e.data.index);
+			if (s && !s.entries.has(key)) s.entries.set(key, e.data);
+		} else if (e.type === 'EntryCorrected') {
+			const s = map.get(e.data.session);
+			const key = entryKey(e.data.item, e.data.index);
+			const was = s?.entries.get(key);
+			if (s && was) s.entries.set(key, { ...was, measure: e.data.measure });
 		} else if (e.type === 'SessionFinished') {
 			const s = map.get(e.data.session);
-			if (s) s.finished = true;
+			if (s) s.view.finished = true;
 		}
 	}
 	return Array.from(map.values())
-		.filter((s) => !removed.has(s.id))
+		.filter((b) => !removed.has(b.view.id))
+		.map(({ view, entries }) => {
+			const rows: (SessionRow & { indices: number[] })[] = [];
+			for (const en of entries.values()) {
+				view.entries++;
+				const m = en.measure;
+				if (m.of === 'step') view.prep++;
+				else if (m.of === 'duration') view.minutes += m.minutes;
+				else if (isSet(m)) {
+					let row = rows.find((r) => r.item === en.item);
+					if (!row) {
+						row = { item: en.item, sets: [], indices: [] };
+						rows.push(row);
+					}
+					// every set, never collapsed: a single row.weight once made the
+					// last set win, so dropping the load mid-exercise erased the
+					// heavier sets before it. Sets sit in set order, whatever order
+					// they arrived in.
+					const at = row.indices.findIndex((i) => i > en.index);
+					const pos = at < 0 ? row.sets.length : at;
+					row.sets.splice(pos, 0, m);
+					row.indices.splice(pos, 0, en.index);
+				}
+			}
+			view.rows = rows.map(({ item, sets }) => ({ item, sets }));
+			return view;
+		})
 		.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+/**
+ * One session's entries as the floor sees them — every EntryLogged with any
+ * correction applied, in arrival order. A correction changes the measure and
+ * nothing else: the original `at` stays, so the rest clock that ran from it
+ * doesn't restart.
+ */
+export function sessionEntries(events: LedgerEvent[], session: string): EntryLogged['data'][] {
+	const out: EntryLogged['data'][] = [];
+	for (const e of events) {
+		if (e.type === 'EntryLogged' && e.data.session === session) {
+			if (!out.some((x) => x.item === e.data.item && x.index === e.data.index)) out.push(e.data);
+		} else if (e.type === 'EntryCorrected' && e.data.session === session) {
+			const i = out.findIndex((x) => x.item === e.data.item && x.index === e.data.index);
+			if (i >= 0) out[i] = { ...out[i], measure: e.data.measure };
+		}
+	}
+	return out;
 }
 
 /**
@@ -160,18 +208,62 @@ export function lastEntryFor(events: LedgerEvent[], exercise: string, excludeSes
 	return historyFor(events, exercise, excludeSession)[0] ?? null;
 }
 
-/** Which day is due next: alternate from the most recent finished LIFT (runs don't count). */
+/**
+ * Which lift day is due next: alternate from the most recent finished LIFT.
+ * Runs don't count, and neither does a stretch day — it is never the pick.
+ */
 export function nextDay(events: LedgerEvent[], plan: Plan): string {
-	const dayKeys = Object.keys(plan.days);
+	const lifts = liftDays(plan);
 	const days = projectSessions(events).flatMap((s) =>
-		s.finished && s.plan === plan.id && s.workout.kind === 'lift' && dayKeys.includes(s.workout.day) ? [s.workout.day] : []
+		s.finished && s.plan === plan.id && s.workout.kind === 'lift' && lifts.includes(s.workout.day) ? [s.workout.day] : []
 	);
-	if (!days.length) return dayKeys[0];
-	const i = dayKeys.indexOf(days[0]);
-	return dayKeys[(i + 1) % dayKeys.length];
+	if (!days.length) return lifts[0] ?? Object.keys(plan.days)[0];
+	const i = lifts.indexOf(days[0]);
+	return lifts[(i + 1) % lifts.length];
 }
 
 const DAY = 86400000;
+
+/**
+ * The pick, and the reason. Today answers "what should I do?" with one
+ * button; this is the one mono line under it that says why — how long since
+ * the last lift, and the first thing the rule is about to move. If the day
+ * itself is about to take a re-entry haircut, that comes first: one line,
+ * same place, instead of a separate nudge.
+ */
+export type Pick = { day: string; why: string };
+
+export function nextWorkout(events: LedgerEvent[], plan: Plan, now: number): Pick {
+	const day = nextDay(events, plan);
+	const lifts = liftDays(plan);
+	const last = projectSessions(events).find(
+		(s) => s.plan === plan.id && s.finished && s.workout.kind === 'lift' && lifts.includes(s.workout.day)
+	);
+	const lastAge = last ? Math.floor((now - Date.parse(last.at)) / DAY) : null;
+	const since = dayAges(events, plan, now).find((a) => a.day === day)?.daysSince ?? null;
+	// the first exercise the rule moves, so the line says something useful
+	const moved = (plan.days[day] ?? [])
+		.map((ex) => ({ ex, s: suggest(historyFor(events, ex.name), ex, now) }))
+		.find(({ s }) => s.kind === 'load' && (s.up || s.down));
+	let movedLine: string | null = null;
+	if (moved && moved.s.kind === 'load') {
+		if (moved.s.up) {
+			const up = moved.s.sets.map((x, i) => (x.reason === 'increase' ? i : -1)).filter((i) => i >= 0);
+			movedLine = `${setsPhrase(up)} ${up.length === 1 ? 'goes' : 'go'} up on the ${moved.ex.name}`;
+		} else movedLine = `${moved.ex.name} comes back a size`;
+	}
+	const warn =
+		since !== null && since >= REENTRY_WARN_DAYS && since <= REENTRY_DAYS
+			? `Re-entry haircut in ${daysUntilReentry(since)} ${daysUntilReentry(since) === 1 ? 'day' : 'days'}`
+			: null;
+	const sinceLine =
+		lastAge === null
+			? 'First session'
+			: lastAge === 0
+				? `${dayTitle(plan, last!.workout)} today`
+				: `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${dayTitle(plan, last!.workout)}`;
+	return { day, why: [warn, sinceLine, movedLine].filter(Boolean).join(' · ') };
+}
 
 /** Run minutes in the trailing 7 days — compared against the plan's own runTarget. */
 export function weekRunMinutes(events: LedgerEvent[], now: number): number {
@@ -314,19 +406,24 @@ export type WeekCell = {
 	label: string;
 	lifted: boolean;
 	ran: boolean;
+	stretched: boolean;
 	today: boolean;
 	future: boolean;
 };
 
 /**
- * Seven cells, Monday first (to match the "this week" run meter), bucketed by
- * LOCAL calendar day — which is why this runs where `now` runs and never
- * stores anything. An unfinished session today still counts as lifted.
+ * Seven cells, Monday first, bucketed by LOCAL calendar day — which is why
+ * this runs where `now` runs and never stores anything. An unfinished
+ * session today still counts. A stretch day is the plan's word, not the
+ * session's, so the plans come along to tell a stretch from a lift.
  */
-export function weekStrip(events: LedgerEvent[], now: number): WeekCell[] {
+export function weekStrip(events: LedgerEvent[], now: number, plans: Plan[] = []): WeekCell[] {
 	const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 	const sessions = projectSessions(events);
-	const lifted = new Set(sessions.filter((s) => s.workout.kind === 'lift').map((s) => dayKey(new Date(s.at))));
+	const isStretch = (s: SessionView) =>
+		s.workout.kind === 'lift' && dayKind(plans.find((p) => p.id === s.plan), s.workout.day) === 'stretch';
+	const lifted = new Set(sessions.filter((s) => s.workout.kind === 'lift' && !isStretch(s)).map((s) => dayKey(new Date(s.at))));
+	const stretched = new Set(sessions.filter(isStretch).map((s) => dayKey(new Date(s.at))));
 	const ran = new Set(sessions.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at))));
 	const today = new Date(now);
 	const todayKey = dayKey(today);
@@ -334,7 +431,11 @@ export function weekStrip(events: LedgerEvent[], now: number): WeekCell[] {
 	return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => {
 		const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
 		const key = dayKey(d);
-		return { key, label, lifted: lifted.has(key), ran: ran.has(key), today: key === todayKey, future: key > todayKey };
+		return {
+			key, label,
+			lifted: lifted.has(key), ran: ran.has(key), stretched: stretched.has(key),
+			today: key === todayKey, future: key > todayKey
+		};
 	});
 }
 

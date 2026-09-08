@@ -4,8 +4,9 @@
  * A glyph is a stick skeleton posed by a keyframe function, rasterized through
  * a FIXED dot grid: the grid never moves, the body moves through it, like a
  * receipt printer stamping one frame per line. Six discrete frames per rep,
- * no tweening; ink only. Ported verbatim from Claude Design's
- * "Exercise Animation v4" — every number here is the design's, not ours.
+ * no tweening; ink only. The lifting poses are ported verbatim from Claude
+ * Design's "Exercise Animation v4" — every number there is the design's, not
+ * ours; the stretches and running drills were drawn here in the same grammar.
  *
  * Unit space: y up, ground = 0, figure height ≈ 1. A Pose is a list of
  * capsules (segments with a radius) and circles, plus the box to fit.
@@ -65,7 +66,21 @@ function squatPose(d: number, deep: boolean): Pose {
 	return { segs, circs: [[0, headY, 0.06], [0, bellY - 0.01, 0.055]], box: [-0.32, 0.32, 1.02] };
 }
 
-/** every pose, keyed as in the design; d in 0..1 is the depth into the rep */
+/** The same pose facing the other way — x negated, the box swapped. */
+function mirror(p: Pose): Pose {
+	return {
+		segs: p.segs.map(([x1, y1, x2, y2, r]): Seg => [-x1, y1, -x2, y2, r]),
+		circs: p.circs.map(([x, y, r]): Circ => [-x, y, r]),
+		box: [-p.box[1], -p.box[0], p.box[2]]
+	};
+}
+
+/**
+ * Every pose, keyed as in the design; d in 0..1 is the depth into the rep.
+ * The first seventeen are the design's, ported verbatim. The stretches and
+ * the run's drills after them were drawn here in the same grammar — the
+ * design project has no poses for them yet; re-import if it grows some.
+ */
 export const POSES: Record<string, PoseFn> = {
 	goblet: (d) => squatPose(d, false),
 	gobletdeep: (d) => squatPose(d, true),
@@ -239,7 +254,127 @@ export const POSES: Record<string, PoseFn> = {
 			[0.05, hy, -0.3, 0.28, 0.055],
 			[-0.3, 0.28, -0.36, 0.03, 0.024], [-0.36, 0.03, -0.18, 0.03, 0.02]
 		], circs: [[-0.4, 0.34, 0.052]], box: [-0.52, 0.52, 0.48] };
-	}
+	},
+
+	/* ---- the stretches (the morning stretch day, the run's cooldown) — d leans into the hold ---- */
+
+	// side view, hands on the wall; the back heel stays down, the hips press forward
+	calfstretch: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d;
+		const hip = [L(-0.06, 0.04), L(0.55, 0.5)], sh = [L(0.1, 0.2), L(0.82, 0.76)], knee = [L(0.18, 0.26), 0.28];
+		return { segs: [
+			[0.54, 0, 0.54, 1.12, 0.012],
+			[-0.52, 0.02, -0.36, 0.02, 0.02], [-0.44, 0.03, hip[0], hip[1], 0.04],
+			[0.08, 0.02, 0.26, 0.02, 0.02], [0.17, 0.03, knee[0], knee[1], 0.03], [knee[0], knee[1], hip[0], hip[1], 0.045],
+			[hip[0], hip[1], sh[0], sh[1], 0.058],
+			[sh[0], sh[1], 0.5, L(0.8, 0.74), 0.024], [sh[0], sh[1] - 0.02, 0.5, L(0.7, 0.64), 0.022]
+		], circs: [[sh[0] + 0.05, sh[1] + 0.12, 0.055]], box: [-0.62, 0.62, 1.14] };
+	},
+	// half-kneeling, side view: the back knee down, the hips slide forward over the front foot
+	hipflexor: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d;
+		const hip = [L(-0.14, -0.02), L(0.34, 0.33)], sh = [hip[0] + 0.03, hip[1] + 0.3], fk = [L(0.27, 0.33), 0.3];
+		return { segs: [
+			[-0.3, 0.05, -0.62, 0.03, 0.03], [-0.62, 0.03, -0.74, 0.04, 0.02], [-0.3, 0.05, hip[0], hip[1], 0.045],
+			[0.18, 0.02, 0.38, 0.02, 0.02], [0.27, 0.03, fk[0], fk[1], 0.03], [fk[0], fk[1], hip[0], hip[1], 0.045],
+			[hip[0], hip[1], sh[0], sh[1], 0.058],
+			[sh[0], sh[1], fk[0], fk[1] + 0.04, 0.022]
+		], circs: [[sh[0] + 0.01, sh[1] + 0.12, 0.055]], box: [-0.84, 0.5, 0.86] };
+	},
+	// heel up on a step, side view: the hinge is the rep, the back stays flat
+	hamstring: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d;
+		const hip = [-0.08, 0.52], sh = [L(-0.04, 0.24), L(0.8, 0.58)], hand = [L(0.02, 0.36), L(0.55, 0.32)];
+		return { segs: [
+			[0.3, 0, 0.3, 0.2, 0.014], [0.3, 0.2, 0.62, 0.2, 0.014], [0.62, 0, 0.62, 0.2, 0.014],
+			[-0.24, 0.02, -0.06, 0.02, 0.02], [-0.15, 0.03, hip[0], hip[1], 0.04],
+			[hip[0], hip[1], 0.42, 0.24, 0.04], [0.42, 0.24, 0.48, 0.32, 0.018],
+			[hip[0], hip[1], sh[0], sh[1], 0.058],
+			[sh[0], sh[1], hand[0], hand[1], 0.022]
+		], circs: [[sh[0] + L(0, 0.1), sh[1] + L(0.12, 0.06), 0.055]], box: [-0.36, 0.72, 1.0] };
+	},
+	// seated on a bench, ankle over the knee; the lean forward is the rep
+	figure4: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d;
+		const hip = [-0.06, 0.36], sh = [L(-0.04, 0.12), L(0.66, 0.52)];
+		return { segs: [
+			[-0.36, 0.3, 0.3, 0.3, 0.02], [-0.3, 0, -0.3, 0.28, 0.014], [0.24, 0, 0.24, 0.28, 0.014],
+			[hip[0], hip[1], 0.22, 0.36, 0.045], [0.22, 0.36, 0.25, 0.03, 0.03], [0.2, 0.02, 0.34, 0.02, 0.018],
+			[hip[0], hip[1], 0, 0.5, 0.045], [0, 0.5, 0.24, 0.42, 0.03],
+			[hip[0], hip[1], sh[0], sh[1], 0.058],
+			[sh[0], sh[1], L(0.06, 0.16), L(0.48, 0.44), 0.022]
+		], circs: [[sh[0] + 0.02, sh[1] + 0.12, 0.055]], box: [-0.48, 0.44, 0.84] };
+	},
+	// front view in the frame: forearms on the jambs, the step through opens the chest
+	doorway: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d;
+		const segs: Seg[] = [
+			[-0.4, 0, -0.4, 1.16, 0.014], [0.4, 0, 0.4, 1.16, 0.014], [-0.4, 1.16, 0.4, 1.16, 0.014],
+			[0, 0.25, 0, L(0.62, 0.6), 0.06]
+		];
+		for (const g of [-1, 1]) {
+			segs.push([0, 0.27, g * L(0.12, 0.16), 0.26, 0.04], [g * L(0.12, 0.16), 0.25, g * L(0.14, 0.2), 0.05, 0.03], [g * L(0.1, 0.16), 0.03, g * L(0.2, 0.26), 0.03, 0.02]);
+			segs.push([g * 0.12, L(0.62, 0.6), g * 0.36, L(0.66, 0.7), 0.028], [g * 0.36, L(0.66, 0.7), g * 0.38, L(0.92, 0.98), 0.024]);
+		}
+		return { segs, circs: [[0, L(0.76, 0.74), 0.06]], box: [-0.5, 0.5, 1.2] };
+	},
+
+	/* ---- the run's warm-up drills — d is the drive ---- */
+
+	// side view, running on the spot: one knee drives to hip height, the opposite arm with it
+	highknees: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d, bob = L(0, 0.04);
+		const hip = [0, 0.53 + bob], sh = [0.02, 0.8 + bob];
+		const knee = [L(0.08, 0.22), L(0.28, 0.54) + bob], foot = [L(0.1, 0.16), L(0.03, 0.32) + bob];
+		return { segs: [
+			[-0.1, 0.02, 0.08, 0.02, 0.02],
+			[0, 0.03, -0.02, 0.28 + bob, 0.032], [-0.02, 0.28 + bob, hip[0], hip[1], 0.045],
+			[hip[0], hip[1], knee[0], knee[1], 0.045], [knee[0], knee[1], foot[0], foot[1], 0.03],
+			[hip[0], hip[1], sh[0], sh[1], 0.058],
+			[sh[0], sh[1], L(-0.02, -0.18), L(0.62, 0.7) + bob, 0.024], [L(-0.02, -0.18), L(0.62, 0.7) + bob, L(0.06, -0.06), L(0.5, 0.86) + bob, 0.022],
+			[sh[0], sh[1], L(0.1, 0.2), L(0.62, 0.68) + bob, 0.024], [L(0.1, 0.2), L(0.62, 0.68) + bob, L(0.14, 0.34), L(0.5, 0.8) + bob, 0.022]
+		], circs: [[sh[0] + 0.01, sh[1] + 0.12, 0.055]], box: [-0.36, 0.46, 1.04] };
+	},
+	// front view: one leg crosses in front of the other, arms out for balance
+	carioca: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d;
+		return { segs: [
+			[0, 0.5, 0, 0.8, 0.058],
+			[-0.1, 0.8, -0.36, L(0.72, 0.66), 0.024], [0.1, 0.8, 0.36, L(0.72, 0.66), 0.024],
+			[0.05, 0.52, 0.12, 0.28, 0.045], [0.12, 0.28, 0.14, 0.04, 0.03], [0.08, 0.02, 0.22, 0.02, 0.02],
+			[-0.05, 0.52, L(-0.14, 0.12), L(0.3, 0.34), 0.045], [L(-0.14, 0.12), L(0.3, 0.34), L(-0.18, 0.26), L(0.04, 0.06), 0.03],
+			[L(-0.24, 0.2), 0.03, L(-0.1, 0.34), 0.03, 0.02]
+		], circs: [[0, 0.92, 0.058]], box: [-0.44, 0.46, 1.02] };
+	},
+	// side view, a hand on the wall: the straight leg swings from behind to in front
+	legswing: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d, a = L(-0.6, 0.9);
+		const hip = [0, 0.53], foot = [hip[0] + 0.5 * Math.sin(a), hip[1] - 0.5 * Math.cos(a)];
+		return { segs: [
+			[-0.54, 0, -0.54, 1.1, 0.012],
+			[-0.14, 0.02, 0.04, 0.02, 0.02], [-0.04, 0.03, hip[0], hip[1], 0.04],
+			[hip[0], hip[1], foot[0], foot[1], 0.04],
+			[foot[0], foot[1], foot[0] + 0.06 * Math.cos(a), foot[1] + 0.06 * Math.sin(a), 0.02],
+			[hip[0], hip[1], -0.02, 0.8, 0.058],
+			[-0.02, 0.8, -0.5, 0.78, 0.022], [-0.02, 0.8, L(0.14, 0.1), L(0.56, 0.6), 0.022]
+		], circs: [[-0.02, 0.92, 0.055]], box: [-0.6, 0.6, 1.12] };
+	},
+	// side view: the knee drives to ninety, the shin hangs, the whole figure lifts on the hop
+	askip: (d) => {
+		const L = (a: number, b: number) => a + (b - a) * d, hop = L(0, 0.07);
+		const hip = [0, 0.53 + hop], sh = [0.02, 0.8 + hop];
+		const knee = [L(0.06, 0.24), L(0.3, 0.5) + hop], foot = [L(0.08, 0.22), L(0.04, 0.26) + hop];
+		return { segs: [
+			[-0.1, 0.02 + hop * 0.6, 0.08, 0.02 + hop * 0.6, 0.02],
+			[0, 0.03 + hop * 0.6, 0, 0.28 + hop, 0.032], [0, 0.28 + hop, hip[0], hip[1], 0.045],
+			[hip[0], hip[1], knee[0], knee[1], 0.045], [knee[0], knee[1], foot[0], foot[1], 0.03],
+			[hip[0], hip[1], sh[0], sh[1], 0.058],
+			[sh[0], sh[1], L(0.1, 0.18), L(0.62, 0.66) + hop, 0.024], [L(0.1, 0.18), L(0.62, 0.66) + hop, L(0.14, 0.26), L(0.5, 0.8) + hop, 0.022],
+			[sh[0], sh[1], L(-0.06, -0.14), L(0.62, 0.62) + hop, 0.024], [L(-0.06, -0.14), L(0.62, 0.62) + hop, L(-0.08, -0.2), L(0.5, 0.46) + hop, 0.022]
+		], circs: [[sh[0] + 0.01, sh[1] + 0.12, 0.055]], box: [-0.36, 0.44, 1.1] };
+	},
+	// the reverse lunge, mirrored: the moving leg steps forward instead of back
+	walklunge: (d) => mirror(POSES.lunge(d))
 };
 
 /** `Exercise.name` (plans.ts) → pose key. Not here → no glyph, never a stand-in. */
@@ -262,7 +397,19 @@ export const POSE_BY_NAME: Record<string, string> = {
 	'Copenhagen Plank': 'cph',
 	'Dead Bug': 'deadbug',
 	'DB Glute Bridge': 'bridge',
-	'Side Plank': 'sideplank'
+	'Side Plank': 'sideplank',
+	// the morning stretch (and the run's cooldown)
+	'Calf stretch': 'calfstretch',
+	'Hip flexor stretch': 'hipflexor',
+	'Hamstring stretch': 'hamstring',
+	'Figure-4 stretch': 'figure4',
+	'Doorway chest stretch': 'doorway',
+	// the run's warm-up drills; the jog and the walk get no figure
+	'High knees': 'highknees',
+	'Carioca': 'carioca',
+	'Leg swings': 'legswing',
+	'A-skips': 'askip',
+	'Walking lunges': 'walklunge'
 };
 
 export function poseFor(name: string): PoseFn | null {

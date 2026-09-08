@@ -19,10 +19,21 @@ export const actions: Actions = {
 		const workout = parseWorkout(form.get('kind'), form.get('day'));
 		const plan = String(form.get('plan') ?? '');
 		if (!workout || !plan) return fail(400, { message: 'Missing workout or plan.' });
+		// a pick — "just the calf stretch" — rides along as a JSON list of names;
+		// its shape is the decider's to judge
+		let pick: unknown;
+		const rawPick = form.get('pick');
+		if (rawPick) {
+			try {
+				pick = JSON.parse(String(rawPick));
+			} catch {
+				return fail(400, { message: 'Malformed pick.' });
+			}
+		}
 
 		const err = await tryCommand(uid, {
 			type: 'StartSession',
-			data: { session: crypto.randomUUID(), plan, at: new Date().toISOString(), ...workout }
+			data: { session: crypto.randomUUID(), plan, at: new Date().toISOString(), ...(pick !== undefined ? { pick: pick as string[] } : {}), ...workout }
 		});
 		if (err) return fail(400, { message: err });
 

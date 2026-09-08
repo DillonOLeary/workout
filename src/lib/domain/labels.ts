@@ -1,5 +1,5 @@
 import { countOf, loadOf, uniformLoad, type Measure } from './measure';
-import type { Exercise } from './plan';
+import type { Exercise, PrepItem } from './plan';
 import { rungLabel } from './racks';
 import type { Reason, Suggestion } from './progression';
 
@@ -56,12 +56,46 @@ export function rangeLabel(ex: Exercise): string {
 	return `${ex.lo}–${ex.hi} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
 }
 
-/** "3 × 6–12" · "3 × 10–20s" · "2 × 5–15 · L/R" · "3 × 8–12 · per side" — the plan row's dose. */
+/** "3 × 6–12" · "3 × 10–20s" · "2 × 45s · L/R" · "3 × 8–12 · per side" — the plan row's dose. */
 export function doseLabel(ex: Exercise): string {
+	const range = ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`;
 	return (
-		`${ex.sets} × ${ex.lo}–${ex.hi}${ex.kind === 'hold' ? 's' : ''}` +
+		`${ex.sets} × ${range}${ex.kind === 'hold' ? 's' : ''}` +
 		(ex.side === 'sets' ? ' · L/R' : ex.side === 'reps' ? ' · per side' : '')
 	);
+}
+
+/** "45s each side" · "45s" — a stretch's dose, as a row offers it. */
+export function holdDose(ex: Exercise): string {
+	return `${ex.lo}s${ex.side === 'sets' ? ' each side' : ''}`;
+}
+
+/** "HOLD 1 OF 2 · 45S EACH SIDE" — a stretch's meta line: a fixed hold has no target to state. */
+export function holdLine(ex: Exercise, index: number): string {
+	return `HOLD ${index} OF ${ex.sets} · ${ex.lo}S${ex.side === 'sets' ? ' EACH SIDE' : ''}`;
+}
+
+/** "Easy jog · 3 min" · "Carioca · 30s each" · "One light set of the first lift" — a prep item, as the plan lists it. */
+export function prepLabel(item: PrepItem): string {
+	if (typeof item === 'string') return item;
+	if ('minutes' in item) return `${item.name} · ${item.minutes} min`;
+	return `${item.name} · ${item.seconds}s${item.each ? ' each' : ''}`;
+}
+
+/** "30s" · "3 min" — a countdown's length, as a button says it. */
+export function durationLabel(seconds: number): string {
+	return seconds % 60 === 0 && seconds >= 60 ? `${seconds / 60} min` : `${seconds}s`;
+}
+
+/** "7 min · 5 areas · 9 holds" — a stretch day, as Today's row says it. */
+export function stretchDose(minutes: number, areas: number, holds: number): string {
+	return `${minutes} min · ${areas} ${areas === 1 ? 'area' : 'areas'} · ${holds} ${holds === 1 ? 'hold' : 'holds'}`;
+}
+
+/** "41 min · warm-up and cooldown done." — the receipt's one line about what never reached the ledger. */
+export function receiptLine(minutes: number, warm: boolean, cool: boolean): string {
+	const did = warm && cool ? 'warm-up and cooldown done' : warm ? 'warm-up done' : cool ? 'cooldown done' : null;
+	return `${minutes} min${did ? ` · ${did}` : ''}.`;
 }
 
 /** "3 sets" · "2 sets, one per side" — what a "set" counts on this movement. */
@@ -86,11 +120,17 @@ export function setValue(ex: Exercise, weight: number, count: number | null): st
 	return `${loadShort(weight, ex)} × ${c}`;
 }
 
-/** "35 lb × 6–12" · "10–20s" · "5–15" — a set that hasn't happened yet. */
+/** "35 lb × 6–12" · "10–20s" · "45s" · "5–15" — a set that hasn't happened yet. */
 export function plannedValue(ex: Exercise, weight: number): string {
-	if (ex.kind === 'hold') return `${ex.lo}–${ex.hi}s`;
-	if (ex.kind === 'reps') return `${ex.lo}–${ex.hi}`;
-	return `${loadShort(weight, ex)} × ${ex.lo}–${ex.hi}`;
+	const range = ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`;
+	if (ex.kind === 'hold') return `${range}s`;
+	if (ex.kind === 'reps') return range;
+	return `${loadShort(weight, ex)} × ${range}`;
+}
+
+/** "12" · "15s" — one set's count in its own unit, for the muted "last time" beside a row. */
+export function countLabel(m: Measure): string {
+	return m.of === 'hold' ? `${countOf(m)}s` : String(countOf(m));
 }
 
 /**

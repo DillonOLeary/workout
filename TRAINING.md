@@ -155,6 +155,16 @@ plank loads the adductors — which nothing else in a front-to-back plan
 touches — with an injury-reduction trial behind it. Both progress by making
 the exercise harder, never longer.
 
+There is also a third day that is not a lift: **Morning stretch** — calves,
+hip flexors, hamstrings, glutes, chest, forty-five seconds a side. Be clear
+about what it is for. Static holds at realistic doses build essentially no
+strength [23], so this day earns no set in the volume table below and never
+replaces a lift; the app offers it as a quiet row under the day that *is*
+due, marks it "stretched" rather than "lifted", and lets any one of its five
+holds be added to the end of a lift instead. It is here because a runner's
+calves and hips like it, and because a morning with nothing to do is the
+easiest one to skip.
+
 **Weekly set volume** (1.5 sessions of each day):
 
 | Muscle group | Sets/week | vs. ~10-set growth mark [1] |

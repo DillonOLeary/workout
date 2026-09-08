@@ -82,26 +82,45 @@ export type Held = ExerciseBase & {
 export type Counted = ExerciseBase & { kind: 'reps' };
 export type Exercise = Loaded | Held | Counted;
 
+/**
+ * One line of a warm-up or cooldown. A plain string is an instruction you
+ * tick off ("One bodyweight set of the first lift"); a timed item is a
+ * countdown the floor runs for you — a jog by the minute, a drill or a
+ * stretch by the second, `each` when it is once per side.
+ */
+export type PrepItem =
+	| string
+	| { name: string; seconds: number; each?: boolean }
+	| { name: string; minutes: number };
+
 export type DayInfo = {
 	title: string;
 	desc?: string;
+	/**
+	 * What kind of day it is. A stretch day is a day of holds that Today
+	 * offers as a quiet row, never as the pick, and the week marks as
+	 * "stretched" rather than "lifted". Absent = a lift.
+	 */
+	kind?: 'lift' | 'stretch';
 	/** warm-up and cooldown are lists of STEPS, one line each — every line takes a turn on the floor */
-	warmup?: string[];
-	cooldown?: string[];
+	warmup?: PrepItem[];
+	cooldown?: PrepItem[];
 	/** one line shown under every prep step (the breathing cue, say) */
 	cue?: string;
 };
 
 /**
- * The guided run: walk, run, walk. `minutes` is the target the clock counts
- * toward; `walk` is the easy minutes before and after (0 = none). A run
- * logged after the fact writes the same session shape with one entry.
+ * The guided run. `minutes` is the target the clock counts toward; the
+ * warm-up (a jog, drills, dynamic stretches) and cooldown (a walk, static
+ * stretches) are steps the floor walks before and after. A run logged after
+ * the fact writes the same session shape with one entry.
  */
 export type RunDay = {
 	title: string;
 	minutes: number;
-	walk?: number;
 	note?: string;
+	warmup?: PrepItem[];
+	cooldown?: PrepItem[];
 };
 
 export type Plan = {
@@ -116,8 +135,8 @@ export type Plan = {
 	/** weekly run-minute goal for the meter/badge; absent = DEFAULT_RUN_TARGET */
 	runTarget?: number;
 	/** warm-up / cooldown for days whose dayInfo doesn't carry their own */
-	warmup?: string[];
-	cooldown?: string[];
+	warmup?: PrepItem[];
+	cooldown?: PrepItem[];
 	cue?: string;
 	/** seconds between sets, unless the exercise says otherwise; absent = DEFAULT_REST */
 	rest?: number;
@@ -132,10 +151,26 @@ export type Plan = {
 export const DEFAULT_REST = 60;
 export const DEFAULT_RUN_TARGET = 150;
 
-export const warmupFor = (plan: Plan | undefined, day: string): string[] =>
+export const warmupFor = (plan: Plan | undefined, day: string): PrepItem[] =>
 	plan?.dayInfo?.[day]?.warmup ?? plan?.warmup ?? [];
-export const cooldownFor = (plan: Plan | undefined, day: string): string[] =>
+export const cooldownFor = (plan: Plan | undefined, day: string): PrepItem[] =>
 	plan?.dayInfo?.[day]?.cooldown ?? plan?.cooldown ?? [];
+/** What kind of day this is; a day the plan says nothing about is a lift. */
+export const dayKind = (plan: Plan | undefined, day: string): 'lift' | 'stretch' =>
+	plan?.dayInfo?.[day]?.kind ?? 'lift';
+/** The lift days, in plan order — what Today alternates between. */
+export const liftDays = (plan: Plan): string[] => Object.keys(plan.days).filter((d) => dayKind(plan, d) === 'lift');
+/** The stretch days, in plan order — offered as a row, never the pick. */
+export const stretchDays = (plan: Plan): string[] =>
+	Object.keys(plan.days).filter((d) => dayKind(plan, d) === 'stretch');
+/** An exercise by name, from any day of the plan — how a one-off stretch finds its shape. */
+export const exerciseNamed = (plan: Plan | undefined, name: string): Exercise | undefined =>
+	plan && Object.values(plan.days).flat().find((ex) => ex.name === name);
+/** A timed prep item's countdown, in seconds; 0 for a plain instruction. */
+export const prepSeconds = (item: PrepItem): number =>
+	typeof item === 'string' ? 0 : 'seconds' in item ? item.seconds : item.minutes * 60;
+/** A hold with nowhere to go — a fixed length, so the floor has nothing to dial. */
+export const isFixedHold = (ex: Exercise): boolean => ex.kind === 'hold' && ex.lo === ex.hi;
 /** The one line shown under every prep step. */
 export const cueFor = (plan: Plan | undefined, day: string): string | undefined =>
 	plan?.dayInfo?.[day]?.cue ?? plan?.cue;
@@ -149,12 +184,25 @@ type Raw = Record<string, unknown>;
 const isObj = (v: unknown): v is Raw => !!v && typeof v === 'object' && !Array.isArray(v);
 const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
+/** One prep item: a string, or a timed item with a name and seconds or minutes. */
+function parsePrepItem(v: unknown, where: string): PrepItem {
+	if (typeof v === 'string') return v;
+	if (isObj(v) && typeof v.name === 'string' && v.name) {
+		if (positive(v.seconds) && v.minutes === undefined) {
+			if (v.each !== undefined && typeof v.each !== 'boolean') throw new Error(`${where} "${v.name}" each must be a boolean`);
+			return { name: v.name, seconds: v.seconds, ...(v.each !== undefined ? { each: v.each as boolean } : {}) };
+		}
+		if (positive(v.minutes) && v.seconds === undefined) return { name: v.name, minutes: v.minutes };
+	}
+	throw new Error(`${where} must be a string or a list of strings and timed items`);
+}
+
 /** A step list: a plain string is one step (older plans wrote the warm-up as one sentence). */
-function stepList(v: unknown, where: string): string[] | undefined {
+function stepList(v: unknown, where: string): PrepItem[] | undefined {
 	if (v === undefined) return undefined;
 	if (typeof v === 'string') return [v];
-	if (Array.isArray(v) && v.every((x) => typeof x === 'string')) return v;
-	throw new Error(`${where} must be a string or a list of strings`);
+	if (Array.isArray(v)) return v.map((x) => parsePrepItem(x, where));
+	throw new Error(`${where} must be a string or a list of strings and timed items`);
 }
 
 function parseExercise(raw: unknown, day: string): Exercise {
@@ -211,13 +259,24 @@ function parseExercise(raw: unknown, day: string): Exercise {
 
 function parseRun(v: unknown): RunDay {
 	if (!isObj(v) || typeof v.title !== 'string' || !positive(v.minutes)) throw new Error('run needs a title and positive minutes');
-	if (v.walk !== undefined && (typeof v.walk !== 'number' || v.walk < 0)) throw new Error('run walk must be minutes ≥ 0');
 	if (v.note !== undefined && typeof v.note !== 'string') throw new Error('run note must be a string');
+	let warmup = stepList(v.warmup, 'run warmup');
+	let cooldown = stepList(v.cooldown, 'run cooldown');
+	// the retired shape: `walk: N` was N easy minutes before and after — the
+	// same thing as one timed item on each side, so it reads back as that
+	if (v.walk !== undefined) {
+		if (typeof v.walk !== 'number' || v.walk < 0) throw new Error('run walk must be minutes ≥ 0');
+		if (v.walk > 0) {
+			warmup ??= [{ name: 'Walk', minutes: v.walk }];
+			cooldown ??= [{ name: 'Walk', minutes: v.walk }];
+		}
+	}
 	return {
 		title: v.title,
 		minutes: v.minutes,
-		...(v.walk !== undefined ? { walk: v.walk as number } : {}),
-		...(v.note !== undefined ? { note: v.note as string } : {})
+		...(v.note !== undefined ? { note: v.note as string } : {}),
+		...(warmup ? { warmup } : {}),
+		...(cooldown ? { cooldown } : {})
 	};
 }
 
@@ -227,12 +286,15 @@ function parseDayInfo(v: unknown): Record<string, DayInfo> {
 	for (const [d, info] of Object.entries(v)) {
 		if (!isObj(info) || typeof info.title !== 'string') throw new Error(`dayInfo "${d}" needs a title`);
 		if (info.desc !== undefined && typeof info.desc !== 'string') throw new Error(`dayInfo "${d}" desc must be a string`);
+		if (info.kind !== undefined && info.kind !== 'lift' && info.kind !== 'stretch')
+			throw new Error(`dayInfo "${d}" kind must be "lift" or "stretch"`);
 		if (info.cue !== undefined && typeof info.cue !== 'string') throw new Error(`dayInfo "${d}" cue must be a string`);
 		const warmup = stepList(info.warmup, `dayInfo "${d}" warmup`);
 		const cooldown = stepList(info.cooldown, `dayInfo "${d}" cooldown`);
 		out[d] = {
 			title: info.title,
 			...(info.desc !== undefined ? { desc: info.desc as string } : {}),
+			...(info.kind !== undefined ? { kind: info.kind as 'lift' | 'stretch' } : {}),
 			...(warmup ? { warmup } : {}),
 			...(cooldown ? { cooldown } : {}),
 			...(info.cue !== undefined ? { cue: info.cue as string } : {})

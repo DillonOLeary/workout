@@ -1,12 +1,14 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
 	import { setsLine, unitOf } from '$lib/domain/labels';
 	import type { Trend } from '$lib/domain/projections';
 	import type { Exercise } from '$lib/domain/plan';
 
 	/**
 	 * One exercise over time: name · load strip · what the rule has queued,
-	 * with the status sentence as the hero. Tap to expand this exercise's own
-	 * session list in place — the trust surface stays in the table.
+	 * with the status sentence as the hero — one line, cut short, until you
+	 * open the row. Tap to expand this exercise's own session list in place —
+	 * the trust surface stays in the table.
 	 */
 	let {
 		ex,
@@ -38,10 +40,10 @@
 			{#each bars as b, i (i)}<span class="bar {b.kind}" style="height: {b.h}px"></span>{/each}
 		</span>
 		<span class="now"><b>{trend.next}</b>{#if unit}<i>{unit}</i>{/if}</span>
-		<span class="sentence {trend.tone}">{trend.sentence}</span>
+		<span class="sentence {trend.tone}" class:clip={!open}>{trend.sentence}</span>
 	</button>
 	{#if open}
-		<div class="hist">
+		<div class="hist" transition:slide={{ duration: 180 }}>
 			{#each recent as p (p.at)}
 				<div class="hrow">
 					<span class="hdate">{p.dateLabel}</span>
@@ -65,6 +67,7 @@
 		display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: 'name strip now' 'sent sent sent';
 		column-gap: 14px; row-gap: 4px; align-items: center;
 		background: transparent; border: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.hit:hover { background: var(--volt-tint); }
 	.row.open .hit { background: var(--surface-sunken); }
@@ -76,9 +79,11 @@
 	.bar.next { background: var(--ink-2); opacity: 0.6; }
 	.now { grid-area: now; font-family: var(--font-mono); font-size: 16px; font-weight: 800; min-width: 44px; text-align: right; }
 	.now i { font-style: normal; font-size: 11px; color: var(--ink-3); margin-left: 2px; }
-	.sentence { grid-area: sent; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+	.sentence { grid-area: sent; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); line-height: 1.4; min-width: 0; }
+	/* one line, closed; the whole sentence once the row is open */
+	.sentence.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.sentence.flat { color: var(--ink-3); }
-	.sentence.up { background: var(--volt-tint); display: inline-block; padding: 1px 6px; border-radius: 4px; color: var(--ink); justify-self: start; }
+	.sentence.up { background: var(--volt-tint); display: inline-block; padding: 1px 6px; border-radius: 4px; color: var(--ink); justify-self: start; max-width: 100%; }
 	.sentence.down, .sentence.warn { color: var(--ink-2); }
 
 	.hist { padding: 4px 16px 12px; background: var(--surface-sunken); }

@@ -9,21 +9,35 @@
 	import type { SheetSection } from '$lib/components/floor/FloorSheet.svelte';
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
-	import { COOLDOWN_ITEM, WARMUP_ITEM, type EntryLogged } from '$lib/domain/events';
+	import { armBell, ringBell } from '$lib/components/floor/bell';
+	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
-	import { dayTitle, historyFor, lastEntryFor, weekRunMinutes } from '$lib/domain/projections';
+	import { dayTitle, historyFor, lastEntryFor, sessionEntries, weekRunMinutes } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
-	import { loadHint, rangeLabel, setValue, setsLine, stepLabel } from '$lib/domain/labels';
+	import {
+		countLabel,
+		durationLabel,
+		holdLine,
+		loadHint,
+		plannedValue,
+		rangeLabel,
+		receiptLine,
+		setValue,
+		setsLine,
+		stepLabel
+	} from '$lib/domain/labels';
 	import {
 		estimateMinutes,
-		restStart,
+		loggedOutside,
+		positionLabel,
+		restUntil,
 		runStart,
 		sessionProgress,
 		sessionSteps,
 		type Entry,
 		type Step
 	} from '$lib/domain/steps';
-	import { cueFor, runTarget, type Exercise } from '$lib/domain/plan';
+	import { cueFor, isFixedHold, restFor, runTarget, stretchDays, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -36,27 +50,18 @@
 	const session = data.activeSession!;
 	// svelte-ignore state_referenced_locally
 	const plan = data.plans.find((p) => p.id === session.plan) ?? data.plans[0];
-	/* The session is a LIST OF STEPS — warm-up lines, every set with the rest
-	   before the next, the cooldown; or walk · run · walk. The plan owns the
-	   order; this screen shows exactly one step at a time with one big button. */
+	/* The session is a LIST OF STEPS — warm-up lines, every set, the cooldown;
+	   or the run with its own. The plan owns the order; this screen shows
+	   exactly one step at a time with one big button. Rests are not steps: a
+	   rest is a clock that runs under the next set. */
 	const workout = session.workout;
-	const steps = sessionSteps(plan, workout);
 	const isRunDay = workout.kind === 'run';
 	const title = dayTitle(plan, workout);
 	const cue = workout.kind === 'lift' ? cueFor(plan, workout.day) : plan.cue;
-	const exercises = workout.kind === 'lift' ? (plan.days[workout.day] ?? []) : [];
-	const totalSets = steps.filter((s) => s.kind === 'set').length;
 	const sessionAt = session.at;
-	// the rule's answer per exercise, once: data.events never refreshes mid-session
-	// svelte-ignore state_referenced_locally
-	const loads = new Map<string, Suggestion>(
-		exercises.map((e) => [e.name, suggest(historyFor(data.events, e.name, session.id), e, opened)])
-	);
-	/** the rule's weight for set k of a loaded exercise; 0 where there is no load */
-	const plannedWeight = (x: Exercise, k: number) => {
-		const s = loads.get(x.name);
-		return s?.kind === 'load' ? s.sets[Math.min(k, x.sets - 1)].weight : 0;
-	};
+	const pick = session.pick;
+	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch days */
+	const stretchPool: Exercise[] = stretchDays(plan).flatMap((d) => plan.days[d]);
 
 	/* ---------- optimistic queue ----------------------------------------
 	   Pressing the primary appends to `local` and the UI updates in the same
@@ -65,89 +70,175 @@
 	   (no update()/invalidation), so confirmed entries stay in `local` and the
 	   merge below stays the one source of truth for this screen. An entry the
 	   server rejects goes to 'failed' — it keeps its row and its numbers with
-	   a Retry in place; nothing disappears silently (D4). */
-	type LocalEntry = { key: string; status: 'queued' | 'inflight' | 'confirmed' | 'failed'; data: Entry };
+	   a Retry in place; nothing disappears silently (D4). A correction rides
+	   the same queue: same identity, a new measure, a different action. */
+	type LocalEntry = {
+		key: string;
+		op: 'log' | 'correct';
+		status: 'queued' | 'inflight' | 'confirmed' | 'failed';
+		data: Entry;
+	};
 	let local = $state<LocalEntry[]>([]);
 	let errMsg = $state<string | null>(null);
 	let lastPress = 0; // double-tap cooldown; not reactive on purpose
 	let pumpPromise: Promise<void> | null = null;
 
-	let serverEntries = $derived(
-		data.events
-			.filter((e): e is EntryLogged => e.type === 'EntryLogged' && e.data.session === session.id)
-			.map((e) => e.data)
-	);
-	const same = (a: Entry, b: Entry) => a.item === b.item && a.index === b.index;
-	// deduped by identity so a surprise invalidation can't double-count
-	let optimistic = $derived(local.filter((p) => !serverEntries.some((s) => same(s, p.data))));
-	// the entries that COUNT: confirmed or on their way. A failed one stays
-	// visible in the table but never inflates progress.
-	let entries = $derived<Entry[]>([
-		...serverEntries,
-		...optimistic.filter((p) => p.status !== 'failed').map((p) => p.data)
-	]);
+	// the server's entries, corrections already applied (one fold, projections.ts)
+	let serverEntries = $derived(sessionEntries(data.events, session.id));
+	const same = (a: { item: string; index: number }, b: { item: string; index: number }) =>
+		a.item === b.item && a.index === b.index;
+	// the entries that COUNT: the server's, with the queue laid over them — a
+	// log adds a row, a correction replaces its measure, a failed one does
+	// neither. Entries for `restUntil` come from HERE, so a set that hasn't
+	// reached the server yet still starts the rest clock (that was 1j).
+	let entries = $derived.by((): Entry[] => {
+		const out = serverEntries.map((e) => ({ ...e }));
+		for (const p of local) {
+			if (p.status === 'failed') continue;
+			const i = out.findIndex((e) => same(e, p.data));
+			if (p.op === 'log') {
+				if (i < 0) out.push(p.data);
+			} else if (i >= 0) out[i] = { ...out[i], measure: p.data.measure };
+		}
+		return out;
+	});
 	let anyFailed = $derived(local.some((p) => p.status === 'failed'));
 	let syncing = $derived(local.some((p) => p.status === 'queued' || p.status === 'inflight'));
 
+	/* ---------- the steps ----------
+	   Derived, not a snapshot: a stretch added from the ⋯ sheet appends a
+	   section. The URL remembers what was added, and anything already logged
+	   outside the plan's steps comes back on its own — steps.ts decides. */
+	// svelte-ignore state_referenced_locally
+	const initialAdd = (page.url.searchParams.get('add') ?? '').split(',').filter(Boolean);
+	let added = $state<string[]>(initialAdd);
+	let extra = $derived([...added, ...loggedOutside(plan, workout, pick, entries)]);
+	let steps = $derived(sessionSteps(plan, workout, { pick, extra }));
+	let exercises = $derived.by(() => {
+		const seen = new Set<string>();
+		const out: Exercise[] = [];
+		for (const s of steps) if (s.ex && !seen.has(s.ex.name)) { seen.add(s.ex.name); out.push(s.ex); }
+		return out;
+	});
+	let totalSets = $derived(steps.filter((s) => s.kind === 'set').length);
+
+	// the rule's answer per exercise, once each: data.events never refreshes mid-session
+	const loads = new Map<string, Suggestion>();
+	function suggestionFor(ex: Exercise): Suggestion {
+		let s = loads.get(ex.name);
+		if (!s) {
+			s = suggest(historyFor(data.events, ex.name, session.id), ex, opened);
+			loads.set(ex.name, s);
+		}
+		return s;
+	}
+	/** the rule's weight for set k of a loaded exercise; 0 where there is no load */
+	const plannedWeight = (x: Exercise, k: number) => {
+		const s = suggestionFor(x);
+		return s.kind === 'load' ? s.sets[Math.min(k, x.sets - 1)].weight : 0;
+	};
+
 	/* ---------- the clock ----------
-	   Time is an input to the fold: rests and the run count from the previous
-	   entry's timestamp, so a reload lands back on the same countdown. */
+	   Time is an input to the fold: the rest and the run count from the
+	   previous entry's timestamp, so a reload lands back on the same countdown. */
 	let now = $state(Date.now());
-	let progress = $derived(sessionProgress(steps, entries, now));
+	let progress = $derived(sessionProgress(steps, entries));
 	let allDone = $derived(progress.current >= steps.length);
 
 	/* ---------- screen state ---------- */
 	// where a reload lands: the URL's step if it has one, else the first step
-	// the ledger doesn't already show as done — a rest still counting, set 2,
+	// the ledger doesn't already show as done — set 2 with its rest running,
 	// never the top of the bike
 	const initialStep = (() => {
+		// svelte-ignore state_referenced_locally
+		const known = sessionEntries(data.events, session.id);
+		const ss = sessionSteps(plan, workout, { pick, extra: [...initialAdd, ...loggedOutside(plan, workout, pick, known)] });
 		// Number(null) is 0 — a missing param must not read as "step 0"
+		// svelte-ignore state_referenced_locally
 		const raw = page.url.searchParams.get('step');
 		const n = raw === null ? NaN : Number(raw);
-		if (Number.isInteger(n) && n >= 0 && n < steps.length) return n;
-		// svelte-ignore state_referenced_locally
-		const known = data.events
-			.filter((e): e is EntryLogged => e.type === 'EntryLogged' && e.data.session === session.id)
-			.map((e) => e.data);
-		return Math.min(sessionProgress(steps, known, Date.now()).current, Math.max(0, steps.length - 1));
+		if (Number.isInteger(n) && n >= 0 && n < ss.length) return n;
+		return Math.min(sessionProgress(ss, known).current, Math.max(0, ss.length - 1));
 	})();
 	let stepI = $state(initialStep);
 	let weight = $state(0);
-	let reps = $state(0); // reps — or seconds held, for mode: 'seconds'
+	let reps = $state(0); // reps — or seconds, for a hold
 	let sheetOpen = $state(false);
+	/** a done set's key while its numbers are on the tiles and the primary reads Save */
+	let editing = $state<string | null>(null);
 
 	let st = $derived<Step | undefined>(steps[stepI]);
 	let ex = $derived<Exercise | undefined>(st?.ex);
 	let atSet = $derived(st?.kind === 'set');
 	let isHold = $derived(atSet && ex?.kind === 'hold');
-	// no weight tile for a hold or a count: the kind says what there is to dial
-	let isBW = $derived(!!ex && ex.kind !== 'load');
-	let holdInc = $derived(ex?.kind === 'hold' ? ex.inc : 5);
+	/** a stretch: a fixed hold, nothing to dial — Start 45s, the bell, the other side */
+	let fixed = $derived(!!ex && isFixedHold(ex));
 	let stepDone = $derived(!!st && progress.done.has(st.key));
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
-	let load = $derived(ex ? (loads.get(ex.name) ?? null) : null);
 	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && isSet(e.measure)).length;
+	let editStep = $derived(editing ? steps.find((s) => s.key === editing) : undefined);
+	/** what the tiles are dialling: the set being fixed, else the current one */
+	let dialEx = $derived(editStep?.ex ?? ex);
+	let tileHold = $derived(dialEx?.kind === 'hold');
+	let tileBW = $derived(!!dialEx && dialEx.kind !== 'load');
+
+	/* ---------- a countdown: a hold, or a timed prep step ----------
+	   Dial the target (a hold) or take the plan's (a drill), start — the
+	   stage counts DOWN and the bell logs it: the full target for a hold,
+	   "it happened" for a drill. Drop early and the primary logs what was
+	   actually done. */
+	let hold = $state<{ end: number; target: number; kind: 'hold' | 'timed' } | null>(null);
+	let remaining = $state<number | null>(null);
+	let live = $state(''); // the screen reader hears ten, and the bell — nothing else
+
+	/* ---------- the rest: a clock under the next set ----------
+	   From the previous set's LOCAL timestamp (restUntil); the row's note says
+	   "rest 62s", the ink line under it drains, the stage shows the number.
+	   Zero rings the bell and the row says "now" — nothing moves by itself. */
+	let restEnd = $derived(st?.kind === 'set' && !stepDone ? restUntil(st, entries, plan) : null);
+	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
+	let resting = $derived(restEnd !== null && restLeft > 0);
+	let restTotal = $derived(st?.ex ? restFor(plan, st.ex) : 0);
+	let restFrac = $derived(resting && restTotal ? restLeft / restTotal : 0);
+	let counting: number | null = null; // the rest whose bell is still owed
+	$effect(() => {
+		if (resting) counting = restEnd;
+		else if (counting !== null && restEnd === counting) {
+			counting = null;
+			ringBell();
+			live = 'Rest over';
+		} else counting = null;
+	});
+	$effect(() => {
+		if ((resting && restLeft === 10) || remaining === 10) live = '10 seconds';
+	});
 
 	// only tick while something on screen is counting
-	let timed = $derived(st?.kind === 'rest' || st?.kind === 'run');
+	let ticking = $derived(resting || hold !== null || st?.kind === 'run');
 	$effect(() => {
-		if (!timed) return;
+		if (!ticking) return;
 		const t = setInterval(() => (now = Date.now()), 200);
 		return () => clearInterval(t);
 	});
 
-	/* ---------- rests: the bell moves you on ---------- */
-	let restFrom = $derived(st?.kind === 'rest' ? restStart(st, entries) : null);
-	let restLeft = $derived(
-		st?.kind === 'rest' && restFrom !== null
-			? Math.max(0, Math.ceil((restFrom + (st.seconds ?? 0) * 1000 - now) / 1000))
-			: null
-	);
 	$effect(() => {
-		// zero on the countdown = the next set, by itself; a rest with no set
-		// before it has nothing to wait for and just sits at its full length
-		if (st?.kind === 'rest' && restLeft === 0 && !progress.done.has(st.key) === false) goTo(stepI + 1);
+		if (!hold) return;
+		const h = hold;
+		const t = setInterval(() => {
+			const r = Math.ceil((h.end - Date.now()) / 1000);
+			if (r <= 0) {
+				// the bell: the full target logs itself
+				hold = null;
+				remaining = null;
+				ringBell();
+				live = 'Done';
+				enqueue(h.kind === 'hold' ? holdMeasure(h.target, h.target) : { of: 'step' });
+			} else {
+				remaining = r;
+			}
+		}, 200);
+		return () => clearInterval(t);
 	});
 
 	/* ---------- the run: the clock is the number ---------- */
@@ -158,36 +249,17 @@
 		return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 	};
 
-	/* ---------- the hold timer ---------- */
-	// Timed holds (the Claude Design model): dial the TARGET on the tile,
-	// start — the row counts DOWN and logs itself at the bell. Drop early
-	// and "Done early" logs the seconds actually held.
-	let hold = $state<{ end: number; target: number } | null>(null);
-	let remaining = $state<number | null>(null);
-	$effect(() => {
-		if (!hold) return;
-		const h = hold;
-		const t = setInterval(() => {
-			const r = Math.ceil((h.end - Date.now()) / 1000);
-			if (r <= 0) {
-				// the bell: the full target logs itself
-				hold = null;
-				remaining = null;
-				enqueue(holdMeasure(h.target, h.target));
-			} else {
-				remaining = r;
-			}
-		}, 200);
-		return () => clearInterval(t);
-	});
 	/* ± is never a fixed nudge: it is the rule's own one-size step (D3). A
 	   hold stops at the top of its range — past it the answer is a harder
-	   variation (the exercise note says which), never a longer hold. */
+	   variation (the exercise note says which), never a longer hold. Fixing a
+	   hold you dropped early is the one time the count goes under the floor. */
 	const bumpReps = (dir: 1 | -1) => {
-		if (ex && !hold) reps = bumpCount(ex, reps, dir);
+		if (!dialEx || hold) return;
+		if (editing && dialEx.kind === 'hold') reps = Math.max(1, Math.min(dialEx.hi, reps + dir * (dialEx.inc || 5)));
+		else reps = bumpCount(dialEx, reps, dir);
 	};
 	const bumpWeight = (dir: 1 | -1) => {
-		if (ex?.kind === 'load') weight = bumpLoad(ex, weight, dir);
+		if (dialEx?.kind === 'load') weight = bumpLoad(dialEx, weight, dir);
 	};
 
 	/** What the tiles show for the set about to be logged: the rule's nextSet, from this session's own entries. */
@@ -199,8 +271,7 @@
 			.filter((x) => x.item === e.name && x.index < s.index && isSet(x.measure))
 			.sort((a, b) => a.index - b.index)
 			.map((x) => ({ index: x.index, measure: x.measure }));
-		const sugg = loads.get(e.name);
-		const next = sugg ? nextSet(sugg, e, prior, s.index - 1) : { weight: 0, count: e.lo };
+		const next = nextSet(suggestionFor(e), e, prior, s.index - 1);
 		weight = next.weight;
 		reps = next.count;
 		hold = null;
@@ -208,78 +279,100 @@
 	}
 	preload(initialStep);
 
-	/* ---------- section complete: a visible pause, then on ----------------
-	   Within a section the next step just arrives (a rest after a set, the
-	   run after its walk). Between sections the primary turns to "Next
-	   exercise" with a ring that drains for two seconds: tap it to go now,
-	   open the ⋯ sheet to stay. */
-	const ADVANCE_MS = 2000;
-	let advance = $state<{ end: number } | null>(null);
-	let advanceLeft = $state(1); // fraction of the ring still full
-	$effect(() => {
-		if (!advance) return;
-		const a = advance;
-		const t = setInterval(() => {
-			const left = (a.end - Date.now()) / ADVANCE_MS;
-			if (left <= 0) {
-				advance = null;
-				goTo(stepI + 1);
-			} else advanceLeft = left;
-		}, 40);
-		return () => clearInterval(t);
-	});
-	function armAdvance() {
-		advanceLeft = 1;
-		advance = { end: Date.now() + ADVANCE_MS };
+	function syncUrl() {
+		// shallow routing: URL tracks the step (and what was added), no loads
+		// run, no history spam
+		const q = new URLSearchParams();
+		q.set('step', String(stepI));
+		if (added.length) q.set('add', added.join(','));
+		replaceState(`?${q}`, {});
 	}
 
 	function goTo(i: number) {
-		advance = null; // any navigation, by hand or by the ring, settles it
 		hold = null;
 		remaining = null;
+		editing = null;
 		if (i < 0 || i >= steps.length) return;
 		stepI = i;
 		preload(i);
-		// shallow routing: URL tracks the step, no loads run, no history spam
-		replaceState(`?step=${i}`, {});
+		syncUrl();
+	}
+
+	/* ---------- fixing a set: tap its row ----------
+	   Any done set in the section is one tap from its numbers being on the
+	   tiles; the primary reads "Save set N" and writes a CorrectEntry. The
+	   row again, or the current row, cancels. The decider allows this on the
+	   latest session only — which this one is, being open. */
+	function tapRow(key: string) {
+		if (editing === key || (st && key === st.key)) return cancelEdit();
+		const s = steps.find((x) => x.key === key);
+		const e = s && entryFor(s);
+		if (!s || !e || s.kind !== 'set' || !s.ex) return;
+		editing = key;
+		hold = null;
+		remaining = null;
+		weight = loadOf(e.measure);
+		reps = countOf(e.measure);
+	}
+	function cancelEdit() {
+		editing = null;
+		preload(stepI);
+	}
+	function saveEdit() {
+		const s = editStep;
+		const e = s && entryFor(s);
+		if (!s || !e || !s.ex) return;
+		const target = e.measure.of === 'hold' ? e.measure.target : undefined;
+		const measure = measureFor(s.ex, { load: weight, count: reps, ...(target !== undefined ? { target } : {}) });
+		if (JSON.stringify(measure) !== JSON.stringify(e.measure)) push('correct', s, measure);
+		cancelEdit();
 	}
 
 	/* ---------- the step table: the current section ---------- */
 	function localFor(s: Step) {
-		return local.find((p) => same(p.data, { item: s.item, index: s.index } as Entry));
+		for (let i = local.length - 1; i >= 0; i--) if (same(local[i].data, s)) return local[i];
+		return undefined;
 	}
 	function rowFor(s: Step, i: number): Row {
 		const cur = i === stepI;
 		const e = entryFor(s);
 		const lp = localFor(s);
-		const failed = lp?.status === 'failed' && !serverEntries.some((x) => same(x, lp.data));
+		const failed = lp?.status === 'failed';
 		const saving = !!lp && (lp.status === 'queued' || lp.status === 'inflight');
 		const state = (done: boolean): Row['state'] =>
 			failed ? 'failed' : saving ? 'saving' : done ? 'done' : cur ? 'current' : 'upcoming';
 		switch (s.kind) {
 			case 'prep':
 				return { key: s.key, label: s.label, value: s.text ?? '', note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
-			case 'rest': {
-				const secs = s.seconds ?? 0;
-				const done = progress.done.has(s.key);
-				if (cur && restLeft !== null && !done)
-					return { key: s.key, label: 'REST', value: String(restLeft), note: `of ${secs}s left`, state: 'running', big: true };
-				return { key: s.key, label: 'REST', value: `${secs}s`, note: done ? '✓' : undefined, state: done ? 'done' : cur ? 'current' : 'upcoming' };
-			}
+			case 'timed':
+				if (cur && hold && !e) return { key: s.key, label: s.label, value: s.text ?? '', note: 'now', state: 'running', prose: true };
+				return { key: s.key, label: s.label, value: s.text ?? '', note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
 			case 'run': {
 				if (e && e.measure.of === 'duration')
 					return { key: s.key, label: 'RUN', value: `${e.measure.minutes} min`, note: '✓', state: state(true) };
-				if (cur) return { key: s.key, label: 'RUN', value: mmss(runElapsed), note: `of ${s.minutes} min`, state: 'running', big: true };
+				if (cur) return { key: s.key, label: 'RUN', value: `${s.minutes} min`, note: 'now', state: 'running' };
 				return { key: s.key, label: 'RUN', value: `${s.minutes} min`, state: 'upcoming' };
 			}
 			case 'set': {
 				const x = s.ex!;
-				if (e) return { key: s.key, label: s.label, value: setValue(x, loadOf(e.measure), countOf(e.measure)), note: e ? undefined : undefined, state: state(true) };
-				if (cur && hold) return { key: s.key, label: s.label, value: String(remaining ?? hold.target), note: `of ${hold.target}s left`, state: 'running', big: true };
+				// last time's count for THIS set, muted after the value — the one
+				// place the ledger speaks on the floor
+				const was = last?.sets[s.index - 1];
+				const lastN = was ? countLabel(was) : undefined;
+				if (editing === s.key)
+					return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'editing', state: 'editing', tappable: true };
+				if (e)
+					return {
+						key: s.key, label: s.label, value: setValue(x, loadOf(e.measure), countOf(e.measure)), last: lastN,
+						note: failed || saving ? undefined : '✓', state: state(true), tappable: !failed && !saving
+					};
+				if (cur && hold) return { key: s.key, label: s.label, value: `${hold.target}s`, note: 'now', state: 'running' };
+				if (cur && resting)
+					return { key: s.key, label: s.label, value: setValue(x, weight, reps), last: lastN, note: `rest ${restLeft}s`, state: 'resting', bar: restFrac };
 				// "now", not "logging": the write is what saving… means — this row is
 				// simply the one you're on, same word the prep steps use
-				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'now', state: state(false) };
-				return { key: s.key, label: s.label, value: setValue(x, plannedWeight(x, s.index - 1), null), state: 'upcoming' };
+				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), last: lastN, note: 'now', state: state(false) };
+				return { key: s.key, label: s.label, value: plannedValue(x, plannedWeight(x, s.index - 1)), last: lastN, state: 'upcoming' };
 			}
 		}
 	}
@@ -293,48 +386,68 @@
 	});
 
 	/* ---------- the lines above the table ---------- */
-	let heading = $derived(!st ? 'Done' : st.kind === 'rest' ? 'Rest' : st.kind === 'set' ? st.ex!.name : st.section);
+	let heading = $derived(!st ? 'Done' : st.kind === 'set' ? st.ex!.name : st.section);
 	let weekMin = $derived(weekRunMinutes(data.events, opened));
 	let meta = $derived.by(() => {
 		if (!st) return '';
-		if (st.kind === 'prep') {
-			if (isRunDay) return `WALK · ${st.minutes} MIN · TRACKED, NOT LOGGED`;
-			const n = steps.filter((s) => s.section === st.section && s.kind === 'prep').length;
-			return `${st.section.toUpperCase()} · STEP ${st.index} OF ${n} · TRACKED, NOT LOGGED`;
+		if (st.kind === 'prep' || st.kind === 'timed') {
+			const n = steps.filter((s) => s.section === st.section).length;
+			return `${st.section.toUpperCase()} · STEP ${st.index} OF ${n}`;
 		}
-		if (st.kind === 'rest') return `${st.ex!.name.toUpperCase()} · BEFORE SET ${st.index}`;
 		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${runTarget(plan)} MIN THIS WEEK`;
 		const x = st.ex!;
-		const planLine = `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind === 'reps' ? ` · ${x.equip.toUpperCase()}` : x.kind === 'hold' ? ' · BODYWEIGHT' : ''}`;
-		return planLine;
+		// a stretch has no target to state — it says how long, and which side
+		if (isFixedHold(x)) return holdLine(x, st.index);
+		return `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind === 'reps' ? ` · ${x.equip.toUpperCase()}` : ''}`;
 	});
-	let ledgerLine = $derived(atSet ? (last ? `LAST ${setsLine(last.sets, ex!)}` : 'FIRST TIME') : '');
 	// the reasoning behind the preloaded weight, so a drop is never silent —
 	// only before the first set: after that the table carries the session's
 	// own numbers and the suggestion no longer describes what's on screen
 	let hint = $derived.by(() => {
-		if (!st) return null;
-		if (st.kind === 'prep') return cue ?? null;
-		if (st.kind === 'rest') return 'The bell moves you on — or go now.';
+		if (!st || editing) return null;
+		if (st.kind === 'prep' || st.kind === 'timed') return cue ?? null;
 		if (st.kind === 'run') return plan.run?.note ?? null;
 		const x = st.ex!;
 		if (setsDoneFor(x.name) > 0) return null;
-		return load ? loadHint(load, x) : null;
+		return loadHint(suggestionFor(x), x);
 	});
-	let quietLabel = $derived(
-		st?.kind === 'rest' ? 'Counting down — nothing to dial' : st?.kind === 'run' ? 'The clock is the number — nothing to dial' : 'Nothing to dial — the step is the instruction'
-	);
+
+	/* ---------- the stage: the one flexible element on the floor ----------
+	   Between the table and the tiles. The rep while you log; the big
+	   number, its note and a draining bar while you rest, hold or run — the
+	   figure beside it, still for a rest, working through the hold. It grows
+	   on a tall phone and gives first on a short one; nothing else moves. */
+	type Stage = { value: string; note: string; frac: number };
+	let stage = $derived.by((): Stage | null => {
+		if (!st || allDone) return null;
+		if (hold) {
+			const left = remaining ?? hold.target;
+			const what = hold.kind === 'hold' ? 'HOLD' : (st.name ?? 'GO').toUpperCase();
+			return {
+				value: hold.target >= 60 ? mmss(left * 1000) : String(left),
+				note: `${what} · OF ${durationLabel(hold.target).toUpperCase()}`,
+				frac: left / hold.target
+			};
+		}
+		if (resting) return { value: String(restLeft), note: `REST · OF ${restTotal}S`, frac: restFrac };
+		if (st.kind === 'run') {
+			const total = (st.minutes ?? 0) * 60000;
+			return { value: mmss(runElapsed), note: `RUN · OF ${st.minutes} MIN`, frac: total ? Math.max(0, 1 - runElapsed / total) : 0 };
+		}
+		return null;
+	});
+	let glyphName = $derived(editStep?.ex?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : undefined) ?? '');
+	let holdRunning = $derived(hold !== null);
 
 	/* ---------- the write path ---------- */
 	// the exercise decides which variant a set writes — never the screen
 	const holdMeasure = (seconds: number, target: number): Measure => measureFor(ex!, { load: 0, count: seconds, target });
 
-	function enqueue(measure: Measure) {
-		if (!st || st.kind === 'rest') return;
+	function push(op: LocalEntry['op'], s: Step, measure: Measure) {
 		errMsg = null;
-		const s = st;
 		local.push({
 			key: crypto.randomUUID(),
+			op,
 			status: 'queued',
 			data: { session: session.id, item: s.item, index: s.index, at: new Date().toISOString(), measure }
 		});
@@ -342,12 +455,18 @@
 		// the table changing IS the confirmation.
 		navigator.vibrate?.(12);
 		void pump();
+	}
+
+	function enqueue(measure: Measure) {
+		if (!st) return;
+		const s = st;
+		push('log', s, measure);
 		const next = stepI + 1;
 		if (next >= steps.length) return; // the receipt takes over
-		// a rest after a set, the run after its walk: just arrives. A new
-		// section: the ring, so the screen never flips under a finger.
-		if (steps[next].section !== s.section) armAdvance();
-		else goTo(next);
+		// within a section the next step just arrives (set 2, its rest
+		// running under it). A new section WAITS: the primary reads "Next:
+		// Chest Press" and nothing flips under a finger.
+		if (steps[next].section === s.section) goTo(next);
 	}
 
 	function logSetNow() {
@@ -356,19 +475,19 @@
 		enqueue(measureFor(ex!, { load: weight, count: reps }));
 	}
 
-	/** timed: one button — ring in the hold, or log the early drop */
-	function startOrDone() {
+	/** timed: one button — start the countdown, or log the early drop */
+	function startOrDone(kind: 'hold' | 'timed', target: number) {
 		if (performance.now() - lastPress < 350) return;
 		lastPress = performance.now();
 		if (hold) {
 			const held = Math.max(1, hold.target - Math.ceil((hold.end - Date.now()) / 1000));
-			const t = hold.target;
+			const h = hold;
 			hold = null;
 			remaining = null;
-			enqueue(holdMeasure(held, t));
+			enqueue(h.kind === 'hold' ? holdMeasure(held, h.target) : { of: 'step' });
 		} else {
-			remaining = reps;
-			hold = { end: Date.now() + reps * 1000, target: reps };
+			remaining = target;
+			hold = { end: Date.now() + target * 1000, target, kind };
 		}
 	}
 
@@ -393,9 +512,10 @@
 		body.set('item', p.data.item);
 		body.set('index', String(p.data.index));
 		body.set('measure', JSON.stringify(p.data.measure));
+		const action = p.op === 'log' ? '?/logEntry' : '?/correctEntry';
 		for (let attempt = 0; ; attempt++) {
 			try {
-				const res = await fetch('?/logEntry', { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
+				const res = await fetch(action, { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
 				const result = deserialize(await res.text());
 				if (result.type === 'success' || result.type === 'redirect') return { ok: true };
 				if (result.type === 'failure')
@@ -403,7 +523,7 @@
 				throw new Error('action error');
 			} catch {
 				// ambiguous network failures are safe to retry: the decider treats
-				// a repeated identity as a no-op
+				// a repeated identity as a no-op, and a repeated correction as itself
 				if (attempt >= 2) return { ok: false, message: 'Could not save — check connection.' };
 				await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
 			}
@@ -424,7 +544,7 @@
 
 	function retryEntry(key: string) {
 		const s = steps.find((x) => x.key === key);
-		const p = s && local.find((x) => x.status === 'failed' && same(x.data, { item: s.item, index: s.index } as Entry));
+		const p = s && local.find((x) => x.status === 'failed' && same(x.data, s));
 		if (!p) return;
 		p.status = 'queued';
 		errMsg = null;
@@ -467,13 +587,25 @@
 		await goto('/', { invalidateAll: true });
 	}
 
+	/** a one-off from the ⋯ sheet: the stretch becomes a section of this session, and the floor goes there */
+	function addStretch(name: string) {
+		sheetOpen = false;
+		if (!added.includes(name)) added = [...added, name];
+		const i = steps.findIndex((s) => s.section === name);
+		if (i >= 0) goTo(i);
+		else syncUrl();
+	}
+
 	function primaryAction() {
 		if (finishing || !st) return;
+		armBell(); // the gesture that lets the bell ring later
+		if (editing) return saveEdit();
 		if (allDone) return void finishNow();
-		if (stepDone || st.kind === 'rest') return goTo(stepI + 1);
+		if (stepDone) return goTo(stepI + 1);
 		if (st.kind === 'prep') return enqueue({ of: 'step' });
+		if (st.kind === 'timed') return startOrDone('timed', st.seconds ?? 0);
 		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
-		if (isHold) return startOrDone();
+		if (isHold) return startOrDone('hold', reps);
 		logSetNow();
 	}
 
@@ -481,43 +613,45 @@
 	let nextLabel = $derived.by(() => {
 		const n = steps[stepI + 1];
 		if (!n) return 'Finish workout';
-		if (n.kind === 'set') return n.section === st?.section ? 'Next set' : 'Next exercise';
-		if (n.kind === 'prep') return n.section === COOLDOWN_ITEM ? 'Cooldown' : n.section === WARMUP_ITEM ? 'Warm-up' : 'Next step';
-		if (n.kind === 'run') return 'Run';
-		return 'Next';
+		if (n.section === st?.section) return n.kind === 'set' ? 'Next set' : 'Next step';
+		return `Next: ${n.section}`;
 	});
 	let sideNow = $derived(atSet && ex?.side === 'sets' && !isHold ? (st!.index % 2 === 1 ? 'left' : 'right') : null);
 	let primaryLabel = $derived(
-		allDone
-			? finishing
-				? 'Saving…'
-				: 'Finish workout'
-			: !st
-				? 'Finish workout'
-				: st.kind === 'rest'
-					? 'Go now'
+		editing
+			? `Save ${editStep?.ex?.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`
+			: allDone
+				? finishing
+					? 'Saving…'
+					: 'Finish workout'
+				: !st
+					? 'Finish workout'
 					: stepDone
 						? nextLabel
 						: st.kind === 'prep'
 							? 'Done'
-							: st.kind === 'run'
-								? 'Stop here'
-								: isHold
-									? hold
-										? 'Done early'
-										: `Start ${reps}s hold`
-									: sideNow
-										? `Log ${sideNow} side`
-										: 'Log set'
+							: st.kind === 'timed'
+								? hold
+									? 'Done early'
+									: `Start ${durationLabel(st.seconds ?? 0)}`
+								: st.kind === 'run'
+									? 'Stop here'
+									: isHold
+										? hold
+											? 'Done early'
+											: `Start ${reps}s`
+										: sideNow
+											? `Log ${sideNow} side`
+											: 'Log set'
 	);
-	let primaryVariant = $derived(
-		(allDone || !st || st.kind === 'rest' || stepDone ? 'advance' : 'commit') as 'advance' | 'commit'
-	);
+	let primaryVariant = $derived((!editing && (allDone || !st || stepDone) ? 'advance' : 'commit') as 'advance' | 'commit');
+	/** tiles: while a set is being dialled or fixed — never for a stretch (nothing to dial), never for prep */
+	let showTiles = $derived(!!editing || (atSet && !stepDone && !fixed));
 
 	/* ---------- the ⋯ sheet: the session, by section ----------
 	   One row per section — never the sets: the sheet is for finding your
 	   place, the floor is for the set. A row says "done" when the whole
-	   section is, else how far in; rests count for "done", never for the tally. */
+	   section is, else how far in. */
 	let sections = $derived.by((): SheetSection[] => {
 		const order: string[] = [];
 		const by = new Map<string, { s: Step; i: number }[]>();
@@ -530,13 +664,13 @@
 		});
 		return order.map((name) => {
 			const items = by.get(name)!;
-			const counted = items.filter((x) => x.s.kind !== 'rest');
-			const done = counted.filter((x) => progress.done.has(x.s.key)).length;
-			const complete = done === counted.length;
+			const done = items.filter((x) => progress.done.has(x.s.key)).length;
+			const complete = done === items.length;
 			const next = items.find((x) => !progress.done.has(x.s.key)) ?? items[0];
-			return { title: name, status: complete ? 'done' : `${done}/${counted.length}`, active: st?.section === name, done: complete, jump: next.i };
+			return { title: name, status: complete ? 'done' : `${done}/${items.length}`, active: st?.section === name, done: complete, jump: next.i };
 		});
 	});
+	let addable = $derived(stretchPool.filter((x) => !steps.some((s) => s.section === x.name)));
 
 	/** the receipt: what this session actually wrote, in ledger shape */
 	function receiptSets(name: string): Measure[] {
@@ -546,29 +680,24 @@
 			.map((e) => e.measure);
 	}
 	let runMinutes = $derived(entries.filter((e) => e.measure.of === 'duration').reduce((n, e) => n + (e.measure.of === 'duration' ? e.measure.minutes : 0), 0));
-	let prepLine = $derived.by(() => {
-		const warm = entries.filter((e) => e.item === WARMUP_ITEM).length;
-		const cool = entries.filter((e) => e.item === COOLDOWN_ITEM).length;
-		const rests = steps.filter((s) => s.kind === 'rest' && progress.done.has(s.key)).length;
-		const parts: string[] = [];
-		if (isRunDay) {
-			const walks = warm + cool;
-			if (walks) parts.push(`${walks} ${walks === 1 ? 'walk' : 'walks'}`);
-		} else {
-			if (warm) parts.push(`${warm} warm-up ${warm === 1 ? 'step' : 'steps'}`);
-			if (rests) parts.push(`${rests} ${rests === 1 ? 'rest' : 'rests'}`);
-			if (cool) parts.push(`${cool} cooldown ${cool === 1 ? 'stretch' : 'stretches'}`);
-		}
-		return parts.length ? `+ ${parts.join(', ')} — tracked, kept out of the ledger.` : '';
+	// one line for what never reached the ledger: how long it took, and that the bookends happened
+	let sessionMinutes = $derived.by(() => {
+		const end = entries.reduce((m, e) => Math.max(m, Date.parse(e.at)), 0) || now;
+		return Math.max(1, Math.round((end - Date.parse(sessionAt)) / 60000));
 	});
+	let prepLine = $derived(
+		receiptLine(sessionMinutes, entries.some((e) => e.item === WARMUP_ITEM), entries.some((e) => e.item === COOLDOWN_ITEM))
+	);
 	let minutesLeft = $derived(estimateMinutes(steps, progress.current));
+	let position = $derived(positionLabel(Math.min(stepI, steps.length), steps));
 
 	function onKey(ev: KeyboardEvent) {
 		// typed entry belongs to the tile inputs — never fight the keypad
 		if ((ev.target as HTMLElement | null)?.tagName === 'INPUT') return;
 		if (ev.key === 'Escape') {
-			// Esc only ever closes the sheet — leaving is a sheet action
-			sheetOpen = false;
+			// Esc closes the sheet, or backs out of a fix — leaving is a sheet action
+			if (sheetOpen) sheetOpen = false;
+			else if (editing) cancelEdit();
 			ev.preventDefault();
 			return;
 		}
@@ -579,13 +708,14 @@
 			return;
 		}
 		if (allDone) return;
+		const dialling = !!editing || atSet;
 		if (ev.key === 'ArrowUp') {
-			if (isHold || isBW) bumpReps(1);
-			else if (atSet) bumpWeight(1);
+			if (tileHold || tileBW) bumpReps(1);
+			else if (dialling) bumpWeight(1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowDown') {
-			if (isHold || isBW) bumpReps(-1);
-			else if (atSet) bumpWeight(-1);
+			if (tileHold || tileBW) bumpReps(-1);
+			else if (dialling) bumpWeight(-1);
 			ev.preventDefault();
 		} else if (ev.key === 'ArrowRight') {
 			goTo(Math.min(steps.length - 1, stepI + 1));
@@ -593,8 +723,8 @@
 		} else if (ev.key === 'ArrowLeft') {
 			goTo(Math.max(0, stepI - 1));
 			ev.preventDefault();
-		} else if (atSet && !isHold && /^[1-9]$/.test(ev.key)) reps = parseInt(ev.key, 10);
-		else if (atSet && !isHold && ev.key === '0') reps = 10;
+		} else if (dialling && !tileHold && /^[1-9]$/.test(ev.key)) reps = parseInt(ev.key, 10);
+		else if (dialling && !tileHold && ev.key === '0') reps = 10;
 	}
 </script>
 
@@ -606,15 +736,12 @@
 		     both live in the ⋯ sheet -->
 		<header class="fl-top">
 			<span class="fl-crumb">
-				{title} · Step {Math.min(stepI + 1, steps.length)}/{steps.length}{allDone ? '' : ` · ~${minutesLeft} min`}
+				{title} · {position}{allDone ? '' : ` · ~${minutesLeft} min`}
 			</span>
 			<button
 				type="button"
 				class="fl-ghost"
-				onclick={() => {
-					advance = null;
-					sheetOpen = true;
-				}}
+				onclick={() => (sheetOpen = true)}
 				aria-label="More — the whole session, technique, finish"
 			>
 				⋯
@@ -623,83 +750,76 @@
 
 		{#if st && !allDone}
 			<main class="fl-main">
-				<!-- the glyph is Plan-tier content, right of the title block: one
-				     rep when the exercise arrives (keyed, so advancing replays),
-				     then still. Press it to see the rep again. -->
-				<div class="fl-titlerow">
-					<div class="fl-titleblock">
-						<h1 class="fl-name">{heading}</h1>
-						<p class="fl-meta">
-							<span>{meta}</span>
-							{#if ledgerLine}<span class="fl-ledgerline"> · {ledgerLine}</span>{/if}
-						</p>
-					</div>
-					<div class="fl-glyph">
-						{#key ex?.name}
-							{#if ex}<ExerciseGlyph name={ex.name} size={104} />{/if}
-						{/key}
-					</div>
+				<div class="fl-titleblock">
+					<h1 class="fl-name">{heading}</h1>
+					<p class="fl-meta">{meta}</p>
 				</div>
 
-				<StepTable {rows} onRetry={retryEntry} />
+				<StepTable {rows} onRetry={retryEntry} onTap={tapRow} />
 
 				{#if hint}
 					<p class="fl-hint">{hint}</p>
 				{/if}
+
+				<!-- the stage: the figure while you log (one rep on arrival, press
+				     for another); the clock, its bar and the figure beside it while
+				     you rest, hold or run. Keyed on the name, so a new exercise
+				     replays and a rest on the same one does not. -->
+				<div class="fl-stage" class:clock={!!stage}>
+					<div class="fl-stagerow">
+						{#key glyphName}
+							{#if glyphName}
+								<div class="fl-glyph"><ExerciseGlyph name={glyphName} size={240} loop={holdRunning} /></div>
+							{/if}
+						{/key}
+						{#if stage}
+							<div class="fl-clock">
+								<span class="fl-clocknum">{stage.value}</span>
+								<span class="fl-clocknote">{stage.note}</span>
+							</div>
+						{/if}
+					</div>
+					{#if stage}
+						<div class="fl-bar" aria-hidden="true"><div class="fl-barfill" style="width: {Math.max(0, Math.min(1, stage.frac)) * 100}%"></div></div>
+					{/if}
+				</div>
+				<span class="sr" aria-live="polite">{live}</span>
 			</main>
 
 			<div class="fl-bottom">
-				{#if atSet && !stepDone}
-					<div class="fl-tiles" class:single={isBW}>
-						{#if isHold}
+				{#if showTiles && dialEx}
+					<div class="fl-tiles" class:single={tileBW}>
+						{#if tileHold}
 							<AdjustTile
-								label={`Hold · +${holdInc}s`}
+								label={editing ? 'Held' : `Hold · +${dialEx.kind === 'hold' ? dialEx.inc : 5}s`}
 								bind:value={reps}
-								min={ex!.lo}
-								max={ex!.hi}
+								min={editing ? 1 : dialEx.lo}
+								max={dialEx.hi}
 								disabled={!!hold}
 								onStep={bumpReps}
 							/>
-							{#if !isBW}
-								<AdjustTile
-									label={`Weight · ${stepLabel(ex!)}`}
-									bind:value={weight}
-									decimals
-									min={0}
-									disabled={!!hold}
-									onStep={bumpWeight}
-								/>
-							{/if}
 						{:else}
 							<AdjustTile label="Reps" bind:value={reps} min={1} max={100} onStep={bumpReps} />
-							{#if !isBW}
-								<AdjustTile
-									label={`Weight · ${stepLabel(ex!)}`}
-									bind:value={weight}
-									decimals
-									min={0}
-									onStep={bumpWeight}
-								/>
-							{/if}
+						{/if}
+						{#if !tileBW}
+							<AdjustTile
+								label={`Weight · ${stepLabel(dialEx)}`}
+								bind:value={weight}
+								decimals
+								min={0}
+								disabled={!!hold}
+								onStep={bumpWeight}
+							/>
 						{/if}
 					</div>
-				{:else if !stepDone}
-					<!-- nothing to dial: the step is the instruction, the clock is the number -->
-					<div class="fl-quiet">{quietLabel}</div>
 				{/if}
 				{#if errMsg ?? form?.message}<p class="fl-err">{errMsg ?? form?.message}</p>{/if}
-				<FloorPrimary
-					variant={primaryVariant}
-					label={primaryLabel}
-					disabled={finishing}
-					ring={advance ? advanceLeft : null}
-					onclick={primaryAction}
-				/>
+				<FloorPrimary variant={primaryVariant} label={primaryLabel} disabled={finishing} onclick={primaryAction} />
 			</div>
 		{:else}
 			<!-- workout complete: no adjuster on screen — the table becomes a
 			     receipt in the same two-column shape as the Ledger tab (D6);
-			     only what reached the ledger, with prep counted on one line -->
+			     only what reached the ledger, with the rest on one line -->
 			<main class="fl-main">
 				<h1 class="fl-name">Done</h1>
 				<p class="fl-meta">
@@ -711,17 +831,16 @@
 							<span class="fl-rname">{title}</span>
 							<span class="fl-rval">{runMinutes ? `${runMinutes} min` : '—'}</span>
 						</div>
-					{:else}
-						{#each exercises as e (e.name)}
-							{@const sets = receiptSets(e.name)}
-							<div class="fl-rrow">
-								<span class="fl-rname">{e.name}</span>
-								<span class="fl-rval">{sets.length ? setsLine(sets, e) : '—'}</span>
-							</div>
-						{/each}
 					{/if}
+					{#each exercises as e (e.name)}
+						{@const sets = receiptSets(e.name)}
+						<div class="fl-rrow">
+							<span class="fl-rname">{e.name}</span>
+							<span class="fl-rval">{sets.length ? setsLine(sets, e) : '—'}</span>
+						</div>
+					{/each}
 				</div>
-				{#if prepLine}<p class="fl-hint">{prepLine}</p>{/if}
+				<p class="fl-hint">{prepLine}</p>
 			</main>
 			<div class="fl-bottom">
 				{#if anyFailed}
@@ -745,11 +864,12 @@
 
 <FloorSheet
 	open={sheetOpen}
-	title={heading === 'Rest' || heading === 'Done' ? title : heading}
-	ex={atSet || st?.kind === 'rest' ? ex : undefined}
-	cue={st?.kind === 'prep' ? cue : st?.kind === 'run' ? plan.run?.note : undefined}
+	title={heading === 'Done' ? title : heading}
+	ex={atSet ? ex : undefined}
+	cue={st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? plan.run?.note : undefined}
 	{sections}
-	current={Math.min(stepI, steps.length - 1)}
+	stretches={addable}
+	backLabel={position}
 	logged={progress.sets}
 	total={totalSets}
 	{allDone}
@@ -757,6 +877,7 @@
 		sheetOpen = false;
 		goTo(i);
 	}}
+	onAdd={addStretch}
 	onFinishEarly={() => void finishEarly()}
 	onExit={() => {
 		sheetOpen = false;
@@ -823,6 +944,7 @@
 		color: var(--ink-2);
 		cursor: pointer;
 		touch-action: manipulation;
+		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.fl-ghost:hover { background: var(--volt-tint); color: var(--ink); }
 	.fl-crumb {
@@ -837,29 +959,17 @@
 		text-overflow: ellipsis;
 	}
 
+	/* the floor never scrolls: everything above the stage is fixed height,
+	   the stage takes what is left, and the tiles and the button sit below */
 	.fl-main {
 		flex: 1;
 		min-height: 0;
-		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 		padding: 4px 16px 0;
 	}
-	/* the title block and the glyph are one pair: centred on each other, the
-	   glyph heavy enough to answer a 32px black title, and the row keeps a
-	   clear 16px before the step table so the figure never stands on it */
-	.fl-titlerow {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		margin-bottom: 16px;
-	}
-	.fl-titleblock { min-width: 0; flex: 1 1 auto; }
-	.fl-titleblock .fl-meta { margin-bottom: 0; }
-	.fl-glyph { flex: none; }
-	.fl-glyph:empty { display: none; }
-	@media (min-width: 640px) {
-		.fl-glyph { --glyph-size: 128px; }
-	}
+	.fl-titleblock { flex: none; margin-bottom: 12px; }
 	.fl-name {
 		margin: 0;
 		font-family: var(--font-display);
@@ -870,13 +980,15 @@
 		text-transform: uppercase;
 	}
 	.fl-meta {
-		margin: 6px 0 12px;
+		margin: 6px 0 0;
 		font-family: var(--font-mono);
 		font-size: 13px;
 		line-height: 1.5;
 		color: var(--ink-3);
 	}
 	.fl-hint {
+		flex: none;
+		align-self: flex-start;
 		font-family: var(--font-mono);
 		font-size: 12px;
 		line-height: 1.45;
@@ -887,6 +999,63 @@
 		padding: 4px 8px;
 		border-radius: 4px;
 	}
+
+	/* the stage */
+	.fl-stage {
+		flex: 1 1 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		padding: 12px 0 4px;
+	}
+	.fl-stagerow {
+		flex: 1 1 0;
+		min-height: 0;
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 24px;
+	}
+	.fl-glyph {
+		flex: 1 1 0;
+		min-height: 0;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.fl-glyph :global(canvas) { width: auto; height: 100%; max-height: 240px; aspect-ratio: 1; }
+	/* a step with no figure (a jog, a walk) leaves the clock the whole row */
+	.fl-glyph:empty { display: none; }
+	/* the clock: the figure steps aside, at rest, 88px */
+	.fl-stage.clock .fl-glyph { flex: none; height: 88px; }
+	.fl-stage.clock .fl-glyph :global(canvas) { width: 88px; height: 88px; }
+	.fl-clock { display: flex; flex-direction: column; align-items: flex-start; }
+	.fl-clocknum {
+		font-family: var(--font-mono);
+		font-weight: 800;
+		font-size: 88px;
+		line-height: 0.95;
+		letter-spacing: -0.02em;
+		font-variant-numeric: tabular-nums;
+	}
+	.fl-clocknote {
+		margin-top: 6px;
+		font-family: var(--font-mono);
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: var(--tracking-caps);
+		text-transform: uppercase;
+		color: var(--ink-3);
+	}
+	/* an ink bar draining: the same mark as the line under the row */
+	.fl-bar { flex: none; width: 100%; height: 6px; background: var(--paper-2); border-radius: var(--radius-pill); overflow: hidden; }
+	.fl-barfill { height: 100%; background: var(--ink); transition: width 200ms linear; }
+	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 	.fl-bottom {
 		flex: none;
@@ -899,24 +1068,6 @@
 		margin-bottom: 10px;
 	}
 	.fl-tiles.single { grid-template-columns: 1fr; }
-	/* the quiet tile: where the adjusters would be, saying why there are none */
-	.fl-quiet {
-		min-height: 68px;
-		margin-bottom: 10px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		text-align: center;
-		padding: 0 14px;
-		background: var(--paper);
-		border: 1px dashed var(--border-soft);
-		border-radius: 14px;
-		font-size: 9.5px;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--ink-3);
-	}
 	.fl-err {
 		font-family: var(--font-mono);
 		font-size: 13px;
@@ -942,11 +1093,14 @@
 
 	/* the receipt — two columns, like the Ledger tab */
 	.fl-receipt {
+		flex: none;
+		margin-top: 12px;
 		background: var(--surface-card);
 		border: var(--border-w) solid var(--ink);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
-		overflow: hidden;
+		overflow: hidden auto;
+		min-height: 0;
 	}
 	.fl-rrow {
 		display: flex;
@@ -969,30 +1123,31 @@
 	.fl :global(:focus-visible) { outline: none; box-shadow: var(--focus-shadow); }
 
 	@media (prefers-reduced-motion: reduce) {
-		.fl :global(*) { transition: none !important; }
+		.fl :global(*) { transition: none !important; animation: none !important; }
 	}
 
-	/* Short screens: the floor must not scroll mid-set. The ledger and hint
-	   lines drop before anything interactive does; nothing interactive goes
-	   below 44px, ever. */
+	/* Short screens: the floor must not scroll mid-set. The stage gives first,
+	   then the hint; nothing interactive goes below 44px, ever. */
 	@media (max-height: 740px) {
-		.fl-meta { margin: 4px 0 8px; }
 		.fl-name { font-size: clamp(24px, 6vw, 30px); }
 		.fl-bottom { padding-top: 6px; }
-		.fl-titlerow { margin-bottom: 12px; }
-		.fl-glyph { --glyph-size: 88px; }
+		.fl-titleblock { margin-bottom: 10px; }
+		.fl-clocknum { font-size: 72px; }
 	}
 	@media (max-height: 640px) {
-		.fl-ledgerline { display: none; }
 		.fl-hint { margin-top: 6px; }
-		.fl-glyph { --glyph-size: 64px; }
+		.fl-stage { padding: 8px 0 2px; }
+		.fl-clocknum { font-size: 56px; }
+		.fl-stage.clock .fl-glyph { height: 64px; }
+		.fl-stage.clock .fl-glyph :global(canvas) { width: 64px; height: 64px; }
 	}
 	@media (max-height: 560px) {
 		.fl-hint { display: none; }
-		.fl-glyph { display: none; }
-		.fl-meta { margin: 2px 0 6px; font-size: 12px; }
+		.fl-stage:not(.clock) { display: none; }
+		.fl-stage.clock .fl-glyph { display: none; }
+		.fl-clocknum { font-size: 44px; }
+		.fl-meta { margin: 2px 0 0; font-size: 12px; }
 		.fl-name { font-size: clamp(22px, 5vh, 26px); }
 		.fl-tiles { gap: 8px; margin-bottom: 8px; }
-		.fl-quiet { min-height: 52px; }
 	}
 </style>

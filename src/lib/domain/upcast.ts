@@ -39,7 +39,10 @@ type SessionStruckV1 = { type: 'SessionStruck'; data: { session: string; at: str
  */
 type SessionStartedV1 = {
 	type: 'SessionStarted';
-	data: { session: string; plan: string; at: string; day?: string; kind?: 'lift' | 'run'; mode?: 'live' | 'after' };
+	data: {
+		session: string; plan: string; at: string;
+		day?: string; kind?: 'lift' | 'run'; mode?: 'live' | 'after'; pick?: string[];
+	};
 };
 /** EntryLogged and SessionFinished as first written: carrying plan/day nobody read. */
 type EntryLoggedV1 = {
@@ -66,7 +69,12 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			const d = (e as SessionStartedV1).data;
 			// the first shape spelled a run as day: 'run' — the one sentinel, retired here
 			const workout: Workout = d.kind === 'run' || d.day === 'run' ? RUN : { kind: 'lift', day: d.day ?? '' };
-			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', ...workout } }];
+			return [
+				{
+					type: 'SessionStarted',
+					data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', ...(d.pick ? { pick: d.pick } : {}), ...workout }
+				}
+			];
 		}
 		case 'EntryLogged': {
 			// rebuilt, not passed through: the first EntryLogged rows carried
@@ -80,6 +88,7 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			const d = (e as SessionFinishedV1).data;
 			return [{ type: 'SessionFinished', data: { session: d.session, at: d.at } }];
 		}
+		case 'EntryCorrected':
 		case 'SessionRemoved':
 		case 'PlanSelected':
 			return [e as LedgerEvent];

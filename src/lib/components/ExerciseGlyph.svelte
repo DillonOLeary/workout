@@ -3,15 +3,27 @@
 
 	/**
 	 * One exercise, stamped through the dot grid. Plays ONE rep when it
-	 * arrives (or when pressed), then rests on frame 0 — it is never ambient
-	 * motion. Ink only, transparent: Plan-tier content, never a control.
-	 * Unknown exercise → nothing at all, never a placeholder.
+	 * arrives (a beat after mount, so it never fires while the screen is
+	 * still changing) or when pressed, then rests on frame 0 — it is never
+	 * ambient motion, with one exception: while `loop` is set (a hold in
+	 * progress) it walks the six frames at one a second, because the figure
+	 * IS doing the hold. Ink only, transparent: Plan-tier content, never a
+	 * control. Unknown exercise → nothing at all, never a placeholder.
 	 */
-	let { name, size = 88, play = true }: { name: string; size?: number; play?: boolean } = $props();
+	let {
+		name,
+		size = 88,
+		play = true,
+		loop = false
+	}: { name: string; size?: number; play?: boolean; loop?: boolean } = $props();
 
 	const REST = 0; // where a glyph waits: the top of the rep
 	const STILL = 3; // reduced motion: the working pose, and nothing moves
 	const TOTAL = FRAME_MS * SEQ.length;
+	/** the rep waits for the screen to settle first (§8: it read as a glitch mid-transition) */
+	const ARRIVE_MS = 320;
+	/** the hold loop: one stamped frame a second */
+	const LOOP_MS = 1000;
 
 	let fn = $derived(poseFor(name));
 	let canvas = $state<HTMLCanvasElement>();
@@ -21,6 +33,8 @@
 	let w = 0, h = 0, dpr = 1, ink = '#1A1915';
 	let reduced = false;
 	let raf = 0, start = 0, lastIdx = -1;
+	let arrive: ReturnType<typeof setTimeout> | undefined;
+	let looper: ReturnType<typeof setInterval> | undefined;
 
 	function measure(): boolean {
 		if (!canvas) return false;
@@ -71,7 +85,7 @@
 	}
 
 	function replay() {
-		if (reduced) return;
+		if (reduced || looper) return;
 		start = performance.now();
 		if (!raf) raf = requestAnimationFrame(tick);
 	}
@@ -85,16 +99,33 @@
 		// observer also fires once on observe, which is the first paint
 		const ro = new ResizeObserver(() => {
 			if (!measure()) return;
-			if (raf) lastIdx = -1; // mid-rep: the loop repaints at its frame
+			if (raf || looper) lastIdx = -1; // mid-rep: the loop repaints at its frame
 			else show(reduced ? STILL : REST);
+			if (looper && lastIdx < 0) show(STILL);
 		});
 		ro.observe(el);
-		if (play) replay();
+		if (play) arrive = setTimeout(replay, ARRIVE_MS);
 		return () => {
 			ro.disconnect();
+			clearTimeout(arrive);
 			cancelAnimationFrame(raf);
 			raf = 0;
 			lastIdx = -1;
+		};
+	});
+
+	// the hold: the figure works through the frames, slowly, for as long as it lasts
+	$effect(() => {
+		if (!loop || !fn || reduced) return;
+		cancelAnimationFrame(raf);
+		raf = 0;
+		let i = STILL;
+		show(i);
+		looper = setInterval(() => show((i = (i + 1) % SEQ.length)), LOOP_MS);
+		return () => {
+			clearInterval(looper);
+			looper = undefined;
+			if (canvas && w) show(REST);
 		};
 	});
 </script>

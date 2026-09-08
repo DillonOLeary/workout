@@ -2,28 +2,32 @@
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
+	import { RUN_ITEM } from '$lib/domain/events';
 	import { setsLine } from '$lib/domain/labels';
-	import { anySetEarned } from '$lib/domain/progression';
-	import { dayTitle, projectPlanSwitches, projectSessions } from '$lib/domain/projections';
+	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
+	import type { Exercise } from '$lib/domain/plan';
+	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
+	import { dayTitle, projectPlanSwitches, projectSessions, type SessionRow, type SessionView } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
 	/**
-	 * The Ledger tab is the event stream made human-readable: two columns —
-	 * the exercise, and what happened. Removing an entry is a rare correction,
-	 * so the Remove buttons hide behind one "Edit entries" toggle instead of
-	 * sitting on every card.
+	 * By day is the event stream made human-readable: two columns — the
+	 * exercise, and what happened. Freedom inside the latest session,
+	 * immutability before it: on the latest card a row opens inline and
+	 * Save writes a correction; older cards are read-only, because the rule
+	 * has already read them. Removing is the rare correction that works on
+	 * any session, so it hides behind one toggle instead of sitting on
+	 * every card.
 	 */
 	let editMode = $state(false);
 
-	// two-tap arm before removing — the red waits for stated intent
+	// two-tap arm before removing — the red waits for stated intent, and
+	// stays until you tap anywhere else (no silent timeout)
 	let removing = $state<string | null>(null);
-	let removeTimer: ReturnType<typeof setTimeout> | undefined;
-	function armRemove(id: string) {
-		removing = id;
-		clearTimeout(removeTimer);
-		removeTimer = setTimeout(() => (removing = null), 3000);
+	function onWindowClick(e: MouseEvent) {
+		if (removing && !(e.target as HTMLElement | null)?.closest('.remove')) removing = null;
 	}
 
 	// one list: a run is a session with one entry, so every row is a session
@@ -34,12 +38,68 @@
 	let shown = $state(PAGE);
 	let visible = $derived(entries.slice(0, shown));
 
-	const exByName = (name: string) =>
+	const exByName = (name: string): Exercise | undefined =>
 		data.plans.flatMap((p) => Object.values(p.days).flat()).find((e) => e.name === name);
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 
+	/* ---------- inline edit, the latest session only ----------
+	   A row opens as the Log-it-after line, one per set: − 40 lb + × − 8 +.
+	   Save posts one correction per changed set; the decider is what refuses
+	   anything older — this screen only hides the gesture there. */
+	type EditSet = { item: string; index: number; ex?: Exercise; of: Measure['of']; weight: number; count: number; target?: number };
+	let editingRow = $state<string | null>(null);
+	let edit = $state<EditSet[]>([]);
+	let original = $state<Measure[]>([]);
+
+	function openRow(s: SessionView, row: SessionRow) {
+		const key = `${s.id}:${row.item}`;
+		if (editingRow === key) return (editingRow = null);
+		const ex = exByName(row.item);
+		original = row.sets;
+		edit = row.sets.map((m, i) => ({
+			item: row.item, index: i + 1, ex, of: m.of, weight: loadOf(m), count: countOf(m),
+			...(m.of === 'hold' && m.target !== undefined ? { target: m.target } : {})
+		}));
+		editingRow = key;
+	}
+	function openRun(s: SessionView) {
+		const key = `${s.id}:${RUN_ITEM}`;
+		if (editingRow === key) return (editingRow = null);
+		original = [{ of: 'duration', minutes: s.minutes }];
+		edit = [{ item: RUN_ITEM, index: 1, of: 'duration', weight: 0, count: s.minutes }];
+		editingRow = key;
+	}
+	// the same ± as the floor where the exercise is known; a plain step where it isn't
+	const bumpWeight = (e: EditSet, dir: 1 | -1) => {
+		e.weight = e.ex?.kind === 'load' ? bumpLoad(e.ex, e.weight, dir) : Math.max(0, e.weight + dir * 5);
+	};
+	const bumpReps = (e: EditSet, dir: 1 | -1) => {
+		if (e.of === 'duration') e.count = Math.max(1, Math.min(600, e.count + dir * 5));
+		else if (e.of === 'hold') e.count = Math.max(1, Math.min(600, e.count + dir * (e.ex?.kind === 'hold' ? e.ex.inc || 5 : 5)));
+		else if (e.ex && e.ex.kind !== 'hold') e.count = bumpCount(e.ex, e.count, dir);
+		else e.count = Math.max(1, Math.min(100, e.count + dir));
+	};
+	/** the measure a line writes — rebuilt by variant, so a stray field never rides along */
+	const measureOf = (e: EditSet): Measure => {
+		switch (e.of) {
+			case 'load': return { of: 'load', load: e.weight, reps: e.count };
+			case 'reps': return { of: 'reps', reps: e.count };
+			case 'hold': return { of: 'hold', seconds: e.count, ...(e.target !== undefined ? { target: e.target } : {}) };
+			case 'duration': return { of: 'duration', minutes: e.count };
+			case 'step': return { of: 'step' };
+		}
+	};
+	let corrections = $derived(
+		edit
+			.map((e, i) => ({ item: e.item, index: e.index, measure: measureOf(e), was: original[i] }))
+			.filter((c) => JSON.stringify(c.measure) !== JSON.stringify(c.was))
+			.map(({ item, index, measure }) => ({ item, index, measure }))
+	);
+	const unitOf = (e: EditSet) => (e.of === 'hold' ? 's' : e.of === 'duration' ? ' min' : e.of === 'reps' ? ' reps' : '');
 </script>
+
+<svelte:window onclick={onWindowClick} />
 
 <div class="col">
 	<div class="head">
@@ -55,68 +115,131 @@
 	{/if}
 
 	{#if entries.length === 0}
-		<Card><div class="empty">Nothing logged yet. Start Workout A.</div></Card>
+		<Card><div class="empty">Nothing logged yet. Start from Today.</div></Card>
 	{/if}
 
+	{#snippet removeBtn(id: string)}
+		<form method="POST" action="?/remove" use:enhance>
+			<input type="hidden" name="session" value={id} />
+			{#if removing === id}
+				<button type="submit" class="remove armed">Remove?</button>
+			{:else}
+				<button type="button" class="remove" onclick={() => (removing = id)}>Remove</button>
+			{/if}
+		</form>
+	{/snippet}
+
+	{#snippet editor(s: SessionView)}
+		<form
+			method="POST"
+			action="?/correct"
+			class="editor"
+			use:enhance={() =>
+				async ({ update, result }) => {
+					await update();
+					if (result.type === 'success') editingRow = null;
+				}}
+		>
+			<input type="hidden" name="session" value={s.id} />
+			<input type="hidden" name="corrections" value={JSON.stringify(corrections)} />
+			{#each edit as e, i (e.index)}
+				<div class="eline">
+					<span class="elbl">{e.of === 'duration' ? 'RUN' : e.of === 'hold' ? `HOLD ${e.index}` : `SET ${e.index}`}</span>
+					<span class="ectls">
+						{#if e.of === 'load'}
+							<span class="ctl">
+								<button type="button" class="pm" aria-label="Less weight" onclick={() => bumpWeight(edit[i], -1)}>−</button>
+								<span class="num">{e.weight}<span class="unit"> {e.ex?.kind === 'load' && e.ex.each ? '/hand' : 'lb'}</span></span>
+								<button type="button" class="pm" aria-label="More weight" onclick={() => bumpWeight(edit[i], 1)}>+</button>
+							</span>
+							<span class="times">×</span>
+						{/if}
+						<span class="ctl">
+							<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpReps(edit[i], -1)}>−</button>
+							<span class="num">{e.count}<span class="unit">{unitOf(e)}</span></span>
+							<button type="button" class="pm" aria-label="More" onclick={() => bumpReps(edit[i], 1)}>+</button>
+						</span>
+					</span>
+				</div>
+			{/each}
+			<div class="ebtns">
+				<button type="submit" class="esave" disabled={!corrections.length}>Save</button>
+				<button type="button" class="ecancel" onclick={() => (editingRow = null)}>Cancel</button>
+			</div>
+		</form>
+	{/snippet}
+
 	{#each visible as s (s.id)}
+		{@const latest = s.id === data.latestSession}
 		{#if s.workout.kind === 'run' && s.rows.length === 0}
 			<!-- a run: one row in the week, one row here, the same Remove -->
 			<Card>
-				<div class="line">
-					<span class="date">{s.dateLabel}</span>
-					<span class="runlbl">{dayTitle(planById(s.plan), s.workout)}</span>
-					{#if !s.finished}<Badge tone="warning">In progress</Badge>{/if}
-					<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
-					{#if editMode}
-						<form method="POST" action="?/remove" use:enhance>
-							<input type="hidden" name="session" value={s.id} />
-							{#if removing === s.id}
-								<button type="submit" class="remove armed">Remove?</button>
-							{:else}
-								<button type="button" class="remove" onclick={() => armRemove(s.id)}>Remove</button>
-							{/if}
-						</form>
-					{/if}
-				</div>
+				{#if latest}
+					<button type="button" class="line tap" onclick={() => openRun(s)} aria-expanded={editingRow === `${s.id}:${RUN_ITEM}`}>
+						<span class="date">{s.dateLabel}</span>
+						<span class="runlbl">{dayTitle(planById(s.plan), s.workout)}</span>
+						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
+						<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
+					</button>
+				{:else}
+					<div class="line">
+						<span class="date">{s.dateLabel}</span>
+						<span class="runlbl">{dayTitle(planById(s.plan), s.workout)}</span>
+						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
+						<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
+					</div>
+				{/if}
+				{#if editMode}<div class="removerow">{@render removeBtn(s.id)}</div>{/if}
+				{#if editingRow === `${s.id}:${RUN_ITEM}`}{@render editor(s)}{/if}
 			</Card>
 		{:else}
 			<Card pad={false}>
 				<div class="sesshead">
 					<span class="date">{s.dateLabel}</span>
 					<span class="sessbadges">
-						{#if !s.finished}<Badge tone="warning">In progress</Badge>{/if}
+						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
 						<Badge tone="neutral">{dayTitle(planById(s.plan), s.workout)}</Badge>
 						{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
-						{#if editMode}
-							<form method="POST" action="?/remove" use:enhance>
-								<input type="hidden" name="session" value={s.id} />
-								{#if removing === s.id}
-									<button type="submit" class="remove armed">Remove?</button>
-								{:else}
-									<button type="button" class="remove" onclick={() => armRemove(s.id)}>
-										Remove
-									</button>
-								{/if}
-							</form>
-						{/if}
+						{#if editMode}{@render removeBtn(s.id)}{/if}
 					</span>
 				</div>
 				{#each s.rows as row (row.item)}
 					{@const ex = exByName(row.item)}
 					{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
-					<div class="sessrow">
-						<span class="exname">
-							{row.item}
-							{#if lvl}<span class="uppill">↑</span>{/if}
-						</span>
-						<span class="val">{setsLine(row.sets, ex)}</span>
-					</div>
+					{@const key = `${s.id}:${row.item}`}
+					{#if latest}
+						<!-- the latest session: every row is one tap from its numbers -->
+						<button type="button" class="sessrow tap" class:opened={editingRow === key} onclick={() => openRow(s, row)} aria-expanded={editingRow === key}>
+							<span class="exname">
+								{row.item}
+								{#if lvl}<span class="uppill">↑</span>{/if}
+							</span>
+							<span class="val">{setsLine(row.sets, ex)}</span>
+						</button>
+						{#if editingRow === key}{@render editor(s)}{/if}
+					{:else}
+						<div class="sessrow">
+							<span class="exname">
+								{row.item}
+								{#if lvl}<span class="uppill">↑</span>{/if}
+							</span>
+							<span class="val">{setsLine(row.sets, ex)}</span>
+						</div>
+					{/if}
 				{/each}
 				{#if s.minutes}
-					<div class="sessrow">
-						<span class="exname">Run</span>
-						<span class="val">{s.minutes} min</span>
-					</div>
+					{#if latest}
+						<button type="button" class="sessrow tap" class:opened={editingRow === `${s.id}:${RUN_ITEM}`} onclick={() => openRun(s)}>
+							<span class="exname">Run</span>
+							<span class="val">{s.minutes} min</span>
+						</button>
+						{#if editingRow === `${s.id}:${RUN_ITEM}`}{@render editor(s)}{/if}
+					{:else}
+						<div class="sessrow">
+							<span class="exname">Run</span>
+							<span class="val">{s.minutes} min</span>
+						</div>
+					{/if}
 				{/if}
 				<!-- prep is present, not itemised: it never leads the row -->
 				{#if s.prep}
@@ -125,6 +248,10 @@
 			</Card>
 		{/if}
 	{/each}
+
+	{#if entries.length > 1}
+		<p class="histnote">Older sets are history — remove the session and log it again if it's wrong.</p>
+	{/if}
 
 	{#if entries.length > shown}
 		<button type="button" class="more" onclick={() => (shown += PAGE)}>
@@ -169,7 +296,7 @@
 		font-size: var(--text-display);
 		line-height: var(--leading-tight);
 	}
-	/* corrections are rare: one quiet toggle, not a button on every card */
+	/* removals are rare: one quiet toggle, not a button on every card */
 	.edit {
 		min-height: 44px;
 		padding: 0 14px;
@@ -183,17 +310,19 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 		cursor: pointer;
+		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.edit:hover { color: var(--ink); border-color: var(--ink); }
 	.edit[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
 
 	.empty { font-size: 16px; color: var(--ink-2); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
+	.histnote { margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
 
 	/* the event-sourced delete: the word is plain, the red waits for intent */
 	.remove {
-		min-height: 32px;
-		padding: 0 12px;
+		min-height: 44px;
+		padding: 0 14px;
 		background: transparent;
 		border: 1px solid var(--border-soft);
 		border-radius: var(--radius-pill);
@@ -204,14 +333,16 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 		cursor: pointer;
+		transition: background var(--dur-med) var(--ease-snap), color var(--dur-med) var(--ease-snap);
 	}
 	.remove:hover { color: var(--danger); border-color: var(--danger); }
 	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
-	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+	.removerow { display: flex; justify-content: flex-end; margin-top: 10px; }
+	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; }
 	/* never break a date mid-word — "Sun, Aug 2" over three lines is what let
 	   the badges keep their full width and push Remove off the card */
 	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
-	.runlbl { font-weight: var(--weight-bold); flex: 1; }
+	.runlbl { font-weight: var(--weight-bold); flex: 1; text-align: left; }
 	.runmin { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; white-space: nowrap; }
 	.prepline {
 		padding: 8px 24px 12px; border-top: 1px solid var(--border-soft);
@@ -239,9 +370,20 @@
 		grid-template-columns: 1fr auto;
 		gap: 16px;
 		align-items: center;
+		width: 100%;
+		min-height: 44px;
 		padding: 14px 24px;
 		border-top: 1px solid var(--border-soft);
 	}
+	/* a tappable row: the same two columns, and paper-2 while it is open */
+	.tap {
+		background: transparent; border-left: none; border-right: none; border-bottom: none;
+		font: inherit; color: inherit; text-align: left; cursor: pointer; touch-action: manipulation;
+		transition: background var(--dur-med) var(--ease-snap);
+	}
+	.line.tap { border: none; padding: 0; }
+	.tap:hover { background: var(--volt-tint); }
+	.tap.opened { background: var(--surface-sunken); }
 	.exname { font-weight: var(--weight-bold); font-size: 16px; }
 	.uppill {
 		margin-left: 8px;
@@ -253,6 +395,42 @@
 		font-weight: var(--weight-bold);
 	}
 	.val { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); text-align: right; }
+
+	/* the inline editor: the Log-it-after line, one per set, then Save / Cancel */
+	.editor {
+		display: flex; flex-direction: column; gap: 6px;
+		padding: 8px 24px 14px; background: var(--surface-sunken); border-top: 1px solid var(--border-soft);
+	}
+	.eline { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+	.elbl { font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-3); }
+	.ectls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+	.ctl { display: inline-flex; align-items: center; gap: 2px; }
+	.pm {
+		width: 44px; min-height: 44px;
+		background: transparent; border: none; border-radius: var(--radius-sm);
+		font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--ink-2); cursor: pointer;
+		touch-action: manipulation;
+	}
+	.pm:hover { background: var(--volt-tint); }
+	.num { font-family: var(--font-mono); font-weight: 800; font-size: 18px; min-width: 44px; text-align: center; }
+	.unit { font-size: 12px; font-weight: 700; color: var(--ink-3); }
+	.times { font-family: var(--font-mono); color: var(--ink-3); }
+	.ebtns { display: flex; gap: 8px; margin-top: 6px; }
+	.esave {
+		flex: 1; min-height: 48px;
+		background: var(--volt); color: var(--ink);
+		border: var(--border-w) solid var(--ink); border-radius: var(--radius-md); box-shadow: var(--shadow-raised);
+		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 15px;
+		cursor: pointer; touch-action: manipulation;
+	}
+	.esave:disabled { opacity: 0.4; cursor: default; }
+	.ecancel {
+		min-height: 48px; padding: 0 16px;
+		background: var(--white); color: var(--ink-2);
+		border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 15px;
+		cursor: pointer;
+	}
 
 	.more {
 		min-height: var(--hit-min);

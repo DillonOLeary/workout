@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingHint, doseLabel, fmtDate, fmtShort, loadHint, loadLabel, loadShort, plannedValue, rangeLabel, setValue, setsLabel, setsLine, stepLabel, unitLabel, unitOf } from './labels';
+import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, plannedValue, prepLabel, rangeLabel, receiptLine, setValue, setsLabel, setsLine, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
@@ -21,6 +21,7 @@ const press: Exercise = { name: 'Chest Press', equip: '', tag: '', kind: 'load',
 const lunge: Exercise = { ...goblet, name: 'DB Reverse Lunge', each: true, side: 'reps' };
 const plank: Exercise = { name: 'Long-Lever Plank', equip: '', tag: '', kind: 'hold', sets: 3, lo: 10, hi: 20, inc: 5 };
 const copenhagen: Exercise = { name: 'Copenhagen Plank', equip: '', tag: '', kind: 'reps', sets: 2, lo: 5, hi: 15, side: 'sets' };
+const stretch: Exercise = { name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, inc: 0, side: 'sets' };
 
 describe('one number', () => {
 	it('never shows a bare number for a two-dumbbell lift', () => {
@@ -54,6 +55,25 @@ describe('the plan’s numbers', () => {
 		expect(doseLabel(plank)).toBe('3 × 10–20s');
 		expect(doseLabel(copenhagen)).toBe('2 × 5–15 · L/R');
 		expect(doseLabel(lunge)).toBe('3 × 6–12 · per side');
+		expect(doseLabel(stretch)).toBe('2 × 45s · L/R');
+	});
+	it('phrases a stretch’s hold, a prep item, and a countdown', () => {
+		expect(holdLine(stretch, 2)).toBe('HOLD 2 OF 2 · 45S EACH SIDE');
+		expect(holdLine({ ...stretch, sets: 1, side: undefined }, 1)).toBe('HOLD 1 OF 1 · 45S');
+		expect(holdDose(stretch)).toBe('45s each side');
+		expect(holdDose({ ...stretch, sets: 1, side: undefined })).toBe('45s');
+		expect(prepLabel('5 min easy bike')).toBe('5 min easy bike');
+		expect(prepLabel({ name: 'Easy jog', minutes: 3 })).toBe('Easy jog · 3 min');
+		expect(prepLabel({ name: 'Carioca', seconds: 30, each: true })).toBe('Carioca · 30s each');
+		expect(prepLabel({ name: 'A-skips', seconds: 30 })).toBe('A-skips · 30s');
+		expect([30, 60, 180, 90].map(durationLabel)).toEqual(['30s', '1 min', '3 min', '90s']);
+		expect(stretchDose(7, 5, 9)).toBe('7 min · 5 areas · 9 holds');
+		expect(stretchDose(1, 1, 1)).toBe('1 min · 1 area · 1 hold');
+	});
+	it('closes the receipt in one line', () => {
+		expect(receiptLine(41, true, true)).toBe('41 min · warm-up and cooldown done.');
+		expect(receiptLine(38, true, false)).toBe('38 min · warm-up done.');
+		expect(receiptLine(12, false, false)).toBe('12 min.');
 	});
 	it('says what a set counts and what a level-up costs', () => {
 		expect(setsLabel(goblet)).toBe('3 sets');
@@ -79,6 +99,12 @@ describe('a set', () => {
 		expect(plannedValue(rdl, 40)).toBe('40 /hand × 6–12');
 		expect(plannedValue(plank, 0)).toBe('10–20s');
 		expect(plannedValue(copenhagen, 0)).toBe('5–15');
+		expect(plannedValue(stretch, 0)).toBe('45s');
+	});
+	it('says last time’s count in its own unit', () => {
+		expect(countLabel(load(35, 12))).toBe('12');
+		expect(countLabel(hold(15, 15))).toBe('15s');
+		expect(countLabel(reps(8))).toBe('8');
 	});
 	it('puts a whole entry on one line', () => {
 		expect(setsLine([load(35, 12), load(35, 9), load(35, 5)], goblet)).toBe('35 lb · 12 · 9 · 5');
