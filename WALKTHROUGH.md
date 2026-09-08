@@ -457,6 +457,7 @@ Things to notice:
 | `{#key}` | the gym floor wraps the glyph in `{#key glyphName}`: advancing to the next exercise remounts it, and a fresh mount plays once — a rest on the *same* exercise does not |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
+| runes in a `.svelte.ts` module | [floor/queue.svelte.ts](src/lib/components/floor/queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/components/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 (and a `svelte-ignore state_referenced_locally`) because a session's identity
@@ -477,22 +478,26 @@ The first gym session produced a feedback batch; three of the fixes are
 patterns worth studying:
 
 - **Optimistic UI over an event store**
-  ([log/+page.svelte](src/routes/(app)/log/+page.svelte)): "Log set" appends
-  to a client-side `$state` queue and the screen updates in the same frame;
-  a single-flight `pump()` POSTs queued sets in order in the background, and
-  no invalidation runs mid-session. The safety net is in the DOMAIN, not the
-  UI: the decider treats a duplicate `(exercise, set)` as a zero-event no-op,
-  so ambiguous network retries are idempotent, and Emmett's
-  `retry: { onVersionConflict: true }` absorbs concurrent appends. A set the
-  server rejects stays on the table as a failed row with a Retry — marked,
-  never silently removed — and the floor draws the whole queue as rows of a
-  step table (confirmed / saving… / current / resting / editing / upcoming),
-  which replaced the old progress rail. A correction rides the same queue
-  with `op: 'correct'`: the merge that builds `entries` lays the queue over
-  the server's, a log adding a row and a correction replacing a measure, and
-  that merged list is what the rest clock reads — so a set that hasn't
+  ([floor/queue.svelte.ts](src/lib/components/floor/queue.svelte.ts)): "Log
+  set" pushes onto the `EntryQueue` and the screen updates in the same
+  frame; a single-flight pump POSTs queued entries in order in the
+  background, and no invalidation runs mid-session. The safety net is in
+  the DOMAIN, not the UI: the decider treats a duplicate `(exercise, set)`
+  as a zero-event no-op, so ambiguous network retries are idempotent, and
+  Emmett's `retry: { onVersionConflict: true }` absorbs concurrent appends.
+  A set the server rejects stays on the table as a failed row with a Retry
+  — marked, never silently removed — and the floor draws the whole queue as
+  rows of a step table (confirmed / saving… / current / resting / editing /
+  upcoming), which replaced the old progress rail. A correction rides the
+  same queue with `op: 'correct'`: `overlay()` lays the queue over the
+  server's entries, a log adding a row and a correction replacing a measure,
+  and that merged list is what the rest clock reads — so a set that hasn't
   reached the server yet still starts the clock. Exiting the screen drains
-  the queue, then `goto(..., { invalidateAll: true })` restores server truth.
+  the queue, then `goto(..., { invalidateAll: true })` restores server
+  truth. The page ([log/+page.svelte](src/routes/(app)/log/+page.svelte))
+  keeps only what is *its* business: which step you are on, what the rows
+  say, what the button does — and what the bell writes, which it hands to
+  the `CountdownClock` as a callback.
 - **Schema evolution without migration**
   ([events.ts](src/lib/domain/events.ts)): planks became seconds-based by
   ADDING an optional `unit?: 'reps' | 's'` field whose absence means what old

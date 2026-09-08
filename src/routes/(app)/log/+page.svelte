@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { deserialize, enhance } from '$app/forms';
-	import { goto, invalidateAll, replaceState } from '$app/navigation';
+	import { enhance } from '$app/forms';
+	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import AdjustTile from '$lib/components/floor/AdjustTile.svelte';
@@ -10,6 +10,8 @@
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
 	import { armBell, ringBell } from '$lib/components/floor/bell';
+	import { CountdownClock, type Countdown } from '$lib/components/floor/countdown.svelte';
+	import { EntryQueue, type QueueOp } from '$lib/components/floor/queue.svelte';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { dayTitle, historyFor, lastEntryFor, sessionEntries, weekRunMinutes } from '$lib/domain/projections';
@@ -34,7 +36,6 @@
 		runStart,
 		sessionProgress,
 		sessionSteps,
-		type Entry,
 		type Step
 	} from '$lib/domain/steps';
 	import { cueFor, isFixedHold, restFor, runTarget, stretchDays, type Exercise } from '$lib/domain/plan';
@@ -62,47 +63,18 @@
 	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch days */
 	const stretchPool: Exercise[] = stretchDays(plan).flatMap((d) => plan.days[d]);
 
-	/* ---------- optimistic queue ----------------------------------------
-	   Pressing the primary appends to `local` and the UI updates in the same
-	   frame; a single-flight pump() POSTs queued entries to the server strictly
-	   in order in the background. data.events is never refreshed mid-session
-	   (no update()/invalidation), so confirmed entries stay in `local` and the
-	   merge below stays the one source of truth for this screen. An entry the
-	   server rejects goes to 'failed' — it keeps its row and its numbers with
-	   a Retry in place; nothing disappears silently (D4). A correction rides
-	   the same queue: same identity, a new measure, a different action. */
-	type LocalEntry = {
-		key: string;
-		op: 'log' | 'correct';
-		status: 'queued' | 'inflight' | 'confirmed' | 'failed';
-		data: Entry;
-	};
-	let local = $state<LocalEntry[]>([]);
-	let errMsg = $state<string | null>(null);
+	/* ---------- the optimistic queue (queue.svelte.ts) ----------
+	   The screen updates the frame you press; the server catches up in the
+	   background. data.events is never refreshed mid-session, so the queue
+	   laid over the server's entries is the one source of truth here. */
+	const queue = new EntryQueue(session.id);
 	let lastPress = 0; // double-tap cooldown; not reactive on purpose
-	let pumpPromise: Promise<void> | null = null;
 
 	// the server's entries, corrections already applied (one fold, projections.ts)
 	let serverEntries = $derived(sessionEntries(data.events, session.id));
-	const same = (a: { item: string; index: number }, b: { item: string; index: number }) =>
-		a.item === b.item && a.index === b.index;
-	// the entries that COUNT: the server's, with the queue laid over them — a
-	// log adds a row, a correction replaces its measure, a failed one does
-	// neither. Entries for `restUntil` come from HERE, so a set that hasn't
-	// reached the server yet still starts the rest clock (that was 1j).
-	let entries = $derived.by((): Entry[] => {
-		const out = serverEntries.map((e) => ({ ...e }));
-		for (const p of local) {
-			if (p.status === 'failed') continue;
-			const i = out.findIndex((e) => same(e, p.data));
-			if (p.op === 'log') {
-				if (i < 0) out.push(p.data);
-			} else if (i >= 0) out[i] = { ...out[i], measure: p.data.measure };
-		}
-		return out;
-	});
-	let anyFailed = $derived(local.some((p) => p.status === 'failed'));
-	let syncing = $derived(local.some((p) => p.status === 'queued' || p.status === 'inflight'));
+	// the entries that COUNT — and what `restUntil` reads, so a set that
+	// hasn't reached the server yet still starts the rest clock (that was 1j)
+	let entries = $derived(queue.overlay(serverEntries));
 
 	/* ---------- the steps ----------
 	   Derived, not a snapshot: a stretch added from the ⋯ sheet appends a
@@ -183,16 +155,17 @@
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileBW = $derived(!!dialEx && dialEx.kind !== 'load');
 
-	/* ---------- a countdown: a hold, or a timed prep step ----------
+	/* ---------- a countdown: a hold, or a timed prep step (countdown.svelte.ts) ----------
 	   Dial the target (a hold) or take the plan's (a drill), start — the
 	   stage counts DOWN and the bell logs it: the full target for a hold,
 	   "it happened" for a drill. Drop early and the primary logs what was
-	   actually done. */
-	// a hold knows its exercise (the bell writes that exercise's measure); a drill is just a length
-	type Countdown = { target: number } & ({ kind: 'hold'; ex: Exercise } | { kind: 'timed' });
-	let hold = $state<(Countdown & { end: number }) | null>(null);
-	let remaining = $state<number | null>(null);
+	   actually done. The clock is the module's; what the bell writes is ours. */
 	let live = $state(''); // the screen reader hears ten, and the bell — nothing else
+	const clock = new CountdownClock((done) => {
+		ringBell();
+		live = 'Done';
+		enqueue(done.kind === 'hold' ? holdMeasure(done.ex, done.target, done.target) : { of: 'step' });
+	});
 
 	/* ---------- the rest: a clock under the next set ----------
 	   From the previous set's LOCAL timestamp (restUntil); the row's note says
@@ -213,33 +186,14 @@
 		} else counting = null;
 	});
 	$effect(() => {
-		if ((resting && restLeft === 10) || remaining === 10) live = '10 seconds';
+		if ((resting && restLeft === 10) || clock.remaining === 10) live = '10 seconds';
 	});
 
 	// only tick while something on screen is counting
-	let ticking = $derived(resting || hold !== null || st?.kind === 'run');
+	let ticking = $derived(resting || clock.active || st?.kind === 'run');
 	$effect(() => {
 		if (!ticking) return;
 		const t = setInterval(() => (now = Date.now()), 200);
-		return () => clearInterval(t);
-	});
-
-	$effect(() => {
-		if (!hold) return;
-		const h = hold;
-		const t = setInterval(() => {
-			const r = Math.ceil((h.end - Date.now()) / 1000);
-			if (r <= 0) {
-				// the bell: the full target logs itself
-				hold = null;
-				remaining = null;
-				ringBell();
-				live = 'Done';
-				enqueue(h.kind === 'hold' ? holdMeasure(h.ex, h.target, h.target) : { of: 'step' });
-			} else {
-				remaining = r;
-			}
-		}, 200);
 		return () => clearInterval(t);
 	});
 
@@ -256,7 +210,7 @@
 	   variation (the exercise note says which), never a longer hold. Fixing a
 	   hold you dropped early is the one time the count goes under the floor. */
 	const bumpReps = (dir: 1 | -1) => {
-		if (!dialEx || hold) return;
+		if (!dialEx || clock.active) return;
 		if (editing && dialEx.kind === 'hold') reps = Math.max(1, Math.min(dialEx.hi, reps + dir * (dialEx.inc || 5)));
 		else reps = bumpCount(dialEx, reps, dir);
 	};
@@ -276,8 +230,7 @@
 		const next = nextSet(suggestionFor(e), e, prior, s.index - 1);
 		weight = next.weight;
 		reps = next.count;
-		hold = null;
-		remaining = null;
+		clock.cancel();
 	}
 	preload(initialStep);
 
@@ -291,8 +244,7 @@
 	}
 
 	function goTo(i: number) {
-		hold = null;
-		remaining = null;
+		clock.cancel();
 		editing = null;
 		if (i < 0 || i >= steps.length) return;
 		stepI = i;
@@ -311,8 +263,7 @@
 		const e = s && entryFor(s);
 		if (!s || !e || s.kind !== 'set') return;
 		editing = key;
-		hold = null;
-		remaining = null;
+		clock.cancel();
 		weight = loadOf(e.measure);
 		reps = countOf(e.measure);
 	}
@@ -331,14 +282,10 @@
 	}
 
 	/* ---------- the step table: the current section ---------- */
-	function localFor(s: Step) {
-		for (let i = local.length - 1; i >= 0; i--) if (same(local[i].data, s)) return local[i];
-		return undefined;
-	}
 	function rowFor(s: Step, i: number): Row {
 		const cur = i === stepI;
 		const e = entryFor(s);
-		const lp = localFor(s);
+		const lp = queue.latestFor(s);
 		const failed = lp?.status === 'failed';
 		const saving = !!lp && (lp.status === 'queued' || lp.status === 'inflight');
 		const state = (done: boolean): Row['state'] =>
@@ -347,7 +294,7 @@
 			case 'prep':
 				return { key: s.key, label: s.label, value: s.text, note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
 			case 'timed':
-				if (cur && hold && !e) return { key: s.key, label: s.label, value: s.text, note: 'now', state: 'running', prose: true };
+				if (cur && clock.active && !e) return { key: s.key, label: s.label, value: s.text, note: 'now', state: 'running', prose: true };
 				return { key: s.key, label: s.label, value: s.text, note: e ? '✓' : cur ? 'now' : undefined, state: state(!!e), prose: true };
 			case 'run': {
 				if (e && e.measure.of === 'duration')
@@ -369,7 +316,7 @@
 						key: s.key, label: s.label, value: setValue(x, loadOf(e.measure), countOf(e.measure)), last: lastN,
 						note: failed || saving ? undefined : '✓', state: state(true), tappable: !failed && !saving
 					};
-				if (cur && hold) return { key: s.key, label: s.label, value: `${hold.target}s`, note: 'now', state: 'running' };
+				if (cur && clock.running) return { key: s.key, label: s.label, value: `${clock.running.target}s`, note: 'now', state: 'running' };
 				if (cur && resting)
 					return { key: s.key, label: s.label, value: setValue(x, weight, reps), last: lastN, note: `rest ${restLeft}s`, state: 'resting', bar: restFrac };
 				// "now", not "logging": the write is what saving… means — this row is
@@ -423,13 +370,14 @@
 	type Stage = { value: string; note: string; frac: number };
 	let stage = $derived.by((): Stage | null => {
 		if (!st || allDone) return null;
-		if (hold) {
-			const left = remaining ?? hold.target;
-			const what = hold.kind === 'hold' ? 'HOLD' : st.kind === 'timed' ? st.name.toUpperCase() : 'GO';
+		const r = clock.running;
+		if (r) {
+			const left = clock.remaining ?? r.target;
+			const what = r.kind === 'hold' ? 'HOLD' : st.kind === 'timed' ? st.name.toUpperCase() : 'GO';
 			return {
-				value: hold.target >= 60 ? mmss(left * 1000) : String(left),
-				note: `${what} · OF ${durationLabel(hold.target).toUpperCase()}`,
-				frac: left / hold.target
+				value: r.target >= 60 ? mmss(left * 1000) : String(left),
+				note: `${what} · OF ${durationLabel(r.target).toUpperCase()}`,
+				frac: left / r.target
 			};
 		}
 		if (resting) return { value: String(restLeft), note: `REST · OF ${restTotal}S`, frac: restFrac };
@@ -440,24 +388,17 @@
 		return null;
 	});
 	let glyphName = $derived(editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : undefined) ?? '');
-	let holdRunning = $derived(hold !== null);
+	let holdRunning = $derived(clock.active);
 
 	/* ---------- the write path ---------- */
 	// the exercise decides which variant a set writes — never the screen
 	const holdMeasure = (x: Exercise, seconds: number, target: number): Measure => measureFor(x, { load: 0, count: seconds, target });
 
-	function push(op: LocalEntry['op'], s: Step, measure: Measure) {
-		errMsg = null;
-		local.push({
-			key: crypto.randomUUID(),
-			op,
-			status: 'queued',
-			data: { session: session.id, item: s.item, index: s.index, at: new Date().toISOString(), measure }
-		});
+	function push(op: QueueOp, s: Step, measure: Measure) {
+		queue.push(op, s, measure);
 		// instant feedback: the row fills in, the phone taps back. No flash —
 		// the table changing IS the confirmation.
 		navigator.vibrate?.(12);
-		void pump();
 	}
 
 	function enqueue(measure: Measure) {
@@ -482,84 +423,15 @@
 	function startOrDone(next: Countdown) {
 		if (performance.now() - lastPress < 350) return;
 		lastPress = performance.now();
-		if (hold) {
-			const held = Math.max(1, hold.target - Math.ceil((hold.end - Date.now()) / 1000));
-			const h = hold;
-			hold = null;
-			remaining = null;
-			enqueue(h.kind === 'hold' ? holdMeasure(h.ex, held, h.target) : { of: 'step' });
-		} else {
-			remaining = next.target;
-			hold = { ...next, end: Date.now() + next.target * 1000 };
-		}
-	}
-
-	function pump(): Promise<void> {
-		pumpPromise ??= (async () => {
-			for (;;) {
-				const next = local.find((p) => p.status === 'queued');
-				if (!next) break;
-				next.status = 'inflight';
-				const res = await postEntry(next);
-				if (res.ok) next.status = 'confirmed';
-				else await markFailed(next, res.message);
-			}
-			pumpPromise = null;
-		})();
-		return pumpPromise;
-	}
-
-	async function postEntry(p: LocalEntry): Promise<{ ok: true } | { ok: false; message: string }> {
-		const body = new FormData();
-		body.set('session', p.data.session);
-		body.set('item', p.data.item);
-		body.set('index', String(p.data.index));
-		body.set('measure', JSON.stringify(p.data.measure));
-		const action = p.op === 'log' ? '?/logEntry' : '?/correctEntry';
-		for (let attempt = 0; ; attempt++) {
-			try {
-				const res = await fetch(action, { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
-				const result = deserialize(await res.text());
-				if (result.type === 'success' || result.type === 'redirect') return { ok: true };
-				if (result.type === 'failure')
-					return { ok: false, message: String((result.data as { message?: string })?.message ?? 'Rejected.') };
-				throw new Error('action error');
-			} catch {
-				// ambiguous network failures are safe to retry: the decider treats
-				// a repeated identity as a no-op, and a repeated correction as itself
-				if (attempt >= 2) return { ok: false, message: 'Could not save — check connection.' };
-				await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-			}
-		}
-	}
-
-	/** a failed entry keeps its row, its numbers and a Retry — never removed (D4) */
-	async function markFailed(p: LocalEntry, message: string) {
-		if (message.includes('No session in progress')) {
-			// finished on another device — resync; the load guard redirects
-			local = [];
-			await invalidateAll();
-			return;
-		}
-		p.status = 'failed';
-		errMsg = message;
+		const early = clock.dropEarly();
+		if (early) enqueue(early.done.kind === 'hold' ? holdMeasure(early.done.ex, early.held, early.done.target) : { of: 'step' });
+		else clock.start(next);
 	}
 
 	function retryEntry(key: string) {
 		const s = steps.find((x) => x.key === key);
-		const p = s && local.find((x) => x.status === 'failed' && same(x.data, s));
-		if (!p) return;
-		p.status = 'queued';
-		errMsg = null;
-		void pump();
+		if (s) queue.retry(s);
 	}
-	function retryAllFailed() {
-		for (const p of local) if (p.status === 'failed') p.status = 'queued';
-		errMsg = null;
-		void pump();
-	}
-
-	const drain = () => pumpPromise ?? Promise.resolve();
 
 	/* ---------- finish / exit ---------- */
 	let finishFormEl = $state<HTMLFormElement>();
@@ -567,9 +439,9 @@
 
 	async function finishNow() {
 		finishing = true;
-		await drain(); // queued entries must append before SessionFinished
-		if (local.some((p) => p.status === 'failed')) {
-			errMsg = 'An entry didn’t save — Retry it, or finish from the ⋯ menu.';
+		await queue.drain(); // queued entries must append before SessionFinished
+		if (queue.anyFailed) {
+			queue.error = 'An entry didn’t save — Retry it, or finish from the ⋯ menu.';
 			finishing = false;
 			return;
 		}
@@ -580,12 +452,12 @@
 	async function finishEarly() {
 		sheetOpen = false;
 		finishing = true;
-		await drain();
+		await queue.drain();
 		finishFormEl?.requestSubmit();
 	}
 
 	async function exitToToday() {
-		await drain();
+		await queue.drain();
 		// we skipped all invalidation during the session, so Today must reload
 		await goto('/', { invalidateAll: true });
 	}
@@ -636,13 +508,13 @@
 						: st.kind === 'prep'
 							? 'Done'
 							: st.kind === 'timed'
-								? hold
+								? clock.active
 									? 'Done early'
 									: `Start ${durationLabel(st.seconds)}`
 								: st.kind === 'run'
 									? 'Stop here'
 									: st.ex.kind === 'hold'
-										? hold
+										? clock.active
 											? 'Done early'
 											: `Start ${reps}s`
 										: sideNow
@@ -800,7 +672,7 @@
 								bind:value={reps}
 								min={editing ? 1 : dialEx.lo}
 								max={dialEx.hi}
-								disabled={!!hold}
+								disabled={clock.active}
 								onStep={bumpReps}
 							/>
 						{:else}
@@ -812,13 +684,13 @@
 								bind:value={weight}
 								decimals
 								min={0}
-								disabled={!!hold}
+								disabled={clock.active}
 								onStep={bumpWeight}
 							/>
 						{/if}
 					</div>
 				{/if}
-				{#if errMsg ?? form?.message}<p class="fl-err">{errMsg ?? form?.message}</p>{/if}
+				{#if queue.error ?? form?.message}<p class="fl-err">{queue.error ?? form?.message}</p>{/if}
 				<FloorPrimary variant={primaryVariant} label={primaryLabel} disabled={finishing} onclick={primaryAction} />
 			</div>
 		{:else}
@@ -828,7 +700,7 @@
 			<main class="fl-main">
 				<h1 class="fl-name">Done</h1>
 				<p class="fl-meta">
-					<span>{isRunDay ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{syncing ? ' · SAVING…' : ''}</span>
+					<span>{isRunDay ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{queue.syncing ? ' · SAVING…' : ''}</span>
 				</p>
 				<div class="fl-receipt">
 					{#if isRunDay}
@@ -848,13 +720,13 @@
 				<p class="fl-hint">{prepLine}</p>
 			</main>
 			<div class="fl-bottom">
-				{#if anyFailed}
+				{#if queue.anyFailed}
 					<p class="fl-err">
 						An entry didn’t save.
-						<button type="button" class="fl-retryall" onclick={retryAllFailed}>Retry</button>
+						<button type="button" class="fl-retryall" onclick={() => queue.retryAll()}>Retry</button>
 					</p>
-				{:else if errMsg ?? form?.message}
-					<p class="fl-err">{errMsg ?? form?.message}</p>
+				{:else if queue.error ?? form?.message}
+					<p class="fl-err">{queue.error ?? form?.message}</p>
 				{/if}
 				<FloorPrimary
 					variant="advance"
