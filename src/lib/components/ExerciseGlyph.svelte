@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { FRAME_MS, GRID_STEP, SEQ, poseFor, prints } from '$lib/design/glyphs';
+	import { FRAME_MS, GRID, REP_MS, WORK, frameAt, framesFor } from '$lib/design/glyphs';
 
 	/**
-	 * One exercise, stamped through the dot grid. Plays ONE rep when it
-	 * arrives (a beat after mount, so it never fires while the screen is
-	 * still changing) or when pressed, then rests on frame 0 — it is never
-	 * ambient motion, with one exception: while `loop` is set (a hold in
-	 * progress) it walks the six frames at one a second, because the figure
-	 * IS doing the hold. Ink only, transparent: Plan-tier content, never a
-	 * control. Unknown exercise → nothing at all, never a placeholder.
+	 * One exercise, stamped through the dot grid: 31 × 31 dots, the same grid
+	 * at every size, never scaled to the figure — a plank is low and a
+	 * pulldown is tall on purpose. Plays ONE rep when it arrives (a beat after
+	 * mount, so it never fires while the screen is still changing) or when
+	 * pressed, then rests on frame 0 — it is never ambient motion, with one
+	 * exception: while `loop` is set (a hold in progress) it runs the cycle
+	 * over and over, because the figure IS doing the hold. Ink only,
+	 * transparent: Plan-tier content, never a control. Unknown exercise →
+	 * nothing at all, never a placeholder.
 	 */
 	let {
 		name,
@@ -17,24 +19,21 @@
 		loop = false
 	}: { name: string; size?: number; play?: boolean; loop?: boolean } = $props();
 
-	const REST = 0; // where a glyph waits: the top of the rep
-	const STILL = 3; // reduced motion: the working pose, and nothing moves
-	const TOTAL = FRAME_MS * SEQ.length;
+	const REST = 0; // where a glyph waits: the still, frame 0
 	/** the rep waits for the screen to settle first (§8: it read as a glitch mid-transition) */
 	const ARRIVE_MS = 320;
-	/** the hold loop: one stamped frame a second */
-	const LOOP_MS = 1000;
+	/** a dot's radius, in pitches — the design's */
+	const DOT = 0.34;
 
-	let fn = $derived(poseFor(name));
+	let frames = $derived(framesFor(name));
 	let canvas = $state<HTMLCanvasElement>();
 
-	// playback state is deliberately not reactive: it changes 6 times a rep
-	// and nothing in the template depends on it
+	// playback state is deliberately not reactive: it changes twelve times a
+	// rep and nothing in the template depends on it
 	let w = 0, h = 0, dpr = 1, ink = '#1A1915';
 	let reduced = false;
 	let raf = 0, start = 0, lastIdx = -1;
 	let arrive: ReturnType<typeof setTimeout> | undefined;
-	let looper: ReturnType<typeof setInterval> | undefined;
 
 	function measure(): boolean {
 		if (!canvas) return false;
@@ -49,59 +48,66 @@
 		return true;
 	}
 
-	/** the renderer: fit the box, walk the grid, print the dots that qualify */
-	function draw(d: number) {
+	/** the stamper: pitch = side / 31; a dot prints where the frame says '#' */
+	function draw(k: number) {
 		const ctx = canvas?.getContext('2d');
-		if (!ctx || !fn || !w) return;
+		if (!ctx || !frames || !w) return;
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		ctx.clearRect(0, 0, w, h);
-		const p = fn(d);
-		const [x0, x1, yt] = p.box;
-		const s = Math.min((w * 0.88) / (x1 - x0), (h * 0.86) / yt);
-		const cx = w / 2 - ((x0 + x1) / 2) * s, gy = h / 2 + (yt / 2) * s;
-		const r = Math.max(1, 0.34 * GRID_STEP * s);
+		const side = Math.min(w, h), pitch = side / GRID, r = DOT * pitch;
+		const ox = (w - side) / 2, oy = (h - side) / 2;
+		const f = frames[k];
 		ctx.fillStyle = ink;
-		for (let gx = x0; gx <= x1 + 1e-6; gx += GRID_STEP) {
-			for (let gyy = 0; gyy <= yt + 1e-6; gyy += GRID_STEP) {
-				if (!prints(p, gx, gyy)) continue;
+		for (let row = 0; row < GRID; row++) {
+			for (let col = 0; col < GRID; col++) {
+				if (f[row][col] !== '#') continue;
 				ctx.beginPath();
-				ctx.arc(cx + gx * s, gy - gyy * s, r, 0, Math.PI * 2);
+				ctx.arc(ox + (col + 0.5) * pitch, oy + (row + 0.5) * pitch, r, 0, Math.PI * 2);
 				ctx.fill();
 			}
 		}
 	}
 
-	function show(idx: number) {
-		lastIdx = idx;
-		draw(SEQ[idx]);
+	function show(k: number) {
+		lastIdx = k;
+		draw(k);
 	}
 
-	// draws only when the frame index changes; the loop ends with the rep
-	function tick(now: number) {
-		const t = now - start;
-		const idx = t < TOTAL ? Math.floor(t / FRAME_MS) : REST;
+	// one rep: every frame once, then rest. Draws only when the index changes;
+	// the loop ends with the rep. (A frame's timestamp can precede the press
+	// that queued it, so the first tick is clamped to frame 0.)
+	function rep(now: number) {
+		const t = Math.max(0, now - start);
+		const idx = t < REP_MS ? Math.floor(t / FRAME_MS) : REST;
 		if (idx !== lastIdx) show(idx);
-		raf = t < TOTAL ? requestAnimationFrame(tick) : 0;
+		raf = t < REP_MS ? requestAnimationFrame(rep) : 0;
+	}
+
+	// the hold: the cycle over and over, on the page's clock, so every looping
+	// glyph on screen is in step
+	function cycle(now: number) {
+		const idx = frameAt(now);
+		if (idx !== lastIdx) show(idx);
+		raf = requestAnimationFrame(cycle);
 	}
 
 	function replay() {
-		if (reduced || looper) return;
+		if (reduced || loop) return;
 		start = performance.now();
-		if (!raf) raf = requestAnimationFrame(tick);
+		if (!raf) raf = requestAnimationFrame(rep);
 	}
 
 	$effect(() => {
 		const el = canvas;
-		const f = fn;
+		const f = frames;
 		if (!el || !f) return;
 		reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		// size follows CSS (the parent may shrink it on short screens); the
 		// observer also fires once on observe, which is the first paint
 		const ro = new ResizeObserver(() => {
 			if (!measure()) return;
-			if (raf || looper) lastIdx = -1; // mid-rep: the loop repaints at its frame
-			else show(reduced ? STILL : REST);
-			if (looper && lastIdx < 0) show(STILL);
+			if (raf) lastIdx = -1; // mid-animation: the next tick repaints at its frame
+			else show(reduced ? WORK : REST);
 		});
 		ro.observe(el);
 		if (play) arrive = setTimeout(replay, ARRIVE_MS);
@@ -114,23 +120,20 @@
 		};
 	});
 
-	// the hold: the figure works through the frames, slowly, for as long as it lasts
+	// the hold: the figure works through the cycle for as long as it lasts
 	$effect(() => {
-		if (!loop || !fn || reduced) return;
+		if (!loop || !frames || reduced) return;
 		cancelAnimationFrame(raf);
-		raf = 0;
-		let i = STILL;
-		show(i);
-		looper = setInterval(() => show((i = (i + 1) % SEQ.length)), LOOP_MS);
+		raf = requestAnimationFrame(cycle);
 		return () => {
-			clearInterval(looper);
-			looper = undefined;
+			cancelAnimationFrame(raf);
+			raf = 0;
 			if (canvas && w) show(REST);
 		};
 	});
 </script>
 
-{#if fn}
+{#if frames}
 	<!-- decorative: the exercise name is the adjacent text, so no label, no
 	     tab stop — but a press runs the rep again -->
 	<canvas bind:this={canvas} class="glyph" style="--gs: {size}px" aria-hidden="true" onpointerdown={replay}

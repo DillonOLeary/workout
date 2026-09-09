@@ -48,17 +48,18 @@ Empty phone → the shared demo sandbox.
 ## Layout
 
 ```
-src/lib/design/       design tokens (colors, type, spacing, effects, motion) + glyphs.ts (dot-matrix poses)
+src/lib/design/       design tokens (colors, type, spacing, effects, motion) + glyph-frames.json (the dot-matrix figures, baked) and glyphs.ts (their clock)
 src/lib/components/   Button, Card, TabBar, Stepper, ExerciseGlyph, WeekStrip, TrendRow, floor/{StepTable,AdjustTile,FloorPrimary,FloorSheet,bell}
 src/lib/domain/       measure · events · upcast · commands · decider │ projections · progression · labels │ plan · plans · racks · steps — pure, no I/O
 src/lib/server/       Emmett event store, plans table, HMAC login (server-only)
 src/routes/           login · Today (+ By day, Log it after) / The Plan (+ Why, Change plan) · /log gym floor
+tools/glyphs/         Claude Design's glyph generator, verbatim, + bake.mjs — rewrites glyph-frames.json (--check proves it matches)
 ```
 
 ## Checks
 
 ```sh
-pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, glyph poses (134 tests)
+pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, glyph frames (138 tests)
 pnpm check    # svelte-check
 pnpm build    # production build
 ```

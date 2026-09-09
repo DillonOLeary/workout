@@ -453,7 +453,7 @@ Things to notice:
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ weight, 1–9 reps, Enter logs |
 | `class:` directive | `class:single={isBW}` on the floor's adjust tiles; row states on the set table |
 | scoped `<style>` | every component — the design system's tokens are global, layout is local |
-| `$effect` | `ExerciseGlyph.svelte` — a canvas that plays one rep: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop, and the function it returns tears both down; a second effect loops the frames at one a second while `loop` is set (a hold in progress) |
+| `$effect` | `ExerciseGlyph.svelte` — a canvas that stamps baked frames: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop that plays one rep, and the function it returns tears both down; a second effect runs the design's 2.46 s cycle on repeat while `loop` is set (a hold in progress) |
 | `{#key}` | the gym floor wraps the glyph in `{#key glyphName}`: advancing to the next exercise remounts it, and a fresh mount plays once — a rest on the *same* exercise does not |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
@@ -465,12 +465,16 @@ One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 reactivity is part of learning it.
 
 The glyph is the same lesson from the other side: its playback clock (`start`,
-`lastIdx`, the rAF handle) is plain `let`s, not `$state`, because it changes six
-times a rep and nothing in the template reads it. Reactivity nobody depends on
-is work the compiler does for no one. The poses themselves live in
-`src/lib/design/glyphs.ts` — pure functions of a depth `d` in 0..1, so they are
-unit-tested like the domain: every plan exercise maps to a pose, every pose
-prints at every frame, and the working frame differs from rest.
+`lastIdx`, the rAF handle) is plain `let`s, not `$state`, because it changes
+twelve times a rep and nothing in the template reads it. Reactivity nobody
+depends on is work the compiler does for no one. The figures themselves are
+data, not code: `src/lib/design/glyph-frames.json` holds 27 exercises × 12
+stamped frames on one 31 × 31 grid, baked from Claude Design's generator in
+`tools/glyphs/` (`node tools/glyphs/bake.mjs`), and `glyphs.ts` only looks a
+name up and tells the clock which frame is due. Tested like the domain: every
+plan exercise has frames, every frame is 31 × 31 and prints, the working frame
+differs from the still, the clock holds on frame 0, and the JSON is what the
+generator bakes.
 
 ## 4½. Lessons from the first real workout
 
