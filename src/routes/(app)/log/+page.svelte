@@ -908,6 +908,14 @@
 	.fl-glyph :global(canvas) { width: auto; height: 100%; max-height: 240px; aspect-ratio: 1; }
 	/* a step with no figure (a jog, a walk) leaves the clock the whole row */
 	.fl-glyph:empty { display: none; }
+	/* the clock keeps its room — never shorter than its content. The figure
+	   alone may collapse; a long section's table gives way and scrolls
+	   instead of being painted over. The row's basis must be its content
+	   here: with a zero basis the stage's content minimum counts only the
+	   bar, and the clock is painted over the table (seen on the run's
+	   eight-step warm-up) */
+	.fl-stage.clock { min-height: auto; }
+	.fl-stage.clock .fl-stagerow { flex-basis: auto; }
 	/* the clock: the figure steps aside, at rest, 88px */
 	.fl-stage.clock .fl-glyph { flex: none; height: 88px; }
 	.fl-stage.clock .fl-glyph :global(canvas) { width: 88px; height: 88px; }

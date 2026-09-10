@@ -4,10 +4,15 @@
 	 * step: sets, warm-up lines, the run. "Where am I" is answered by the rows,
 	 * and the optimistic queue draws itself into them. Rows are one height,
 	 * always: the countdown lives on the stage, never in a row, so the table
-	 * never reflows under a finger. Presentation only: every row is computed
-	 * by the page; nothing here touches domain state.
+	 * never reflows under a finger. A long section (the run's eight warm-up
+	 * drills) scrolls INSIDE the table — it gives way to the stage rather
+	 * than crowding it — and the row that is "now" is brought into view.
+	 * Presentation only: every row is computed by the page; nothing here
+	 * touches domain state.
 	 */
 	export type RowState = 'done' | 'saving' | 'failed' | 'current' | 'resting' | 'editing' | 'upcoming' | 'running';
+	/** the row that is "now" — the one a long table keeps in view */
+	const NOW: ReadonlySet<RowState> = new Set(['current', 'resting', 'running']);
 	export type Row = {
 		/** the step key — Retry and a tap hand it back */
 		key: string;
@@ -34,6 +39,29 @@
 		onRetry,
 		onTap
 	}: { rows: Row[]; onRetry?: (key: string) => void; onTap?: (key: string) => void } = $props();
+
+	let table = $state<HTMLDivElement>();
+	let nowKey = $derived(rows.find((r) => NOW.has(r.state))?.key);
+
+	function keepNowInView() {
+		table?.querySelector('.row.current, .row.resting, .row.running')?.scrollIntoView({ block: 'nearest' });
+	}
+
+	// when "now" moves — keyed on the row, not the rows: a rest note ticking
+	// every 200 ms must never pull the table out from under a finger
+	$effect(() => {
+		if (nowKey) keepNowInView();
+	});
+
+	// and when the table's own height changes: the clock appearing on the
+	// stage below shrinks it, and the row that was in view may not be
+	$effect(() => {
+		const el = table;
+		if (!el) return;
+		const ro = new ResizeObserver(keepNowInView);
+		ro.observe(el);
+		return () => ro.disconnect();
+	});
 </script>
 
 {#snippet cells(r: Row)}
@@ -49,7 +77,7 @@
 	{/if}
 {/snippet}
 
-<div class="table">
+<div class="table" bind:this={table}>
 	{#each rows as r (r.key)}
 		{#if r.tappable && onTap}
 			<button type="button" class="row tap {r.state}" onclick={() => onTap(r.key)} aria-label="{r.label} — {r.value}. Tap to fix it">
@@ -63,11 +91,16 @@
 
 <style>
 	.table {
+		--row: 56px;
 		background: var(--surface-card);
 		border: var(--border-w) solid var(--ink);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
-		overflow: hidden;
+		/* a flex item on the floor: shrinks to no fewer than three rows and
+		   scrolls the rest, so the stage below always gets its room */
+		min-height: calc(3 * var(--row) + 2 * var(--border-w));
+		overflow: hidden auto;
+		overscroll-behavior: contain;
 	}
 	.row {
 		position: relative;
@@ -76,7 +109,7 @@
 		align-items: center;
 		gap: 12px;
 		width: 100%;
-		min-height: 56px;
+		min-height: var(--row);
 		padding: 0 16px;
 		border-top: 1px solid var(--border-soft);
 		/* a state change is a colour change, and it eases — the numbers never animate */
@@ -126,6 +159,6 @@
 	/* prep lines are sentences, not numbers — they wrap, at a reading size */
 	.val.prose, .row.current .val.prose { font-size: 16px; font-weight: 700; line-height: 1.3; }
 	.row.upcoming .val.prose { font-weight: 400; }
-	@media (max-height: 700px) { .row { min-height: 48px; } }
-	@media (max-height: 560px) { .row { min-height: 44px; } .val { font-size: 17px; } .row.current .val, .row.resting .val { font-size: 19px; } }
+	@media (max-height: 700px) { .table { --row: 48px; } }
+	@media (max-height: 560px) { .table { --row: 44px; } .val { font-size: 17px; } .row.current .val, .row.resting .val { font-size: 19px; } }
 </style>

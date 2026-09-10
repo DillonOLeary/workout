@@ -24,6 +24,8 @@
 	const ARRIVE_MS = 320;
 	/** a dot's radius, in pitches — the design's */
 	const DOT = 0.34;
+	/** the design's floor: below this a figure is a smudge, so it is dropped, not shrunk */
+	const MIN_PX = 24;
 
 	let frames = $derived(framesFor(name));
 	let canvas = $state<HTMLCanvasElement>();
@@ -38,7 +40,12 @@
 	function measure(): boolean {
 		if (!canvas) return false;
 		const r = canvas.getBoundingClientRect();
-		if (!r.width) return false;
+		if (r.width < MIN_PX) {
+			// a squeezed stage: clear the bitmap too, or the last frame lingers, scaled down
+			canvas.width = canvas.height = 0;
+			w = 0;
+			return false;
+		}
 		dpr = Math.min(2.5, window.devicePixelRatio || 1);
 		w = r.width;
 		h = r.height;
