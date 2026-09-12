@@ -4,34 +4,25 @@
 
 	/**
 	 * The running average, as two numbers: lifts a week and run minutes a
-	 * week — each over the trailing four weeks, each with where it came from
-	 * underneath. The calendar above says what happened; this says whether it
-	 * adds up to the habit you wanted, and which way it is moving. Run days
-	 * are not a third tile: the calendar already shows them, and the minutes
-	 * are the number the plan's goal is written in.
+	 * week — each over the trailing four weeks, each with the direction it
+	 * came from underneath. Run days are not a third tile: the calendar
+	 * already shows them, and the minutes are the number the plan's goal is
+	 * written in.
 	 *
-	 * The run's goal is the plan's own `runTarget`, so the one number with a
-	 * goal is measured against it instead of against a feeling. Two tiles
-	 * across at every width — they are one comparison, not two cards — which
-	 * is why every word in them is short enough for a phone.
+	 * The goals are NOT here: the section's sentence above states both of
+	 * them once ("the plan asks 3 and 90"), so a tile saying "goal 90" again
+	 * would be the same fact twice. The tiles carry what the sentence can't:
+	 * the number as a number, and which way it moved. Two tiles across at
+	 * every width — they are one comparison, not two cards.
 	 */
-	let {
-		pace,
-		runTarget = null,
-		runs = true
-	}: { pace: Pace; runTarget?: number | null; runs?: boolean } = $props();
+	let { pace, runs = true }: { pace: Pace; runs?: boolean } = $props();
 
 	const weeks = $derived(Math.round(pace.days / 7));
 	const minutes = $derived(Math.round(pace.runMinutes.per));
 	const tiles = $derived(
 		[
 			{ key: 'lifts', caps: 'Lifts', value: rateLabel(pace.lifts.per), sub: paceLabel(pace.lifts.per, pace.lifts.prev) },
-			runs && {
-				key: 'runmin',
-				caps: 'Run min',
-				value: rateLabel(minutes),
-				sub: [...(runTarget ? [`goal ${runTarget}`] : []), paceLabel(minutes, Math.round(pace.runMinutes.prev))].join(' · ')
-			}
+			runs && { key: 'runmin', caps: 'Run min', value: rateLabel(minutes), sub: paceLabel(minutes, Math.round(pace.runMinutes.prev)) }
 		].filter((t) => !!t)
 	);
 </script>
@@ -51,13 +42,14 @@
 </div>
 
 <style>
-	.head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 16px 0 8px; }
+	.head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 8px; max-width: 332px; }
 	.caps {
 		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
 		text-transform: uppercase; color: var(--ink-3);
 	}
 	.win { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
-	.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+	/* the same 332px the calendar stops at — the two blocks read as one column */
+	.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-width: 332px; }
 	.tile {
 		display: flex; flex-direction: column; gap: 2px;
 		padding: 10px 12px;

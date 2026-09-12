@@ -6,11 +6,12 @@
 	import PaceTiles from '$lib/components/PaceTiles.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
 	import { RUN_ITEM } from '$lib/domain/events';
-	import { setsLine } from '$lib/domain/labels';
+	import { fmtShort, paceSentence, setsLine, trendTally } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
-	import { hasRuns, liftDays, runTarget, type Exercise } from '$lib/domain/plan';
+	import { hasRuns, liftDays, liftTarget, runTarget, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
 	import {
+		TREND_WINDOW,
 		dayTitle,
 		monthGrid,
 		projectPlanSwitches,
@@ -27,10 +28,16 @@
 	const now = Date.now();
 
 	/**
-	 * Tab 2 is everything that already happened, at three distances: the last
-	 * month as a calendar, what it averages to a week, how each exercise is
-	 * moving, and then the days themselves. The page needs no heading saying
-	 * how it's going — the whole page is how it's going.
+	 * Tab 2 is everything that already happened, as three questions in the
+	 * order you ask them — did I show up (the month, and what it averages to
+	 * a week), am I getting stronger (each exercise), and what did I actually
+	 * do (the days). The page needs no heading saying how it's going: the
+	 * whole page is how it's going.
+	 *
+	 * Each section LEADS WITH ITS ANSWER in a sentence and puts the picture
+	 * underneath as corroboration — the shape a trend row already has, one
+	 * level up — and each names the window it speaks for, because "1.3 lifts
+	 * a week" means nothing without "over the last four weeks".
 	 *
 	 * The days are the event stream made human-readable: two columns — the
 	 * exercise, and what happened. Freedom inside the latest session,
@@ -46,6 +53,16 @@
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let grid = $derived(monthGrid(data.events, now, data.plans));
 	let pace = $derived(weeklyPace(data.events, now, data.plans));
+	// the section's answer: what the average comes to, against what the plan asked
+	let paceLine = $derived(
+		paceSentence({
+			weeks: Math.round(pace.days / 7),
+			lifts: pace.lifts.per,
+			liftGoal: liftTarget(plan),
+			runMinutes: hasRuns(plan) ? pace.runMinutes.per : null,
+			runGoal: hasRuns(plan) ? runTarget(plan) : null
+		})
+	);
 
 	// every exercise on the lift days, in plan order, once (calves are on both days)
 	let planExercises = $derived.by(() => {
@@ -58,6 +75,7 @@
 	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, data.activeSession?.id, now) })));
 	// the trend row that is open — `openRow` below belongs to the day editor
 	let openTrend = $state<string | null>(null);
+	let trendLine = $derived(trendTally(trends.map((t) => t.trend.tone)));
 
 	// two-tap arm before removing — the red waits for stated intent, and
 	// stays until you tap anywhere else (no silent timeout)
@@ -73,6 +91,12 @@
 	const PAGE = 20;
 	let shown = $state(PAGE);
 	let visible = $derived(entries.slice(0, shown));
+	// how long this ledger has been kept — the day list's own window
+	let sinceLine = $derived(
+		entries.length
+			? `${entries.length} ${entries.length === 1 ? 'session' : 'sessions'} since ${fmtShort(entries[entries.length - 1].at)}`
+			: ''
+	);
 
 	const exByName = (name: string): Exercise | undefined =>
 		data.plans.flatMap((p) => Object.values(p.days).flat()).find((e) => e.name === name);
@@ -150,30 +174,46 @@
 		<p class="err">{form.message}</p>
 	{/if}
 
-	<!-- the month, then what it comes to per week, against the plan's own run goal -->
-	<Card>
-		<div class="strip-head">
-			<span class="caps">Last month</span>
-			<span class="span">{grid.span}</span>
+	<!-- did I show up: the answer, the month, and what it averages to a week -->
+	<section class="sect">
+		<div class="sechead">
+			<span class="caps">Did I show up</span>
+			<span class="meta">{grid.span}</span>
 		</div>
-		<MonthGrid {grid} />
-		<PaceTiles {pace} runs={hasRuns(plan)} runTarget={hasRuns(plan) ? runTarget(plan) : null} />
-	</Card>
-
-	{#if trends.length}
-		<Card pad={false}>
-			{#each trends as t (t.ex.name)}
-				<TrendRow
-					ex={t.ex}
-					trend={t.trend}
-					open={openTrend === t.ex.name}
-					ontoggle={() => (openTrend = openTrend === t.ex.name ? null : t.ex.name)}
-				/>
-			{/each}
+		<Card>
+			<p class="answer">{paceLine}</p>
+			<div class="pair">
+				<div class="calside"><MonthGrid {grid} /></div>
+				<div class="side"><PaceTiles {pace} runs={hasRuns(plan)} /></div>
+			</div>
 		</Card>
+	</section>
+
+	<!-- am I getting stronger: the tally, then one row per exercise -->
+	{#if trends.length}
+		<section class="sect">
+			<div class="sechead">
+				<span class="caps">Am I getting stronger</span>
+				<span class="meta">last {TREND_WINDOW} sessions</span>
+			</div>
+			<Card pad={false}>
+				{#if trendLine}<p class="answer inrow">{trendLine}</p>{/if}
+				{#each trends as t (t.ex.name)}
+					<TrendRow
+						ex={t.ex}
+						trend={t.trend}
+						open={openTrend === t.ex.name}
+						ontoggle={() => (openTrend = openTrend === t.ex.name ? null : t.ex.name)}
+					/>
+				{/each}
+			</Card>
+		</section>
 	{/if}
 
-	<div class="caps daycaps">By day</div>
+	<div class="sechead daycaps">
+		<span class="caps">What I did</span>
+		<span class="meta">{sinceLine}</span>
+	</div>
 
 	{#if entries.length === 0}
 		<Card><div class="empty">Nothing logged yet. Start from Today.</div></Card>
@@ -310,7 +350,7 @@
 		{/if}
 	{/each}
 
-	{#if entries.length > 1}
+	{#if editMode && entries.length > 1}
 		<p class="histnote">Older sets are history — remove the session and log it again if it's wrong.</p>
 	{/if}
 
@@ -369,11 +409,34 @@
 		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
 		text-transform: uppercase; color: var(--ink-3);
 	}
-	/* the calendar's caption, and the window it covers */
-	.strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-	.span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
-	/* the one label the page keeps: it names the list below, not the page */
+	/* three sections, one shape: what it is on the left, the window it speaks
+	   for on the right, then the card */
+	.sect { display: flex; flex-direction: column; gap: 10px; }
+	.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+	.meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 	.daycaps { margin-bottom: -8px; }
+	/* a phone reads the calendar then the average; a wide screen reads them
+	   side by side — the calendar stops at 332px, so the room to its right is
+	   exactly what the average needs */
+	.pair { display: flex; flex-direction: column; gap: 16px; }
+	.calside { width: 100%; }
+	.side { min-width: 0; }
+	@media (min-width: 720px) {
+		.pair { flex-direction: row; align-items: flex-start; gap: 28px; }
+		/* the calendar keeps its full 332px; a flex child with only a max-width
+		   shrinks to its content, and 35 boxes collapse to dots */
+		.calside { flex: 0 0 332px; }
+		.side { flex: 1 1 200px; }
+	}
+	/* the section's answer, in words — the picture under it is corroboration */
+	.answer { margin: 0 0 14px; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
+	/* inside a pad={false} card it is the first row, not a floating line */
+	.answer.inrow {
+		margin: 0; padding: 12px 16px;
+		font-size: 14px; color: var(--ink-2);
+		border-bottom: 1px solid var(--border-soft); background: var(--surface-sunken);
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+	}
 
 	.empty { font-size: 16px; color: var(--ink-2); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }

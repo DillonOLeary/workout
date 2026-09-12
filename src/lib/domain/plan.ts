@@ -136,6 +136,13 @@ export type Plan = {
 	runs?: boolean;
 	/** weekly run-minute goal for the meter/badge; absent = DEFAULT_RUN_TARGET */
 	runTarget?: number;
+	/**
+	 * Lift sessions a week the plan is asking for — the number the Ledger's
+	 * running average is measured against. It is NOT the count of lift days:
+	 * an A/B plan has two days and can ask for three sessions a week (A, B, A).
+	 * Absent = one session per lift day.
+	 */
+	liftTarget?: number;
 	/** warm-up / cooldown for days whose dayInfo doesn't carry their own */
 	warmup?: PrepItem[];
 	cooldown?: PrepItem[];
@@ -178,6 +185,8 @@ export const cueFor = (plan: Plan | undefined, day: string): string | undefined 
 	plan?.dayInfo?.[day]?.cue ?? plan?.cue;
 export const restFor = (plan: Plan | undefined, ex: Exercise): number => ex.rest ?? plan?.rest ?? DEFAULT_REST;
 export const runTarget = (plan: Plan): number => plan.runTarget ?? DEFAULT_RUN_TARGET;
+/** Lift sessions a week the plan asks for; absent = one per lift day. */
+export const liftTarget = (plan: Plan): number => plan.liftTarget ?? liftDays(plan).length;
 export const hasRuns = (plan: Plan): boolean => plan.runs !== false;
 
 /* ---------- accepting a plan --------------------------------------------- */
@@ -319,6 +328,7 @@ export function parsePlan(raw: unknown): Plan {
 	if (p.description !== undefined && typeof p.description !== 'string') throw new Error('description must be a string');
 	if (p.runs !== undefined && typeof p.runs !== 'boolean') throw new Error('runs must be a boolean');
 	if (p.runTarget !== undefined && !positive(p.runTarget)) throw new Error('runTarget must be a positive number of minutes');
+	if (p.liftTarget !== undefined && !positive(p.liftTarget)) throw new Error('liftTarget must be a positive number of sessions a week');
 	if (p.cue !== undefined && typeof p.cue !== 'string') throw new Error('cue must be a string');
 	if (p.rest !== undefined && !positive(p.rest)) throw new Error('rest must be a positive number of seconds');
 	const warmup = stepList(p.warmup, 'warmup');
@@ -344,6 +354,7 @@ export function parsePlan(raw: unknown): Plan {
 		days,
 		...(p.runs !== undefined ? { runs: p.runs as boolean } : {}),
 		...(p.runTarget !== undefined ? { runTarget: p.runTarget as number } : {}),
+		...(p.liftTarget !== undefined ? { liftTarget: p.liftTarget as number } : {}),
 		...(warmup ? { warmup } : {}),
 		...(cooldown ? { cooldown } : {}),
 		...(p.cue !== undefined ? { cue: p.cue as string } : {}),

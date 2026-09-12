@@ -78,6 +78,53 @@ export function paceLabel(per: number, prev: number): string {
 	return `${a > b ? '↑' : '↓'} from ${rateLabel(prev)}`;
 }
 
+/**
+ * The Ledger's one-line answer to "am I doing enough?": what the last four
+ * weeks come to a week, and what the plan asked for, side by side. The numbers
+ * are already on the tiles below it — this says what they MEAN, which is the
+ * one thing a tile cannot do.
+ *
+ *   "1.3 lifts and 36 run min a week — the plan asks 3 and 90"
+ *   "2 lifts a week — the plan asks 2"          (a plan with no running)
+ *   "Nothing logged in the last 4 weeks"
+ */
+export function paceSentence(p: {
+	weeks: number;
+	lifts: number;
+	liftGoal: number;
+	/** null when the plan has no running */
+	runMinutes: number | null;
+	runGoal: number | null;
+}): string {
+	const lifts = rateLabel(p.lifts);
+	const runs = p.runMinutes === null ? null : rateLabel(Math.round(p.runMinutes));
+	if (lifts === '0' && (runs === null || runs === '0'))
+		return `Nothing logged in the last ${p.weeks} weeks`;
+	const noun = lifts === '1' ? 'lift' : 'lifts';
+	if (runs === null || p.runGoal === null) return `${lifts} ${noun} a week — the plan asks ${rateLabel(p.liftGoal)}`;
+	return `${lifts} ${noun} and ${runs} run min a week — the plan asks ${rateLabel(p.liftGoal)} and ${p.runGoal}`;
+}
+
+/**
+ * The trend list's one-line answer, by what the RULE is about to do rather
+ * than by how each exercise feels: "2 going up · 3 flat · 1 backing off".
+ * Zeroes are left out, and an empty list has nothing to say.
+ */
+export function trendTally(tones: string[]): string {
+	const words: [string, string][] = [
+		['up', 'going up'],
+		['warn', 'warned'],
+		['down', 'backing off'],
+		['flat', 'flat'],
+		['start', 'not started']
+	];
+	return words
+		.map(([tone, word]) => [tones.filter((t) => t === tone).length, word] as const)
+		.filter(([n]) => n > 0)
+		.map(([n, word]) => `${n} ${word}`)
+		.join(' · ');
+}
+
 /* ---------- the plan's numbers ---------- */
 
 /** "8–12 reps per side" · "20–45 sec" — the range, with its side rule. */

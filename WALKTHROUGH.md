@@ -253,7 +253,8 @@ else lives there:
   plan day is. A week of cells can only say "this week was quiet"; a month
   says whether that is the habit
 - `weeklyPace` → the running average: lifts and run minutes per week over the
-  trailing four weeks, each against the four weeks before it, so
+  trailing four weeks, each against the four weeks before it (the Ledger says
+  it in one sentence against the plan's own `liftTarget` / `runTarget`), so
   "am I doing less than I meant to?" gets a direction and not just a number.
   Rates divide by the window the fold was given, never by weeks it assumes
 - `nextDay` / `nextWorkout` → which lift is due (alternate from the last
@@ -363,7 +364,7 @@ row instead of the pick and the week needs to mark it "stretched". Warm-ups
 and cooldowns are lists of `PrepItem`s — a string you tick, or a timed item
 (`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down. The
 plan's defaults (rest 60 s, run target 150 min, runs on) live here once,
-behind `restFor` / `runTarget` / `hasRuns` — no screen writes `?? 150` for
+behind `restFor` / `runTarget` / `liftTarget` / `hasRuns` — no screen writes `?? 150` for
 itself.
 
 A plan row is data from outside, exactly like an event row — so `parsePlan`

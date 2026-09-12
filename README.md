@@ -59,7 +59,7 @@ tools/glyphs/         Claude Design's glyph generator, verbatim, + bake.mjs — 
 ## Checks
 
 ```sh
-pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, glyph frames (144 tests)
+pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, glyph frames (146 tests)
 pnpm check    # svelte-check
 pnpm build    # production build
 ```

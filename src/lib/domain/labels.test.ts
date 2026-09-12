@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, paceLabel, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, setValue, setsLine, spanLabel, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
+import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, paceLabel, paceSentence, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, setValue, setsLine, spanLabel, stepLabel, stretchDose, trendTally, unitLabel, unitOf } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
@@ -62,6 +62,26 @@ describe('rates — the running average in words', () => {
 	});
 	it('says the window a strip covers', () => {
 		expect(spanLabel('2026-07-20T12:00:00Z', '2026-08-23T12:00:00Z')).toBe('Jul 20 – Aug 23');
+	});
+	it('answers "am I doing enough" in one line, against the plan', () => {
+		expect(paceSentence({ weeks: 4, lifts: 1.3, liftGoal: 3, runMinutes: 36.4, runGoal: 90 })).toBe(
+			'1.3 lifts and 36 run min a week — the plan asks 3 and 90'
+		);
+		// one lift a week is a lift, not lifts
+		expect(paceSentence({ weeks: 4, lifts: 1, liftGoal: 3, runMinutes: 0, runGoal: 90 })).toBe(
+			'1 lift and 0 run min a week — the plan asks 3 and 90'
+		);
+		// a plan with no running says nothing about running
+		expect(paceSentence({ weeks: 4, lifts: 2.5, liftGoal: 2, runMinutes: null, runGoal: null })).toBe(
+			'2.5 lifts a week — the plan asks 2'
+		);
+		expect(paceSentence({ weeks: 4, lifts: 0, liftGoal: 3, runMinutes: 0, runGoal: 90 })).toBe('Nothing logged in the last 4 weeks');
+		expect(paceSentence({ weeks: 4, lifts: 0, liftGoal: 2, runMinutes: null, runGoal: null })).toBe('Nothing logged in the last 4 weeks');
+	});
+	it('tallies the trend list by what the rule will do, zeroes left out', () => {
+		expect(trendTally(['up', 'flat', 'up', 'down', 'flat', 'flat'])).toBe('2 going up · 1 backing off · 3 flat');
+		expect(trendTally(['warn', 'start'])).toBe('1 warned · 1 not started');
+		expect(trendTally([])).toBe('');
 	});
 });
 
