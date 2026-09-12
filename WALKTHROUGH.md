@@ -247,9 +247,15 @@ else lives there:
   sessions, no change", "Set 1 at the top of the range — 40 lb next time",
   "Re-entry haircut in 3 days"). Today's "How it's going" list is this fold
   run per exercise at request time — no stored projection, no new events
-- `weekStrip` / `dayAges` → this week's seven cells (lifted / ran / stretched /
-  today — the plans come along, because "a stretch day" is the plan's word,
-  not the session's) and how old each plan day is
+- `monthGrid` / `dayAges` → the last five weeks as a calendar, one cell per
+  local day (lifted / ran / stretched / today — the plans come along, because
+  "a stretch day" is the plan's word, not the session's), and how old each
+  plan day is. A week of cells can only say "this week was quiet"; a month
+  says whether that is the habit
+- `weeklyPace` → the running average: lifts, run days and run minutes per week
+  over the trailing four weeks, each against the four weeks before it, so
+  "am I doing less than I meant to?" gets a direction and not just a number.
+  Rates divide by the window the fold was given, never by weeks it assumes
 - `nextDay` / `nextWorkout` → which lift is due (alternate from the last
   finished lift; runs don't count, and neither does a stretch day), and the
   one mono line under Today's button that says *why*: days since the last

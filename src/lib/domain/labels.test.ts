@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, plannedValue, prepLabel, rangeLabel, receiptLine, setValue, setsLine, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
+import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, paceLabel, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, setValue, setsLine, spanLabel, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
@@ -41,6 +41,27 @@ describe('one number', () => {
 	it('reads dates two ways', () => {
 		expect(fmtDate('2026-08-23T18:00:00Z')).toMatch(/^Sun, Aug 23$/);
 		expect(fmtShort('2026-08-23T18:00:00Z')).toBe('Aug 23');
+	});
+});
+
+describe('rates — the running average in words', () => {
+	it('prints an average at the precision it deserves', () => {
+		expect(rateLabel(2.25)).toBe('2.3');
+		expect(rateLabel(3)).toBe('3');
+		expect(rateLabel(0)).toBe('0');
+		expect(rateLabel(67.5)).toBe('67.5');
+	});
+	it('says which way it is going, and when there is nothing to compare to', () => {
+		expect(paceLabel(2.3, 1.5)).toBe('↑ from 1.5');
+		expect(paceLabel(1, 3)).toBe('↓ from 3');
+		expect(paceLabel(2, 2)).toBe('same as before');
+		// a rounding-level difference is not a direction
+		expect(paceLabel(2.01, 2)).toBe('same as before');
+		expect(paceLabel(1.5, 0)).toBe('nothing before that');
+		expect(paceLabel(0, 0)).toBe('nothing logged');
+	});
+	it('says the window a strip covers', () => {
+		expect(spanLabel('2026-07-20T12:00:00Z', '2026-08-23T12:00:00Z')).toBe('Jul 20 – Aug 23');
 	});
 });
 

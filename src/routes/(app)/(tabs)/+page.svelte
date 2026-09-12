@@ -3,9 +3,10 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
+	import MonthGrid from '$lib/components/MonthGrid.svelte';
+	import PaceTiles from '$lib/components/PaceTiles.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
-	import WeekStrip from '$lib/components/WeekStrip.svelte';
-	import { dayTitle, nextWorkout, sessionEntries, trendFor, weekRunMinutes, weekStrip } from '$lib/domain/projections';
+	import { dayTitle, monthGrid, nextWorkout, sessionEntries, trendFor, weekRunMinutes, weeklyPace } from '$lib/domain/projections';
 	import { RUN, lift } from '$lib/domain/events';
 	import { stretchDose } from '$lib/domain/labels';
 	import { estimateMinutes, loggedOutside, positionLabel, sessionProgress, sessionSteps } from '$lib/domain/steps';
@@ -17,8 +18,9 @@
 	const now = Date.now();
 
 	/**
-	 * Tab 1 is your state now and your state over time, in one scroll: this
-	 * week, what to do next, and how each exercise is going. Hands-off by
+	 * Tab 1 is your state now and your state over time, in one scroll: what to
+	 * do next, the last month of days, what that averages to a week, and how
+	 * each exercise is going. Hands-off by
 	 * default, control on demand: Today answers "what should I do?" with one
 	 * button. The card is the three decisions there are — the workout, the
 	 * stretch, the run — then the odd case (you already did one) as one
@@ -42,7 +44,10 @@
 			: ''
 	);
 
-	let cells = $derived(weekStrip(data.events, now, data.plans));
+	// a month of days, and what it averages to a week: one week of boxes could
+	// only say "this week was quiet" — the question is whether that IS the week
+	let grid = $derived(monthGrid(data.events, now, data.plans));
+	let pace = $derived(weeklyPace(data.events, now, data.plans));
 
 	// every exercise on the lift days, in plan order, once (calves are on both days)
 	let planExercises = $derived.by(() => {
@@ -167,10 +172,15 @@
 		</Card>
 	{/if}
 
-	<!-- the week, right under the action: lifted · ran · stretched · today -->
+	<!-- the month, right under the action: lifted · ran · stretched · today,
+	     then what it comes to per week, against the plan's own run goal -->
 	<Card>
-		<div class="caps mb10">This week</div>
-		<WeekStrip {cells} />
+		<div class="strip-head">
+			<span class="caps">Last month</span>
+			<span class="span">{grid.span}</span>
+		</div>
+		<MonthGrid {grid} />
+		<PaceTiles {pace} runs={hasRuns(plan)} runTarget={hasRuns(plan) ? target : null} />
 	</Card>
 
 	<section>
@@ -209,6 +219,8 @@
 		color: var(--ink-3);
 	}
 	.mb10 { display: block; margin-bottom: 10px; }
+	.strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+	.span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 	.title {
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);

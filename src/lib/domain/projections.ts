@@ -1,5 +1,5 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
-import { capitalise, fmtDate, fmtShort, setsPhrase, unitLabel } from './labels';
+import { capitalise, fmtDate, fmtShort, setsPhrase, spanLabel, unitLabel } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
 import { dayKind, liftDays, type Exercise, type Plan } from './plan';
 import {
@@ -168,7 +168,7 @@ export function sessionEntries(events: LedgerEvent[], session: string): EntryLog
 
 /**
  * Runs newest-first. A run is a session like any other; this is the same
- * fold, filtered — kept for the meter and the week strip, which only want
+ * fold, filtered — kept for the meter and the ledger, which only want
  * minutes and a day.
  */
 export function projectRuns(events: LedgerEvent[]): RunView[] {
@@ -405,11 +405,14 @@ export function trendFor(
 	};
 }
 
-/* ---------- this week ---------- */
+/* ---------- the last month ---------- */
 
-export type WeekCell = {
+export type DayCell = {
 	/** local yyyymmdd */
 	key: number;
+	/** day of the month — what the cell prints */
+	date: number;
+	/** "Sun, Aug 23" — what a screen reader hears */
 	label: string;
 	lifted: boolean;
 	ran: boolean;
@@ -417,33 +420,125 @@ export type WeekCell = {
 	today: boolean;
 	future: boolean;
 };
+export type MonthGrid = {
+	/** column headings, Monday first */
+	weekdays: string[];
+	/** oldest week first; today is always in the last row */
+	weeks: DayCell[][];
+	/** "Aug 10 – Sep 12" — the window the grid covers */
+	span: string;
+};
+
+/** Five rows of seven: this week and the four before it — a month you can see at once. */
+export const GRID_WEEKS = 5;
+
+/** Local calendar day as a sortable number — the bucket every day-shaped fold counts in. */
+const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 
 /**
- * Seven cells, Monday first, bucketed by LOCAL calendar day — which is why
- * this runs where `now` runs and never stores anything. An unfinished
- * session today still counts. A stretch day is the plan's word, not the
- * session's, so the plans come along to tell a stretch from a lift.
+ * A stretch day is the PLAN's word, not the session's, so the plans come
+ * along wherever a fold has to tell a stretch from a lift.
  */
-export function weekStrip(events: LedgerEvent[], now: number, plans: Plan[] = []): WeekCell[] {
-	const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+const isStretchSession = (s: SessionView, plans: Plan[]) =>
+	s.workout.kind === 'lift' && dayKind(plans.find((p) => p.id === s.plan), s.workout.day) === 'stretch';
+
+/**
+ * The last five weeks as a calendar, bucketed by LOCAL calendar day — which
+ * is why this runs where `now` runs and never stores anything. A week is too
+ * short a window to see a habit in: seven cells can only say "this week was
+ * quiet", a month says whether that is the habit. An unfinished session today
+ * still counts.
+ */
+export function monthGrid(events: LedgerEvent[], now: number, plans: Plan[] = [], weeks: number = GRID_WEEKS): MonthGrid {
 	const sessions = projectSessions(events);
-	const isStretch = (s: SessionView) =>
-		s.workout.kind === 'lift' && dayKind(plans.find((p) => p.id === s.plan), s.workout.day) === 'stretch';
-	const lifted = new Set(sessions.filter((s) => s.workout.kind === 'lift' && !isStretch(s)).map((s) => dayKey(new Date(s.at))));
-	const stretched = new Set(sessions.filter(isStretch).map((s) => dayKey(new Date(s.at))));
+	const lifted = new Set(
+		sessions.filter((s) => s.workout.kind === 'lift' && !isStretchSession(s, plans)).map((s) => dayKey(new Date(s.at)))
+	);
+	const stretched = new Set(sessions.filter((s) => isStretchSession(s, plans)).map((s) => dayKey(new Date(s.at))));
 	const ran = new Set(sessions.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at))));
 	const today = new Date(now);
 	const todayKey = dayKey(today);
-	const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
-	return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => {
-		const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
-		const key = dayKey(d);
+	// the Monday that opens the window: this week's Monday, `weeks - 1` weeks back
+	const first = new Date(
+		today.getFullYear(),
+		today.getMonth(),
+		today.getDate() - ((today.getDay() + 6) % 7) - (weeks - 1) * 7
+	);
+	const rows: DayCell[][] = [];
+	for (let w = 0; w < weeks; w++) {
+		rows.push(
+			Array.from({ length: 7 }, (_, i) => {
+				const d = new Date(first.getFullYear(), first.getMonth(), first.getDate() + w * 7 + i);
+				const key = dayKey(d);
+				return {
+					key,
+					date: d.getDate(),
+					label: fmtDate(d.toISOString()),
+					lifted: lifted.has(key), ran: ran.has(key), stretched: stretched.has(key),
+					today: key === todayKey, future: key > todayKey
+				};
+			})
+		);
+	}
+	return { weekdays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], weeks: rows, span: spanLabel(first.toISOString(), today.toISOString()) };
+}
+
+/* ---------- the pace: a running average ---------- */
+
+/** Four weeks: long enough that one quiet week doesn't decide it, short enough to still be news. */
+export const PACE_DAYS = 28;
+
+export type PaceStat = {
+	/** the trailing window as a rate per week */
+	per: number;
+	/** the window before it, same rate — so a tile can say which way it's going */
+	prev: number;
+};
+export type Pace = {
+	/** the window each rate averages over, in days */
+	days: number;
+	/** lift sessions a week — a stretch day is not a lift */
+	lifts: PaceStat;
+	/** days with a run on them, a week */
+	runDays: PaceStat;
+	/** run minutes a week — the number the plan's runTarget is written in */
+	runMinutes: PaceStat;
+};
+
+/**
+ * How much training a week, on average, over the trailing four weeks — and
+ * over the four before that, so the answer to "am I doing less than I want?"
+ * is a direction and not just a number. Rates are per week, whatever the
+ * window: a fold that averages must divide by the window it was given, never
+ * by the weeks it assumes.
+ *
+ * Days, not sessions, for runs: two runs on a Saturday is one day of running,
+ * and the same day on the grid above.
+ */
+export function weeklyPace(events: LedgerEvent[], now: number, plans: Plan[] = [], days: number = PACE_DAYS): Pace {
+	const sessions = projectSessions(events);
+	const window = (endsDaysAgo: number) => {
+		const to = now - endsDaysAgo * DAY;
+		const from = to - days * DAY;
+		const inside = sessions.filter((s) => {
+			const t = Date.parse(s.at);
+			return t > from && t <= to;
+		});
+		const perWeek = (n: number) => (n * 7) / days;
 		return {
-			key, label,
-			lifted: lifted.has(key), ran: ran.has(key), stretched: stretched.has(key),
-			today: key === todayKey, future: key > todayKey
+			lifts: perWeek(inside.filter((s) => s.workout.kind === 'lift' && !isStretchSession(s, plans)).length),
+			runDays: perWeek(new Set(inside.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at)))).size),
+			runMinutes: perWeek(inside.reduce((sum, s) => sum + s.minutes, 0))
 		};
-	});
+	};
+	const now4 = window(0);
+	const before = window(days);
+	return {
+		days,
+		lifts: { per: now4.lifts, prev: before.lifts },
+		runDays: { per: now4.runDays, prev: before.runDays },
+		runMinutes: { per: now4.runMinutes, prev: before.runMinutes }
+	};
 }
 
 /** Whole days since each plan day was last finished (null = never). */

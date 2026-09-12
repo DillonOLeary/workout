@@ -23,6 +23,11 @@ export function fmtShort(iso: string): string {
 	return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** "Aug 10 – Sep 12" — the window a strip or an average covers. */
+export function spanLabel(fromIso: string, toIso: string): string {
+	return `${fmtShort(fromIso)} – ${fmtShort(toIso)}`;
+}
+
 /* ---------- one number ---------- */
 
 /** "40 lb each hand" vs "35 lb" — never a bare number for a two-dumbbell lift. */
@@ -46,6 +51,31 @@ export function unitLabel(n: number, ex: Exercise): string {
 /** "lb" · "s" · "" — the unit a bare number wears next to it. */
 export function unitOf(ex: Exercise): string {
 	return ex.kind === 'load' ? 'lb' : ex.kind === 'hold' ? 's' : '';
+}
+
+/* ---------- rates ---------- */
+
+/**
+ * "2.3" · "3" · "68" — an average, at the precision it deserves: one decimal
+ * unless the number lands whole, because "3.0 lifts a week" reads like a
+ * measurement and "3" reads like the truth.
+ */
+export function rateLabel(n: number): string {
+	const r = Math.round(n * 10) / 10;
+	return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+/**
+ * "↑ from 1.5" · "↓ from 3" · "same as before" — where a running average came
+ * from. The direction is the point: a number on its own can't tell you
+ * whether you're drifting.
+ */
+export function paceLabel(per: number, prev: number): string {
+	const a = Math.round(per * 10);
+	const b = Math.round(prev * 10);
+	if (!b) return a ? 'nothing before that' : 'nothing logged';
+	if (a === b) return 'same as before';
+	return `${a > b ? '↑' : '↓'} from ${rateLabel(prev)}`;
 }
 
 /* ---------- the plan's numbers ---------- */
