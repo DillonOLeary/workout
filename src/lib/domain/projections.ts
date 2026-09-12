@@ -499,8 +499,6 @@ export type Pace = {
 	days: number;
 	/** lift sessions a week — a stretch day is not a lift */
 	lifts: PaceStat;
-	/** days with a run on them, a week */
-	runDays: PaceStat;
 	/** run minutes a week — the number the plan's runTarget is written in */
 	runMinutes: PaceStat;
 };
@@ -510,10 +508,8 @@ export type Pace = {
  * over the four before that, so the answer to "am I doing less than I want?"
  * is a direction and not just a number. Rates are per week, whatever the
  * window: a fold that averages must divide by the window it was given, never
- * by the weeks it assumes.
- *
- * Days, not sessions, for runs: two runs on a Saturday is one day of running,
- * and the same day on the grid above.
+ * by the weeks it assumes. Minutes, not runs: the plan's goal is written in
+ * minutes, and the grid above already shows the days.
  */
 export function weeklyPace(events: LedgerEvent[], now: number, plans: Plan[] = [], days: number = PACE_DAYS): Pace {
 	const sessions = projectSessions(events);
@@ -527,7 +523,6 @@ export function weeklyPace(events: LedgerEvent[], now: number, plans: Plan[] = [
 		const perWeek = (n: number) => (n * 7) / days;
 		return {
 			lifts: perWeek(inside.filter((s) => s.workout.kind === 'lift' && !isStretchSession(s, plans)).length),
-			runDays: perWeek(new Set(inside.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at)))).size),
 			runMinutes: perWeek(inside.reduce((sum, s) => sum + s.minutes, 0))
 		};
 	};
@@ -536,7 +531,6 @@ export function weeklyPace(events: LedgerEvent[], now: number, plans: Plan[] = [
 	return {
 		days,
 		lifts: { per: now4.lifts, prev: before.lifts },
-		runDays: { per: now4.runDays, prev: before.runDays },
 		runMinutes: { per: now4.runMinutes, prev: before.runMinutes }
 	};
 }

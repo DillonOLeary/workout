@@ -288,7 +288,7 @@ describe('weeklyPace — the running average', () => {
 		];
 	};
 
-	it('averages lifts, run minutes and run days per week, against the window before', () => {
+	it('averages lifts and run minutes per week, against the window before', () => {
 		const ev = [
 			// four lifts in the trailing four weeks, two in the four before it
 			...ledger('Goblet Squat', [
@@ -312,9 +312,6 @@ describe('weeklyPace — the running average', () => {
 		expect(pace.lifts.prev).toBe(0.5);
 		expect(pace.runMinutes.per).toBeCloseTo((90 * 7) / 28, 5);
 		expect(pace.runMinutes.prev).toBeCloseTo((60 * 7) / 28, 5);
-		// two runs on one day is one day of running — the same day the grid marks
-		expect(pace.runDays.per).toBeCloseTo(0.5, 5);
-		expect(pace.runDays.prev).toBeCloseTo(0.25, 5);
 	});
 
 	it('divides by the window it was given, and leaves a removed session out', () => {

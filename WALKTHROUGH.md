@@ -252,8 +252,8 @@ else lives there:
   "a stretch day" is the plan's word, not the session's), and how old each
   plan day is. A week of cells can only say "this week was quiet"; a month
   says whether that is the habit
-- `weeklyPace` → the running average: lifts, run days and run minutes per week
-  over the trailing four weeks, each against the four weeks before it, so
+- `weeklyPace` → the running average: lifts and run minutes per week over the
+  trailing four weeks, each against the four weeks before it, so
   "am I doing less than I meant to?" gets a direction and not just a number.
   Rates divide by the window the fold was given, never by weeks it assumes
 - `nextDay` / `nextWorkout` → which lift is due (alternate from the last
