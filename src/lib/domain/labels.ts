@@ -125,6 +125,18 @@ export function trendTally(tones: string[]): string {
 		.join(' · ');
 }
 
+/**
+ * A whole session folded to one line, for a list that would otherwise print
+ * every set of every day: "4 exercises · 12 sets", "3 sets · 25 min".
+ */
+export function sessionSummary(p: { exercises: number; sets: number; minutes: number }): string {
+	const parts: string[] = [];
+	if (p.exercises) parts.push(`${p.exercises} ${p.exercises === 1 ? 'exercise' : 'exercises'}`);
+	if (p.sets) parts.push(`${p.sets} ${p.sets === 1 ? 'set' : 'sets'}`);
+	if (p.minutes) parts.push(`${p.minutes} min`);
+	return parts.join(' · ') || 'nothing logged';
+}
+
 /* ---------- the plan's numbers ---------- */
 
 /** "8–12 reps per side" · "20–45 sec" — the range, with its side rule. */

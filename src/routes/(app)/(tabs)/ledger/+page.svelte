@@ -6,7 +6,7 @@
 	import PaceTiles from '$lib/components/PaceTiles.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
 	import { RUN_ITEM } from '$lib/domain/events';
-	import { fmtShort, paceSentence, setsLine, trendTally } from '$lib/domain/labels';
+	import { fmtShort, paceSentence, sessionSummary, setsLine, trendTally } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
 	import { hasRuns, liftDays, liftTarget, runTarget, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
@@ -40,7 +40,10 @@
 	 * a week" means nothing without "over the last four weeks".
 	 *
 	 * The days are the event stream made human-readable: two columns — the
-	 * exercise, and what happened. Freedom inside the latest session,
+	 * exercise, and what happened — but FOLDED, one row per day, because a
+	 * page that prints every set of every session is a page nobody reaches the
+	 * bottom of. A day opens on a tap; the latest one starts open, since it is
+	 * the only one still correctable. Freedom inside the latest session,
 	 * immutability before it: on the latest card a row opens inline and
 	 * Save writes a correction; older cards are read-only, because the rule
 	 * has already read them. Removing is the rare correction that works on
@@ -97,6 +100,23 @@
 			? `${entries.length} ${entries.length === 1 ? 'session' : 'sessions'} since ${fmtShort(entries[entries.length - 1].at)}`
 			: ''
 	);
+
+	/* ---------- the day list: one row per session, opened on a tap ----------
+	   The latest session starts open — it is the one a correction can still
+	   reach, so the tap count for "fix what I just did" does not go up. */
+	let opened = $state<string | null | undefined>(undefined);
+	const isOpen = (id: string) => (opened === undefined ? id === data.latestSession : opened === id);
+	function toggleSession(id: string) {
+		const shut = isOpen(id);
+		opened = shut ? null : id;
+		if (shut) editingRow = null;
+	}
+	const summaryOf = (s: SessionView) =>
+		sessionSummary({
+			exercises: s.rows.length,
+			sets: s.rows.reduce((n, r) => n + r.sets.length, 0),
+			minutes: s.minutes
+		});
 
 	const exByName = (name: string): Exercise | undefined =>
 		data.plans.flatMap((p) => Object.values(p.days).flat()).find((e) => e.name === name);
@@ -270,11 +290,13 @@
 		</form>
 	{/snippet}
 
+	<div class="days">
 	{#each visible as s (s.id)}
 		{@const latest = s.id === data.latestSession}
 		{#if s.workout.kind === 'run' && s.rows.length === 0}
-			<!-- a run: one row in the week, one row here, the same Remove -->
-			<Card>
+			<!-- a run is already one line — the same shell as a folded day, with
+			     nothing to open (the latest one opens its editor) -->
+			<Card pad={false}>
 				{#if latest}
 					<button type="button" class="line tap" onclick={() => openRun(s)} aria-expanded={editingRow === `${s.id}:${RUN_ITEM}`}>
 						<span class="date">{s.dateLabel}</span>
@@ -294,16 +316,25 @@
 				{#if editingRow === `${s.id}:${RUN_ITEM}`}{@render editor(s)}{/if}
 			</Card>
 		{:else}
+			{@const open = isOpen(s.id)}
 			<Card pad={false}>
-				<div class="sesshead">
-					<span class="date">{s.dateLabel}</span>
-					<span class="sessbadges">
-						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
-						<Badge tone="neutral">{dayTitle(planById(s.plan), s.workout)}</Badge>
-						{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
-						{#if editMode}{@render removeBtn(s.id)}{/if}
-					</span>
+				<div class="sesshead" class:open>
+					<!-- the badges ride inside the tap target (they are spans), so the
+					     row stays one line and Remove is the only thing that needs its
+					     own — it is a button, and buttons do not nest -->
+					<button type="button" class="sesstoggle" onclick={() => toggleSession(s.id)} aria-expanded={open}>
+						<span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+						<span class="date">{s.dateLabel}</span>
+						<span class="ttl">
+							{dayTitle(planById(s.plan), s.workout)}
+							{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
+							{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
+						</span>
+						<span class="sum">{summaryOf(s)}</span>
+					</button>
 				</div>
+				{#if editMode}<div class="removerow">{@render removeBtn(s.id)}</div>{/if}
+				{#if open}
 				{#each s.rows as row (row.item)}
 					{@const ex = exByName(row.item)}
 					{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
@@ -346,9 +377,11 @@
 				{#if s.prep}
 					<div class="prepline">+ {s.prep} prep {s.prep === 1 ? 'step' : 'steps'} — warm-up, cooldown</div>
 				{/if}
+				{/if}
 			</Card>
 		{/if}
 	{/each}
+	</div>
 
 	{#if editMode && entries.length > 1}
 		<p class="histnote">Older sets are history — remove the session and log it again if it's wrong.</p>
@@ -376,7 +409,7 @@
 </div>
 
 <style>
-	.col { display: flex; flex-direction: column; gap: 20px; }
+	.col { display: flex; flex-direction: column; gap: 16px; }
 	.head { display: flex; align-items: center; gap: 14px; }
 	.head h1 { flex: 1; }
 	h1 {
@@ -460,8 +493,11 @@
 	}
 	.remove:hover { color: var(--danger); border-color: var(--danger); }
 	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
-	.removerow { display: flex; justify-content: flex-end; margin-top: 10px; }
-	.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; }
+	.removerow { display: flex; justify-content: flex-end; padding: 0 12px 10px; }
+	.line {
+		display: flex; justify-content: space-between; align-items: center; gap: 12px;
+		width: 100%; min-height: 56px; padding: 8px 16px;
+	}
 	/* never break a date mid-word — "Sun, Aug 2" over three lines is what let
 	   the badges keep their full width and push Remove off the card */
 	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
@@ -472,20 +508,39 @@
 		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
 	}
 
+	/* the day, folded: a tap target that carries the date, what it was and
+	   what it came to — the sets themselves are one tap in */
 	.sesshead {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: 8px;
-		padding: 16px 24px;
-		background: var(--surface-sunken);
+		gap: 4px 8px;
+		padding: 0 12px 0 0;
 		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 	}
-	.sessbadges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
-	@media (max-width: 700px) {
-		.sesshead { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 16px; }
-		.sessbadges { width: 100%; }
+	/* closed, a day is a plain row like a run; open, its head is the header
+	   of the rows under it */
+	.sesshead.open { background: var(--surface-sunken); }
+	.sesshead:not(.open) { border-radius: var(--radius-lg); }
+	.days { display: flex; flex-direction: column; gap: 8px; }
+	.sesstoggle {
+		flex: 1 1 auto; min-width: 0;
+		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'chev date sum' '. ttl ttl';
+		column-gap: 10px; row-gap: 2px; align-items: center;
+		min-height: 56px; padding: 8px 8px 8px 16px;
+		background: transparent; border: none; font: inherit; color: inherit; text-align: left;
+		cursor: pointer; touch-action: manipulation; border-radius: var(--radius-lg);
+		transition: background var(--dur-med) var(--ease-snap);
+	}
+	.sesstoggle:hover { background: var(--volt-tint); }
+	.chev { grid-area: chev; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+	.sesshead .date { grid-area: date; }
+	.ttl { grid-area: ttl; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: var(--weight-bold); font-size: 15px; }
+	.sum { grid-area: sum; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: right; white-space: nowrap; }
+	/* wide enough for one line: date, what it was, what it came to */
+	@media (min-width: 700px) {
+		.sesstoggle { grid-template-columns: auto auto 1fr auto; grid-template-areas: 'chev date ttl sum'; }
 	}
 	/* two columns: the exercise, and what happened */
 	.sessrow {
@@ -504,7 +559,7 @@
 		font: inherit; color: inherit; text-align: left; cursor: pointer; touch-action: manipulation;
 		transition: background var(--dur-med) var(--ease-snap);
 	}
-	.line.tap { border: none; padding: 0; }
+	.line.tap { border: none; border-radius: var(--radius-lg); }
 	.tap:hover { background: var(--volt-tint); }
 	.tap.opened { background: var(--surface-sunken); }
 	.exname { font-weight: var(--weight-bold); font-size: 16px; }

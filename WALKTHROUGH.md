@@ -419,7 +419,7 @@ src/routes/
    ├─ (tabs)/                     nested group — the TabBar shell
    │  ├─ +page.svelte             Today — tab 1: one question, what do I do now  (/)
    │  ├─ log/after/+page.svelte   Log it after — a child of Today  (/log/after)
-   │  ├─ ledger/+page.svelte      Ledger — tab 2: the month, the weekly average, the trends, then By day  (/ledger)
+   │  ├─ ledger/+page.svelte      Ledger — tab 2: the month, the weekly average, the trends, then the days (folded, one row each)  (/ledger)
    │  ├─ plan/+page.svelte        The Plan — tab 3  (/plan)
    │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)

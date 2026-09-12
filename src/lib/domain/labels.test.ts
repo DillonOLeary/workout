@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, paceLabel, paceSentence, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, setValue, setsLine, spanLabel, stepLabel, stretchDose, trendTally, unitLabel, unitOf } from './labels';
+import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, paceLabel, paceSentence, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, setValue, setsLine, sessionSummary, spanLabel, stepLabel, stretchDose, trendTally, unitLabel, unitOf } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
@@ -77,6 +77,12 @@ describe('rates — the running average in words', () => {
 		);
 		expect(paceSentence({ weeks: 4, lifts: 0, liftGoal: 3, runMinutes: 0, runGoal: 90 })).toBe('Nothing logged in the last 4 weeks');
 		expect(paceSentence({ weeks: 4, lifts: 0, liftGoal: 2, runMinutes: null, runGoal: null })).toBe('Nothing logged in the last 4 weeks');
+	});
+	it('folds a session to one line for a collapsed card', () => {
+		expect(sessionSummary({ exercises: 4, sets: 12, minutes: 0 })).toBe('4 exercises · 12 sets');
+		expect(sessionSummary({ exercises: 1, sets: 1, minutes: 0 })).toBe('1 exercise · 1 set');
+		expect(sessionSummary({ exercises: 1, sets: 3, minutes: 25 })).toBe('1 exercise · 3 sets · 25 min');
+		expect(sessionSummary({ exercises: 0, sets: 0, minutes: 0 })).toBe('nothing logged');
 	});
 	it('tallies the trend list by what the rule will do, zeroes left out', () => {
 		expect(trendTally(['up', 'flat', 'up', 'down', 'flat', 'flat'])).toBe('2 going up · 1 backing off · 3 flat');
