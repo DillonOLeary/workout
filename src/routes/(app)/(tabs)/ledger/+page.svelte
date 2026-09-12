@@ -2,18 +2,37 @@
 	import { enhance } from '$app/forms';
 	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
+	import MonthGrid from '$lib/components/MonthGrid.svelte';
+	import PaceTiles from '$lib/components/PaceTiles.svelte';
+	import TrendRow from '$lib/components/TrendRow.svelte';
 	import { RUN_ITEM } from '$lib/domain/events';
 	import { setsLine } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
-	import type { Exercise } from '$lib/domain/plan';
+	import { hasRuns, liftDays, runTarget, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
-	import { dayTitle, projectPlanSwitches, projectSessions, type SessionRow, type SessionView } from '$lib/domain/projections';
+	import {
+		dayTitle,
+		monthGrid,
+		projectPlanSwitches,
+		projectSessions,
+		trendFor,
+		weeklyPace,
+		type SessionRow,
+		type SessionView
+	} from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	// one clock reading per visit: every fold below takes it as an input
+	const now = Date.now();
 
 	/**
-	 * By day is the event stream made human-readable: two columns — the
+	 * Tab 2 is everything that already happened, at three distances: the last
+	 * month as a calendar, what it averages to a week, how each exercise is
+	 * moving, and then the days themselves. The page needs no heading saying
+	 * how it's going — the whole page is how it's going.
+	 *
+	 * The days are the event stream made human-readable: two columns — the
 	 * exercise, and what happened. Freedom inside the latest session,
 	 * immutability before it: on the latest card a row opens inline and
 	 * Save writes a correction; older cards are read-only, because the rule
@@ -22,6 +41,23 @@
 	 * every card.
 	 */
 	let editMode = $state(false);
+
+	/* ---------- the long view: a month of days, a running average, the trends ---- */
+	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
+	let grid = $derived(monthGrid(data.events, now, data.plans));
+	let pace = $derived(weeklyPace(data.events, now, data.plans));
+
+	// every exercise on the lift days, in plan order, once (calves are on both days)
+	let planExercises = $derived.by(() => {
+		const seen = new Set<string>();
+		const out: Exercise[] = [];
+		for (const d of liftDays(plan)) for (const ex of plan.days[d]) if (!seen.has(ex.name)) { seen.add(ex.name); out.push(ex); }
+		return out;
+	});
+	// the session in progress is excluded: the rule never grades the set it is suggesting
+	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, data.activeSession?.id, now) })));
+	// the trend row that is open — `openRow` below belongs to the day editor
+	let openTrend = $state<string | null>(null);
 
 	// two-tap arm before removing — the red waits for stated intent, and
 	// stays until you tap anywhere else (no silent timeout)
@@ -104,8 +140,7 @@
 
 <div class="col">
 	<div class="head">
-		<a class="back" href="/" aria-label="Back to Today">←</a>
-		<h1>By day</h1>
+		<h1>Ledger</h1>
 		<button type="button" class="edit" aria-pressed={editMode} onclick={() => (editMode = !editMode)}>
 			{editMode ? 'Done' : 'Edit entries'}
 		</button>
@@ -114,6 +149,31 @@
 	{#if form?.message}
 		<p class="err">{form.message}</p>
 	{/if}
+
+	<!-- the month, then what it comes to per week, against the plan's own run goal -->
+	<Card>
+		<div class="strip-head">
+			<span class="caps">Last month</span>
+			<span class="span">{grid.span}</span>
+		</div>
+		<MonthGrid {grid} />
+		<PaceTiles {pace} runs={hasRuns(plan)} runTarget={hasRuns(plan) ? runTarget(plan) : null} />
+	</Card>
+
+	{#if trends.length}
+		<Card pad={false}>
+			{#each trends as t (t.ex.name)}
+				<TrendRow
+					ex={t.ex}
+					trend={t.trend}
+					open={openTrend === t.ex.name}
+					ontoggle={() => (openTrend = openTrend === t.ex.name ? null : t.ex.name)}
+				/>
+			{/each}
+		</Card>
+	{/if}
+
+	<div class="caps daycaps">By day</div>
 
 	{#if entries.length === 0}
 		<Card><div class="empty">Nothing logged yet. Start from Today.</div></Card>
@@ -279,17 +339,6 @@
 	.col { display: flex; flex-direction: column; gap: 20px; }
 	.head { display: flex; align-items: center; gap: 14px; }
 	.head h1 { flex: 1; }
-	/* a child page of Today — the chronological view for "what did I do
-	   Tuesday", and the stable home for corrections */
-	.back {
-		width: 48px; height: 48px; flex: none;
-		display: inline-flex; align-items: center; justify-content: center;
-		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised); text-decoration: none;
-		font-family: var(--font-display); font-weight: var(--weight-black); font-size: 22px; color: var(--ink);
-	}
-	.back:hover { background: var(--volt-tint); }
-	.back:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 	h1 {
 		margin: 0;
 		font-family: var(--font-display);
@@ -315,6 +364,16 @@
 	}
 	.edit:hover { color: var(--ink); border-color: var(--ink); }
 	.edit[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
+
+	.caps {
+		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink-3);
+	}
+	/* the calendar's caption, and the window it covers */
+	.strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+	.span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+	/* the one label the page keeps: it names the list below, not the page */
+	.daycaps { margin-bottom: -8px; }
 
 	.empty { font-size: 16px; color: var(--ink-2); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }

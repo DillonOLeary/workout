@@ -55,7 +55,7 @@
 			{#if !trend.points.length}
 				<div class="more">Nothing logged yet.</div>
 			{:else if trend.sessions > trend.points.length}
-				<div class="more">{trend.sessions - trend.points.length} earlier — see By day</div>
+				<div class="more">{trend.sessions - trend.points.length} earlier — see the days below</div>
 			{/if}
 		</div>
 	{/if}

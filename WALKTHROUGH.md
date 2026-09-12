@@ -187,7 +187,7 @@ and rewriting it would silently change what the next suggestion was based on
 variant, so a run's minutes can't be rewritten as a set), while
 `RemoveSession` works on any session, because removal is itself a fact and
 nothing is lost. A screen never re-checks either rule; it hides what
-the decider would refuse (By day opens rows inline on the latest card only,
+the decider would refuse (the Ledger opens rows inline on the latest card only,
 from `latestSession` in the layout's data), and the decider refuses it anyway.
 
 Notice also what's *not* here: `crypto.randomUUID()` and `new Date()` live in
@@ -416,9 +416,10 @@ src/routes/
 └─ (app)/                         layout GROUP — every page inside requires the cookie
    ├─ +layout.server.ts           ONE load for all pages: plans + events (uid from locals)
    ├─ (tabs)/                     nested group — the TabBar shell
-   │  ├─ +page.svelte             Today        (/)
-   │  ├─ ledger/+page.svelte      By day — the chronological view, a child of Today (/ledger)
-   │  ├─ plan/+page.svelte        The Plan     (/plan)
+   │  ├─ +page.svelte             Today — tab 1: one question, what do I do now  (/)
+   │  ├─ log/after/+page.svelte   Log it after — a child of Today  (/log/after)
+   │  ├─ ledger/+page.svelte      Ledger — tab 2: the month, the weekly average, the trends, then By day  (/ledger)
+   │  ├─ plan/+page.svelte        The Plan — tab 3  (/plan)
    │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
    ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)

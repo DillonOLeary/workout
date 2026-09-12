@@ -3,14 +3,11 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
-	import MonthGrid from '$lib/components/MonthGrid.svelte';
-	import PaceTiles from '$lib/components/PaceTiles.svelte';
-	import TrendRow from '$lib/components/TrendRow.svelte';
-	import { dayTitle, monthGrid, nextWorkout, sessionEntries, trendFor, weekRunMinutes, weeklyPace } from '$lib/domain/projections';
+	import { dayTitle, nextWorkout, sessionEntries, weekRunMinutes } from '$lib/domain/projections';
 	import { RUN, lift } from '$lib/domain/events';
 	import { stretchDose } from '$lib/domain/labels';
 	import { estimateMinutes, loggedOutside, positionLabel, sessionProgress, sessionSteps } from '$lib/domain/steps';
-	import { hasRuns, liftDays, runTarget, stretchDays, type Exercise } from '$lib/domain/plan';
+	import { hasRuns, liftDays, runTarget, stretchDays } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -18,17 +15,17 @@
 	const now = Date.now();
 
 	/**
-	 * Tab 1 is your state now and your state over time, in one scroll: what to
-	 * do next, the last month of days, what that averages to a week, and how
-	 * each exercise is going. Hands-off by
-	 * default, control on demand: Today answers "what should I do?" with one
-	 * button. The card is the three decisions there are — the workout, the
-	 * stretch, the run — then the odd case (you already did one) as one
-	 * link, then the rare case (the other day) as the quietest line on the
-	 * card. Two verbs, one place each. A single stretch on its own is not
-	 * a fourth decision: the floor's ⋯ sheet adds one to any session.
-	 * Nothing chronological lives here — "By day" is one tap away at the
-	 * foot.
+	 * Tab 1 is one question: what do I do now. Hands-off by default, control
+	 * on demand — Today answers it with one button. The card is the three
+	 * decisions there are — the workout, the stretch, the run — then the odd
+	 * case (you already did one) as one link, then the rare case (the other
+	 * day) as the quietest line on the card. Two verbs, one place each. A
+	 * single stretch on its own is not a fourth decision: the floor's ⋯ sheet
+	 * adds one to any session.
+	 *
+	 * Nothing that happened lives here: the calendar, the running average and
+	 * the exercise trends are the Ledger tab, one tap away. A screen that
+	 * answers two questions answers the first one worse.
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
@@ -43,21 +40,6 @@
 			? stretchDose(estimateMinutes(stretchSteps), plan.days[stretchDay].length, stretchSteps.filter((s) => s.kind === 'set').length)
 			: ''
 	);
-
-	// a month of days, and what it averages to a week: one week of boxes could
-	// only say "this week was quiet" — the question is whether that IS the week
-	let grid = $derived(monthGrid(data.events, now, data.plans));
-	let pace = $derived(weeklyPace(data.events, now, data.plans));
-
-	// every exercise on the lift days, in plan order, once (calves are on both days)
-	let planExercises = $derived.by(() => {
-		const seen = new Set<string>();
-		const out: Exercise[] = [];
-		for (const d of lifts) for (const ex of plan.days[d]) if (!seen.has(ex.name)) { seen.add(ex.name); out.push(ex); }
-		return out;
-	});
-	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, session?.id, now) })));
-	let openRow = $state<string | null>(null);
 
 	// the session is a list of steps: Today says how far in, and how long is left
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
@@ -172,33 +154,6 @@
 		</Card>
 	{/if}
 
-	<!-- the month, right under the action: lifted · ran · stretched · today,
-	     then what it comes to per week, against the plan's own run goal -->
-	<Card>
-		<div class="strip-head">
-			<span class="caps">Last month</span>
-			<span class="span">{grid.span}</span>
-		</div>
-		<MonthGrid {grid} />
-		<PaceTiles {pace} runs={hasRuns(plan)} runTarget={hasRuns(plan) ? target : null} />
-	</Card>
-
-	<section>
-		<div class="caps mb10">How it's going</div>
-		<Card pad={false}>
-			{#each trends as t (t.ex.name)}
-				<TrendRow
-					ex={t.ex}
-					trend={t.trend}
-					open={openRow === t.ex.name}
-					ontoggle={() => (openRow = openRow === t.ex.name ? null : t.ex.name)}
-				/>
-			{/each}
-		</Card>
-		<div class="foot">
-			<a class="quiet" href="/ledger">By day →</a>
-		</div>
-	</section>
 </div>
 
 <style>
@@ -218,9 +173,6 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 	}
-	.mb10 { display: block; margin-bottom: 10px; }
-	.strip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-	.span { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 	.title {
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);
@@ -316,15 +268,6 @@
 	}
 	.resume:hover { background: var(--volt-deep); }
 	.resume:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
-
-	.foot { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; }
-	.quiet {
-		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
-		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
-		text-transform: uppercase; color: var(--ink-3);
-		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
-	}
-	.quiet:hover { color: var(--ink); background: var(--volt-tint); border-radius: var(--radius-sm); }
 
 	@media (max-width: 900px) {
 		.col { gap: 12px; }
