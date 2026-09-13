@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, plannedValue, prepLabel, rangeLabel, receiptLine, setValue, setsLine, stepLabel, stretchDose, unitLabel, unitOf } from './labels';
+import { ceilingHint, countLabel, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, loadHint, loadLabel, loadShort, paceLabel, paceSentence, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, setValue, setsLine, sessionSummary, spanLabel, stepLabel, stretchDose, trendTally, unitLabel, unitOf } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
@@ -41,6 +41,53 @@ describe('one number', () => {
 	it('reads dates two ways', () => {
 		expect(fmtDate('2026-08-23T18:00:00Z')).toMatch(/^Sun, Aug 23$/);
 		expect(fmtShort('2026-08-23T18:00:00Z')).toBe('Aug 23');
+	});
+});
+
+describe('rates — the running average in words', () => {
+	it('prints an average at the precision it deserves', () => {
+		expect(rateLabel(2.25)).toBe('2.3');
+		expect(rateLabel(3)).toBe('3');
+		expect(rateLabel(0)).toBe('0');
+		expect(rateLabel(67.5)).toBe('67.5');
+	});
+	it('says which way it is going, and when there is nothing to compare to', () => {
+		expect(paceLabel(2.3, 1.5)).toBe('↑ from 1.5');
+		expect(paceLabel(1, 3)).toBe('↓ from 3');
+		expect(paceLabel(2, 2)).toBe('same as before');
+		// a rounding-level difference is not a direction
+		expect(paceLabel(2.01, 2)).toBe('same as before');
+		expect(paceLabel(1.5, 0)).toBe('nothing before that');
+		expect(paceLabel(0, 0)).toBe('nothing logged');
+	});
+	it('says the window a strip covers', () => {
+		expect(spanLabel('2026-07-20T12:00:00Z', '2026-08-23T12:00:00Z')).toBe('Jul 20 – Aug 23');
+	});
+	it('answers "am I doing enough" in one line, against the plan', () => {
+		expect(paceSentence({ weeks: 4, lifts: 1.3, liftGoal: 3, runMinutes: 36.4, runGoal: 90 })).toBe(
+			'1.3 lifts and 36 run min a week — the plan asks 3 and 90'
+		);
+		// one lift a week is a lift, not lifts
+		expect(paceSentence({ weeks: 4, lifts: 1, liftGoal: 3, runMinutes: 0, runGoal: 90 })).toBe(
+			'1 lift and 0 run min a week — the plan asks 3 and 90'
+		);
+		// a plan with no running says nothing about running
+		expect(paceSentence({ weeks: 4, lifts: 2.5, liftGoal: 2, runMinutes: null, runGoal: null })).toBe(
+			'2.5 lifts a week — the plan asks 2'
+		);
+		expect(paceSentence({ weeks: 4, lifts: 0, liftGoal: 3, runMinutes: 0, runGoal: 90 })).toBe('Nothing logged in the last 4 weeks');
+		expect(paceSentence({ weeks: 4, lifts: 0, liftGoal: 2, runMinutes: null, runGoal: null })).toBe('Nothing logged in the last 4 weeks');
+	});
+	it('folds a session to one line for a collapsed card', () => {
+		expect(sessionSummary({ exercises: 4, sets: 12, minutes: 0 })).toBe('4 exercises · 12 sets');
+		expect(sessionSummary({ exercises: 1, sets: 1, minutes: 0 })).toBe('1 exercise · 1 set');
+		expect(sessionSummary({ exercises: 1, sets: 3, minutes: 25 })).toBe('1 exercise · 3 sets · 25 min');
+		expect(sessionSummary({ exercises: 0, sets: 0, minutes: 0 })).toBe('nothing logged');
+	});
+	it('tallies the trend list by what the rule will do, zeroes left out', () => {
+		expect(trendTally(['up', 'flat', 'up', 'down', 'flat', 'flat'])).toBe('2 going up · 1 backing off · 3 flat');
+		expect(trendTally(['warn', 'start'])).toBe('1 warned · 1 not started');
+		expect(trendTally([])).toBe('');
 	});
 });
 

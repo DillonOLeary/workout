@@ -108,6 +108,8 @@ export const DEFAULT_PLANS: Plan[] = [
 			'Full-body A/B on dumbbells, kettlebells and machines. The calendar is empty; Mon / Wed / Fri isn’t. Currently accepting all opportunities to pick things up and put them down.',
 		schedule: 'Lift Mon / Wed / Fri · Run 3×/week',
 		runTarget: 90,
+		// three a week off two days: A, B, A — the schedule's number, not the days'
+		liftTarget: 3,
 		// 90s between sets: these are compounds first, machines second
 		rest: 90,
 		cooldown: COOLDOWN,
@@ -171,6 +173,8 @@ export const DEFAULT_PLANS: Plan[] = [
 		// She asked for regimented, so the schedule names days instead of counts.
 		schedule: 'Lift Mon / Thu (+ Sat when it fits) · Run Wed / Sat with NRC',
 		runTarget: 60,
+		// Mon and Thu are the promise; Saturday is the bonus
+		liftTarget: 2,
 		rest: 60,
 		cooldown: HER_COOLDOWN,
 		cue: HER_CUE,
@@ -220,6 +224,7 @@ export const DEFAULT_PLANS: Plan[] = [
 			'Two-day bodyweight yoga rotation, about 30 minutes on a mat. Nothing to load, nothing to rack — progress is measured in seconds. Same rule as the iron: hit the top of the range, then make the pose harder — a hold never gets longer than its range. A complement to the lifting plans, not a replacement: there is no aerobic work here and no external load.',
 		schedule: 'Flow 2–3×/week · mat only',
 		runs: false,
+		liftTarget: 2,
 		// a breath or two between holds — the flow is its own warm-up
 		rest: 20,
 		dayInfo: {

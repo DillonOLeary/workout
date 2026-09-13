@@ -187,7 +187,7 @@ and rewriting it would silently change what the next suggestion was based on
 variant, so a run's minutes can't be rewritten as a set), while
 `RemoveSession` works on any session, because removal is itself a fact and
 nothing is lost. A screen never re-checks either rule; it hides what
-the decider would refuse (By day opens rows inline on the latest card only,
+the decider would refuse (the Ledger opens rows inline on the latest card only,
 from `latestSession` in the layout's data), and the decider refuses it anyway.
 
 Notice also what's *not* here: `crypto.randomUUID()` and `new Date()` live in
@@ -247,9 +247,16 @@ else lives there:
   sessions, no change", "Set 1 at the top of the range — 40 lb next time",
   "Re-entry haircut in 3 days"). Today's "How it's going" list is this fold
   run per exercise at request time — no stored projection, no new events
-- `weekStrip` / `dayAges` → this week's seven cells (lifted / ran / stretched /
-  today — the plans come along, because "a stretch day" is the plan's word,
-  not the session's) and how old each plan day is
+- `monthGrid` / `dayAges` → the last five weeks as a calendar, one cell per
+  local day (lifted / ran / stretched / today — the plans come along, because
+  "a stretch day" is the plan's word, not the session's), and how old each
+  plan day is. A week of cells can only say "this week was quiet"; a month
+  says whether that is the habit
+- `weeklyPace` → the running average: lifts and run minutes per week over the
+  trailing four weeks, each against the four weeks before it (the Ledger says
+  it in one sentence against the plan's own `liftTarget` / `runTarget`), so
+  "am I doing less than I meant to?" gets a direction and not just a number.
+  Rates divide by the window the fold was given, never by weeks it assumes
 - `nextDay` / `nextWorkout` → which lift is due (alternate from the last
   finished lift; runs don't count, and neither does a stretch day), and the
   one mono line under Today's button that says *why*: days since the last
@@ -357,7 +364,7 @@ row instead of the pick and the week needs to mark it "stretched". Warm-ups
 and cooldowns are lists of `PrepItem`s — a string you tick, or a timed item
 (`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down. The
 plan's defaults (rest 60 s, run target 150 min, runs on) live here once,
-behind `restFor` / `runTarget` / `hasRuns` — no screen writes `?? 150` for
+behind `restFor` / `runTarget` / `liftTarget` / `hasRuns` — no screen writes `?? 150` for
 itself.
 
 A plan row is data from outside, exactly like an event row — so `parsePlan`
@@ -410,9 +417,10 @@ src/routes/
 └─ (app)/                         layout GROUP — every page inside requires the cookie
    ├─ +layout.server.ts           ONE load for all pages: plans + events (uid from locals)
    ├─ (tabs)/                     nested group — the TabBar shell
-   │  ├─ +page.svelte             Today        (/)
-   │  ├─ ledger/+page.svelte      By day — the chronological view, a child of Today (/ledger)
-   │  ├─ plan/+page.svelte        The Plan     (/plan)
+   │  ├─ +page.svelte             Today — tab 1: one question, what do I do now  (/)
+   │  ├─ log/after/+page.svelte   Log it after — a child of Today  (/log/after)
+   │  ├─ ledger/+page.svelte      Ledger — tab 2: the month, the weekly average, the trends, then the days (folded, one row each)  (/ledger)
+   │  ├─ plan/+page.svelte        The Plan — tab 3  (/plan)
    │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
    ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)

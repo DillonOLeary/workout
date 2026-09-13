@@ -3,7 +3,7 @@ import { RUN, lift, type LedgerEvent, type StoredEvent } from './events';
 import { countOf } from './measure';
 import type { Exercise, Plan } from './plan';
 import { REENTRY_WARN_DAYS, suggest } from './progression';
-import { dayAges, dayTitle, historyFor, nextDay, nextWorkout, projectRuns, projectSessions, sessionEntries, trendFor, weekRunMinutes, weekStrip } from './projections';
+import { dayAges, dayTitle, historyFor, monthGrid, nextDay, nextWorkout, projectRuns, projectSessions, sessionEntries, trendFor, weekRunMinutes, weeklyPace } from './projections';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -230,7 +230,9 @@ describe('nextWorkout — the pick, and why', () => {
 	});
 });
 
-describe('weekStrip', () => {
+describe('monthGrid', () => {
+	const flat = (ev: LedgerEvent[], plans: Plan[] = []) => monthGrid(ev, NOW, plans).weeks.flat();
+
 	it('marks a stretch day as stretched, never lifted', () => {
 		const plan: Plan = { id: 'p', name: 'P', schedule: '', dayInfo: { S: { title: 'Stretch', kind: 'stretch' } }, days: { A: [goblet], S: [] } };
 		const at = new Date(NOW - 2 * DAY).toISOString();
@@ -238,24 +240,87 @@ describe('weekStrip', () => {
 			{ type: 'SessionStarted', data: { session: 'st', plan: 'p', kind: 'lift', day: 'S', at, mode: 'live' } },
 			{ type: 'SessionFinished', data: { session: 'st', at } }
 		];
-		const cells = weekStrip(ev, NOW, [plan]);
-		expect(cells[4]).toMatchObject({ stretched: true, lifted: false });
+		// NOW is a Sunday: the grid ends on it, so two days ago is the 33rd of 35
+		expect(flat(ev, [plan])[32]).toMatchObject({ stretched: true, lifted: false });
 		// without the plans, a stretch session reads as a lift — the plan's word is what tells them apart
-		expect(weekStrip(ev, NOW)[4]).toMatchObject({ stretched: false, lifted: true });
+		expect(flat(ev)[32]).toMatchObject({ stretched: false, lifted: true });
 	});
-	it('marks lifts, runs and today, Monday first', () => {
-		// NOW is a Sunday: the week runs Mon (6 days ago) → today
+
+	it('is five weeks of days, Monday first, ending on today', () => {
 		const ev = [
-			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]] }]),
+			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]] }, { daysAgo: 20, sets: [[35, 10]], session: 'old' }]),
 			...raw('RunLogged', { minutes: 30, at: new Date(NOW - 5 * DAY).toISOString() })
 		];
-		const cells = weekStrip(ev, NOW);
-		expect(cells.map((c) => c.label).join('')).toBe('MTWTFSS');
-		expect(cells[6].today).toBe(true);
-		expect(cells[4].lifted).toBe(true);
-		expect(cells[1].ran).toBe(true);
-		expect(cells.filter((c) => c.lifted)).toHaveLength(1);
+		const grid = monthGrid(ev, NOW, []);
+		expect(grid.weekdays.join('')).toBe('MTWTFSS');
+		expect(grid.weeks).toHaveLength(5);
+		expect(grid.weeks.every((w) => w.length === 7)).toBe(true);
+		const cells = grid.weeks.flat();
+		expect(cells).toHaveLength(35);
+		// the last cell is today, and nothing in the window is in the future
+		expect(cells[34]).toMatchObject({ today: true, date: new Date(NOW).getDate() });
+		expect(cells.filter((c) => c.today)).toHaveLength(1);
 		expect(cells.every((c) => !c.future)).toBe(true);
+		expect(cells[32].lifted).toBe(true);
+		expect(cells[29].ran).toBe(true);
+		// a session three weeks back is inside the month, where a week strip would have lost it
+		expect(cells.filter((c) => c.lifted).map((c) => c.key)).toHaveLength(2);
+		expect(cells[14].lifted).toBe(true);
+		expect(cells[0].label).toBe('Mon, Jul 20');
+		expect(grid.span).toBe('Jul 20 – Aug 23');
+	});
+
+	it('greys the rest of this week, and only this week', () => {
+		const mid = Date.parse('2026-08-19T18:00:00Z'); // a Wednesday
+		const cells = monthGrid([], mid, []).weeks.flat();
+		expect(cells.filter((c) => c.future)).toHaveLength(4); // Thu → Sun
+		expect(cells[30]).toMatchObject({ today: true, future: false });
+	});
+});
+
+describe('weeklyPace — the running average', () => {
+	const plan: Plan = { id: 'p', name: 'P', schedule: '', dayInfo: { S: { title: 'Stretch', kind: 'stretch' } }, days: { A: [goblet], S: [] } };
+	const stretch = (daysAgo: number): LedgerEvent[] => {
+		const at = new Date(NOW - daysAgo * DAY).toISOString();
+		return [
+			{ type: 'SessionStarted', data: { session: `st${daysAgo}`, plan: 'p', kind: 'lift', day: 'S', at, mode: 'live' } },
+			{ type: 'SessionFinished', data: { session: `st${daysAgo}`, at } }
+		];
+	};
+
+	it('averages lifts and run minutes per week, against the window before', () => {
+		const ev = [
+			// four lifts in the trailing four weeks, two in the four before it
+			...ledger('Goblet Squat', [
+				{ daysAgo: 1, sets: [[35, 10]] },
+				{ daysAgo: 8, sets: [[35, 10]] },
+				{ daysAgo: 15, sets: [[35, 10]] },
+				{ daysAgo: 22, sets: [[35, 10]] },
+				{ daysAgo: 30, sets: [[35, 10]] },
+				{ daysAgo: 44, sets: [[35, 10]] }
+			]),
+			...stretch(3),
+			...raw('RunLogged', { minutes: 30, at: new Date(NOW - 2 * DAY).toISOString() }),
+			...raw('RunLogged', { minutes: 20, at: new Date(NOW - 2 * DAY + 3600000).toISOString() }), // twice in one day
+			...raw('RunLogged', { minutes: 40, at: new Date(NOW - 9 * DAY).toISOString() }),
+			...raw('RunLogged', { minutes: 60, at: new Date(NOW - 35 * DAY).toISOString() })
+		];
+		const pace = weeklyPace(ev, NOW, [plan]);
+		expect(pace.days).toBe(28);
+		// a stretch day is not a lift, and the rate is per week, not per window
+		expect(pace.lifts.per).toBe(1);
+		expect(pace.lifts.prev).toBe(0.5);
+		expect(pace.runMinutes.per).toBeCloseTo((90 * 7) / 28, 5);
+		expect(pace.runMinutes.prev).toBeCloseTo((60 * 7) / 28, 5);
+	});
+
+	it('divides by the window it was given, and leaves a removed session out', () => {
+		const ev = ledger('Goblet Squat', [
+			{ daysAgo: 1, sets: [[35, 10]] },
+			{ daysAgo: 3, sets: [[35, 10]], removed: true }
+		]);
+		expect(weeklyPace(ev, NOW, [], 14).lifts.per).toBe(0.5);
+		expect(weeklyPace([], NOW, []).lifts).toEqual({ per: 0, prev: 0 });
 	});
 });
 

@@ -14,11 +14,13 @@
 <div class="app-frame">
 	<div class="tabwrap">
 		<div class="tabwrap-inner">
-			<!-- two tabs: your state now (and over time), and the plan. "By day"
-			     and "Log it after" are children of Today, so they keep that tab lit. -->
+			<!-- three tabs, three questions: what do I do now, what have I done,
+			     what is the programme. "Log it after" is a child of Today, so it
+			     keeps that tab lit. -->
 			<TabBar
 				tabs={[
-					{ label: 'Today', href: '/', also: ['/ledger', '/log/after'] },
+					{ label: 'Today', href: '/', also: ['/log/after'] },
+					{ label: 'Ledger', href: '/ledger' },
 					{ label: 'The Plan', href: '/plan' }
 				]}
 			/>
@@ -88,7 +90,7 @@
 	}
 
 	@media (max-width: 640px) {
-		/* 8px side padding: two tabs stay ≥ 180px wide at 390px */
+		/* 8px side padding: three tabs stay ≥ 120px wide at 375px */
 		.tabwrap {
 			order: 2;
 			padding: 8px 8px;

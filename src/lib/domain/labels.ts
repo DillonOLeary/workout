@@ -23,6 +23,11 @@ export function fmtShort(iso: string): string {
 	return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** "Aug 10 – Sep 12" — the window a strip or an average covers. */
+export function spanLabel(fromIso: string, toIso: string): string {
+	return `${fmtShort(fromIso)} – ${fmtShort(toIso)}`;
+}
+
 /* ---------- one number ---------- */
 
 /** "40 lb each hand" vs "35 lb" — never a bare number for a two-dumbbell lift. */
@@ -46,6 +51,90 @@ export function unitLabel(n: number, ex: Exercise): string {
 /** "lb" · "s" · "" — the unit a bare number wears next to it. */
 export function unitOf(ex: Exercise): string {
 	return ex.kind === 'load' ? 'lb' : ex.kind === 'hold' ? 's' : '';
+}
+
+/* ---------- rates ---------- */
+
+/**
+ * "2.3" · "3" · "68" — an average, at the precision it deserves: one decimal
+ * unless the number lands whole, because "3.0 lifts a week" reads like a
+ * measurement and "3" reads like the truth.
+ */
+export function rateLabel(n: number): string {
+	const r = Math.round(n * 10) / 10;
+	return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+/**
+ * "↑ from 1.5" · "↓ from 3" · "same as before" — where a running average came
+ * from. The direction is the point: a number on its own can't tell you
+ * whether you're drifting.
+ */
+export function paceLabel(per: number, prev: number): string {
+	const a = Math.round(per * 10);
+	const b = Math.round(prev * 10);
+	if (!b) return a ? 'nothing before that' : 'nothing logged';
+	if (a === b) return 'same as before';
+	return `${a > b ? '↑' : '↓'} from ${rateLabel(prev)}`;
+}
+
+/**
+ * The Ledger's one-line answer to "am I doing enough?": what the last four
+ * weeks come to a week, and what the plan asked for, side by side. The numbers
+ * are already on the tiles below it — this says what they MEAN, which is the
+ * one thing a tile cannot do.
+ *
+ *   "1.3 lifts and 36 run min a week — the plan asks 3 and 90"
+ *   "2 lifts a week — the plan asks 2"          (a plan with no running)
+ *   "Nothing logged in the last 4 weeks"
+ */
+export function paceSentence(p: {
+	weeks: number;
+	lifts: number;
+	liftGoal: number;
+	/** null when the plan has no running */
+	runMinutes: number | null;
+	runGoal: number | null;
+}): string {
+	const lifts = rateLabel(p.lifts);
+	const runs = p.runMinutes === null ? null : rateLabel(Math.round(p.runMinutes));
+	if (lifts === '0' && (runs === null || runs === '0'))
+		return `Nothing logged in the last ${p.weeks} weeks`;
+	const noun = lifts === '1' ? 'lift' : 'lifts';
+	if (runs === null || p.runGoal === null) return `${lifts} ${noun} a week — the plan asks ${rateLabel(p.liftGoal)}`;
+	return `${lifts} ${noun} and ${runs} run min a week — the plan asks ${rateLabel(p.liftGoal)} and ${p.runGoal}`;
+}
+
+/**
+ * The trend list's one-line answer, by what the RULE is about to do rather
+ * than by how each exercise feels: "2 going up · 3 flat · 1 backing off".
+ * Zeroes are left out, and an empty list has nothing to say.
+ */
+export function trendTally(tones: string[]): string {
+	const words: [string, string][] = [
+		['up', 'going up'],
+		['warn', 'warned'],
+		['down', 'backing off'],
+		['flat', 'flat'],
+		['start', 'not started']
+	];
+	return words
+		.map(([tone, word]) => [tones.filter((t) => t === tone).length, word] as const)
+		.filter(([n]) => n > 0)
+		.map(([n, word]) => `${n} ${word}`)
+		.join(' · ');
+}
+
+/**
+ * A whole session folded to one line, for a list that would otherwise print
+ * every set of every day: "4 exercises · 12 sets", "3 sets · 25 min".
+ */
+export function sessionSummary(p: { exercises: number; sets: number; minutes: number }): string {
+	const parts: string[] = [];
+	if (p.exercises) parts.push(`${p.exercises} ${p.exercises === 1 ? 'exercise' : 'exercises'}`);
+	if (p.sets) parts.push(`${p.sets} ${p.sets === 1 ? 'set' : 'sets'}`);
+	if (p.minutes) parts.push(`${p.minutes} min`);
+	return parts.join(' · ') || 'nothing logged';
 }
 
 /* ---------- the plan's numbers ---------- */
