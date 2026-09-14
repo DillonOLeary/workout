@@ -24,7 +24,7 @@ type Entry = {
 /**
  * A stream with one exercise logged across several sessions — written in the
  * RETIRED SetLogged shape on purpose and upcast on the way out, so every fold
- * below also proves the read boundary. No lookup: every day reads as a lift.
+ * below also proves the read boundary. An unknown plan's day reads as a lift.
  */
 function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
 	const out: StoredEvent[] = [];
@@ -322,6 +322,9 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(queue(warn, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Re-entry haircut in 2 days · 1 day since Squat & Shove · 1 of 3 this week');
 		const today = ledger('Goblet Squat', [{ daysAgo: 0, sets: [[35, 10]] }]);
 		expect(queue(today, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Squat & Shove today · 1 of 3 this week');
+		// a cycle counts another plan's session but cannot title it by a key it doesn't have: the session's own word, then
+		const elsewhere = did('o', 'X', 'mobility', 2, 'other');
+		expect(queue(elsewhere, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'mob')!.why).toBe('2 days since Stretch · 1 of 3 this week');
 	});
 	it('rules a routine out by equipment, never hides it, and lets the floor stand in for the gym', () => {
 		const noGym = queue([], plan, { intents: [], equipment: ['mat', 'shoes'] }, NOW);

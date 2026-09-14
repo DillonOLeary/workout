@@ -5,9 +5,9 @@
 	import MonthGrid from '$lib/components/MonthGrid.svelte';
 	import PaceTiles from '$lib/components/PaceTiles.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
-	import { fmtShort, paceSentence, sessionSummary, setsLine, trendTally } from '$lib/domain/labels';
+	import { disciplineLabel, fmtShort, paceSentence, sessionSummary, setsLine, trendTally } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
-	import { cycleDisciplines, disciplinesOf, planExercises, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { cycleDisciplines, disciplinesOf, planExercises, progresses, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
 	import {
 		TREND_WINDOW,
@@ -73,7 +73,7 @@
 	let askedRoutines = $derived(new Set(plan.cycles.filter((c) => c.target > 0).flatMap((c) => c.routines)));
 	let trends = $derived(
 		planExercises(plan)
-			.filter((ex) => ex.progress.of !== 'none')
+			.filter(progresses)
 			.map((ex) => ({
 				ex,
 				trend: trendFor(data.events, ex, data.activeSession?.id, now),
@@ -127,6 +127,8 @@
 		data.plans.flatMap((p) => Object.values(p.routines).flat()).find((e) => e.name === name);
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
+	// a session of a plan that is gone has no title to look up; it has its own discipline
+	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
 
 	/* ---------- inline edit, the latest session only ----------
 	   A row opens as the Log-it-after line, one per set: − 40 lb + × − 8 +.
@@ -152,7 +154,7 @@
 	function openRun(s: SessionView) {
 		const key = `${s.id}:run`;
 		if (editingRow === key) return (editingRow = null);
-		// the entry that carried the minutes — a retired run says 'Run', a live one its exercise's name
+		// the duration entries, by identity — a correction names the entry it fixes
 		original = s.durations.map((d) => ({ of: 'duration', minutes: d.minutes }));
 		edit = s.durations.map((d) => ({ item: d.item, index: d.index, of: 'duration', weight: 0, count: d.minutes }));
 		editingRow = key;

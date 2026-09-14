@@ -18,7 +18,7 @@ import type { Exercise, Plan, PrepItem } from './plan';
 /* ---------- the lifts ---------------------------------------------------- */
 
 /**
- * Shared between both Open to Work lift days: the soleus produces the highest
+ * Shared between both Open to Work lift routines: the soleus produces the highest
  * force of any muscle in running, and it had zero sets. Slow both ways —
  * heavy-slow calf work is also how an Achilles is kept out of trouble.
  */
@@ -345,12 +345,12 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'Shoulder Press', equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 30, inc: 5 }, note: 'Seat so the handles start at the shoulders. Ribs down, no arching. Elbows slightly forward; press up without shrugging.' },
 				{ name: 'Seated Row', equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Torso upright and still. Drive the elbows back along the ribs, squeeze the blades. Not the pulldown — that pulls from overhead.' },
 				// A knee-dominant compound, not the leg-extension machine it replaces:
-				// day B had no squat pattern, and nothing in the plan was single-leg
+				// Hinge & Haul had no squat pattern, and nothing in the plan was single-leg
 				// — which matters most for someone running three times a week.
 				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell', each: true }, side: 'reps', note: 'All 8–12 on one leg, then switch; weaker leg first. Long step back, front shin vertical, drive up through the front heel.' },
 				{ name: 'Leg Curl', equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 60, inc: 10 }, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
 				CALF_RAISE,
-				// Day A resists extension; this resists the side-bend AND loads the
+				// Squat & Shove resists extension; this resists the side-bend AND loads the
 				// adductors, which nothing else in a front-to-back plan touches.
 				// Progress by reps, then by lever — never by seconds.
 				{ name: 'Copenhagen Plank', equip: 'Bench', tag: 'Core / adductors', kind: 'reps', sets: 2, lo: 5, hi: 15, progress: { of: 'count' }, side: 'sets', note: 'Side plank with the top knee on a bench, bottom leg lifting to meet it. One rep = lift and lower. At 15 clean, straighten the top leg.' }
@@ -389,7 +389,7 @@ export const DEFAULT_PLANS: Plan[] = [
 			],
 			bw1: [PUSHUP, SPLIT_SQUAT, SL_BRIDGE, HOLLOW],
 			bw2: [SL_RDL, REVERSE_LUNGE, BEAR_CRAWL, { ...SIDE_PLANK, equip: 'Floor', sets: 6, rest: BW_REST }],
-			bw4: [{ ...PUSHUP, note: 'Tempo: three seconds down, a pause at the bottom, up. Same ladder as day 1 — the tempo is the day’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
+			bw4: [{ ...PUSHUP, note: 'Tempo: three seconds down, a pause at the bottom, up. Same ladder as Push & Squat — the tempo is this routine’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
 			bw5: [SUPERMAN, REVERSE_CRUNCH, PLANK, SL_BRIDGE],
 			bw6: [SPLIT_SQUAT, SL_RDL, REVERSE_LUNGE, SL_CALF]
 		}
@@ -445,7 +445,7 @@ export const DEFAULT_PLANS: Plan[] = [
 
 /**
  * Plans that shipped once and were retired. Their rows are deleted on boot
- * so the table never holds a row the parser refuses. Hold Steady's two days
+ * so the table never holds a row the parser refuses. Hold Steady's two routines
  * became Open to Work's yoga routines (2026-09-14); its sessions stay in the
  * stream and read back as yoga (upcast.ts).
  */

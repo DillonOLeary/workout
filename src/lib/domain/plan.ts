@@ -163,9 +163,15 @@ export const cooldownFor = (plan: Plan | undefined, routine: string): PrepItem[]
 export const cueFor = (plan: Plan | undefined, routine: string): string | undefined =>
 	plan?.routineInfo[routine]?.cue ?? plan?.cue;
 export const restFor = (plan: Plan | undefined, ex: Exercise): number => ex.rest ?? plan?.rest ?? DEFAULT_REST;
-/** Display title for a routine: its info's title, else "Workout X" for a key the plan no longer has. */
-export const routineTitle = (plan: Plan | undefined, routine: string): string =>
-	plan?.routineInfo[routine]?.title ?? 'Workout ' + routine;
+/**
+ * Display title for a routine — undefined for a key the plan doesn't have.
+ * A session of a retired plan has no title to look up; it has its own
+ * discipline, and that is the honest word for it (labels.disciplineLabel).
+ */
+export const routineTitle = (plan: Plan | undefined, routine: string): string | undefined =>
+	plan?.routineInfo[routine]?.title;
+/** An exercise the rule moves — as opposed to a stretch, a yoga hold or the run, whose dose is the dose. */
+export const progresses = (ex: Exercise): boolean => ex.progress.of !== 'none';
 /** What a routine IS — undefined for a key the plan doesn't have. */
 export const disciplineOf = (plan: Plan | undefined, routine: string): Discipline | undefined =>
 	plan?.routineInfo[routine]?.discipline;

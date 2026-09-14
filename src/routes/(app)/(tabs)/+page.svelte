@@ -85,10 +85,10 @@
 	{#if session}
 		<Card interactive>
 			<div class="caps">In progress</div>
-			<div class="title">{routineTitle(floorPlan, session.workout.routine)}</div>
+			<div class="title">{routineTitle(floorPlan, session.workout.routine) ?? disciplineLabel(session.discipline)}</div>
 			<div class="mono-sub">{liveLine}</div>
 			<div class="row gap12 wrap">
-				<a class="resume" href="/log">Resume</a>
+				<a class="resume" href="/floor">Resume</a>
 				<form method="POST" action="?/finish" use:enhance class="grow">
 					<Button variant="secondary" size="lg" type="submit" style="width: 100%">Finish now</Button>
 				</form>

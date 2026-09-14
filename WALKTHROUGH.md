@@ -151,13 +151,14 @@ Three habits make it the *only* place shape inference lives. When a shape
 changes, the event's **name** changes with it (`SetLogged → EntryLogged`,
 `SessionStruck → SessionRemoved`), so a case is keyed by name, never by
 sniffing fields. A new field is filled here with its default, so the
-current type can make it required — `mode` gets `live`; `discipline` is
-resolved once, at the read boundary, by asking the live plans what that
-routine of that plan is (the layout hands `upcastAll` a lookup), with a
-small dated table for a plan that no longer exists to be asked (Hold Steady's
-two days stay yoga after its row is gone), and `lift` as the last resort.
-And an unknown name **throws** — a row nobody can read is a bug, not a
-no-op. The one dated exception (a load of 0
+current type can make it required — `mode` gets `live`, and `discipline`
+comes from a small dated table of what each shipped plan said its keys were
+on the day the row was written (every one of the 121 old rows is under one
+of three plans; the count is in the file). A table, deliberately, not a
+lookup into the live plans: plan rows are upserted with no history, and a
+routine renamed or retired later — Hold Steady, whose two routines stay yoga
+after its row is gone — must never rewrite what a session was. And an
+unknown name **throws** — a row nobody can read is a bug, not a no-op. The one dated exception (a load of 0
 read as `reps`) was checked against the whole stream before it was written,
 and its comment says so. `upcast.test.ts` pins every case, including that
 reading twice is reading once.
@@ -246,7 +247,7 @@ per aggregate (per order, per cart) so streams stay short.
 over the event list, each answering one question for a screen — and nothing
 else lives there:
 
-- `projectSessions` → the "By day" view's history cards: each session's rows,
+- `projectSessions` → the Ledger's day cards: each session's rows,
   each row's sets *as the measures the entries carried*. Removed sessions are
   excluded here, and only here, so one exclusion makes the whole app behave
   as if the workout never happened; a correction replaces its set in place,
@@ -266,8 +267,10 @@ else lives there:
   is turned to (the routine after the last one of it you finished — position
   is derived, never stored: do B twice and the pointer sits after B), how
   many sessions of it the trailing week holds against its target, and how
-  long since it last turned. Sessions are counted by what the session *says*
-  it was, so yoga is yoga whichever plan offered it
+  long since it last turned. Two different questions, named once in the
+  file: a cycle COUNTS sessions by discipline, whatever plan offered them
+  (`countedBy` — yoga is yoga), and TURNS only on its own routines
+  (`turnedBy` — a finished session of this plan's key)
 - `queue` → the one piece of genuinely new logic: ONE candidate per cycle,
   ranked — shortfall (sessions under target, plus one when an intent names
   the discipline) → staleness (whole cadences overdue) → minutes (shorter
@@ -426,8 +429,8 @@ way), so there is no old shape to read. One consequence worth knowing: editing `
 upserts the shipped plans on every boot, so a new exercise, a widened rep
 range or a rewritten note reaches every database the next time a worker
 starts — no migration file, no upcaster. History for an exercise that has
-since left the plan stays in the stream under its old name, and the By day
-view still renders it correctly, because the measure says what it was: a
+since left the plan stays in the stream under its old name, and the Ledger
+still renders it correctly, because the measure says what it was: a
 retired "Weighted Plank" is still `45s`, not `45`.
 
 ### Tests — the domain is pure, so test it like arithmetic
@@ -473,7 +476,7 @@ src/routes/
    │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
    │  ├─ plan/after/              What I'm after — the two menus, one PreferencesSet (/plan/after)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
-   ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)
+   ├─ floor/+page.svelte          gym floor — outside (tabs): no tab bar  (/floor)
    └─ export/+server.ts           GET /export: the stream as a JSON download
 ```
 
@@ -506,7 +509,7 @@ Things to notice:
 | `$state` | `exI`, `weight`, `reps` on the gym floor — plain variables, deeply reactive |
 | `$derived` | everything computed from `data.events`; change the stream, the screen recomputes |
 | `$props` | every component; typed destructuring `let { data, form }: PageProps = $props()` |
-| `$bindable` | `Stepper.svelte` — `bind:value={runMin}` two-way binds parent state |
+| `$bindable` | `floor/AdjustTile.svelte` — `bind:value={reps}` two-way binds the floor's number to the tile |
 | `Snippet` / `{@render children()}` | `Button`, `Card` — Svelte's children |
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ weight, 1–9 reps, Enter logs |
 | `class:` directive | `class:single={isBW}` on the floor's adjust tiles; row states on the set table |
@@ -516,7 +519,7 @@ Things to notice:
 | `{#key}` | the gym floor wraps the glyph in `{#key glyphName}`: advancing to the next exercise remounts it, and a fresh mount plays once — a rest on the *same* exercise does not |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
-| runes in a `.svelte.ts` module | [floor/queue.svelte.ts](src/lib/components/floor/queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/components/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
+| runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/components/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/components/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 (and a `svelte-ignore state_referenced_locally`) because a session's identity
@@ -528,8 +531,9 @@ The glyph is the same lesson from the other side: its playback clock (`start`,
 twelve times a rep and nothing in the template reads it. Reactivity nobody
 depends on is work the compiler does for no one. The figures themselves are
 data, not code: `src/lib/design/glyph-frames.json` holds 51 figures on one
-31 × 31 grid, baked from Claude Design's generator in `tools/glyphs/`
-(`node tools/glyphs/bake.mjs`), each in one of three GEARS the JSON carries
+31 × 31 grid, baked by the repo's own generator in `tools/glyphs/` (seeded
+from two Claude Design projects, trimmed to what the bake uses;
+`node tools/glyphs/bake.mjs`), each in one of three GEARS the JSON carries
 the timing for — a `rep` (twelve stamps out and back, then a rest), a
 `breath` (four stamps, the hold rising and falling: the planks, chair,
 warrior II, savasana) or a `still` (one stamp at full depth: the stretches,
@@ -546,7 +550,7 @@ The first gym session produced a feedback batch; three of the fixes are
 patterns worth studying:
 
 - **Optimistic UI over an event store**
-  ([floor/queue.svelte.ts](src/lib/components/floor/queue.svelte.ts)): "Log
+  ([floor/entry-queue.svelte.ts](src/lib/components/floor/entry-queue.svelte.ts)): "Log
   set" pushes onto the `EntryQueue` and the screen updates in the same
   frame; a single-flight pump POSTs queued entries in order in the
   background, and no invalidation runs mid-session. The safety net is in
@@ -562,7 +566,7 @@ patterns worth studying:
   and that merged list is what the rest clock reads — so a set that hasn't
   reached the server yet still starts the clock. Exiting the screen drains
   the queue, then `goto(..., { invalidateAll: true })` restores server
-  truth. The page ([log/+page.svelte](src/routes/(app)/log/+page.svelte))
+  truth. The page ([floor/+page.svelte](src/routes/(app)/floor/+page.svelte))
   keeps only what is *its* business: which step you are on, what the rows
   say, what the button does — and what the bell writes, which it hands to
   the `CountdownClock` as a callback.
@@ -577,14 +581,14 @@ patterns worth studying:
   of `evolve` for the decider fold — so `SessionStruck` rows stay in Postgres
   forever while no living code knows the old word. The same additive field is
   what let the med-ball plank retire without a migration: its events say
-  `unit: 's'`, so By day formats them as seconds long after no plan knows the
+  `unit: 's'`, so the Ledger formats them as seconds long after no plan knows the
   name. And `unit` has since retired in turn: the `Measure` union replaced
   it, `SetLogged` became `EntryLogged`, and the upcaster reads a `unit: 's'`
   row as a `hold` measure. Same two moves each time — add a field, then
   rename the event and translate at the boundary — and the stream never
   changes.
 - **Shallow routing** (`replaceState` from `$app/navigation`): the current
-  step lives in the URL (`/log?step=6`) so refresh keeps your place, but no
+  step lives in the URL (`/floor?step=6`) so refresh keeps your place, but no
   server load runs and no history entries pile up.
 - **The locked app shell**
   ([(tabs)/+layout.svelte](src/routes/(app)/(tabs)/+layout.svelte)), stolen
@@ -598,13 +602,13 @@ patterns worth studying:
 1. **Corrections, the event-sourced way — done.** `EntryCorrected` is the
    worked example: the same identity as the entry it fixes and a new
    measure, appended, never an UPDATE. Follow one through: a tap on a done
-   row on the floor (or a row on By day's latest card) → `CorrectEntry` →
+   row on the floor (or a row on the Ledger's latest card) → `CorrectEntry` →
    the decider's two rules (latest session only; something must be there to
    correct) → `projectSessions` replaces the set in place → `historyFor`,
    `suggest` and the trend all read the corrected number without knowing.
    Its older sibling, `SessionRemoved` (born as `SessionStruck`), is the
    same move for a whole session. Now try: a correction to a *duration*
-   entry (By day already offers it on a run) — what does `sessionEntries`
+   entry (the Ledger already offers it on a run) — what does `sessionEntries`
    need that `projectSessions` doesn't?
 2. **Rest timer — done, and then removed as a screen.** The first version
    made every rest its own step with a "Go now" button; thirteen of a

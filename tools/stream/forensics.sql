@@ -45,16 +45,18 @@ select is_archived, count(*) from emt_messages group by is_archived;
 
 
 -- 4. Any event name the current code cannot read.
---    Empty result = no upcaster needed. A name here needs one line adding to
---    upcastLedgerEvent() in src/lib/domain/events.ts.
+--    Empty result = nothing to add. A name here needs a case in upcast() in
+--    src/lib/domain/upcast.ts — the seven current names, and the four retired
+--    ones the upcaster still reads.
 select distinct message_type
 from emt_messages
-where message_type not in ('SessionStarted','SetLogged','SessionFinished',
-      'SessionRemoved','SessionStruck','RunLogged','RunRemoved','PlanSelected');
+where message_type not in (
+      'SessionStarted','EntryLogged','EntryCorrected','SessionFinished','SessionRemoved','PlanSelected','PreferencesSet',
+      'SetLogged','SessionStruck','RunLogged','RunRemoved');
 
 
 -- 5. The oldest ten events, raw. Confirms the shape of the old data matches
---    what the projections expect (SetLogged carries exercise/weight/reps/set).
+--    what the upcaster expects (a SetLogged carries exercise/weight/reps/set).
 select global_position, stream_id, message_type, created, message_data
 from emt_messages order by global_position asc limit 10;
 
@@ -88,6 +90,18 @@ from emt_messages order by global_position asc limit 10;
 --   to versus the branch you are querying here.
 --
 -- Case D — an unknown message_type from query 4.
---   Add it to upcastLedgerEvent(). The stream is never rewritten; the
---   translation happens at the read boundary, which is why SessionStruck
---   still reads fine today.
+--   Add a case to upcast() in src/lib/domain/upcast.ts. The stream is never
+--   rewritten; the translation happens at the read boundary, which is why
+--   SessionStruck still reads fine today.
+
+-- 6. What the upcaster's header counts: every SessionStarted row by plan and
+--    routine key, and whether it already carries its discipline. Run this
+--    before deleting a case from upcast.ts — a case leaves only at zero.
+select coalesce(message_data->>'plan','<none>') as plan,
+       coalesce(message_data->>'routine', message_data->>'day', '<none>') as key,
+       coalesce(message_data->>'kind','-') as kind,
+       (message_data ? 'discipline') as has_discipline,
+       count(*)
+from emt_messages
+where message_type = 'SessionStarted'
+group by 1, 2, 3, 4 order by 1, 2, 3;

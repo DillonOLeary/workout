@@ -10,6 +10,7 @@ import {
 	parsePlan,
 	planExercises,
 	prepSeconds,
+	progresses,
 	restFor,
 	routineTitle,
 	routinesOf,
@@ -137,8 +138,10 @@ describe('plan accessors — the defaults live in one place', () => {
 	});
 	it('answers the routine questions', () => {
 		expect(routineTitle(plan, 'A')).toBe('Squat & Shove');
-		expect(routineTitle(plan, 'Z')).toBe('Workout Z');
-		expect(routineTitle(undefined, 'run')).toBe('Workout run');
+		expect(routineTitle(plan, 'Z')).toBeUndefined(); // a retired plan's session is titled by its discipline instead
+		expect(routineTitle(undefined, 'run')).toBeUndefined();
+		expect(progresses(ex)).toBe(true);
+		expect(progresses(plan.routines.S[0])).toBe(false);
 		expect(disciplineOf(plan, 'S')).toBe('mobility');
 		expect(disciplineOf(plan, 'Z')).toBeUndefined();
 		expect(routinesOf(plan, 'lift')).toEqual(['A', 'B']);

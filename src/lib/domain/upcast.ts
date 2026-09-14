@@ -1,4 +1,4 @@
-import { RUN_ITEM, type LedgerEvent, type StoredEvent } from './events';
+import type { LedgerEvent, StoredEvent } from './events';
 import type { Measure } from './measure';
 import type { Discipline } from './plan';
 
@@ -20,11 +20,13 @@ import type { Discipline } from './plan';
  * session (started · one duration entry · finished), which is exactly what
  * logging a run after the fact writes today.
  *
- * Every case below is backed by rows. Counted in the store on 2026-09-08:
+ * Every case below is backed by rows. Counted in the store on 2026-09-14
+ * (tools/stream/forensics.sql, query 6):
  *   SetLogged 288 (56 timed, 71 at weight 0) · RunLogged 22 · RunRemoved 2 ·
- *   SessionStruck 7 · SessionStarted without mode 66, with day: 'run' 5 ·
- *   EntryLogged carrying plan/day 77, at load 0 4 — and every SessionStarted
- *   written before 2026-09-14 says `day` and carries no `discipline`.
+ *   SessionStruck 7 · SessionStarted 121, none carrying `discipline` — 66
+ *   without `mode`, 26 spelling the run as day: 'run' or kind: 'run', the
+ *   rest keyed by `day` under the three shipped plans in the table below ·
+ *   EntryLogged carrying plan/day 77, at load 0 4.
  * Delete a case only when its count is zero — and count again first.
  */
 
@@ -63,22 +65,21 @@ type SessionFinishedV1 = { type: 'SessionFinished'; data: { session: string; at:
 
 /** A retired run's session id: its `at` timestamp was always its identity. */
 export const runSessionId = (at: string) => `run-${at}`;
+/** The item a retired RunLogged's minutes read back under. A live run logs under its exercise's name. */
+const RETIRED_RUN_ITEM = 'Run';
 
 /**
- * What discipline a routine of a plan is — resolved from the live plans by
- * the read boundary (plan.disciplineLookup) for rows written before the
- * session carried its own. The decider's fold reads without one: no rule
- * reads the discipline, so the fallback costs nothing there.
+ * What a session written before 2026-09-14 WAS. Those rows carry a `day`
+ * key and no discipline, and every one of the 121 was written under a
+ * shipped plan — this is what each plan said its keys were on the day the
+ * row was written. A table, deliberately, not a lookup into the live plans:
+ * plan rows are upserted with no history, and a routine renamed or retired
+ * later (Hold Steady, 2026-09-14) must never rewrite what a session was.
+ * An unknown pair reads as a lift, which no row needs today.
  */
-export type DisciplineLookup = (plan: string, routine: string) => Discipline | undefined;
-
-/**
- * Plans that no longer exist to be asked. Hold Steady (retired 2026-09-14)
- * had two yoga days; its sessions must keep reading as yoga after the row
- * is gone, because an event describes itself and a retired plan must not
- * rewrite what January was.
- */
-const RETIRED_DISCIPLINES: Record<string, Record<string, Discipline>> = {
+const DISCIPLINE_BEFORE_2026_09_14: Record<string, Record<string, Discipline>> = {
+	'ab-fullbody-v1': { A: 'lift', B: 'lift', S: 'mobility', run: 'run' },
+	'her-12-v1': { '1': 'lift', '2': 'lift', run: 'run' },
 	'yoga-2day-v1': { '1': 'yoga', '2': 'yoga' }
 };
 
@@ -91,7 +92,7 @@ const RETIRED_DISCIPLINES: Record<string, Record<string, Discipline>> = {
 const repsOrLoad = (weight: number, reps: number): Measure =>
 	weight === 0 ? { of: 'reps', reps } : { of: 'load', load: weight, reps };
 
-export function upcast(e: StoredEvent, lookup?: DisciplineLookup): LedgerEvent[] {
+export function upcast(e: StoredEvent): LedgerEvent[] {
 	switch (e.type) {
 		case 'SessionStarted': {
 			const d = (e as SessionStartedV1).data;
@@ -100,7 +101,7 @@ export function upcast(e: StoredEvent, lookup?: DisciplineLookup): LedgerEvent[]
 			const isRun = d.kind === 'run' || d.day === 'run';
 			const routine = isRun ? 'run' : (d.routine ?? d.day ?? '');
 			const discipline: Discipline =
-				d.discipline ?? (isRun ? 'run' : (lookup?.(d.plan, routine) ?? RETIRED_DISCIPLINES[d.plan]?.[routine] ?? 'lift'));
+				d.discipline ?? (isRun ? 'run' : (DISCIPLINE_BEFORE_2026_09_14[d.plan]?.[routine] ?? 'lift'));
 			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', discipline, routine } }];
 		}
 		case 'EntryLogged': {
@@ -141,7 +142,7 @@ export function upcast(e: StoredEvent, lookup?: DisciplineLookup): LedgerEvent[]
 			const startAt = new Date(Date.parse(at) - minutes * 60000).toISOString();
 			return [
 				{ type: 'SessionStarted', data: { session, plan: '', at: startAt, mode: 'after', discipline: 'run', routine: 'run' } },
-				{ type: 'EntryLogged', data: { session, item: RUN_ITEM, index: 1, at, measure: { of: 'duration', minutes } } },
+				{ type: 'EntryLogged', data: { session, item: RETIRED_RUN_ITEM, index: 1, at, measure: { of: 'duration', minutes } } },
 				{ type: 'SessionFinished', data: { session, at } }
 			];
 		}
@@ -155,5 +156,4 @@ export function upcast(e: StoredEvent, lookup?: DisciplineLookup): LedgerEvent[]
 }
 
 /** Every event in current vocabulary — the read boundary calls this once. */
-export const upcastAll = (events: StoredEvent[], lookup?: DisciplineLookup): LedgerEvent[] =>
-	events.flatMap((e) => upcast(e, lookup));
+export const upcastAll = (events: StoredEvent[]): LedgerEvent[] => events.flatMap(upcast);

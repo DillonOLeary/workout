@@ -23,10 +23,19 @@ export const handle: Handle = ({ event, resolve }) => {
 		});
 	}
 
-	// Retired capability URLs: /u/<uid> once WAS the login, so shared links
-	// used to grant access. They now grant a login page.
+	// Retired URLs, all in one place. /u/<uid> once WAS the login, so shared
+	// links used to grant access — they now grant a login page. /why moved
+	// under The Plan. The gym floor moved from /log to /floor (a phone
+	// mid-session at deploy time reloads onto it, step and all); /log/after is
+	// still where "log it after" lives, hence the exact match.
 	if (url.pathname.startsWith('/u/')) {
 		return new Response(null, { status: 301, headers: { location: '/login' } });
+	}
+	if (url.pathname === '/why') {
+		return new Response(null, { status: 301, headers: { location: '/plan/why' } });
+	}
+	if (url.pathname === '/log') {
+		return new Response(null, { status: 301, headers: { location: `/floor${url.search}` } });
 	}
 
 	// Who's here? Verified on every request; re-issued on every request so

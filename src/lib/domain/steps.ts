@@ -61,7 +61,6 @@ export type Step = StepBase &
 		| { kind: 'set'; ex: Exercise }
 		| { kind: 'run'; minutes: number; ex: RunEx }
 	);
-export type StepKind = Step['kind'];
 
 /** The routine's exercises; nothing for a routine the plan doesn't have. */
 export function routineExercises(plan: Plan | undefined, w: Workout): Exercise[] {

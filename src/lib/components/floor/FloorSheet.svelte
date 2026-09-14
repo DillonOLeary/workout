@@ -100,7 +100,7 @@
 			</div>
 		</section>
 		{#if stretches.length && onAdd}
-			<!-- a one-off: the stretch day's holds, appended as a section of THIS
+			<!-- a one-off: the stretch routine's holds, appended as a section of THIS
 			     session — nothing new in the ledger, just entries under it -->
 			<section>
 				<div class="caps">Add a stretch</div>

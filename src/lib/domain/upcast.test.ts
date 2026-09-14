@@ -18,18 +18,21 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 		]);
 	});
 
-	it('asks the plans what discipline an old session was, and remembers the retired ones itself', () => {
-		const lookup = (plan: string, routine: string) => (plan === 'p' && routine === 'S' ? ('mobility' as const) : undefined);
-		const [s] = upcast(row('SessionStarted', { session: 's1', plan: 'p', day: 'S', at: AT, mode: 'live' }), lookup);
-		expect(s.type === 'SessionStarted' && s.data.discipline).toBe('mobility');
-		// a kind: 'lift' row with a day the lookup doesn't know is a lift
-		const [l] = upcast(row('SessionStarted', { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT, mode: 'live' }), lookup);
-		expect(l.type === 'SessionStarted' && l.data).toMatchObject({ discipline: 'lift', routine: 'A' });
+	it('knows what every old session was from what its plan said on the day, never from the live plans', () => {
+		const was = (plan: string, day: string) => {
+			const [s] = upcast(row('SessionStarted', { session: 's1', plan, day, at: AT, mode: 'live' }));
+			return s.type === 'SessionStarted' && s.data.discipline;
+		};
+		expect(was('ab-fullbody-v1', 'S')).toBe('mobility');
+		expect(was('ab-fullbody-v1', 'B')).toBe('lift');
+		expect(was('her-12-v1', '1')).toBe('lift');
 		// Hold Steady is gone from the table; its sessions still say yoga
-		const [y] = upcast(row('SessionStarted', { session: 's1', plan: 'yoga-2day-v1', day: '2', at: AT, mode: 'live' }), lookup);
-		expect(y.type === 'SessionStarted' && y.data).toMatchObject({ discipline: 'yoga', routine: '2' });
-		// a row that already says what it was is believed over the plan
-		const [k] = upcast(row('SessionStarted', { session: 's1', plan: 'p', routine: 'S', discipline: 'yoga', at: AT, mode: 'live' }), lookup);
+		expect(was('yoga-2day-v1', '2')).toBe('yoga');
+		// a kind: 'lift' row on a plan the table doesn't know is a lift — no row needs this today
+		const [l] = upcast(row('SessionStarted', { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT, mode: 'live' }));
+		expect(l.type === 'SessionStarted' && l.data).toMatchObject({ discipline: 'lift', routine: 'A' });
+		// a row that already says what it was is believed over the table
+		const [k] = upcast(row('SessionStarted', { session: 's1', plan: 'ab-fullbody-v1', routine: 'S', discipline: 'yoga', at: AT, mode: 'live' }));
 		expect(k.type === 'SessionStarted' && k.data.discipline).toBe('yoga');
 	});
 

@@ -48,6 +48,19 @@ export const DEFAULT_PREFERENCES: Preferences = { intents: [], equipment: ['gym'
 export const isIntent = (v: unknown): v is Intent => INTENTS.some((i) => i.id === v);
 export const isEquipment = (v: unknown): v is Equipment => EQUIPMENT.some((e) => e.id === v);
 
+/**
+ * Picks from the outside — a form's JSON. Parse, don't validate: the edge
+ * checks the shape (two lists of names from the menus), the decider judges
+ * the meaning (one to three intents, each once). A name that is not on the
+ * menu fails the whole snapshot rather than being dropped — a tampered form
+ * is refused, never quietly narrowed.
+ */
+export function parsePreferences(intents: unknown, equipment: unknown): Preferences | null {
+	if (!Array.isArray(intents) || !Array.isArray(equipment)) return null;
+	if (!intents.every(isIntent) || !equipment.every(isEquipment)) return null;
+	return { intents: [...intents], equipment: [...equipment] };
+}
+
 /** The disciplines the intents weight up. */
 export function weightedUp(prefs: Preferences): Set<Discipline> {
 	const out = new Set<Discipline>();

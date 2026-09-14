@@ -20,8 +20,11 @@
 
 	const describe = (c: DayCell) =>
 		[...c.did.map((d) => disciplineLabel(d).toLowerCase()), c.today ? 'today' : ''].filter(Boolean).join(', ') || 'nothing';
-	// the number sits on the last stripe: dark ink on a light one, paper on a dark one
-	const dark = (d: Discipline | undefined) => d === 'run' || d === 'yoga';
+	// the number sits on the last stripe: dark ink on a light one, paper on a
+	// dark one. Every discipline says which — a new one is a type error here,
+	// and the stripe colours in the stylesheet below are the other list to extend
+	const INK: Record<Discipline, 'light' | 'dark'> = { lift: 'light', yoga: 'dark', bodyweight: 'light', mobility: 'light', run: 'dark' };
+	const dark = (d: Discipline | undefined) => d !== undefined && INK[d] === 'dark';
 </script>
 
 <div class="cal">
@@ -71,7 +74,8 @@
 		background: var(--surface-sunken); border: 1px solid var(--border-soft);
 	}
 	.cell.did { border-color: var(--ink); }
-	/* one stripe per session, left to right in the order they happened */
+	/* one stripe per session, left to right in the order they happened — one
+	   rule per discipline, the twin of INK above */
 	.stripe { flex: 1 1 0; min-width: 0; }
 	.stripe.lift { background: var(--volt); }
 	.stripe.run { background: var(--ink); }

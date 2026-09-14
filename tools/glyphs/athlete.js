@@ -1,14 +1,23 @@
-/* Athlete rig v2: a body of tapered masses (deltoid, chest, glute, quad, calf; curved spine; wedge feet) shaded as lit mass.
-   Poses can be joint ANGLES (FigureRig primitives) or ABSOLUTE joints — hip position + ankles ON THE FLOOR, knees solved by IK — so feet never slide or float.
-   31×31 grid. Every pose names its MOTION: a rep (12 stamps out and back along d), a breath (four stamps, the hold rising and falling) or a still (one stamp at d = 1). */
+/* The dot athlete: one body of tapered masses (deltoid, chest, glute, quad, calf; curved spine; wedge feet), posed by
+   ABSOLUTE joints — hip position + ankles ON THE FLOOR, knees solved by IK, so feet never slide or float — and shaded as
+   lit mass on a 31×31 grid. Every pose names its MOTION: a rep (12 stamps out and back along d), a breath (four stamps,
+   the hold rising and falling) or a still (one stamp at d = 1).
+
+   Seeded from two Claude Design projects — "Workout app design review" (the rig, the shader and the 27 lifting, stretch
+   and drill figures, 2026-09-08) and "Yoga and Bodyweight Workouts" (the 15 yoga poses, 2026-09-14) — and the repo's own
+   since: the bodyweight figures were authored here, and the angle-based rig, the alternative builds and the shaders the
+   bake never used are gone. bake.mjs is the only consumer; it attaches to `window` because the design's files did. */
 (function () {
-  const G = window.LedgerGlyphs, R = window.FigureRig, U = G.GRID_STEP, FLOOR = 0.021;
-  const rad = (a) => (a * Math.PI) / 180, lerp = (a, b, d) => a + (b - a) * d;
-  const D = (a) => [Math.sin(rad(a)), -Math.cos(rad(a))];
+  /* the grid: 31 dots a side, one dot = GRID_STEP in body units. A rep stamps SEQ at FRAME_MS — both go into the JSON verbatim */
+  const GRID_STEP = 0.042;
+  const SEQ = [0, 0.16, 0.34, 0.55, 0.76, 0.92, 1, 0.9, 0.72, 0.5, 0.28, 0.1]; // 12 stamps: out over 7, back over 5
+  const FRAME_MS = 130;
+  const U = GRID_STEP, FLOOR = 0.021;
+  const rad = (a) => (a * Math.PI) / 180;
   const cap = (a, b, r0, r1, part, group) => ({ x1: a[0], y1: a[1], x2: b[0], y2: b[1], r0, r1: r1 == null ? r0 : r1, part, group: group || part });
   const dot = (o, dir, len) => [o[0] + dir[0] * len, o[1] + dir[1] * len];
   const rot = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
-  const THIGH = 7 * U, SHIN = 6.5 * U, UARM = 5.5 * U, FARM = 5 * U, TORSO = 8.2 * U;
+  const THIGH = 7 * U, SHIN = 6.5 * U, UARM = 5.5 * U, FARM = 5 * U;
   const ANK = FLOOR + 0.9 * U; // ankle height when the foot is flat on the floor
 
   function ik(a, b, l1, l2, side) { // joint between a and b; side +1 bends toward +x, −1 toward −x, 0 straight
@@ -21,34 +30,23 @@
     return (side > 0 ? (k1[0] >= k2[0] ? k1 : k2) : (k1[0] < k2[0] ? k1 : k2));
   }
 
-  const BUILDS = {
-    athlete: { label: 'Athlete', note: 'tapered muscle masses, chest up, ~1.3× real mass so the grid has something to shade', k: { chest: 0.88, pelvis: 0.88, glute: 0.88, quad: 0.86, shin: 0.88, calf: 0.88, delt: 0.88, uarm: 0.86, farm: 0.86, neck: 0.9 } },
-    lifter: { label: 'Powerlifter', note: 'shorter and thicker', k: { chest: 1.25, pelvis: 1.25, glute: 1.3, quad: 1.35, shin: 1.25, calf: 1.3, delt: 1.3, uarm: 1.25, farm: 1.2, head: 1.05, neck: 1.5 }, len: { torso: 0.95, thigh: 0.88, shin: 0.9, uarm: 0.95, farm: 0.95 } },
-    runner: { label: 'Runner', note: 'lean and long', k: { chest: 0.82, pelvis: 0.8, glute: 0.85, quad: 0.78, shin: 0.75, calf: 0.85, delt: 0.8, uarm: 0.78, farm: 0.75, head: 0.95 }, len: { torso: 0.98, thigh: 1.06, shin: 1.12, uarm: 1.02, farm: 1.05 } },
-    eggs: { label: 'Ribcage + pelvis', note: 'two eggs at a waist, ball joints', eggs: true, k: { chest: 1.15, pelvis: 1.1 } },
-    planes: { label: 'Planar', note: 'masses cut square', shape: 'box', k: { head: 0.95 } },
-    posture: { label: 'Standing like a person', note: 'resting posture offsets', spine: { lumbar: -12, thoracic: 9 }, posture: { torso: 3, thigh: 2, shin: -5, upper: 6, fore: 22, head: 0.6 } }
-  };
+  /* the build: tapered muscle masses, chest up, ~1.3× real mass so the grid has something to shade */
+  const K = { chest: 0.88, pelvis: 0.88, glute: 0.88, quad: 0.86, shin: 0.88, calf: 0.88, delt: 0.88, uarm: 0.86, farm: 0.86, neck: 0.9 };
+  const SPINE = { lumbar: -6, thoracic: 5 };
+  const kk = (n) => K[n] || 1;
 
-  /* J = { view, hip:[x,y], t: torso angle (deg, + = lean forward/+x), legs:[{knee, ank, foot?: deg heel-up}], arms:[{upper,fore} | {hand:[x,y], bend:±1} | {el,hd}], world:[[x1,y1,x2,y2,r]] } */
-  function buildMasses(J, B) {
-    B = B || BUILDS.athlete;
-    const K = B.k || {}, LEN = B.len || {}, SP = B.spine || { lumbar: -6, thoracic: 5 };
-    const kk = (n) => K[n] || 1, ll = (n) => LEN[n] || 1, box = B.shape === 'box';
-    const _cap = (a, b, r0, r1, part, group) => { const c = cap(a, b, r0 * kk(group), r1 == null ? r0 * kk(group) : r1 * kk(group), part, group); c.box = box; return c; };
+  /* J = { view, hip:[x,y], t: torso angle (deg, + = lean forward/+x), legs:[{knee, ank, foot?: deg heel-up}], arms:[{hand:[x,y], bend:±1} | {el,hd}], world:[[x1,y1,x2,y2,r]] } */
+  function buildMasses(J) {
+    const _cap = (a, b, r0, r1, part, group) => cap(a, b, r0 * kk(group), r1 == null ? r0 * kk(group) : r1 * kk(group), part, group);
     const front = J.view === 'front', M = [], t = J.t || 0, hip = J.hip;
-    const lum = [Math.sin(rad(t + SP.lumbar)), Math.cos(rad(t + SP.lumbar))], tho = [Math.sin(rad(t + SP.thoracic)), Math.cos(rad(t + SP.thoracic))];
-    const mid = dot(hip, lum, 3.6 * U * ll('torso')), top = dot(mid, tho, 4.6 * U * ll('torso')), neck = dot(top, tho, 1.2 * U), headC = dot(dot(neck, tho, 2.3 * U), [tho[1], -tho[0]], (J.headFwd || 0) * U);
+    const lum = [Math.sin(rad(t + SPINE.lumbar)), Math.cos(rad(t + SPINE.lumbar))], tho = [Math.sin(rad(t + SPINE.thoracic)), Math.cos(rad(t + SPINE.thoracic))];
+    const mid = dot(hip, lum, 3.6 * U), top = dot(mid, tho, 4.6 * U), neck = dot(top, tho, 1.2 * U), headC = dot(dot(neck, tho, 2.3 * U), [tho[1], -tho[0]], (J.headFwd || 0) * U);
     const fwd = [Math.cos(rad(t)), -Math.sin(rad(t))];
     const hipHalf = front ? 1.5 * U : 0.4 * U, shHalf = front ? 3 * U : 0;
     if (front) {
       M.push(_cap([top[0] - shHalf, top[1]], [top[0] + shHalf, top[1]], 0.085, 0.085, 'torso', 'chest'));
       M.push(_cap(top, mid, 0.12, 0.085, 'torso', 'chest'), _cap(mid, hip, 0.085, 0.1, 'torso', 'pelvis'));
       M.push(_cap([hip[0] - 1.6 * U, hip[1]], [hip[0] + 1.6 * U, hip[1]], 0.085, 0.085, 'torso', 'pelvis'));
-    } else if (B.eggs) {
-      M.push(_cap(dot(top, tho, -0.5 * U), dot(mid, tho, 1.2 * U), 0.125, 0.085, 'torso', 'chest'));
-      M.push(_cap(dot(mid, lum, 0.6 * U), dot(mid, lum, -0.4 * U), 0.05, 0.055, 'torso', 'waist'));
-      M.push(_cap(dot(hip, lum, 1.2 * U), dot(hip, fwd, -0.03), 0.09, 0.105, 'torso', 'pelvis'));
     } else {
       M.push(_cap(top, mid, 0.115, 0.08, 'torso', 'chest'));
       M.push(_cap(dot(top, fwd, 0.06), dot(mid, fwd, 0.03), 0.065, 0.04, 'torso', 'chest'));
@@ -57,10 +55,9 @@
     }
     M.push(_cap(top, neck, 0.042, 0.038, 'head', 'neck'));
     M.push(_cap(dot(headC, tho, -0.03), dot(headC, tho, 0.035), 0.078, 0.072, 'head', 'head'));
-    const ball = (p, r, part) => { if (B.eggs) M.push(cap(p, p, r, r, part, 'joint')); };
     (J.legs || []).forEach((l, i) => {
       const L = i === 0 ? 'L' : 'R', knee = l.knee, ank = l.ank;
-      M.push(_cap([hip[0] + (i === 0 ? -1 : 1) * hipHalf, hip[1]], knee, 0.105, 0.068, 'thigh' + L, 'quad')); ball(knee, 0.055, 'thigh' + L);
+      M.push(_cap([hip[0] + (i === 0 ? -1 : 1) * hipHalf, hip[1]], knee, 0.105, 0.068, 'thigh' + L, 'quad'));
       M.push(_cap(knee, ank, 0.06, 0.038, 'shin' + L, 'shin'));
       const sd = [ank[0] - knee[0], ank[1] - knee[1]], sl = Math.hypot(sd[0], sd[1]) || 1, su = [sd[0] / sl, sd[1] / sl], back = front ? [0, 0] : [-su[1], su[0]];
       const bk = back[0] > 0 ? [-back[0], -back[1]] : back; // calf bulges away from +x (the facing direction)
@@ -73,12 +70,11 @@
       const s = i === 0 ? -1 : 1, L = i === 0 ? 'L' : 'R', o = [top[0] + s * shHalf, top[1] - 0.4 * U];
       let el, hd;
       if (ar.el) { el = ar.el; hd = ar.hd; }
-      else if (ar.hand) { el = ik(o, ar.hand, UARM * ll('uarm'), FARM * ll('farm'), ar.bend || -1); hd = ar.hand; }
-      else { const p = (ar.upper || 0) * (front ? s : 1), q = (ar.fore || 0) * (front ? s : 1); el = dot(o, D(p), UARM * ll('uarm')); hd = dot(el, D(q), FARM * ll('farm')); }
+      else { el = ik(o, ar.hand, UARM, FARM, ar.bend || -1); hd = ar.hand; }
       const ud = [el[0] - o[0], el[1] - o[1]], ul = Math.hypot(ud[0], ud[1]) || 1, uu = [ud[0] / ul, ud[1] / ul];
       const fd = [hd[0] - el[0], hd[1] - el[1]], fl = Math.hypot(fd[0], fd[1]) || 1, fu = [fd[0] / fl, fd[1] / fl];
       M.push(_cap(o, dot(o, uu, 1.5 * U), 0.075, 0.062, 'uarm' + L, 'delt'));
-      M.push(_cap(dot(o, uu, 1.2 * U), el, 0.06, 0.045, 'uarm' + L, 'uarm')); ball(el, 0.045, 'uarm' + L);
+      M.push(_cap(dot(o, uu, 1.2 * U), el, 0.06, 0.045, 'uarm' + L, 'uarm'));
       M.push(_cap(el, hd, 0.048, 0.03, 'farm' + L, 'farm'));
       M.push(_cap(hd, dot(hd, fu, 1.4 * U), 0.03, 0.02, 'farm' + L, 'hand'));
     });
@@ -86,24 +82,11 @@
     return M;
   }
 
-  /* angle poses (FigureRig primitives) → joints, floor-normalised */
-  function figure(pose, B) {
-    B = B || BUILDS.athlete; const PO = B.posture || {}, LEN = B.len || {}, ll = (n) => LEN[n] || 1;
-    const front = pose.view === 'front', hipHalf = front ? 1.5 * U : 0.4 * U, hip = [0, 0];
-    const legs = (pose.legs || []).map((l, i) => { const s = i === 0 ? -1 : 1, o = [hip[0] + s * hipHalf, 0];
-      const a = ((l.thigh || 0) + (PO.thigh || 0)) * (front ? s : 1), b = ((l.shin || 0) + (PO.shin || 0)) * (front ? s : 1);
-      const knee = dot(o, D(a), THIGH * ll('thigh')); return { knee, ank: dot(knee, D(b), SHIN * ll('shin')) }; });
-    const arms = (pose.arms || []).map((a) => ({ upper: (a.upper || 0) + (PO.upper || 0), fore: (a.fore || 0) + (PO.fore || 0) }));
-    const M = buildMasses({ view: pose.view, hip, t: (pose.torso || 0) + (PO.torso || 0), legs, arms, headFwd: PO.head || 0 }, B);
-    let minY = Infinity; for (const m of M) minY = Math.min(minY, m.y1 - m.r0, m.y2 - m.r1);
-    const dy = FLOOR - minY; for (const m of M) { m.y1 += dy; m.y2 += dy; }
-    return M;
-  }
-  /* absolute poses: { view, hip, t, legs:[{ank:[x,y], bend:±1|0, foot?}], arms, world, headFwd } — knees by IK, ankles exactly where you put them */
-  function figureAbs(P, B) {
+  /* a pose: { view, hip, t, legs:[{ank:[x,y], bend:±1|0, foot?} | {knee, ank, foot?}], arms, world, headFwd } — knees by IK unless given, ankles exactly where you put them */
+  function figureAbs(P) {
     const front = P.view === 'front', hipHalf = front ? 1.5 * U : 0.4 * U;
     const legs = (P.legs || []).map((l, i) => { const o = [P.hip[0] + (i === 0 ? -1 : 1) * hipHalf, P.hip[1]]; return { knee: l.knee || ik(o, l.ank, THIGH, SHIN, l.bend == null ? 1 : l.bend), ank: l.ank, foot: l.foot }; });
-    return buildMasses({ view: P.view, hip: P.hip, t: P.t || 0, legs, arms: P.arms || [], world: P.world || [], headFwd: P.headFwd || 0 }, B);
+    return buildMasses({ view: P.view, hip: P.hip, t: P.t || 0, legs, arms: P.arms || [], world: P.world || [], headFwd: P.headFwd || 0 });
   }
 
   /* ---- the ten exercises. d = drive 0→1. Feet are given as ankle positions on the floor and never move unless the exercise moves them. ---- */
@@ -233,25 +216,20 @@
     { title: 'Bodyweight', ids: ['pushup', 'splitsquat', 'steplunge', 'slrdl', 'hipbridge', 'bearcrawl', 'supermanhold', 'hollow', 'reversecrunch'] }
   ];
 
-  /* ---- rendering: one SDF, lit mass ---- */
+  /* ---- rendering: one signed-distance field over the masses, lit from the upper-left, dithered ---- */
   function sdf(M, x, y) {
-    let best = { d: Infinity, m: null }, second = { d: Infinity, m: null };
+    let best = { d: Infinity, m: null };
     for (const m of M) {
       const dx = m.x2 - m.x1, dy = m.y2 - m.y1, LL = dx * dx + dy * dy;
-      let t = LL ? ((x - m.x1) * dx + (y - m.y1) * dy) / LL : 0; const tu = t; t = Math.max(0, Math.min(1, t));
-      const r = m.r0 + (m.r1 - m.r0) * t; let dd;
-      if (m.box && LL) { const Lm = Math.sqrt(LL), perp = Math.abs((x - m.x1) * dy - (y - m.y1) * dx) / Lm, over = tu < 0 ? -tu * Lm : tu > 1 ? (tu - 1) * Lm : 0; dd = Math.max(perp / r, over > 0 ? 1 + over / r : 0); }
-      else dd = Math.hypot(x - (m.x1 + dx * t), y - (m.y1 + dy * t)) / r;
-      if (dd < best.d) { if (best.m && best.m.group !== m.group) second = best; best = { d: dd, m }; }
-      else if (dd < second.d && (!best.m || best.m.group !== m.group)) second = { d: dd, m };
+      let t = LL ? ((x - m.x1) * dx + (y - m.y1) * dy) / LL : 0; t = Math.max(0, Math.min(1, t));
+      const r = m.r0 + (m.r1 - m.r0) * t, dd = Math.hypot(x - (m.x1 + dx * t), y - (m.y1 + dy * t)) / r;
+      if (dd < best.d) best = { d: dd, m };
     }
-    return { d: best.d, m: best.m, d2: second.d, m2: second.m };
+    return best;
   }
   const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
   const dither = (v, i, j) => v > (BAYER[j & 3][i & 3] + 0.5) / 16;
   const bodyOnly = (M) => M.filter((m) => !m.world);
-  const inside = (M, x, y) => sdf(M, x, y).d <= 1;
-  const edge = (M, x, y) => { if (!inside(M, x, y)) return false; for (const [ox, oy] of [[U, 0], [-U, 0], [0, U], [0, -U]]) if (!inside(M, x + ox, y + oy)) return true; return false; };
   const LIGHT = [-0.6, 0.8];
   function shadedLit(M, x, y, i, j) {
     const s = sdf(M, x, y); if (s.d > 1) return false; if (s.m.world) return true;
@@ -260,35 +238,10 @@
     const l = (nx / n) * LIGHT[0] + (ny / n) * LIGHT[1];
     return dither(0.62 - 0.4 * l + 0.25 * s.d, i, j);
   }
-  const STYLES = [
-    { id: 'contour', label: 'Charcoal contour', note: 'edge heavy, inside empty', lit: (M, actor, x, y, i, j) => edge(M, x, y) || (inside(M, x, y) && dither(0.18, i, j)) },
-    { id: 'shaded', label: 'Lit mass', note: 'lit from the upper-left', lit: (M, actor, x, y, i, j) => shadedLit(M, x, y, i, j) },
-    { id: 'muscles', label: 'Muscle groups', note: 'solid, one-dot seams', lit: (M, actor, x, y, i, j) => { const s = sdf(M, x, y); if (s.d > 1) return false; return !(s.m2 && s.d2 <= 1 && s.d > 0.62 && s.d2 > 0.62); } },
-    { id: 'roto', label: 'Rotoscope', note: 'pure silhouette', lit: (M, actor, x, y, i, j) => inside(M, x, y) },
-    { id: 'contour-actor', label: 'Contour + actor', note: 'contour, actor solid', lit: (M, actor, x, y, i, j) => { const s = sdf(M, x, y); if (s.d > 1) return false; if (actor.includes(s.m.part)) return true; return edge(M, x, y) || dither(0.15, i, j); } }
-  ];
 
-  const mix = (A, B, d) => ({ view: A.view, torso: lerp(A.torso, B.torso, d),
-    legs: A.legs.map((l, i) => ({ thigh: lerp(l.thigh, B.legs[i].thigh, d), shin: lerp(l.shin, B.legs[i].shin, d) })),
-    arms: A.arms.map((a, i) => ({ upper: lerp(a.upper, B.arms[i].upper, d), fore: lerp(a.fore, B.arms[i].fore, d) })) });
-  function massesFor(prim, d, build) { return figure(mix(prim.A, prim.B, d), build); }
-  function massesForExercise(ex, d, build) { return figureAbs(ex.pose(d), build); }
-  function litAt(style, prim, M, i, j, k) {
-    const x = (i - 15) * U, y = 0.65 + (j - 15) * U;
-    if ((prim.pulse || prim.hold) && k > 0) { const t = M.find((m) => m.part === 'torso'); const cx = (t.x1 + t.x2) / 2, cy = (t.y1 + t.y2) / 2, rr = (prim.hold ? 0.09 : 0.16) + (k / G.SEQ.length) * (prim.hold ? 0.27 : 0.42); if (Math.abs(Math.hypot(x - cx, y - cy) - rr) < 0.022 && sdf(M, x, y).d > 1) return true; }
-    return !!style.lit(M, prim.actor, x, y, i, j);
-  }
-  function draw(canvas, style, prim, M, k, grid) {
-    const r0 = canvas.getBoundingClientRect(), w = r0.width || canvas.clientWidth, h = r0.height || canvas.clientHeight;
-    if (!w) return;
-    const dpr = Math.min(2.5, window.devicePixelRatio || 1);
-    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
-    const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-    const s = Math.min(w, h) * 0.92 / 1.3, cx = w / 2, cy = h / 2, r = Math.max(0.8, 0.34 * U * s);
-    for (let i = 0; i < 31; i++) for (let j = 0; j < 31; j++) {
-      const on = litAt(style, prim, M, i, j, k); if (!on && !grid) continue;
-      ctx.fillStyle = on ? '#1A1915' : grid; ctx.beginPath(); ctx.arc(cx + (i - 15) * U * s, cy - (j - 15) * U * s, r, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-  window.AthleteRig = { figure, figureAbs, buildMasses, massesFor, massesForExercise, STYLES, BUILDS, EXERCISES, EXERCISE_BY_NAME, GROUPS, PRIMS: R.PRIMS, litAt, draw, sdf, ik, ANK, FLOOR };
+  /* the masses of an exercise at depth d, and whether the dot at grid (i, j) prints — j counted from the ground up */
+  function massesForExercise(ex, d) { return figureAbs(ex.pose(d)); }
+  function litAt(M, i, j) { return shadedLit(M, (i - 15) * U, 0.65 + (j - 15) * U, i, j); }
+
+  window.AthleteRig = { GRID_STEP, SEQ, FRAME_MS, ANK, FLOOR, EXERCISES, EXERCISE_BY_NAME, GROUPS, figureAbs, buildMasses, massesForExercise, litAt, sdf, ik };
 })();

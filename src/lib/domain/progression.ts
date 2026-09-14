@@ -231,10 +231,11 @@ function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 		} else {
 			const p = prev?.sets[k];
 			const twice =
-				!!p &&
+				prev !== undefined &&
+				p !== undefined &&
 				countOf(p) < ex.lo &&
 				loadOf(p) === weight &&
-				(Date.parse(last.at) - Date.parse(prev!.at)) / DAY <= REENTRY_DAYS;
+				(Date.parse(last.at) - Date.parse(prev.at)) / DAY <= REENTRY_DAYS;
 			const down = decreasedWeight(weight, ex);
 			if (twice && down < weight) {
 				sets.push({ weight: down, reason: 'adjust', reps: ex.lo, missed: false });

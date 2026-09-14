@@ -1,9 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
+import { parsePreferences } from '$lib/domain/preferences';
 import type { Actions } from './$types';
 
-/** The two menus, as one snapshot. The decider says whether the picks are from the menu, one to three of them. */
+/** The two menus, as one snapshot: the edge parses the shape, the decider judges the picks (one to three, each once). */
 export const actions: Actions = {
 	save: async ({ request, locals }) => {
 		const uid = requireUid(locals);
@@ -15,11 +16,9 @@ export const actions: Actions = {
 		} catch {
 			return fail(400, { message: 'Malformed picks.' });
 		}
-		if (!Array.isArray(intents) || !Array.isArray(equipment)) return fail(400, { message: 'Malformed picks.' });
-		const err = await tryCommand(uid, {
-			type: 'SetPreferences',
-			data: { at: new Date().toISOString(), intents: intents as never, equipment: equipment as never }
-		});
+		const prefs = parsePreferences(intents, equipment);
+		if (!prefs) return fail(400, { message: 'Malformed picks.' });
+		const err = await tryCommand(uid, { type: 'SetPreferences', data: { at: new Date().toISOString(), ...prefs } });
 		if (err) return fail(400, { message: err });
 		redirect(303, '/');
 	}

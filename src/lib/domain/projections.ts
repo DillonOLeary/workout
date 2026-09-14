@@ -1,16 +1,7 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
-import { capitalise, fmtDate, fmtShort, needsLine, setsPhrase, spanLabel, unitLabel, weekLine } from './labels';
+import { capitalise, disciplineLabel, fmtDate, fmtShort, needsLine, setsPhrase, spanLabel, unitLabel, weekLine } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
-import {
-	DISCIPLINES,
-	cycleDisciplines,
-	disciplineOf,
-	routineTitle,
-	type Cycle,
-	type Discipline,
-	type Exercise,
-	type Plan
-} from './plan';
+import { DISCIPLINES, cycleDisciplines, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
 import { DEFAULT_PREFERENCES, missingFor, weightedUp, type Preferences } from './preferences';
 import {
 	REENTRY_DAYS,
@@ -233,7 +224,25 @@ export function lastEntryFor(events: LedgerEvent[], exercise: string, excludeSes
 
 const DAY = 86400000;
 
-/* ---------- cycles: where each one is turned to, and how far behind -------- */
+/* ---------- cycles: where each one is turned to, and how far behind --------
+   Two different questions, answered by two different rules, named once:
+     a cycle COUNTS sessions by discipline, whatever plan offered them — yoga
+       is yoga (weekProgress, staleness, the queue's "days since");
+     a cycle TURNS on its own routines — only a finished session of THIS
+       plan's routine key can say where the list is (nextInCycle, the
+       re-entry warning). */
+
+/** The sessions this cycle counts: those of its disciplines, any plan, newest first. */
+const countedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => {
+	const ds = cycleDisciplines(plan, cycle);
+	return sessions.filter((s) => ds.includes(s.discipline));
+};
+/** The sessions that turned this cycle: finished, this plan, a routine on its list — newest first. */
+const turnedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] =>
+	sessions.filter((s) => s.finished && s.plan === plan.id && cycle.routines.includes(s.workout.routine));
+/** The last finished session this cycle counts, if any. */
+const lastCounted = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView | undefined =>
+	countedBy(sessions, plan, cycle).find((s) => s.finished);
 
 /**
  * The routine after the last one of this cycle you finished — position is
@@ -241,24 +250,16 @@ const DAY = 86400000;
  * follows you, not a calendar. Nothing finished yet → the first.
  */
 export function nextInCycle(events: LedgerEvent[], plan: Plan, cycle: Cycle): string {
-	const last = projectSessions(events).find(
-		(s) => s.finished && s.plan === plan.id && cycle.routines.includes(s.workout.routine)
-	);
+	const last = turnedBy(projectSessions(events), plan, cycle)[0];
 	if (!last) return cycle.routines[0];
 	const i = cycle.routines.indexOf(last.workout.routine);
 	return cycle.routines[(i + 1) % cycle.routines.length];
 }
 
-/** The sessions of this cycle's disciplines, newest first — any plan: yoga is yoga, whoever offered it. */
-const sessionsOf = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => {
-	const ds = cycleDisciplines(plan, cycle);
-	return sessions.filter((s) => ds.includes(s.discipline));
-};
-
 /** Sessions of this cycle in the trailing seven days, against its target. An unfinished one today counts. */
 export function weekProgress(events: LedgerEvent[], plan: Plan, cycle: Cycle, now: number): { done: number; target: number } {
 	const cutoff = now - 7 * DAY;
-	const done = sessionsOf(projectSessions(events), plan, cycle).filter((s) => {
+	const done = countedBy(projectSessions(events), plan, cycle).filter((s) => {
 		const t = Date.parse(s.at);
 		return t > cutoff && t <= now;
 	}).length;
@@ -269,7 +270,7 @@ export function weekProgress(events: LedgerEvent[], plan: Plan, cycle: Cycle, no
 export function staleness(events: LedgerEvent[], plan: Plan, now: number): { cycle: string; daysSince: number | null }[] {
 	const sessions = projectSessions(events);
 	return plan.cycles.map((c) => {
-		const last = sessionsOf(sessions, plan, c).find((s) => s.finished);
+		const last = lastCounted(sessions, plan, c);
 		return { cycle: c.id, daysSince: last ? (now - Date.parse(last.at)) / DAY : null };
 	});
 }
@@ -319,15 +320,15 @@ export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now
 	const scored: Scored[] = [];
 	for (const [order, cycle] of plan.cycles.entries()) {
 		const routine = nextInCycle(events, plan, cycle);
-		const discipline = disciplineOf(plan, routine) ?? cycleDisciplines(plan, cycle)[0] ?? 'lift';
+		// parsePlan: a cycle names only routines the plan has, and every routine has its info
+		const { discipline, title } = plan.routineInfo[routine];
 		const missing = missingFor(discipline, prefs);
 		const out = missing.length > 0;
 		let target = cycle.target;
 		let standingIn = false;
 		if (target === 0 && cycle.standsInFor) {
 			const standIn = plan.cycles.find((c) => c.id === cycle.standsInFor);
-			const standInDiscipline = standIn && (disciplineOf(plan, nextInCycle(events, plan, standIn)) ?? cycleDisciplines(plan, standIn)[0]);
-			if (standIn && standInDiscipline && missingFor(standInDiscipline, prefs).length) {
+			if (standIn && missingFor(plan.routineInfo[nextInCycle(events, plan, standIn)].discipline, prefs).length) {
 				target = standIn.target;
 				standingIn = true;
 			}
@@ -335,15 +336,14 @@ export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now
 		const { done } = weekProgress(events, plan, cycle, now);
 		const shortfall = Math.max(0, target - done);
 		const tier = shortfall + (up.has(discipline) ? 1 : 0);
-		const lastIn = sessionsOf(sessions, plan, cycle).find((s) => s.finished);
-		const daysSince = lastIn ? (now - Date.parse(lastIn.at)) / DAY : null;
-		const stale = staleTier(daysSince, target);
+		const lastIn = lastCounted(sessions, plan, cycle);
+		const stale = staleTier(lastIn ? (now - Date.parse(lastIn.at)) / DAY : null, target);
 		const workout = { routine };
 		const minutes = estimateMinutes(sessionSteps(plan, workout));
-		const why = out ? needsLine(missing) : whyLine(events, plan, cycle, routine, lastIn, now, done, target, up.has(discipline));
+		const why = out ? needsLine(missing) : whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, up.has(discipline));
 		const score = out ? -1 : tier * 1e6 + stale * 1e3 + (999 - Math.min(999, minutes));
 		scored.push({
-			c: { cycle: cycle.id, workout, discipline, title: routineTitle(plan, routine), why, minutes, score, out, due: shortfall > 0 },
+			c: { cycle: cycle.id, workout, discipline, title, why, minutes, score, out, due: shortfall > 0 },
 			shortfall: cycle.target === 0 && !standingIn ? 0 : shortfall,
 			owed: cycle.target > 0 || standingIn,
 			order
@@ -366,6 +366,7 @@ export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now
  */
 function whyLine(
 	events: LedgerEvent[],
+	sessions: SessionView[],
 	plan: Plan,
 	cycle: Cycle,
 	routine: string,
@@ -375,7 +376,7 @@ function whyLine(
 	target: number,
 	asked: boolean
 ): string {
-	const exercises: Exercise[] = plan.routines[routine] ?? [];
+	const exercises: Exercise[] = plan.routines[routine];
 	// the first exercise the rule moves, so the line says something useful
 	const moved = exercises
 		.map((ex) => ({ ex, s: suggest(historyFor(events, ex.name), ex, now) }))
@@ -389,20 +390,21 @@ function whyLine(
 	}
 	// the routine that is due, about to take the haircut: say so first
 	const lastOfRoutine = exercises.some((ex) => ex.kind === 'load')
-		? projectSessions(events).find((s) => s.finished && s.plan === plan.id && s.workout.routine === routine)
+		? turnedBy(sessions, plan, cycle).find((s) => s.workout.routine === routine)
 		: undefined;
 	const since = lastOfRoutine ? (now - Date.parse(lastOfRoutine.at)) / DAY : null;
 	const warn =
 		since !== null && since >= REENTRY_WARN_DAYS && since <= REENTRY_DAYS
 			? `Re-entry haircut in ${daysUntilReentry(since)} ${daysUntilReentry(since) === 1 ? 'day' : 'days'}`
 			: null;
-	const lastAge = lastIn ? Math.floor((now - Date.parse(lastIn.at)) / DAY) : null;
-	const sinceLine =
-		lastAge === null
-			? 'First session'
-			: lastAge === 0
-				? `${routineTitle(plan, lastIn!.workout.routine)} today`
-				: `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${routineTitle(plan, lastIn!.workout.routine)}`;
+	// the last session this cycle counts may be another plan's: then its own
+	// word is the only honest title for it
+	let sinceLine = 'First session';
+	if (lastIn) {
+		const title = (lastIn.plan === plan.id ? routineTitle(plan, lastIn.workout.routine) : undefined) ?? disciplineLabel(lastIn.discipline);
+		const lastAge = Math.floor((now - Date.parse(lastIn.at)) / DAY);
+		sinceLine = lastAge === 0 ? `${title} today` : `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${title}`;
+	}
 	const week = target > 0 ? weekLine(done, target) : cycle.title;
 	return [warn, sinceLine, movedLine ?? week, asked ? 'you asked for this' : null].filter(Boolean).join(' · ');
 }

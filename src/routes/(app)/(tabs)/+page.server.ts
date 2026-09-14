@@ -32,7 +32,7 @@ export const actions: Actions = {
 		});
 		if (err) return fail(400, { message: err });
 
-		redirect(303, '/log');
+		redirect(303, '/floor');
 	},
 
 	finish: async ({ locals }) => {

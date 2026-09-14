@@ -1,10 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import { listPlans } from '$lib/server/plans';
-import { readStoredEvents } from '$lib/server/ledger';
+import { readLedgerEvents } from '$lib/server/ledger';
 import { activePlanId, preferences, projectSessions } from '$lib/domain/projections';
 import { currentState, latestSessionOf } from '$lib/domain/decider';
-import { disciplineOf } from '$lib/domain/plan';
-import { upcastAll } from '$lib/domain/upcast';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -17,15 +15,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const uid = locals.uid;
 	if (!uid) redirect(303, '/login');
 
-	const [plans, stored] = await Promise.all([listPlans(), readStoredEvents(uid)]);
-	// the read boundary: every row in today's vocabulary, once. A session
-	// written before it carried its discipline asks the plan it ran under.
-	const events = upcastAll(stored, (plan, routine) =>
-		disciplineOf(
-			plans.find((p) => p.id === plan),
-			routine
-		)
-	);
+	const [plans, events] = await Promise.all([listPlans(), readLedgerEvents(uid)]);
 	// WHETHER a session is open — and WHICH one is the latest, the only one a
 	// set can still be corrected in — is the decider's answer (the same evolve
 	// that guards writes); WHAT a session is comes from the read model. Two

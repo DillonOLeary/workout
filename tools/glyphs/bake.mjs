@@ -5,13 +5,11 @@
  *   node tools/glyphs/bake.mjs          # rewrite the JSON
  *   node tools/glyphs/bake.mjs --check  # exit 1 unless the JSON is what the generator makes
  *
- * glyphs.js (grid constants), rig.js (the angle tables) and athlete.js (the
- * rig, the poses, the shading) are Claude Design's, copied from the "Workout
- * app design review" project — see its HANDOFF.md — with the yoga and
- * bodyweight poses pushed in from the later "Yoga and Bodyweight Workouts"
- * project. They attach to `window`, so this script lends them one. To
- * change a figure, edit a pose in athlete.js and bake; the app runs none of
- * this geometry, it only stamps the frames.
+ * athlete.js is the generator — the rig, the shader and every pose — seeded
+ * from Claude Design's "Workout app design review" and "Yoga and Bodyweight
+ * Workouts" projects and the repo's own since. It attaches to `window`, so
+ * this script lends it one. To change a figure, edit a pose there and bake;
+ * the app runs none of this geometry, it only stamps the frames.
  *
  * Every pose names its MOTION, and the JSON carries the timing for each gear
  * so the app's clock takes the gear instead of assuming one:
@@ -29,24 +27,21 @@ const OUT = fileURLToPath(new URL('../../src/lib/design/glyph-frames.json', impo
 const GRID = 31;
 
 globalThis.window = globalThis;
-await import('./glyphs.js');
-await import('./rig.js');
 await import('./athlete.js');
-const G = window.LedgerGlyphs, A = window.AthleteRig;
-const shaded = A.STYLES.find((s) => s.id === 'shaded');
+const A = window.AthleteRig;
 
 /** the three gears: which depths to stamp, and how the clock runs them */
 const MOTIONS = {
-	rep: { seq: G.SEQ, frameMs: G.FRAME_MS, holdMs: 900 },
+	rep: { seq: A.SEQ, frameMs: A.FRAME_MS, holdMs: 900 },
 	breath: { seq: [0, 0.5, 1, 0.5], frameMs: 800, holdMs: 0 },
 	still: { seq: [1], frameMs: 0, holdMs: 0 }
 };
 
-function frame(ex, masses, k) {
+function frame(masses) {
 	const rows = [];
 	for (let r = 0; r < GRID; r++) {
 		let row = '';
-		for (let i = 0; i < GRID; i++) row += A.litAt(shaded, ex, masses, i, GRID - 1 - r, k) ? '#' : '.';
+		for (let i = 0; i < GRID; i++) row += A.litAt(masses, i, GRID - 1 - r) ? '#' : '.';
 		rows.push(row);
 	}
 	return rows;
@@ -56,7 +51,7 @@ const glyphs = {}, byName = {};
 for (const ex of A.EXERCISES) {
 	const motion = ex.motion ?? 'rep';
 	if (!MOTIONS[motion]) throw new Error(`${ex.id}: unknown motion "${motion}"`);
-	const frames = MOTIONS[motion].seq.map((d, k) => frame(ex, A.massesForExercise(ex, d), k));
+	const frames = MOTIONS[motion].seq.map((d) => frame(A.massesForExercise(ex, d)));
 	glyphs[ex.id] = { name: ex.name, aliases: ex.aliases || [], cue: ex.cue, motion, frames };
 	byName[ex.name] = ex.id;
 	for (const alias of ex.aliases || []) byName[alias] = ex.id;

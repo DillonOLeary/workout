@@ -11,13 +11,14 @@
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
 	import { armBell, ringBell } from '$lib/components/floor/bell';
 	import { CountdownClock, type Countdown } from '$lib/components/floor/countdown.svelte';
-	import { EntryQueue, type QueueOp } from '$lib/components/floor/queue.svelte';
+	import { EntryQueue, type QueueOp } from '$lib/components/floor/entry-queue.svelte';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { historyFor, lastEntryFor, sessionEntries, weekProgress } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
 	import {
 		countLabel,
+		disciplineLabel,
 		durationLabel,
 		holdLine,
 		loadHint,
@@ -38,7 +39,7 @@
 		sessionSteps,
 		type Step
 	} from '$lib/domain/steps';
-	import { cueFor, cycleOf, restFor, routineTitle, routinesOf, type Exercise } from '$lib/domain/plan';
+	import { cueFor, cycleOf, progresses, restFor, routineTitle, routinesOf, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -57,8 +58,9 @@
 	   rest is a clock that runs under the next set. */
 	const workout = session.workout;
 	// what the session says it is — the run has no sets to count on the receipt
-	const isRunDay = session.discipline === 'run';
-	const title = routineTitle(plan, workout.routine);
+	const isRun = session.discipline === 'run';
+	// a session of a plan this one no longer knows is titled by its own word
+	const title = routineTitle(plan, workout.routine) ?? disciplineLabel(session.discipline);
 	const cue = cueFor(plan, workout.routine);
 	const sessionAt = session.at;
 	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch routines */
@@ -66,7 +68,7 @@
 	/** the week this routine's cycle is having — the run's meta line says where it stands */
 	const cycle = cycleOf(plan, workout.routine);
 
-	/* ---------- the optimistic queue (queue.svelte.ts) ----------
+	/* ---------- the optimistic queue (entry-queue.svelte.ts) ----------
 	   The screen updates the frame you press; the server catches up in the
 	   background. data.events is never refreshed mid-session, so the queue
 	   laid over the server's entries is the one source of truth here. */
@@ -146,7 +148,7 @@
 	let ex = $derived<Exercise | undefined>(st?.kind === 'set' ? st.ex : undefined);
 	let atSet = $derived(st?.kind === 'set');
 	/** a stretch: a hold that does not progress, nothing to dial — Start 45s, the bell, the other side */
-	let fixed = $derived(!!ex && ex.progress.of === 'none');
+	let fixed = $derived(!!ex && !progresses(ex));
 	let stepDone = $derived(!!st && progress.done.has(st.key));
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
@@ -311,7 +313,7 @@
 				// place the ledger speaks on the floor
 				const was = last?.sets[s.index - 1];
 				// a stretch has no number to beat, so it gets no number to look at
-				const lastN = was && x.progress.of !== 'none' ? countLabel(was) : undefined;
+				const lastN = was && progresses(x) ? countLabel(was) : undefined;
 				if (editing === s.key)
 					return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'editing', state: 'editing', tappable: true };
 				if (e)
@@ -353,7 +355,7 @@
 		if (st.kind === 'run') return `TARGET ${st.minutes} MIN${week && week.target ? ` · ${week.done} OF ${week.target} THIS WEEK` : ''}`;
 		const x = st.ex;
 		// a stretch has no target to state — it says how long, and which side
-		if (x.progress.of === 'none' && x.kind === 'hold') return holdLine(x, st.index);
+		if (!progresses(x) && x.kind === 'hold') return holdLine(x, st.index);
 		// a ladder says which rung, where a lift would say the weight
 		const v = suggestionFor(x);
 		const rung = v.kind === 'count' && v.variant ? ` · ${v.variant.name.toUpperCase()}` : '';
@@ -709,10 +711,10 @@
 			<main class="fl-main">
 				<h1 class="fl-name">Done</h1>
 				<p class="fl-meta">
-					<span>{isRunDay ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{queue.syncing ? ' · SAVING…' : ''}</span>
+					<span>{isRun ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{queue.syncing ? ' · SAVING…' : ''}</span>
 				</p>
 				<div class="fl-receipt">
-					{#if isRunDay}
+					{#if isRun}
 						<div class="fl-rrow">
 							<span class="fl-rname">{title}</span>
 							<span class="fl-rval">{runMinutes ? `${runMinutes} min` : '—'}</span>

@@ -86,7 +86,7 @@
 				name="json"
 				rows="4"
 				bind:value={json}
-				placeholder={'{"id": "upper-lower-v1", "name": "Upper / Lower", "schedule": "…", "days": {"U": […], "L": […]}}'}
+				placeholder={'{"id": "upper-lower-v1", "name": "Upper / Lower", "schedule": "…", "cycles": [{"id": "lift", "title": "Lift", "routines": ["U", "L"], "target": 3}], "routineInfo": {"U": {"title": "Upper", "discipline": "lift"}, "L": {…}}, "routines": {"U": […], "L": […]}}'}
 			></textarea>
 			{#if form?.planError}
 				<p class="err">Invalid row: {form.planError}</p>

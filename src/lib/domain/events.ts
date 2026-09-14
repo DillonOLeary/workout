@@ -118,8 +118,6 @@ export type LedgerEvent =
  */
 export type StoredEvent = { type: string; data: unknown };
 
-/** The item a retired RunLogged's minutes read back under (upcast.ts); a live run logs under its exercise name. */
-export const RUN_ITEM = 'Run';
 /** Prep items — steps that are tracked, but never a ledger line. */
 export const WARMUP_ITEM = 'Warm-up';
 export const COOLDOWN_ITEM = 'Cooldown';
