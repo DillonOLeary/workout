@@ -117,16 +117,16 @@
 				<button type="submit" class="startbtn" class:quiet={card.out}>Start <span class="startmin">~{card.minutes} min</span></button>
 			</form>
 
-			<!-- the queue behind it: deal the next card — the card's second verb,
-			     white with an ink outline under the volt one, never volt itself -->
-			{#if deck.length > 1}
-				<button type="button" class="elsebtn" onclick={next}>Something else ▸</button>
-			{/if}
+			<!-- the queue behind it: the dots say where you are, and dealing the
+			     next card is a small pill at the far right — findable, never loud -->
 			<div class="links">
 				<span class="dots" aria-label="{i + 1} of {deck.length}">
 					{#each deck as c, k (c.cycle)}<span class="dot" class:on={k === i}></span>{/each}
 				</span>
 				<a class="textlink" href="/log/after">Log it after →</a>
+				{#if deck.length > 1}
+					<button type="button" class="elsebtn" onclick={next}>Something else ▸</button>
+				{/if}
 			</div>
 		</Card>
 
@@ -211,7 +211,7 @@
 	.startbtn.quiet { background: var(--white); box-shadow: var(--shadow-raised); }
 	.startbtn.quiet:hover { background: var(--volt-tint); }
 
-	.links { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+	.links { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
 	.dots { display: inline-flex; gap: 5px; align-items: center; margin-right: auto; }
 	.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--white); border: 1px solid var(--ink); }
 	.dot.on { background: var(--ink); }
@@ -222,20 +222,18 @@
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 	.textlink:hover { color: var(--ink); background: none; }
-	/* the second verb: a quiet button, the same one every white outlined action wears */
+	/* the second verb, said quietly: a small pill with a thin ink line and no
+	   shadow, at the far right — a control you can find, not one that asks */
 	.elsebtn {
-		display: flex; align-items: center; justify-content: center; width: 100%;
-		margin-top: 10px; min-height: 48px; padding: 0 16px;
+		display: inline-flex; align-items: center; justify-content: center; flex: none; margin-left: auto;
+		min-height: 40px; padding: 0 14px;
 		background: var(--white); color: var(--ink);
-		border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised);
-		font-family: var(--font-body); font-weight: var(--weight-black); font-size: 13px;
-		letter-spacing: var(--tracking-caps); text-transform: uppercase;
+		border: 1px solid var(--ink); border-radius: var(--radius-pill);
+		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 13px;
 		cursor: pointer; touch-action: manipulation;
-		transition: background var(--dur-med) var(--ease-snap), transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) var(--ease-snap);
+		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.elsebtn:hover { background: var(--volt-tint); }
-	.elsebtn:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
 	/* the slack: bottom-anchored, so the strip grows apart from the card */
 	.slack { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
