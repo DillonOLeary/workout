@@ -442,11 +442,3 @@ export const DEFAULT_PLANS: Plan[] = [
 		}
 	}
 ];
-
-/**
- * Plans that shipped once and were retired. Their rows are deleted on boot
- * so the table never holds a row the parser refuses. Hold Steady's two routines
- * became Open to Work's yoga routines (2026-09-14); its sessions stay in the
- * stream and read back as yoga (upcast.ts).
- */
-export const RETIRED_PLAN_IDS = ['yoga-2day-v1'];

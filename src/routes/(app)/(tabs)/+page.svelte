@@ -6,7 +6,7 @@
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { glyphFor } from '$lib/design/glyphs';
 	import { disciplineLabel } from '$lib/domain/labels';
-	import { routineTitle } from '$lib/domain/plan';
+	import { cooldownFor, routineTitle, warmupFor } from '$lib/domain/plan';
 	import { queue, sessionEntries } from '$lib/domain/projections';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
@@ -40,16 +40,25 @@
 		i = (i + 1) % deck.length;
 	}
 
-	// what's in it: the session's figures, four at most, then the rest by name
+	// what's in it: the session's figures, four at most, then the rest by name.
+	// A routine with no sets to show (the run) shows the drills around it
+	// instead, and its description where the rest would be
 	let exercises = $derived(card ? routineExercises(plan, card.workout).filter((e) => e.kind !== 'run') : []);
-	let peek = $derived(exercises.filter((e) => glyphFor(e.name)).slice(0, 4));
-	let rest = $derived(exercises.filter((e) => !peek.includes(e)));
-	let more = $derived(rest.length ? `+ ${rest.length} more · ${rest.map((e) => e.name).join(', ')}` : '');
-	let oneline = $derived(card ? (plan.routineInfo[card.workout.routine]?.desc ?? `${exercises.length} exercises`) : '');
+	let drills = $derived(
+		card
+			? [...warmupFor(plan, card.workout.routine), ...cooldownFor(plan, card.workout.routine)].flatMap((it) => (typeof it === 'string' ? [] : [it.name]))
+			: []
+	);
+	let peek = $derived(
+		[...exercises.map((e) => e.name), ...drills].filter((n, i, all) => glyphFor(n) && all.indexOf(n) === i).slice(0, 4)
+	);
+	let rest = $derived(exercises.map((e) => e.name).filter((n) => !peek.includes(n)));
+	let oneline = $derived(card ? (plan.routineInfo[card.workout.routine].desc ?? `${exercises.length} exercises`) : '');
+	let more = $derived(rest.length ? `+ ${rest.length} more · ${rest.join(', ')}` : exercises.length ? '' : oneline);
 	// the slack region is flex: 1 with a zero basis — its height IS the space
 	// the page has left over, measured rather than assumed
 	let slack = $state(0);
-	let mode = $derived(!card || card.out ? 'none' : slack >= 150 ? 'strip' : slack >= 60 ? 'line' : 'none');
+	let mode = $derived(!card || card.out ? 'none' : slack >= 150 && peek.length ? 'strip' : slack >= 60 ? 'line' : 'none');
 
 	// the session is a list of steps: Today says how far in, and how long is left
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
@@ -108,14 +117,15 @@
 				<button type="submit" class="startbtn" class:quiet={card.out}>Start <span class="startmin">~{card.minutes} min</span></button>
 			</form>
 
-			<!-- the queue behind it: deal the next card, or go the other way -->
+			<!-- the queue behind it: deal the next card — the card's second verb,
+			     white with an ink outline under the volt one, never volt itself -->
+			{#if deck.length > 1}
+				<button type="button" class="elsebtn" onclick={next}>Something else ▸</button>
+			{/if}
 			<div class="links">
 				<span class="dots" aria-label="{i + 1} of {deck.length}">
 					{#each deck as c, k (c.cycle)}<span class="dot" class:on={k === i}></span>{/each}
 				</span>
-				{#if deck.length > 1}
-					<button type="button" class="textlink" onclick={next}>Something else ▸</button>
-				{/if}
 				<a class="textlink" href="/log/after">Log it after →</a>
 			</div>
 		</Card>
@@ -127,10 +137,10 @@
 				<div class="strip">
 					<div class="caps">What's in it</div>
 					<div class="peek">
-						{#each peek as e (e.name)}
+						{#each peek as name (name)}
 							<div class="peekone">
-								<ExerciseGlyph name={e.name} size={72} play={false} />
-								<span class="peekname">{e.name}</span>
+								<ExerciseGlyph {name} size={72} play={false} />
+								<span class="peekname">{name}</span>
 							</div>
 						{/each}
 					</div>
@@ -201,7 +211,7 @@
 	.startbtn.quiet { background: var(--white); box-shadow: var(--shadow-raised); }
 	.startbtn.quiet:hover { background: var(--volt-tint); }
 
-	.links { display: flex; align-items: center; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+	.links { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
 	.dots { display: inline-flex; gap: 5px; align-items: center; margin-right: auto; }
 	.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--white); border: 1px solid var(--ink); }
 	.dot.on { background: var(--ink); }
@@ -212,6 +222,20 @@
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 	.textlink:hover { color: var(--ink); background: none; }
+	/* the second verb: a quiet button, the same one every white outlined action wears */
+	.elsebtn {
+		display: flex; align-items: center; justify-content: center; width: 100%;
+		margin-top: 10px; min-height: 48px; padding: 0 16px;
+		background: var(--white); color: var(--ink);
+		border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
+		box-shadow: var(--shadow-raised);
+		font-family: var(--font-body); font-weight: var(--weight-black); font-size: 13px;
+		letter-spacing: var(--tracking-caps); text-transform: uppercase;
+		cursor: pointer; touch-action: manipulation;
+		transition: background var(--dur-med) var(--ease-snap), transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) var(--ease-snap);
+	}
+	.elsebtn:hover { background: var(--volt-tint); }
+	.elsebtn:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
 	/* the slack: bottom-anchored, so the strip grows apart from the card */
 	.slack { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
