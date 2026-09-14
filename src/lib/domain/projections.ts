@@ -1,7 +1,17 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
-import { capitalise, fmtDate, fmtShort, setsPhrase, spanLabel, unitLabel } from './labels';
+import { capitalise, fmtDate, fmtShort, needsLine, setsPhrase, spanLabel, unitLabel, weekLine } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
-import { dayKind, liftDays, type Exercise, type Plan } from './plan';
+import {
+	DISCIPLINES,
+	cycleDisciplines,
+	disciplineOf,
+	routineTitle,
+	type Cycle,
+	type Discipline,
+	type Exercise,
+	type Plan
+} from './plan';
+import { DEFAULT_PREFERENCES, missingFor, weightedUp, type Preferences } from './preferences';
 import {
 	REENTRY_DAYS,
 	REENTRY_WARN_DAYS,
@@ -12,6 +22,7 @@ import {
 	type History,
 	type HistoryEntry
 } from './progression';
+import { estimateMinutes, sessionSteps } from './steps';
 
 /**
  * Projections: the read side. Each is a pure fold over the event list that
@@ -47,8 +58,10 @@ export type SessionRow = {
 };
 export type SessionView = {
 	id: string;
-	/** what it was: one of the plan's lift days, or the run */
+	/** what it was: the routine it ran */
 	workout: Workout;
+	/** what it was, as the session itself says — never looked up from the plan */
+	discipline: Discipline;
 	plan: string;
 	at: string;
 	dateLabel: string;
@@ -59,18 +72,19 @@ export type SessionView = {
 	rows: SessionRow[];
 	/** minutes from duration entries — a run session's whole point */
 	minutes: number;
+	/** each duration entry, by identity — what a correction to the run names */
+	durations: { item: string; index: number; minutes: number }[];
 	/** prep steps that happened (warm-up, cooldown, walks) — tracked, never a ledger line */
 	prep: number;
 	/** every entry, whatever it measured */
 	entries: number;
 };
-export type RunView = { at: string; dateLabel: string; minutes: number; session: string };
 export type PlanSwitchView = { at: string; dateLabel: string; plan: string };
 
 /**
  * Sessions newest-first, each with its logged rows. Removed sessions are
- * excluded HERE, and only here — every consumer (historyFor, nextDay, the
- * By day view) goes through this fold, so one exclusion makes the whole app
+ * excluded HERE, and only here — every consumer (historyFor, nextInCycle, the
+ * Ledger) goes through this fold, so one exclusion makes the whole app
  * behave as if the workout never happened, while the events themselves stay
  * in the stream. A correction REPLACES the entry it names, in place: the set
  * keeps its number, every reader downstream sees the corrected measure, and
@@ -88,6 +102,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 				view: {
 					id: e.data.session,
 					workout: workoutOf(e.data),
+					discipline: e.data.discipline,
 					plan: e.data.plan,
 					at: e.data.at,
 					dateLabel: fmtDate(e.data.at),
@@ -95,6 +110,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 					mode: e.data.mode,
 					rows: [],
 					minutes: 0,
+					durations: [],
 					prep: 0,
 					entries: 0
 				},
@@ -124,8 +140,10 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 				view.entries++;
 				const m = en.measure;
 				if (m.of === 'step') view.prep++;
-				else if (m.of === 'duration') view.minutes += m.minutes;
-				else if (isSet(m)) {
+				else if (m.of === 'duration') {
+					view.minutes += m.minutes;
+					view.durations.push({ item: en.item, index: en.index, minutes: m.minutes });
+				} else if (isSet(m)) {
 					let row = rows.find((r) => r.item === en.item);
 					if (!row) {
 						row = { item: en.item, sets: [], indices: [] };
@@ -166,17 +184,6 @@ export function sessionEntries(events: LedgerEvent[], session: string): EntryLog
 	return out;
 }
 
-/**
- * Runs newest-first. A run is a session like any other; this is the same
- * fold, filtered — kept for the meter and the ledger, which only want
- * minutes and a day.
- */
-export function projectRuns(events: LedgerEvent[]): RunView[] {
-	return projectSessions(events)
-		.filter((s) => s.minutes > 0)
-		.map((s) => ({ at: s.at, dateLabel: s.dateLabel, minutes: s.minutes, session: s.id }));
-}
-
 /** Plan switches newest-first, for the ledger. */
 export function projectPlanSwitches(events: LedgerEvent[]): PlanSwitchView[] {
 	return events
@@ -192,6 +199,15 @@ export function activePlanId(events: LedgerEvent[]): string | null {
 		if (e.type === 'PlanSelected') return e.data.plan;
 	}
 	return null;
+}
+
+/** What you last said you were after — the last snapshot wins, over the defaults. */
+export function preferences(events: LedgerEvent[]): Preferences {
+	for (let i = events.length - 1; i >= 0; i--) {
+		const e = events[i];
+		if (e.type === 'PreferencesSet') return { intents: e.data.intents, equipment: e.data.equipment };
+	}
+	return DEFAULT_PREFERENCES;
 }
 
 /**
@@ -215,41 +231,153 @@ export function lastEntryFor(events: LedgerEvent[], exercise: string, excludeSes
 	return historyFor(events, exercise, excludeSession)[0] ?? null;
 }
 
-/**
- * Which lift day is due next: alternate from the most recent finished LIFT.
- * Runs don't count, and neither does a stretch day — it is never the pick.
- */
-export function nextDay(events: LedgerEvent[], plan: Plan): string {
-	const lifts = liftDays(plan);
-	const days = projectSessions(events).flatMap((s) =>
-		s.finished && s.plan === plan.id && s.workout.kind === 'lift' && lifts.includes(s.workout.day) ? [s.workout.day] : []
-	);
-	if (!days.length) return lifts[0] ?? Object.keys(plan.days)[0];
-	const i = lifts.indexOf(days[0]);
-	return lifts[(i + 1) % lifts.length];
-}
-
 const DAY = 86400000;
 
-/**
- * The pick, and the reason. Today answers "what should I do?" with one
- * button; this is the one mono line under it that says why — how long since
- * the last lift, and the first thing the rule is about to move. If the day
- * itself is about to take a re-entry haircut, that comes first: one line,
- * same place, instead of a separate nudge.
- */
-export type Pick = { day: string; why: string };
+/* ---------- cycles: where each one is turned to, and how far behind -------- */
 
-export function nextWorkout(events: LedgerEvent[], plan: Plan, now: number): Pick {
-	const day = nextDay(events, plan);
-	const lifts = liftDays(plan);
+/**
+ * The routine after the last one of this cycle you finished — position is
+ * DERIVED, never stored. Do B twice and the pointer sits after B: the cycle
+ * follows you, not a calendar. Nothing finished yet → the first.
+ */
+export function nextInCycle(events: LedgerEvent[], plan: Plan, cycle: Cycle): string {
 	const last = projectSessions(events).find(
-		(s) => s.plan === plan.id && s.finished && s.workout.kind === 'lift' && lifts.includes(s.workout.day)
+		(s) => s.finished && s.plan === plan.id && cycle.routines.includes(s.workout.routine)
 	);
-	const lastAge = last ? Math.floor((now - Date.parse(last.at)) / DAY) : null;
-	const since = dayAges(events, plan, now).find((a) => a.day === day)?.daysSince ?? null;
+	if (!last) return cycle.routines[0];
+	const i = cycle.routines.indexOf(last.workout.routine);
+	return cycle.routines[(i + 1) % cycle.routines.length];
+}
+
+/** The sessions of this cycle's disciplines, newest first — any plan: yoga is yoga, whoever offered it. */
+const sessionsOf = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => {
+	const ds = cycleDisciplines(plan, cycle);
+	return sessions.filter((s) => ds.includes(s.discipline));
+};
+
+/** Sessions of this cycle in the trailing seven days, against its target. An unfinished one today counts. */
+export function weekProgress(events: LedgerEvent[], plan: Plan, cycle: Cycle, now: number): { done: number; target: number } {
+	const cutoff = now - 7 * DAY;
+	const done = sessionsOf(projectSessions(events), plan, cycle).filter((s) => {
+		const t = Date.parse(s.at);
+		return t > cutoff && t <= now;
+	}).length;
+	return { done, target: cycle.target };
+}
+
+/** Days since each cycle last turned — null when it never has. */
+export function staleness(events: LedgerEvent[], plan: Plan, now: number): { cycle: string; daysSince: number | null }[] {
+	const sessions = projectSessions(events);
+	return plan.cycles.map((c) => {
+		const last = sessionsOf(sessions, plan, c).find((s) => s.finished);
+		return { cycle: c.id, daysSince: last ? (now - Date.parse(last.at)) / DAY : null };
+	});
+}
+
+/* ---------- the queue: one candidate per cycle, ranked ---------------------- */
+
+export type Candidate = {
+	/** the cycle that offers it */
+	cycle: string;
+	workout: Workout;
+	discipline: Discipline;
+	title: string;
+	/** one mono line, in the grammar Today already speaks */
+	why: string;
+	minutes: number;
+	/** ordering only; never shown */
+	score: number;
+	/** ruled out by equipment — still in the list, never first */
+	out: boolean;
+	/** under its cycle's weekly target — what "due" means */
+	due: boolean;
+};
+
+/** How many cadences overdue a cycle is; never done counts as very. Whole tiers, so ties are common and minutes can decide. */
+function staleTier(daysSince: number | null, target: number): number {
+	if (daysSince === null) return 4;
+	const cadence = target > 0 ? 7 / target : 7;
+	return Math.min(9, Math.floor(daysSince / cadence));
+}
+
+/**
+ * What to offer, and in what order — one candidate per cycle, each carrying
+ * its own reason line, so Today can never grow a menu it didn't ask for.
+ * Score, in order of weight: shortfall (sessions under this cycle's weekly
+ * target, plus one when an intent names its discipline) → staleness (whole
+ * cadences since it last turned) → minutes (shorter first) → plan order.
+ * No discipline is privileged: a lift you owe rises because it is owed. A
+ * routine that needs what you haven't got is ruled OUT, not hidden — it
+ * sits at the bottom and says so. A cycle with target 0 is offered only
+ * when the cycle it stands in for is ruled out (it takes that target), or
+ * when everything else is behind — and then never first.
+ */
+export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now: number): Candidate[] {
+	const sessions = projectSessions(events);
+	const up = weightedUp(prefs);
+	type Scored = { c: Candidate; shortfall: number; owed: boolean; order: number };
+	const scored: Scored[] = [];
+	for (const [order, cycle] of plan.cycles.entries()) {
+		const routine = nextInCycle(events, plan, cycle);
+		const discipline = disciplineOf(plan, routine) ?? cycleDisciplines(plan, cycle)[0] ?? 'lift';
+		const missing = missingFor(discipline, prefs);
+		const out = missing.length > 0;
+		let target = cycle.target;
+		let standingIn = false;
+		if (target === 0 && cycle.standsInFor) {
+			const standIn = plan.cycles.find((c) => c.id === cycle.standsInFor);
+			const standInDiscipline = standIn && (disciplineOf(plan, nextInCycle(events, plan, standIn)) ?? cycleDisciplines(plan, standIn)[0]);
+			if (standIn && standInDiscipline && missingFor(standInDiscipline, prefs).length) {
+				target = standIn.target;
+				standingIn = true;
+			}
+		}
+		const { done } = weekProgress(events, plan, cycle, now);
+		const shortfall = Math.max(0, target - done);
+		const tier = shortfall + (up.has(discipline) ? 1 : 0);
+		const lastIn = sessionsOf(sessions, plan, cycle).find((s) => s.finished);
+		const daysSince = lastIn ? (now - Date.parse(lastIn.at)) / DAY : null;
+		const stale = staleTier(daysSince, target);
+		const workout = { routine };
+		const minutes = estimateMinutes(sessionSteps(plan, workout));
+		const why = out ? needsLine(missing) : whyLine(events, plan, cycle, routine, lastIn, now, done, target, up.has(discipline));
+		const score = out ? -1 : tier * 1e6 + stale * 1e3 + (999 - Math.min(999, minutes));
+		scored.push({
+			c: { cycle: cycle.id, workout, discipline, title: routineTitle(plan, routine), why, minutes, score, out, due: shortfall > 0 },
+			shortfall: cycle.target === 0 && !standingIn ? 0 : shortfall,
+			owed: cycle.target > 0 || standingIn,
+			order
+		});
+	}
+	// a cycle nobody asked for this week appears only when everything that
+	// was asked for is behind — as "something else", never first
+	const allBehind = scored.filter((s) => s.owed && !s.c.out).every((s) => s.shortfall > 0);
+	return scored
+		.filter((s) => s.owed || allBehind)
+		.sort((a, b) => b.c.score - a.c.score || a.order - b.order)
+		.map((s) => s.c);
+}
+
+/**
+ * The one mono line under a candidate: the re-entry warning if one is due,
+ * how long since this cycle last turned, then the first thing the rule is
+ * about to move — or, when nothing moves, where the week stands. Every
+ * candidate says its own why, or it is not a candidate.
+ */
+function whyLine(
+	events: LedgerEvent[],
+	plan: Plan,
+	cycle: Cycle,
+	routine: string,
+	lastIn: SessionView | undefined,
+	now: number,
+	done: number,
+	target: number,
+	asked: boolean
+): string {
+	const exercises: Exercise[] = plan.routines[routine] ?? [];
 	// the first exercise the rule moves, so the line says something useful
-	const moved = (plan.days[day] ?? [])
+	const moved = exercises
 		.map((ex) => ({ ex, s: suggest(historyFor(events, ex.name), ex, now) }))
 		.find(({ s }) => s.kind === 'load' && (s.up || s.down));
 	let movedLine: string | null = null;
@@ -259,30 +387,29 @@ export function nextWorkout(events: LedgerEvent[], plan: Plan, now: number): Pic
 			movedLine = `${setsPhrase(up)} ${up.length === 1 ? 'goes' : 'go'} up on the ${moved.ex.name}`;
 		} else movedLine = `${moved.ex.name} comes back a size`;
 	}
+	// the routine that is due, about to take the haircut: say so first
+	const lastOfRoutine = exercises.some((ex) => ex.kind === 'load')
+		? projectSessions(events).find((s) => s.finished && s.plan === plan.id && s.workout.routine === routine)
+		: undefined;
+	const since = lastOfRoutine ? (now - Date.parse(lastOfRoutine.at)) / DAY : null;
 	const warn =
 		since !== null && since >= REENTRY_WARN_DAYS && since <= REENTRY_DAYS
 			? `Re-entry haircut in ${daysUntilReentry(since)} ${daysUntilReentry(since) === 1 ? 'day' : 'days'}`
 			: null;
+	const lastAge = lastIn ? Math.floor((now - Date.parse(lastIn.at)) / DAY) : null;
 	const sinceLine =
 		lastAge === null
 			? 'First session'
 			: lastAge === 0
-				? `${dayTitle(plan, last!.workout)} today`
-				: `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${dayTitle(plan, last!.workout)}`;
-	return { day, why: [warn, sinceLine, movedLine].filter(Boolean).join(' · ') };
-}
-
-/** Run minutes in the trailing 7 days — compared against the plan's own runTarget. */
-export function weekRunMinutes(events: LedgerEvent[], now: number): number {
-	const cutoff = now - 7 * DAY;
-	return projectRuns(events)
-		.filter((r) => new Date(r.at).getTime() > cutoff)
-		.reduce((sum, r) => sum + r.minutes, 0);
+				? `${routineTitle(plan, lastIn!.workout.routine)} today`
+				: `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${routineTitle(plan, lastIn!.workout.routine)}`;
+	const week = target > 0 ? weekLine(done, target) : cycle.title;
+	return [warn, sinceLine, movedLine ?? week, asked ? 'you asked for this' : null].filter(Boolean).join(' · ');
 }
 
 /* ---------- exercises over time: the trends folds ----------------------
-   Read-side only: no new events, no stored projections. Today's "How it's
-   going" list is these folds run per exercise at request time. */
+   Read-side only: no new events, no stored projections. The Ledger's "Am I
+   getting stronger" list is these folds run per exercise at request time. */
 
 /** Sessions, not weeks: a week off would read as a gap, and a stall must read as a stall. */
 export const TREND_WINDOW = 7;
@@ -363,11 +490,17 @@ export function trendFor(
 				sentence: `Missed the bottom twice at ${was} — back to ${unitLabel(s.sets[adjusted].weight, ex)} next time`
 			};
 		}
+	} else if (s.variant?.promoted) {
+		return { ...base, tone: 'up', sentence: `Every set at the top — up a rung: ${s.variant.name}` };
 	}
 	const earnedIdx = last.sets.map((m, i) => (setEarned(m, ex) ? i : -1)).filter((i) => i >= 0);
 	if (earnedIdx.length) {
-		if (s.kind === 'hold' && s.ceiling)
-			return { ...base, tone: 'up', sentence: `At the ceiling (${ex.hi}s) — make it harder, not longer` };
+		if (s.kind === 'count' && s.ceiling)
+			return {
+				...base,
+				tone: 'up',
+				sentence: s.variant ? `Top of the ladder (${s.variant.name}) — make it harder` : `At the ceiling (${ex.hi}s) — make it harder, not longer`
+			};
 		if (s.kind !== 'load')
 			return { ...base, tone: 'up', sentence: `Hit the top of the range — ${unitLabel(next, ex)} next time` };
 		const who = earnedIdx.length >= ex.sets ? 'Every set' : capitalise(setsPhrase(earnedIdx));
@@ -414,9 +547,8 @@ export type DayCell = {
 	date: number;
 	/** "Sun, Aug 23" — what a screen reader hears */
 	label: string;
-	lifted: boolean;
-	ran: boolean;
-	stretched: boolean;
+	/** one per session, in the order they happened: ['yoga', 'lift'] is a normal Tuesday */
+	did: Discipline[];
 	today: boolean;
 	future: boolean;
 };
@@ -436,26 +568,19 @@ export const GRID_WEEKS = 5;
 const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 
 /**
- * A stretch day is the PLAN's word, not the session's, so the plans come
- * along wherever a fold has to tell a stretch from a lift.
- */
-const isStretchSession = (s: SessionView, plans: Plan[]) =>
-	s.workout.kind === 'lift' && dayKind(plans.find((p) => p.id === s.plan), s.workout.day) === 'stretch';
-
-/**
  * The last five weeks as a calendar, bucketed by LOCAL calendar day — which
  * is why this runs where `now` runs and never stores anything. A week is too
  * short a window to see a habit in: seven cells can only say "this week was
- * quiet", a month says whether that is the habit. An unfinished session today
- * still counts.
+ * quiet", a month says whether that is the habit. The read side counts
+ * SESSIONS, not days: a cell says what each one was, in order, and never
+ * shows only the "important" one. An unfinished session today still counts.
  */
-export function monthGrid(events: LedgerEvent[], now: number, plans: Plan[] = [], weeks: number = GRID_WEEKS): MonthGrid {
-	const sessions = projectSessions(events);
-	const lifted = new Set(
-		sessions.filter((s) => s.workout.kind === 'lift' && !isStretchSession(s, plans)).map((s) => dayKey(new Date(s.at)))
-	);
-	const stretched = new Set(sessions.filter((s) => isStretchSession(s, plans)).map((s) => dayKey(new Date(s.at))));
-	const ran = new Set(sessions.filter((s) => s.minutes > 0).map((s) => dayKey(new Date(s.at))));
+export function monthGrid(events: LedgerEvent[], now: number, weeks: number = GRID_WEEKS): MonthGrid {
+	const did = new Map<number, Discipline[]>();
+	for (const s of projectSessions(events).slice().reverse()) {
+		const key = dayKey(new Date(s.at));
+		did.set(key, [...(did.get(key) ?? []), s.discipline]);
+	}
 	const today = new Date(now);
 	const todayKey = dayKey(today);
 	// the Monday that opens the window: this week's Monday, `weeks - 1` weeks back
@@ -474,8 +599,9 @@ export function monthGrid(events: LedgerEvent[], now: number, plans: Plan[] = []
 					key,
 					date: d.getDate(),
 					label: fmtDate(d.toISOString()),
-					lifted: lifted.has(key), ran: ran.has(key), stretched: stretched.has(key),
-					today: key === todayKey, future: key > todayKey
+					did: did.get(key) ?? [],
+					today: key === todayKey,
+					future: key > todayKey
 				};
 			})
 		);
@@ -497,10 +623,8 @@ export type PaceStat = {
 export type Pace = {
 	/** the window each rate averages over, in days */
 	days: number;
-	/** lift sessions a week — a stretch day is not a lift */
-	lifts: PaceStat;
-	/** run minutes a week — the number the plan's runTarget is written in */
-	runMinutes: PaceStat;
+	/** sessions a week, per discipline — the unit every target is written in */
+	by: Record<Discipline, PaceStat>;
 };
 
 /**
@@ -508,10 +632,10 @@ export type Pace = {
  * over the four before that, so the answer to "am I doing less than I want?"
  * is a direction and not just a number. Rates are per week, whatever the
  * window: a fold that averages must divide by the window it was given, never
- * by the weeks it assumes. Minutes, not runs: the plan's goal is written in
- * minutes, and the grid above already shows the days.
+ * by the weeks it assumes. Per discipline, because that is what the session
+ * says it was and what every cycle's target counts.
  */
-export function weeklyPace(events: LedgerEvent[], now: number, plans: Plan[] = [], days: number = PACE_DAYS): Pace {
+export function weeklyPace(events: LedgerEvent[], now: number, days: number = PACE_DAYS): Pace {
 	const sessions = projectSessions(events);
 	const window = (endsDaysAgo: number) => {
 		const to = now - endsDaysAgo * DAY;
@@ -521,32 +645,13 @@ export function weeklyPace(events: LedgerEvent[], now: number, plans: Plan[] = [
 			return t > from && t <= to;
 		});
 		const perWeek = (n: number) => (n * 7) / days;
-		return {
-			lifts: perWeek(inside.filter((s) => s.workout.kind === 'lift' && !isStretchSession(s, plans)).length),
-			runMinutes: perWeek(inside.reduce((sum, s) => sum + s.minutes, 0))
-		};
+		const out = {} as Record<Discipline, number>;
+		for (const d of DISCIPLINES) out[d] = perWeek(inside.filter((s) => s.discipline === d).length);
+		return out;
 	};
 	const now4 = window(0);
 	const before = window(days);
-	return {
-		days,
-		lifts: { per: now4.lifts, prev: before.lifts },
-		runMinutes: { per: now4.runMinutes, prev: before.runMinutes }
-	};
-}
-
-/** Whole days since each plan day was last finished (null = never). */
-export type DayAge = { day: string; daysSince: number | null };
-export function dayAges(events: LedgerEvent[], plan: Plan, now: number): DayAge[] {
-	const sessions = projectSessions(events).filter((s) => s.finished && s.plan === plan.id);
-	return Object.keys(plan.days).map((day) => {
-		const s = sessions.find((x) => x.workout.kind === 'lift' && x.workout.day === day); // newest first
-		return { day, daysSince: s ? (now - Date.parse(s.at)) / DAY : null };
-	});
-}
-
-/** Display title for a workout: the run's title, the day's dayInfo title, else "Workout X". */
-export function dayTitle(plan: Plan | undefined, w: Workout): string {
-	if (w.kind === 'run') return plan?.run?.title ?? 'Run';
-	return plan?.dayInfo?.[w.day]?.title ?? 'Workout ' + w.day;
+	const by = {} as Record<Discipline, PaceStat>;
+	for (const d of DISCIPLINES) by[d] = { per: now4[d], prev: before[d] };
+	return { days, by };
 }

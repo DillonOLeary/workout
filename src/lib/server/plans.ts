@@ -1,5 +1,5 @@
 import { withClient } from './db';
-import { DEFAULT_PLANS } from '$lib/domain/plans';
+import { DEFAULT_PLANS, RETIRED_PLAN_IDS } from '$lib/domain/plans';
 import { parsePlan, type Plan } from '$lib/domain/plan';
 
 /**
@@ -28,6 +28,9 @@ function ensureReady(): Promise<void> {
 				[plan.id, JSON.stringify(plan)]
 			);
 		}
+		// a plan that shipped once and was retired leaves the table the same
+		// way it arrived — from code. Its sessions stay in the stream.
+		if (RETIRED_PLAN_IDS.length) await db.query('delete from ledger_plans where id = any($1)', [RETIRED_PLAN_IDS]);
 	}).catch((e) => {
 		ready = undefined; // let the next request retry instead of caching the failure
 		throw e;

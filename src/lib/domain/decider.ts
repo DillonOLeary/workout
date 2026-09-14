@@ -2,6 +2,8 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
+import { isDiscipline } from './plan';
+import { MAX_INTENTS, isEquipment, isIntent, samePreferences, type Preferences } from './preferences';
 import { upcast } from './upcast';
 
 /**
@@ -17,12 +19,14 @@ import { upcast } from './upcast';
  * from events on every command, which is the whole point.
  *
  * State holds only what the RULES need (is a session open? which is the
- * latest? which entries has each got? which plan is active?). Everything a
- * screen needs lives in projections.ts instead — including what a session IS.
+ * latest? which entries has each got? which plan is active? what did you
+ * last say you were after?). Everything a screen needs lives in
+ * projections.ts instead — including what a session IS.
  *
  * The decider validates SHAPE, never meaning: it does not know the plan, so
- * it cannot say whether "Goblet Squat #4" is a set the day asked for. The
- * plan says what an entry means; the decider says whether it can be recorded.
+ * it cannot say whether "Goblet Squat #4" is a set the routine asked for.
+ * The plan says what an entry means; the decider says whether it can be
+ * recorded.
  *
  * This file owns every "no". A screen never pre-checks a rule; it hides
  * what the decider would refuse, and the decider refuses it anyway.
@@ -45,6 +49,8 @@ export type LedgerState = {
 	 * correct, and keeps its variant — a run's minutes never become a set.
 	 */
 	logged: Record<string, Record<string, Measure['of']>>;
+	/** the last snapshot said — so saying it again records nothing */
+	preferences: Preferences | null;
 };
 
 export const initialState = (): LedgerState => ({
@@ -52,7 +58,8 @@ export const initialState = (): LedgerState => ({
 	activePlanId: null,
 	started: [],
 	removedSessions: {},
-	logged: {}
+	logged: {},
+	preferences: null
 });
 
 /** The latest session: the most recent start that hasn't been removed. */
@@ -100,6 +107,8 @@ function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
 			};
 		case 'PlanSelected':
 			return { ...state, activePlanId: data.plan };
+		case 'PreferencesSet':
+			return { ...state, preferences: { intents: data.intents, equipment: data.equipment } };
 	}
 }
 
@@ -119,8 +128,9 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 		case 'StartSession': {
 			if (state.activeSession)
 				throw new IllegalStateError('A session is already in progress — finish it first.');
-			const { session, plan, at } = command.data;
-			return [{ type: 'SessionStarted', data: { session, plan, at, mode: 'live', ...workoutOf(command.data) } }];
+			const { session, plan, at, discipline } = command.data;
+			if (!isDiscipline(discipline)) throw new ValidationError('A session says what it is: lift, yoga, bodyweight, mobility or run.');
+			return [{ type: 'SessionStarted', data: { session, plan, at, mode: 'live', discipline, ...workoutOf(command.data) } }];
 		}
 
 		case 'LogEntry': {
@@ -154,8 +164,9 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 		}
 
 		case 'LogAfter': {
-			const { session, plan, startAt, at, entries } = command.data;
+			const { session, plan, discipline, startAt, at, entries } = command.data;
 			if (!entries.length) throw new ValidationError('Nothing to log.');
+			if (!isDiscipline(discipline)) throw new ValidationError('A session says what it is: lift, yoga, bodyweight, mobility or run.');
 			if (state.started.includes(session)) throw new IllegalStateError('That session is already in the ledger.');
 			if (Date.parse(startAt) > Date.parse(at)) throw new ValidationError('A session cannot end before it starts.');
 			const seen = new Set<string>();
@@ -167,7 +178,7 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 				validateMeasure(en.measure);
 			}
 			return [
-				{ type: 'SessionStarted', data: { session, plan, at: startAt, mode: 'after', ...workoutOf(command.data) } },
+				{ type: 'SessionStarted', data: { session, plan, at: startAt, mode: 'after', discipline, ...workoutOf(command.data) } },
 				...entries.map(
 					(en): LedgerEvent => ({
 						type: 'EntryLogged',
@@ -201,6 +212,21 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			// return zero events, which makes retries naturally idempotent.
 			if (state.activePlanId === command.data.plan) return [];
 			return [{ type: 'PlanSelected', data: { plan: command.data.plan, at: command.data.at } }];
+		}
+
+		case 'SetPreferences': {
+			// from the menu only, one to three of them, each once — the sheet
+			// refuses the fourth tap, and so does this
+			const { at, intents, equipment } = command.data;
+			if (!Array.isArray(intents) || !intents.length || intents.length > MAX_INTENTS)
+				throw new ValidationError(`Pick one to ${MAX_INTENTS} things you're after.`);
+			if (!intents.every(isIntent) || new Set(intents).size !== intents.length)
+				throw new ValidationError('That is not something the app can act on.');
+			if (!Array.isArray(equipment) || !equipment.every(isEquipment) || new Set(equipment).size !== equipment.length)
+				throw new ValidationError('That is not something the app knows about.');
+			const next: Preferences = { intents: [...intents], equipment: [...equipment] };
+			if (state.preferences && samePreferences(state.preferences, next)) return [];
+			return [{ type: 'PreferencesSet', data: { at, ...next } }];
 		}
 	}
 };

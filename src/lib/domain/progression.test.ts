@@ -29,11 +29,14 @@ const hist = (entries: { daysAgo: number; sets: Measure[] }[]): History =>
 	});
 const one = (daysAgo: number, ...sets: Measure[]) => hist([{ daysAgo, sets }]);
 
-const goblet: Exercise = { name: 'Goblet Squat', equip: '', tag: '', kind: 'load', sets: 3, lo: 6, hi: 12, start: 35, inc: 5, rack: 'dumbbell' };
-const rdl: Exercise = { ...goblet, name: 'Romanian Deadlift', start: 40, each: true };
-const press: Exercise = { name: 'Chest Press', equip: '', tag: '', kind: 'load', sets: 3, lo: 8, hi: 12, start: 45, inc: 5 };
-const plank: Exercise = { name: 'Long-Lever Plank', equip: '', tag: '', kind: 'hold', sets: 3, lo: 10, hi: 20, inc: 5 };
-const copenhagen: Exercise = { name: 'Copenhagen Plank', equip: '', tag: '', kind: 'reps', sets: 2, lo: 5, hi: 15, side: 'sets' };
+const goblet: Exercise = { name: 'Goblet Squat', equip: '', tag: '', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 35, inc: 5, rack: 'dumbbell' } };
+const rdl: Exercise = { ...goblet, name: 'Romanian Deadlift', progress: { of: 'size', start: 40, inc: 5, rack: 'dumbbell', each: true } };
+const press: Exercise = { name: 'Chest Press', equip: '', tag: '', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 45, inc: 5 } };
+const plank: Exercise = { name: 'Long-Lever Plank', equip: '', tag: '', kind: 'hold', sets: 3, lo: 10, hi: 20, progress: { of: 'time', inc: 5 } };
+const copenhagen: Exercise = { name: 'Copenhagen Plank', equip: '', tag: '', kind: 'reps', sets: 2, lo: 5, hi: 15, progress: { of: 'count' }, side: 'sets' };
+const stretch: Exercise = { name: 'Calf stretch', equip: '', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, progress: { of: 'none' }, side: 'sets' };
+const pushup: Exercise = { name: 'Push-up', equip: '', tag: '', kind: 'reps', sets: 2, lo: 8, hi: 15, progress: { of: 'variant', ladder: ['Incline push-up', 'Push-up', 'Decline push-up'] } };
+const run: Exercise = { name: 'Easy run', equip: '', tag: '', kind: 'run', sets: 1, lo: 30, hi: 30, progress: { of: 'none' } };
 
 const weights = (ex: Exercise, h: History) => {
 	const s = suggest(h, ex, NOW);
@@ -50,13 +53,13 @@ const loaded = (ex: Exercise, h: History) => {
 };
 const counted = (ex: Exercise, h: History) => {
 	const s = suggest(h, ex, NOW);
-	if (s.kind === 'load') throw new Error('expected a count suggestion');
+	if (s.kind !== 'count') throw new Error('expected a count suggestion');
 	return s;
 };
 
 describe('suggest — first time', () => {
 	it('starts every set at the plan weight, snapped to the rack', () => {
-		const s = loaded({ ...goblet, start: 37 }, []);
+		const s = loaded({ ...goblet, progress: { of: 'size', start: 37, inc: 5, rack: 'dumbbell' } }, []);
 		expect(s.reason).toBe('start');
 		expect(s.sets.map((x) => x.weight)).toEqual([35, 35, 35]);
 		expect(s.sets.map((x) => x.reps)).toEqual([6, 6, 6]);
@@ -64,7 +67,7 @@ describe('suggest — first time', () => {
 		expect(loaded(press, []).weight).toBe(45);
 	});
 	it('starts a hold and a count at the bottom of the range', () => {
-		expect(suggest([], plank, NOW)).toEqual({ kind: 'hold', sets: [{ count: 10, reason: 'start' }, { count: 10, reason: 'start' }, { count: 10, reason: 'start' }], ceiling: false, daysSince: null });
+		expect(suggest([], plank, NOW)).toEqual({ kind: 'count', sets: [{ count: 10, reason: 'start' }, { count: 10, reason: 'start' }, { count: 10, reason: 'start' }], ceiling: false, daysSince: null });
 		expect(counted(copenhagen, []).sets.map((x) => x.count)).toEqual([5, 5]);
 	});
 });
@@ -170,7 +173,7 @@ describe('suggest — re-entry', () => {
 describe('suggest — holds and counts', () => {
 	it('carries last time’s reps for a bodyweight movement, capped at the top', () => {
 		const s = suggest(one(2, reps(8), reps(20)), copenhagen, NOW);
-		expect(s.kind).toBe('reps');
+		expect(s.kind).toBe('count');
 		expect(s.sets).toEqual([{ count: 8, reason: 'hold' }, { count: 15, reason: 'ceiling' }]);
 	});
 	it('asks for +inc after a hold that rang its bell, and caps at the ceiling', () => {
@@ -191,6 +194,56 @@ describe('suggest — holds and counts', () => {
 		expect(atCeiling({ sets: [hold(20)] }, plank)).toBe(false);
 		expect(atCeiling(null, plank)).toBe(false);
 	});
+	it('leaves a dose that does not progress exactly where it is', () => {
+		expect(suggest([], stretch, NOW)).toEqual({ kind: 'count', sets: [{ count: 45, reason: 'start' }, { count: 45, reason: 'start' }], ceiling: false, daysSince: null });
+		const s = counted(stretch, one(2, hold(60, 45), hold(60, 45)));
+		expect(s.sets.map((x) => x.count)).toEqual([45, 45]);
+		expect(s.ceiling).toBe(false);
+		expect(Math.round(s.daysSince!)).toBe(2);
+		expect(counted(run, one(2, { of: 'duration', minutes: 42 })).sets).toEqual([{ count: 30, reason: 'hold' }]);
+	});
+});
+
+describe('suggest — a ladder: the variant is the progression', () => {
+	it('starts on the first rung at the bottom of the range', () => {
+		const s = counted(pushup, []);
+		expect(s.variant).toEqual({ name: 'Incline push-up', rung: 0, promoted: false, top: false });
+		expect(s.sets.map((x) => x.count)).toEqual([8, 8]);
+	});
+	it('carries the count until every set is at the top, then goes up a rung and starts over', () => {
+		const held = counted(pushup, one(3, reps(12), reps(10)));
+		expect(held.variant).toMatchObject({ rung: 0, promoted: false });
+		expect(held.sets.map((x) => x.count)).toEqual([12, 10]);
+		const up = counted(pushup, one(3, reps(15), reps(15)));
+		expect(up.variant).toEqual({ name: 'Push-up', rung: 1, promoted: true, top: false });
+		expect(up.sets).toEqual([{ count: 8, reason: 'increase' }, { count: 8, reason: 'increase' }]);
+		expect(up.ceiling).toBe(false);
+	});
+	it('counts the rung from the stream, like a rack walk', () => {
+		const h = hist([
+			{ daysAgo: 2, sets: [reps(11), reps(9)] }, // on rung 2, carrying
+			{ daysAgo: 6, sets: [reps(15), reps(15)] }, // earned rung 2
+			{ daysAgo: 9, sets: [reps(12), reps(12)] },
+			{ daysAgo: 13, sets: [reps(15), reps(15)] } // earned rung 1
+		]);
+		const s = counted(pushup, h);
+		expect(s.variant).toEqual({ name: 'Decline push-up', rung: 2, promoted: false, top: true });
+		expect(s.sets.map((x) => x.count)).toEqual([11, 9]);
+	});
+	it('runs out of rungs: the top of the last one is the ceiling', () => {
+		const h = hist([
+			{ daysAgo: 2, sets: [reps(15), reps(15)] },
+			{ daysAgo: 6, sets: [reps(15), reps(15)] },
+			{ daysAgo: 13, sets: [reps(15), reps(15)] }
+		]);
+		const s = counted(pushup, h);
+		expect(s.variant).toEqual({ name: 'Decline push-up', rung: 2, promoted: false, top: true });
+		expect(s.ceiling).toBe(true);
+		expect(s.sets.map((x) => x.reason)).toEqual(['ceiling', 'ceiling']);
+	});
+	it('needs a full entry to earn a rung', () => {
+		expect(counted(pushup, one(2, reps(15))).variant).toMatchObject({ rung: 0, promoted: false });
+	});
 });
 
 describe('a set against its range', () => {
@@ -207,13 +260,16 @@ describe('the ± tiles are the rule’s own one-size step', () => {
 		expect(bumpLoad(press, 45, 1)).toBe(50);
 		expect(bumpLoad(press, 0, -1)).toBe(0);
 	});
-	it('moves a hold by its inc inside the range, a count by one inside the bounds', () => {
+	it('moves a hold by its inc inside the range, a count by one inside the bounds, a run by five minutes', () => {
 		expect(bumpCount(plank, 10, 1)).toBe(15);
 		expect(bumpCount(plank, 20, 1)).toBe(20); // the ceiling
 		expect(bumpCount(plank, 10, -1)).toBe(10); // the floor
+		expect(bumpCount(stretch, 45, 1)).toBe(45); // nowhere to go
 		expect(bumpCount(copenhagen, 8, 1)).toBe(9);
 		expect(bumpCount(goblet, 1, -1)).toBe(1);
 		expect(bumpCount(goblet, 100, 1)).toBe(100);
+		expect(bumpCount(run, 30, 1)).toBe(35);
+		expect(bumpCount(run, 5, -1)).toBe(5);
 	});
 });
 

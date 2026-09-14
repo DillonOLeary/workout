@@ -5,14 +5,12 @@
 	import MonthGrid from '$lib/components/MonthGrid.svelte';
 	import PaceTiles from '$lib/components/PaceTiles.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
-	import { RUN_ITEM } from '$lib/domain/events';
 	import { fmtShort, paceSentence, sessionSummary, setsLine, trendTally } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
-	import { hasRuns, liftDays, liftTarget, runTarget, type Exercise } from '$lib/domain/plan';
+	import { cycleDisciplines, disciplinesOf, planExercises, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
 	import {
 		TREND_WINDOW,
-		dayTitle,
 		monthGrid,
 		projectPlanSwitches,
 		projectSessions,
@@ -54,28 +52,35 @@
 
 	/* ---------- the long view: a month of days, a running average, the trends ---- */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
-	let grid = $derived(monthGrid(data.events, now, data.plans));
-	let pace = $derived(weeklyPace(data.events, now, data.plans));
-	// the section's answer: what the average comes to, against what the plan asked
-	let paceLine = $derived(
-		paceSentence({
-			weeks: Math.round(pace.days / 7),
-			lifts: pace.lifts.per,
-			liftGoal: liftTarget(plan),
-			runMinutes: hasRuns(plan) ? pace.runMinutes.per : null,
-			runGoal: hasRuns(plan) ? runTarget(plan) : null
-		})
-	);
-
-	// every exercise on the lift days, in plan order, once (calves are on both days)
-	let planExercises = $derived.by(() => {
-		const seen = new Set<string>();
-		const out: Exercise[] = [];
-		for (const d of liftDays(plan)) for (const ex of plan.days[d]) if (!seen.has(ex.name)) { seen.add(ex.name); out.push(ex); }
+	let grid = $derived(monthGrid(data.events, now));
+	let pace = $derived(weeklyPace(data.events, now));
+	// the disciplines this ledger speaks of: the plan's, plus anything actually done in the window
+	let disciplines = $derived.by(() => {
+		const out = disciplinesOf(plan);
+		for (const d of Object.keys(pace.by) as Discipline[]) if (!out.includes(d) && (pace.by[d].per > 0 || pace.by[d].prev > 0)) out.push(d);
 		return out;
 	});
-	// the session in progress is excluded: the rule never grades the set it is suggesting
-	let trends = $derived(planExercises.map((ex) => ({ ex, trend: trendFor(data.events, ex, data.activeSession?.id, now) })));
+	// what the plan asks of each discipline a week: its cycles' targets, summed
+	const targetFor = (d: Discipline) => plan.cycles.filter((c) => cycleDisciplines(plan, c).includes(d)).reduce((n, c) => n + c.target, 0);
+	// the section's answer: what the average comes to, against what the plan asked
+	let paceLine = $derived(
+		paceSentence({ weeks: Math.round(pace.days / 7), rates: disciplines.map((d) => ({ discipline: d, per: pace.by[d].per, target: targetFor(d) })) })
+	);
+
+	// every exercise that progresses, in plan order, once — from the cycles the
+	// plan asks for this week, plus anything else with history. The session in
+	// progress is excluded: the rule never grades the set it is suggesting
+	let askedRoutines = $derived(new Set(plan.cycles.filter((c) => c.target > 0).flatMap((c) => c.routines)));
+	let trends = $derived(
+		planExercises(plan)
+			.filter((ex) => ex.progress.of !== 'none')
+			.map((ex) => ({
+				ex,
+				trend: trendFor(data.events, ex, data.activeSession?.id, now),
+				asked: Object.entries(plan.routines).some(([r, list]) => askedRoutines.has(r) && list.includes(ex))
+			}))
+			.filter((t) => t.asked || t.trend.sessions > 0)
+	);
 	// the trend row that is open — `openRow` below belongs to the day editor
 	let openTrend = $state<string | null>(null);
 	let trendLine = $derived(trendTally(trends.map((t) => t.trend.tone)));
@@ -119,7 +124,7 @@
 		});
 
 	const exByName = (name: string): Exercise | undefined =>
-		data.plans.flatMap((p) => Object.values(p.days).flat()).find((e) => e.name === name);
+		data.plans.flatMap((p) => Object.values(p.routines).flat()).find((e) => e.name === name);
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 
@@ -145,10 +150,11 @@
 		editingRow = key;
 	}
 	function openRun(s: SessionView) {
-		const key = `${s.id}:${RUN_ITEM}`;
+		const key = `${s.id}:run`;
 		if (editingRow === key) return (editingRow = null);
-		original = [{ of: 'duration', minutes: s.minutes }];
-		edit = [{ item: RUN_ITEM, index: 1, of: 'duration', weight: 0, count: s.minutes }];
+		// the entry that carried the minutes — a retired run says 'Run', a live one its exercise's name
+		original = s.durations.map((d) => ({ of: 'duration', minutes: d.minutes }));
+		edit = s.durations.map((d) => ({ item: d.item, index: d.index, of: 'duration', weight: 0, count: d.minutes }));
 		editingRow = key;
 	}
 	// the same ± as the floor where the exercise is known; a plain step where it isn't
@@ -157,7 +163,7 @@
 	};
 	const bumpReps = (e: EditSet, dir: 1 | -1) => {
 		if (e.of === 'duration') e.count = Math.max(1, Math.min(600, e.count + dir * 5));
-		else if (e.of === 'hold') e.count = Math.max(1, Math.min(600, e.count + dir * (e.ex?.kind === 'hold' ? e.ex.inc || 5 : 5)));
+		else if (e.of === 'hold') e.count = Math.max(1, Math.min(600, e.count + dir * (e.ex?.kind === 'hold' && e.ex.progress.of === 'time' ? e.ex.progress.inc : 5)));
 		else if (e.ex && e.ex.kind !== 'hold') e.count = bumpCount(e.ex, e.count, dir);
 		else e.count = Math.max(1, Math.min(100, e.count + dir));
 	};
@@ -203,8 +209,8 @@
 		<Card>
 			<p class="answer">{paceLine}</p>
 			<div class="pair">
-				<div class="calside"><MonthGrid {grid} /></div>
-				<div class="side"><PaceTiles {pace} runs={hasRuns(plan)} /></div>
+				<div class="calside"><MonthGrid {grid} legend={disciplines} /></div>
+				<div class="side"><PaceTiles {pace} {disciplines} /></div>
 			</div>
 		</Card>
 	</section>
@@ -270,7 +276,7 @@
 						{#if e.of === 'load'}
 							<span class="ctl">
 								<button type="button" class="pm" aria-label="Less weight" onclick={() => bumpWeight(edit[i], -1)}>−</button>
-								<span class="num">{e.weight}<span class="unit"> {e.ex?.kind === 'load' && e.ex.each ? '/hand' : 'lb'}</span></span>
+								<span class="num">{e.weight}<span class="unit"> {e.ex?.kind === 'load' && e.ex.progress.each ? '/hand' : 'lb'}</span></span>
 								<button type="button" class="pm" aria-label="More weight" onclick={() => bumpWeight(edit[i], 1)}>+</button>
 							</span>
 							<span class="times">×</span>
@@ -293,27 +299,27 @@
 	<div class="days">
 	{#each visible as s (s.id)}
 		{@const latest = s.id === data.latestSession}
-		{#if s.workout.kind === 'run' && s.rows.length === 0}
+		{#if s.discipline === 'run' && s.rows.length === 0}
 			<!-- a run is already one line — the same shell as a folded day, with
 			     nothing to open (the latest one opens its editor) -->
 			<Card pad={false}>
 				{#if latest}
-					<button type="button" class="line tap" onclick={() => openRun(s)} aria-expanded={editingRow === `${s.id}:${RUN_ITEM}`}>
+					<button type="button" class="line tap" onclick={() => openRun(s)} aria-expanded={editingRow === `${s.id}:run`}>
 						<span class="date">{s.dateLabel}</span>
-						<span class="runlbl">{dayTitle(planById(s.plan), s.workout)}</span>
+						<span class="runlbl">{routineTitle(planById(s.plan), s.workout.routine)}</span>
 						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
 						<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
 					</button>
 				{:else}
 					<div class="line">
 						<span class="date">{s.dateLabel}</span>
-						<span class="runlbl">{dayTitle(planById(s.plan), s.workout)}</span>
+						<span class="runlbl">{routineTitle(planById(s.plan), s.workout.routine)}</span>
 						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
 						<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
 					</div>
 				{/if}
 				{#if editMode}<div class="removerow">{@render removeBtn(s.id)}</div>{/if}
-				{#if editingRow === `${s.id}:${RUN_ITEM}`}{@render editor(s)}{/if}
+				{#if editingRow === `${s.id}:run`}{@render editor(s)}{/if}
 			</Card>
 		{:else}
 			{@const open = isOpen(s.id)}
@@ -326,7 +332,7 @@
 						<span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
 						<span class="date">{s.dateLabel}</span>
 						<span class="ttl">
-							{dayTitle(planById(s.plan), s.workout)}
+							{routineTitle(planById(s.plan), s.workout.routine)}
 							{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
 							{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
 						</span>
@@ -361,11 +367,11 @@
 				{/each}
 				{#if s.minutes}
 					{#if latest}
-						<button type="button" class="sessrow tap" class:opened={editingRow === `${s.id}:${RUN_ITEM}`} onclick={() => openRun(s)}>
+						<button type="button" class="sessrow tap" class:opened={editingRow === `${s.id}:run`} onclick={() => openRun(s)}>
 							<span class="exname">Run</span>
 							<span class="val">{s.minutes} min</span>
 						</button>
-						{#if editingRow === `${s.id}:${RUN_ITEM}`}{@render editor(s)}{/if}
+						{#if editingRow === `${s.id}:run`}{@render editor(s)}{/if}
 					{:else}
 						<div class="sessrow">
 							<span class="exname">Run</span>

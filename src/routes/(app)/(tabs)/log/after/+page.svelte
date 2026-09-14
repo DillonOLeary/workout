@@ -4,15 +4,12 @@
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Chip from '$lib/components/Chip.svelte';
-	import Stepper from '$lib/components/Stepper.svelte';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { RUN, RUN_ITEM, lift, type Workout } from '$lib/domain/events';
-	import { hasRuns, liftDays } from '$lib/domain/plan';
 	import { measureFor } from '$lib/domain/measure';
-	import { dayTitle, historyFor } from '$lib/domain/projections';
+	import { disciplineOf, routineKeys, routineTitle, routinesOf, type Exercise } from '$lib/domain/plan';
+	import { historyFor } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
-	import type { Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -21,24 +18,22 @@
 	/**
 	 * "Log it after": the same session shape the floor writes live, written
 	 * in one shot and backdated. A run is one entry; a lift is its sets — the
-	 * rule's numbers prefilled, yours to change. Nothing here is a second
-	 * kind of thing in the ledger.
+	 * rule's numbers prefilled, yours to change. Every routine is one chip,
+	 * the run among them: nothing here is a second kind of thing in the ledger.
 	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
-	let dayKeys = $derived(Object.keys(plan.days));
-	let hasRun = $derived(hasRuns(plan));
-	// Today says what it sent you for: ?what=run, or ?what=lift for the first lift day
+	let keys = $derived(routineKeys(plan));
+	// Today says what it sent you for: ?what=<routine>; else the run, the thing most often done without the phone
 	// svelte-ignore state_referenced_locally
 	const asked = page.url.searchParams.get('what');
-	let what = $state<Workout | null>(null);
-	let workout = $derived(
-		what ?? (asked === 'lift' ? lift(liftDays(plan)[0] ?? dayKeys[0]) : hasRun ? RUN : lift(dayKeys[0]))
+	let picked = $state<string | null>(null);
+	let routine = $derived(
+		picked ?? (asked && plan.routines[asked] ? asked : (routinesOf(plan, 'run')[0] ?? keys[0]))
 	);
-	let isRun = $derived(workout.kind === 'run');
+	let isRun = $derived(disciplineOf(plan, routine) === 'run');
 
 	// when: today, or one of the last few days at noon — a backdated
 	// session needs a day, not a minute
-	const DAY = 86400000;
 	const whenOptions = (() => {
 		const out: { key: string; label: string; at: Date }[] = [];
 		const now = new Date();
@@ -52,18 +47,14 @@
 	let when = $state('0');
 	let endAt = $derived(whenOptions.find((w) => w.key === when)?.at ?? new Date());
 
-	let minutes = $state(30);
-	$effect(() => {
-		minutes = plan.run?.minutes ?? 30;
-	});
-
-	/* the lift: one line per exercise, every set the same numbers. The rule's
+	/* one line per exercise, every set the same numbers. The rule's
 	   suggestion for set 1 is the starting point — a session you did without
-	   the phone was most likely the one the plan asked for. */
+	   the phone was most likely the one the plan asked for. The run is a line
+	   too: one set, its minutes. */
 	type Line = { ex: Exercise; sets: number; weight: number; count: number };
 	let lines = $state<Line[]>([]);
 	$effect(() => {
-		const exs = workout.kind === 'lift' ? (plan.days[workout.day] ?? []) : [];
+		const exs = plan.routines[routine] ?? [];
 		lines = exs.map((ex) => {
 			const s = suggest(historyFor(data.events, ex.name), ex, opened);
 			return { ex, sets: ex.sets, weight: s.kind === 'load' ? s.weight : 0, count: s.kind === 'load' ? s.sets[0].reps : s.sets[0].count };
@@ -75,9 +66,10 @@
 	};
 	const bumpReps = (l: Line, dir: 1 | -1) => (l.count = bumpCount(l.ex, l.count, dir));
 	const bumpSets = (l: Line, dir: 1 | -1) => (l.sets = Math.max(0, Math.min(8, l.sets + dir)));
+	const unitOf = (ex: Exercise) =>
+		ex.kind === 'hold' ? 's' : ex.kind === 'reps' ? ' reps' : ex.kind === 'run' ? ' min' : '';
 
 	let entries = $derived.by((): AfterEntry[] => {
-		if (isRun) return [{ item: RUN_ITEM, index: 1, measure: { of: 'duration', minutes } }];
 		const out: AfterEntry[] = [];
 		for (const l of lines)
 			for (let k = 1; k <= l.sets; k++)
@@ -89,10 +81,12 @@
 				});
 		return out;
 	});
-	let durationMin = $derived(isRun ? minutes : estimateMinutes(sessionSteps(plan, workout)));
+	// a run done without the phone was the run, not the drills around it
+	let runMinutes = $derived(lines.find((l) => l.ex.kind === 'run')?.count ?? 0);
+	let durationMin = $derived(isRun ? runMinutes : estimateMinutes(sessionSteps(plan, { routine })));
 	let startAt = $derived(new Date(endAt.getTime() - durationMin * 60000));
-	let title = $derived(dayTitle(plan, workout));
-	let submitLabel = $derived(isRun ? `Log ${minutes} min` : `Log ${title}`);
+	let title = $derived(routineTitle(plan, routine));
+	let submitLabel = $derived(isRun ? `Log ${runMinutes} min` : `Log ${title}`);
 	let shapeLine = $derived(
 		isRun
 			? 'Same session shape · one entry · backdated.'
@@ -110,11 +104,8 @@
 		<form method="POST" action="?/log" use:enhance class="form">
 			<div class="caps">What</div>
 			<div class="chips">
-				{#if hasRun}
-					<Chip selected={isRun} onclick={() => (what = RUN)}>{dayTitle(plan, RUN)}</Chip>
-				{/if}
-				{#each dayKeys as d (d)}
-					<Chip selected={workout.kind === 'lift' && workout.day === d} onclick={() => (what = lift(d))}>{dayTitle(plan, lift(d))}</Chip>
+				{#each keys as r (r)}
+					<Chip selected={routine === r} onclick={() => (picked = r)}>{routineTitle(plan, r)}</Chip>
 				{/each}
 			</div>
 
@@ -125,48 +116,44 @@
 				{/each}
 			</div>
 
-			{#if isRun}
-				<div class="caps mt">Minutes</div>
-				<Stepper bind:value={minutes} step={5} min={5} max={240} unit="min" label="minutes" />
-			{:else}
-				<div class="caps mt">The sets</div>
-				<div class="lines">
-					{#each lines as l (l.ex.name)}
-						<div class="line">
-							<div class="lhead">
-								<span class="lname">{l.ex.name}</span>
+			<div class="caps mt">{isRun ? 'Minutes' : 'The sets'}</div>
+			<div class="lines">
+				{#each lines as l (l.ex.name)}
+					<div class="line">
+						<div class="lhead">
+							<span class="lname">{l.ex.name}</span>
+							{#if l.ex.kind !== 'run'}
 								<span class="ctl">
 									<button type="button" class="pm" aria-label="Fewer sets" onclick={() => bumpSets(l, -1)}>−</button>
 									<span class="num">{l.sets} <span class="unit">{l.sets === 1 ? 'set' : 'sets'}</span></span>
 									<button type="button" class="pm" aria-label="More sets" onclick={() => bumpSets(l, 1)}>+</button>
 								</span>
-							</div>
-							<div class="lctls">
-								{#if l.ex.kind === 'load'}
-									<span class="ctl">
-										<button type="button" class="pm" aria-label="Less weight" onclick={() => bumpWeight(l, -1)}>−</button>
-										<span class="num">{l.weight} <span class="unit">{l.ex.each ? '/hand' : 'lb'}</span></span>
-										<button type="button" class="pm" aria-label="More weight" onclick={() => bumpWeight(l, 1)}>+</button>
-									</span>
-									<span class="times">×</span>
-								{/if}
-								<span class="ctl">
-									<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpReps(l, -1)}>−</button>
-									<span class="num">{l.count}<span class="unit">{l.ex.kind === 'hold' ? 's' : l.ex.kind === 'reps' ? ' reps' : ''}</span></span>
-									<button type="button" class="pm" aria-label="More" onclick={() => bumpReps(l, 1)}>+</button>
-								</span>
-							</div>
+							{/if}
 						</div>
-					{/each}
-				</div>
-			{/if}
+						<div class="lctls">
+							{#if l.ex.kind === 'load'}
+								<span class="ctl">
+									<button type="button" class="pm" aria-label="Less weight" onclick={() => bumpWeight(l, -1)}>−</button>
+									<span class="num">{l.weight} <span class="unit">{l.ex.progress.each ? '/hand' : 'lb'}</span></span>
+									<button type="button" class="pm" aria-label="More weight" onclick={() => bumpWeight(l, 1)}>+</button>
+								</span>
+								<span class="times">×</span>
+							{/if}
+							<span class="ctl">
+								<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpReps(l, -1)}>−</button>
+								<span class="num">{l.count}<span class="unit">{unitOf(l.ex)}</span></span>
+								<button type="button" class="pm" aria-label="More" onclick={() => bumpReps(l, 1)}>+</button>
+							</span>
+						</div>
+					</div>
+				{/each}
+			</div>
 
 			<p class="shape">{shapeLine}</p>
 			{#if form?.message}<p class="err">{form.message}</p>{/if}
 
 			<input type="hidden" name="plan" value={plan.id} />
-			<input type="hidden" name="kind" value={workout.kind} />
-			<input type="hidden" name="day" value={workout.kind === 'lift' ? workout.day : ''} />
+			<input type="hidden" name="routine" value={routine} />
 			<input type="hidden" name="startAt" value={startAt.toISOString()} />
 			<input type="hidden" name="at" value={endAt.toISOString()} />
 			<input type="hidden" name="entries" value={JSON.stringify(entries)} />

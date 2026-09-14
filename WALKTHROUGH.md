@@ -63,22 +63,23 @@ which job a file has tells you what belongs in it — and what doesn't:
 
 | layer | file | the job | the rule of the layer |
 |---|---|---|---|
-| **vocabulary** | [measure.ts](src/lib/domain/measure.ts), [events.ts](src/lib/domain/events.ts), [commands.ts](src/lib/domain/commands.ts) | the measure, the facts, the requests | closed unions, self-describing, past / imperative tense — and the *current* shape only |
+| **vocabulary** | [measure.ts](src/lib/domain/measure.ts), [events.ts](src/lib/domain/events.ts), [commands.ts](src/lib/domain/commands.ts), [preferences.ts](src/lib/domain/preferences.ts) | the measure, the facts, the requests, the two menus you can answer | closed unions, self-describing, past / imperative tense — and the *current* shape only |
 | **read boundary** | [upcast.ts](src/lib/domain/upcast.ts) | translate stored rows into today's vocabulary | the only place shape inference lives; an unknown name throws |
 | **rules** | [decider.ts](src/lib/domain/decider.ts) | accept or refuse a command | state holds only what a rule needs; validates shape, never meaning |
-| **read model** | [projections.ts](src/lib/domain/projections.ts) | what happened — per session, per exercise, per week | pure folds over events; removal applied once; `now` is an argument |
+| **read model** | [projections.ts](src/lib/domain/projections.ts) | what happened — per session, per exercise, per cycle, per week — and what to offer next | pure folds over events; removal applied once; `now` is an argument |
 | **policy** | [progression.ts](src/lib/domain/progression.ts) | what every set should be next time | a function of (history, exercise, now) — knows nothing about events |
 | **words** | [labels.ts](src/lib/domain/labels.ts) | every phrase about a set, a load, a range | one implementation per phrase, tested as strings |
-| **reference** | [plan.ts](src/lib/domain/plan.ts), [plans.ts](src/lib/domain/plans.ts), [racks.ts](src/lib/domain/racks.ts), [steps.ts](src/lib/domain/steps.ts) | the plan model, the shipped plans, the ladders, the walk | parsed at *its* boundary too — a plan row is data from outside, like an event row |
+| **reference** | [plan.ts](src/lib/domain/plan.ts), [plans.ts](src/lib/domain/plans.ts), [racks.ts](src/lib/domain/racks.ts), [steps.ts](src/lib/domain/steps.ts) | the plan model (routines, cycles, disciplines, progress), the shipped plans, the ladders, the walk | parsed at *its* boundary too — a plan row is data from outside, like an event row |
 
 Dependencies point one way — `measure ← events ← upcast ← decider`,
-`projections → progression → plan → racks`, and `labels` sits between
-`progression` and the screens — so a file never reaches up. When something
+`projections → progression → plan → racks` (and `projections → steps`, for
+the minutes a candidate costs), and `labels` sits between `progression` and
+the screens — so a file never reaches up. When something
 feels like it belongs in two places, the table says which. The smell that
 produced this shape was `projections.ts` holding the read model, the rule
 *and* the words at once, while every screen re-derived the words for itself.
 
-### The measure, and the six facts
+### The measure, and the seven facts
 
 [measure.ts](src/lib/domain/measure.ts) is the heart of the vocabulary. An
 entry measures exactly one of:
@@ -88,7 +89,7 @@ entry measures exactly one of:
 | `load` | a weighted set: load × reps | a `load` exercise |
 | `reps` | a bodyweight count | a `reps` exercise (dead bug, sun salutation) |
 | `hold` | seconds held, and the bell aimed for | a `hold` exercise |
-| `duration` | minutes | the run |
+| `duration` | minutes | the run — a routine whose one exercise is `kind: 'run'` |
 | `step` | it happened | a warm-up line, a cooldown stretch, a walk |
 
 The three questions every screen asks — `isSet`, `countOf`, `loadOf` — are
@@ -100,39 +101,46 @@ they govern; `measureFor(exercise, …)` is the one place "which variant does
 this exercise write" is decided. Note there is no "load of 0 means
 bodyweight": a convention is exactly what a union exists to remove.
 
-[events.ts](src/lib/domain/events.ts) then names the six facts:
+[events.ts](src/lib/domain/events.ts) then names the seven facts:
 
 | Event | Meaning |
 |---|---|
-| `SessionStarted` | a workout began: which plan, which **workout** (`{ kind: 'lift', day }` or `{ kind: 'run' }`), and `mode` — `live` (the floor walked it) or `after` (written in one shot, backdated) |
+| `SessionStarted` | a workout began: which plan, which **routine** (`{ routine }` — the run is the routine called `run`, no second arm, no sentinel), what **discipline** it was (`lift` · `yoga` · `bodyweight` · `mobility` · `run` — stamped when it starts, never looked up later, because plan rows have no history and a routine retired in March must not rewrite January), and `mode` — `live` (the floor walked it) or `after` (written in one shot, backdated) |
 | `EntryLogged` | one entry: `item` + `index` is its identity, `measure` is what it measured |
 | `EntryCorrected` | a set you fixed: the same identity, the measure it should have carried. The original stays in the stream; every reader takes the last word |
 | `SessionFinished` | the workout ended |
 | `SessionRemoved` | the event-sourced delete — a fact about a fact |
 | `PlanSelected` | you switched programs |
+| `PreferencesSet` | what you told the app you're after and what you've got — a full snapshot with a date, so "you said you wanted to run better six weeks ago" is sayable |
 
 A **workout is a session: an ordered list of entries, each with one
 measure**. A lift is a session of sets; a run is a session with one
 `duration` entry; a warm-up line is an entry too. *Guided* and *logged after
 the fact* are not two kinds of thing: they are **when** the same events get
-written. Two habits keep the file honest: it describes the current shape
-only (no field is optional merely because old rows lack it — filling those
-is the upcaster's job), and an event carries what a reader needs and nothing
-a reader never uses (`plan` and the workout live on `SessionStarted` alone;
+written. Yoga at 7am and a lift at 6pm is one day, two sessions, two
+disciplines, and no type needs a special case for that sentence. Two habits
+keep the file honest: it describes the current shape only (no field is
+optional merely because old rows lack it — filling those is the upcaster's
+job), and an event carries what a reader needs and nothing a reader never
+uses (`plan`, the routine and the discipline live on `SessionStarted` alone;
 an entry names its session, and the session says the rest).
 
 Names are **past tense** — an event can't be rejected, it already happened.
 Requests that *can* be rejected are **commands**, named in the imperative
-(`StartSession`, `LogEntry`, `CorrectEntry`, `LogAfter` —
+(`StartSession`, `LogEntry`, `CorrectEntry`, `LogAfter`, `SetPreferences` —
 [commands.ts](src/lib/domain/commands.ts)). One command per verb, and
-nothing else writes: every tap in the app maps to exactly one of them.
+nothing else writes: every tap in the app maps to exactly one of them. The
+discipline rides IN on `StartSession` and `LogAfter`: the form action reads
+it off the plan the routine belongs to, so the decider never needs the plan.
 
 ### The read boundary — the upcaster
 
 The stream still holds `SetLogged`, `RunLogged`, `RunRemoved` and
 `SessionStruck` rows from earlier vocabularies, `SessionStarted` rows with
-no `mode` and a run spelled `day: 'run'`, and four days of bodyweight sets
-written as a load of 0 — **nothing in Postgres was rewritten**.
+no `mode`, with `day` where today's say `routine`, with a run spelled
+`day: 'run'` and later `kind: 'run'`, and — every row before 2026-09-14 —
+no `discipline`; and four days of bodyweight sets written as a load of 0 —
+**nothing in Postgres was rewritten**.
 [upcast.ts](src/lib/domain/upcast.ts) translates each row as it is read,
 and it is one-to-*many*: a stored `RunLogged` comes back as a whole
 backdated session (started · one duration entry · finished), exactly what
@@ -143,8 +151,13 @@ Three habits make it the *only* place shape inference lives. When a shape
 changes, the event's **name** changes with it (`SetLogged → EntryLogged`,
 `SessionStruck → SessionRemoved`), so a case is keyed by name, never by
 sniffing fields. A new field is filled here with its default, so the
-current type can make it required. And an unknown name **throws** — a row
-nobody can read is a bug, not a no-op. The one dated exception (a load of 0
+current type can make it required — `mode` gets `live`; `discipline` is
+resolved once, at the read boundary, by asking the live plans what that
+routine of that plan is (the layout hands `upcastAll` a lookup), with a
+small dated table for a plan that no longer exists to be asked (Hold Steady's
+two days stay yoga after its row is gone), and `lift` as the last resort.
+And an unknown name **throws** — a row nobody can read is a bug, not a
+no-op. The one dated exception (a load of 0
 read as `reps`) was checked against the whole stream before it was written,
 and its comment says so. `upcast.test.ts` pins every case, including that
 reading twice is reading once.
@@ -171,7 +184,9 @@ Notice what state holds: **only what the rules need** — the id of the open
 session, every session in the order it started (the last one not removed is
 the **latest**), which entries each has (so a retried request is a no-op and
 a correction has something to correct), which plan is active, which sessions
-were removed. Not the workout history, and not even what a session *is*: the
+were removed, and the last preferences snapshot (so saying the same thing
+twice records nothing). Not the workout history, and not even what a session
+*is*: the
 layout asks each layer its own question — "is a session open? which is the
 latest?" to the decider, "what is it?" to `projectSessions` — and they cannot
 disagree, because both fold the same events. The one-live-slot rule is plain:
@@ -247,23 +262,32 @@ else lives there:
   sessions, no change", "Set 1 at the top of the range — 40 lb next time",
   "Re-entry haircut in 3 days"). Today's "How it's going" list is this fold
   run per exercise at request time — no stored projection, no new events
-- `monthGrid` / `dayAges` → the last five weeks as a calendar, one cell per
-  local day (lifted / ran / stretched / today — the plans come along, because
-  "a stretch day" is the plan's word, not the session's), and how old each
-  plan day is. A week of cells can only say "this week was quiet"; a month
-  says whether that is the habit
-- `weeklyPace` → the running average: lifts and run minutes per week over the
-  trailing four weeks, each against the four weeks before it (the Ledger says
-  it in one sentence against the plan's own `liftTarget` / `runTarget`), so
-  "am I doing less than I meant to?" gets a direction and not just a number.
-  Rates divide by the window the fold was given, never by weeks it assumes
-- `nextDay` / `nextWorkout` → which lift is due (alternate from the last
-  finished lift; runs don't count, and neither does a stretch day), and the
-  one mono line under Today's button that says *why*: days since the last
-  lift, the first set the rule is about to move, the re-entry warning if one
-  is due — one line, same place, instead of a separate nudge
-- `weekRunMinutes` → run minutes in the trailing 7 days, against the plan's
-  own `runTarget`
+- `nextInCycle` / `weekProgress` / `staleness` → where each cycle of the plan
+  is turned to (the routine after the last one of it you finished — position
+  is derived, never stored: do B twice and the pointer sits after B), how
+  many sessions of it the trailing week holds against its target, and how
+  long since it last turned. Sessions are counted by what the session *says*
+  it was, so yoga is yoga whichever plan offered it
+- `queue` → the one piece of genuinely new logic: ONE candidate per cycle,
+  ranked — shortfall (sessions under target, plus one when an intent names
+  the discipline) → staleness (whole cadences overdue) → minutes (shorter
+  first) → plan order. No discipline is privileged: a lift you owe rises
+  because it is owed. A routine that needs what you haven't got is ruled
+  out, not hidden; a cycle with `target: 0` (the no-gym block) is offered
+  only when the cycle it stands in for is ruled out, or when everything
+  else is behind — and then never first. Every candidate carries its own
+  `why`, one mono line in the grammar Today already spoke ("60 days since
+  Hinge & Haul · Chest Press comes back a size")
+- `preferences` → the last `PreferencesSet` over the defaults
+- `monthGrid` → the last five weeks as a calendar, one cell per local day,
+  each cell saying what every session on it was, in order (`did:
+  ['yoga', 'lift']` is a normal Tuesday). A week of cells can only say "this
+  week was quiet"; a month says whether that is the habit
+- `weeklyPace` → the running average: sessions per week *per discipline*
+  over the trailing four weeks, each against the four weeks before it (the
+  Ledger says it in one sentence against the cycles' targets), so "am I
+  doing less than I meant to?" gets a direction and not just a number. Rates
+  divide by the window the fold was given, never by weeks it assumes
 - `activePlanId` → last `PlanSelected` wins
 
 Even "is a session open?" is a projection (`currentState(events).activeSession`
@@ -280,20 +304,28 @@ cached.
 
 [src/lib/domain/progression.ts](src/lib/domain/progression.ts) is **policy,
 not projection**: `suggest(history, exercise, now)` answers "what should every
-set be next time" and knows nothing about events. Three axes, chosen by the
-exercise's `kind` (see the plan, below):
+set be next time" and knows nothing about events. Five axes, chosen by the
+exercise's `progress` — what the rule MOVES, as distinct from what a set
+writes (see the plan, below):
 
-- `load` — SET BY SET, "dynamic double progression": each set's suggestion
+- `size` — SET BY SET, "dynamic double progression": each set's suggestion
   comes from the same set last time (top of the range → *that* set takes the
   next size up), with two ways down — the same set missed twice inside a
   fortnight backs off one size (`adjust`), and more than a fortnight away
   brings every set back one size (`reentry`), never below the plan's start
-- `hold` — ring the bell → +inc seconds next time, capped at the ceiling;
+- `time` — ring the bell → +inc seconds next time, capped at the ceiling;
   past the ceiling the answer is a harder variation, never a longer hold
-- `reps` — carry last time's count, capped at the ceiling
+- `count` — carry last time's count, capped at the ceiling
+- `variant` — every set at the top of the range → the next rung of the
+  ladder, reps back to the bottom. The rung is DERIVED from the stream like a
+  rack walk: count the sessions that earned a promotion. With no weight to
+  add, the variant *is* the progression
+- `none` — the dose is the dose (a stretch, a yoga hold, the run); the rule
+  returns early
 
-The answer's *shape follows the kind* — a `Suggestion` is weights-and-reps,
-or counts-and-a-ceiling — so no screen reads a weight of 0 as "bodyweight".
+The answer's *shape follows the progress* — a `Suggestion` is
+weights-and-reps, or counts-and-a-ceiling with the rung alongside — so no
+screen reads a weight of 0 as "bodyweight".
 Every move walks the real ladders in [racks.ts](src/lib/domain/racks.ts), so
 a suggestion is always a bell that exists; and the ± tiles on the floor call
 the same one-size step (`bumpLoad`, `bumpCount`), so a hand-dialled number
@@ -317,10 +349,11 @@ retired exercise still renders exactly as it was logged.
 
 ### The session is a list of steps
 
-[src/lib/domain/steps.ts](src/lib/domain/steps.ts) turns a workout (a plan
-day, or the run) into the list the gym floor walks: warm-up lines, every
-set, the cooldown — or, for a run, its warm-up drills, the run, its cooldown
-stretches. Steps are **derived from the plan, never stored**, and this file
+[src/lib/domain/steps.ts](src/lib/domain/steps.ts) turns a routine into the
+list the gym floor walks: its warm-up lines, every set, its cooldown. The run
+is built the same way — it is a routine whose one exercise measures minutes,
+so it gets a `run` step where a lift gets its sets, between the same drills
+and stretches. Steps are **derived from the plan, never stored**, and this file
 is the only one that knows what a session *is*: the floor renders steps, it
 never invents one. Which steps are done is read from the session's entries.
 A **rest is not a step** — it is a clock that runs under the next set
@@ -349,34 +382,46 @@ Events point at them by id. Deciding *what deserves history* is the actual
 modelling skill; the Insert card on `/plan/change` does both writes side by
 side: plan row → table, `PlanSelected` → ledger.
 
-[src/lib/domain/plan.ts](src/lib/domain/plan.ts) is the model. An exercise's
-**kind** — `load` | `hold` | `reps` — decides which measure a set writes,
-which axis progression moves and how a number reads; a field that only means
-something for one kind (`start`, `inc`, `rack`, `each`) exists only on that
-kind, so every consumer switches on `kind` and the compiler checks the
-switch. That is the whole "escalation path": a named choice per exercise,
-three of them, not a combination of flags. A stretch is not a fourth kind:
-it is a `hold` whose range is one number (`lo === hi`, 45 s), so the rule
-never asks for more and the floor has nothing to dial — Start 45s, the bell,
-the other side. A stretch *day* is a plan day of those, marked
-`dayInfo[day].kind: 'stretch'`, which is all Today needs to offer it as a
-row instead of the pick and the week needs to mark it "stretched". Warm-ups
-and cooldowns are lists of `PrepItem`s — a string you tick, or a timed item
-(`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down. The
-plan's defaults (rest 60 s, run target 150 min, runs on) live here once,
-behind `restFor` / `runTarget` / `liftTarget` / `hasRuns` — no screen writes `?? 150` for
-itself.
+[src/lib/domain/plan.ts](src/lib/domain/plan.ts) is the model, and four
+words are kept apart in it. A **routine** is a thing the plan offers, with a
+`discipline` (required, never inferred). A **cycle** is an ordered list of
+routine keys with a weekly `target` in sessions — two long (A/B), seven long
+(the no-gym block), one long (a routine you simply repeat), or mixed, since
+discipline lives on the routine; its position is never stored. A **session**
+is one time a routine was done (the event). A **day** is a calendar bucket
+the Ledger draws, with no opinion. A plan is a handful of cycles over a set
+of routines — Open to Work is lift 3 · yoga 2 · stretch 3 · run 3 a week,
+plus a no-gym cycle at `target: 0` that `standsInFor: 'lift'`. The plan
+writes the targets; the user never does — cadence is the part of a programme
+you audit, and a dial would be a second source of truth.
+
+An exercise **measures one thing and progresses another**. Its `kind` —
+`load` | `hold` | `reps` | `run` — decides which measure a set writes; its
+`progress` — `size` | `time` | `count` | `variant` | `none` — decides what the
+rule moves, and the fields only one axis needs (`start`, `inc`, `rack`,
+`each`, `ladder`) live on that axis. Only the legal pairings parse (a load
+progresses by size, a hold by time or not at all, reps by count, by variant
+or not at all, the run not at all), so every consumer switches and the
+compiler checks the switch. A stretch is `hold + none` with one length
+(`lo === hi`): nothing to dial — Start 45s, the bell, the other side. A yoga
+routine contains both kinds of hold, which is the honest granularity.
+Warm-ups and cooldowns are lists of `PrepItem`s — a string you tick, a timed
+item (`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down,
+or a counted one (`{ name, reps }` — "Sun Salutation A × 3") you tick. The
+one default (rest 60 s) lives here once, behind `restFor` — no screen writes
+`?? 60` for itself.
 
 A plan row is data from outside, exactly like an event row — so `parsePlan`
 is its read boundary, and it runs on *read* as well as insert. It refuses
 more than bad types: anything the fields can't say about each other — a
 range upside down (`lo > hi`), a per-side movement with an odd set count, a
-hold with a range but no `inc` to climb it, a "stretch" day with a squat on
-it, a run on a plan that says it has none — is refused with a sentence, and a
+hold that climbs but has one length, a mobility routine with a squat on it, a
+cycle naming a routine the plan hasn't got, a run routine with no run in it —
+is refused with a sentence, and a
 stored row nobody can read is logged and skipped, never a 500. Unlike the
 event stream, the plan table has no upcasters: the shipped plans are rewritten
-from code on every boot and the table has never held a custom row, so there
-is no old shape to read. One consequence worth knowing: editing `DEFAULT_PLANS` in
+from code on every boot (and a retired one — Hold Steady — deleted the same
+way), so there is no old shape to read. One consequence worth knowing: editing `DEFAULT_PLANS` in
 [plans.ts](src/lib/domain/plans.ts) *is* the migration. `ensureReady`
 upserts the shipped plans on every boot, so a new exercise, a widened rep
 range or a rewritten note reaches every database the next time a worker
@@ -390,13 +435,17 @@ retired "Weighted Plank" is still `45s`, not `45`.
 `pnpm test` runs vitest over [src/lib/domain](src/lib/domain), one suite per
 layer: `decider.test.ts` (the write-side rules — including that a correction
 on anything but the latest session fails, that one changing a set's variant
-fails, and that a removal on an older one does not), `upcast.test.ts` (every
-retired shape, and that reading twice is reading once), `progression.test.ts` (the rule, against a `History` literal —
-no events needed), `labels.test.ts` (every phrase, as a string),
-`projections.test.ts` (the folds, fed the retired `SetLogged` shape on
-purpose so the boundary is proved every run; that a correction replaces its
-set; that `nextWorkout` skips the stretch day), `plan.test.ts` (the plan's
-boundary — every contradiction it refuses — and its defaults),
+fails, that a removal on an older one does not, and that the same
+preferences twice record nothing), `upcast.test.ts` (every retired shape,
+that an old session asks the plans what it was, and that reading twice is
+reading once), `progression.test.ts` (the rule, against a `History` literal —
+no events needed; the rung counted from the stream), `labels.test.ts` (every
+phrase, as a string), `projections.test.ts` (the folds, fed the retired
+`SetLogged` shape on purpose so the boundary is proved every run; that a
+correction replaces its set; that the queue leads with what is owed, rules a
+routine out by equipment and lets the floor stand in for the gym),
+`plan.test.ts` (the plan's boundary — every illegal pairing and
+contradiction it refuses — and its accessors),
 `steps.test.ts` (that `restUntil` counts from the local timestamp, that an
 extra appends, that a step carries only what its kind needs) and
 `racks.test.ts`. Two things make these cheap to write: nothing in the domain
@@ -422,6 +471,7 @@ src/routes/
    │  ├─ ledger/+page.svelte      Ledger — tab 2: the month, the weekly average, the trends, then the days (folded, one row each)  (/ledger)
    │  ├─ plan/+page.svelte        The Plan — tab 3  (/plan)
    │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
+   │  ├─ plan/after/              What I'm after — the two menus, one PreferencesSet (/plan/after)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
    ├─ log/+page.svelte            gym floor — outside (tabs): no tab bar  (/log)
    └─ export/+server.ts           GET /export: the stream as a JSON download
@@ -461,7 +511,8 @@ Things to notice:
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ weight, 1–9 reps, Enter logs |
 | `class:` directive | `class:single={isBW}` on the floor's adjust tiles; row states on the set table |
 | scoped `<style>` | every component — the design system's tokens are global, layout is local |
-| `$effect` | `ExerciseGlyph.svelte` — a canvas that stamps baked frames: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop that plays one rep, and the function it returns tears both down; a second effect runs the design's 2.46 s cycle on repeat while `loop` is set (a hold in progress) |
+| `$effect` | `ExerciseGlyph.svelte` — a canvas that stamps baked frames: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop that plays one pass of the figure's gear, and the function it returns tears both down; a second effect runs the gear on repeat while `loop` is set (a hold in progress) — a rep with its 900 ms rest, a breath without one, a still not at all |
+| `bind:clientHeight` | Today measures the room under its card (`slack`) instead of guessing the device: ≥ 150px → the figure strip, ≥ 60px → one mono line, else nothing. Nothing ever half-shows, and nothing scrolls |
 | `{#key}` | the gym floor wraps the glyph in `{#key glyphName}`: advancing to the next exercise remounts it, and a fresh mount plays once — a rest on the *same* exercise does not |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
@@ -476,13 +527,18 @@ The glyph is the same lesson from the other side: its playback clock (`start`,
 `lastIdx`, the rAF handle) is plain `let`s, not `$state`, because it changes
 twelve times a rep and nothing in the template reads it. Reactivity nobody
 depends on is work the compiler does for no one. The figures themselves are
-data, not code: `src/lib/design/glyph-frames.json` holds 27 exercises × 12
-stamped frames on one 31 × 31 grid, baked from Claude Design's generator in
-`tools/glyphs/` (`node tools/glyphs/bake.mjs`), and `glyphs.ts` only looks a
-name up and tells the clock which frame is due. Tested like the domain: every
-plan exercise has frames, every frame is 31 × 31 and prints, the working frame
-differs from the still, the clock holds on frame 0, and the JSON is what the
-generator bakes.
+data, not code: `src/lib/design/glyph-frames.json` holds 51 figures on one
+31 × 31 grid, baked from Claude Design's generator in `tools/glyphs/`
+(`node tools/glyphs/bake.mjs`), each in one of three GEARS the JSON carries
+the timing for — a `rep` (twelve stamps out and back, then a rest), a
+`breath` (four stamps, the hold rising and falling: the planks, chair,
+warrior II, savasana) or a `still` (one stamp at full depth: the stretches,
+pigeon, sphinx). A hold is not a rep with the ends chopped off; it is a body
+that stays where it is and breathes, and `glyphs.ts` only looks a name up and
+tells the clock which frame is due in that gear. Tested like the domain:
+every plan exercise has a figure, every frame is 31 × 31 and prints, the
+frame count follows the gear, a rep moves and a breath rises, the clock holds
+on frame 0, and the JSON is what the generator bakes.
 
 ## 4½. Lessons from the first real workout
 

@@ -1,6 +1,6 @@
 # Why these plans are worth doing
 
-A short, sourced case for the three plans in this app — and enough of the
+A short, sourced case for the plans in this app — and enough of the
 fundamentals to judge them yourself instead of taking anyone's word for it.
 Numbered references are at the bottom; every claim here points at one.
 
@@ -115,7 +115,7 @@ one you won't.
 
 ---
 
-## Part 2 — The three plans, one at a time
+## Part 2 — The plans, one at a time
 
 ### Open to Work — lift Mon/Wed/Fri, run 3×/week
 
@@ -279,19 +279,65 @@ are a ferritin-check and energy-availability question, not a push-harder
 question.
 
 
-### Hold Steady — yoga, 2–3×/week, mat only
+### Yoga, inside Open to Work — two routines, twice a week, mat only
 
-Day 1 (chair, warrior II, plank, boat, bridge) is genuine isometric strength
-work. Day 2 (tree, warrior III, low lunge, pigeon, fold, twist) is balance and
-mobility with little strength stimulus. There is no aerobic component and no
-external load, so it sits alongside the lifting rather than in place of it — a
-complement, a deload week, or a mobility day.
+Hold Steady is retired (2026-09-14). Its two days became two routines inside
+the lifting plan — *Hips & Hamstrings* and *Shoulders & Spine*, a cycle of two
+turning at its own cadence — instead of a whole separate plan you had to switch
+to, which is what made yoga an either/or in the first place. Four poses carry
+over unchanged (warrior II, chair, forearm plank, bridge); tree and warrior III
+are dropped, because a balance pose held for thirty seconds twice a week trains
+balance about as much as standing in a queue does.
 
-Yoga does improve balance, flexibility, and lower-limb strength against both
-active and inactive controls [13]. One honest limit: that meta-analytic evidence
-is largely **in older adults**, so the strength finding shouldn't be transferred
-wholesale to someone already lifting three days a week.
+What it is for, before anything else: range of motion, a back that doesn't
+ache, and twenty quiet minutes. Not strength, not cardio, and not a substitute
+for a lift you skipped. Four claims, each with what the evidence supports:
 
+- **It helps a sore back — but no more than other exercise** (strong-ish). Yoga
+  beats not exercising for chronic low-back pain and back-specific disability
+  [30, 31]. Against other exercise or physiotherapy it performs about the same
+  [31]. The case for it is not that it is special — it is that it is twenty
+  minutes on a mat you will actually do, and nothing else in the week is aimed
+  at the back at all.
+- **It improves range of motion** (moderate). Against both active and inactive
+  controls [13]. Lifting through a full range does much the same for joint
+  range [14], so this is additive, not unique; the poses are chosen where the
+  lifting plan has nothing — hip flexors, thoracic rotation, adductors.
+- **It builds strength** (weak). Mostly no. Passive holds at realistic durations
+  produce essentially no strength or hypertrophy [23], and the meta-analytic
+  strength finding for yoga is largely in older adults [13]. Chair, warrior II,
+  bridge, downward dog and the two planks are real isometric work, and those six
+  progress like the planks do — to a ceiling, then harder, never longer; the
+  other ten poses are dosed and left alone.
+- **It calms you down** (unmeasured). The evidence is soft and the outcome is
+  subjective, so the app makes no claim and logs no number. Two minutes of
+  savasana close each routine because that is the traditional close and it
+  costs nothing.
+
+Deliberately absent: inversions, binds and deep backbends (where yoga injuries
+live); breathwork counts; flow beyond the sun salutations in the warm-up;
+difficulty levels — where a pose has an easier version, it is one sentence in
+the pose note.
+
+### No gym — a bodyweight cycle, seven long, off by default
+
+A cycle of seven floor routines inside Open to Work that needs a floor and
+nothing else. It is off (target 0) until the gym is ruled out on the What I'm
+after sheet — travel, a closed week, a move — when it takes the lift cycle's
+target; take the gym back and it goes quiet again. Seven, because a week is
+seven and the block is meant to be done daily while it is on; two of the seven
+are the yoga routines, so a week without a gym still bends.
+
+It keeps the habit, not the numbers. Bodyweight work builds strength for a
+beginner and maintains it for anyone else; against loaded training at matched
+effort it comes up short on the legs and the pull, where you cannot add weight
+[32]. So the cycle is honest about its job: push, hinge, squat and core get real
+progression — a harder variant, then more reps, because with no weight to add
+the *variant* is the progression (every set at the top of the range → the next
+rung of the ladder, reps back to the bottom) — and the pull gets what a floor can
+offer, which is not much. No pull-up bar, no rings, no bands: the moment it
+needs a thing, it is not the no-equipment cycle. No "build muscle without a gym"
+claim.
 
 ---
 
@@ -378,3 +424,6 @@ substitutes for having someone look at it.
 27. Roberts BM, Nuckols G, Krieger JW. **Sex differences in resistance training: a systematic review and meta-analysis.** *Journal of Strength and Conditioning Research* 2020;34(5):1448–1460. Similar hypertrophy; women's relative upper-body strength gains larger. <https://journals.lww.com/nsca-jscr/fulltext/2020/05000/sex_differences_in_resistance_training__a.30.aspx>
 28. Maeo S, et al. **Greater hamstrings muscle hypertrophy but similar damage protection after training at long versus short muscle lengths.** *Medicine & Science in Sports & Exercise* 2021;53(4):825–837. Seated beats prone leg curl for growth. <https://pmc.ncbi.nlm.nih.gov/articles/PMC7969179/>
 29. Bø K, Nygaard IE. **Is physical activity good or bad for the female pelvic floor? A narrative review.** *Sports Medicine* 2020;50:471–484. Exhale-on-exertion guidance for beginners; strain under load can be deleterious where function is compromised. <https://pmc.ncbi.nlm.nih.gov/articles/PMC7018791/>
+30. Wieland LS, Skoetz N, Pilkington K, Vempati R, D'Adamo CR, Berman BM. **Yoga treatment for chronic non-specific low back pain.** *Cochrane Database of Systematic Reviews* 2017. Better than no exercise for pain and back-specific function at 3–6 months; small effects. <https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD010671.pub2/full>
+31. Zhu F, Zhang M, Wang D, Hong Q, Zeng C, Chen W. **Yoga compared to non-exercise or physical therapy exercise on pain, disability, and quality of life for patients with chronic low back pain: a systematic review and meta-analysis.** *PLOS ONE* 2020. Beats no exercise; about the same as physiotherapy exercise. <https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0238544>
+32. Kikuchi N, Nakazato K. **Low-load bench press and push-up induce similar muscle hypertrophy and strength gain.** *Journal of Exercise Science & Fitness* 2017. Matched effort, upper body only — the leg and pull gap is the absence of such a match, not a study against it. <https://www.sciencedirect.com/science/article/pii/S1728869X17300941>

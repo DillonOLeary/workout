@@ -1,6 +1,8 @@
 import type { Command } from '@event-driven-io/emmett';
 import type { Workout } from './events';
 import type { Measure } from './measure';
+import type { Discipline } from './plan';
+import type { Equipment, Intent } from './preferences';
 
 /**
  * Commands are requests in the imperative ("StartSession") — they can be
@@ -9,8 +11,13 @@ import type { Measure } from './measure';
  *
  * Anything non-deterministic (ids, timestamps) is generated at the edge —
  * in the form actions — and passed IN, so the decider stays a pure function.
+ * So is the discipline: the action reads it off the plan the routine belongs
+ * to, and the session carries it from then on.
  */
-export type StartSession = Command<'StartSession', { session: string; plan: string; at: string } & Workout>;
+export type StartSession = Command<
+	'StartSession',
+	{ session: string; plan: string; at: string; discipline: Discipline } & Workout
+>;
 
 /** One entry, live, into the session in progress. */
 export type LogEntry = Command<
@@ -42,6 +49,7 @@ export type LogAfter = Command<
 	{
 		session: string;
 		plan: string;
+		discipline: Discipline;
 		/** when it began */
 		startAt: string;
 		/** when it ended — the entries' timestamp */
@@ -56,6 +64,9 @@ export type RemoveSession = Command<'RemoveSession', { session: string; at: stri
 
 export type SelectPlan = Command<'SelectPlan', { plan: string; at: string }>;
 
+/** The whole snapshot, every time: what you're after, and what you've got. */
+export type SetPreferences = Command<'SetPreferences', { at: string; intents: Intent[]; equipment: Equipment[] }>;
+
 export type LedgerCommand =
 	| StartSession
 	| LogEntry
@@ -63,4 +74,5 @@ export type LedgerCommand =
 	| LogAfter
 	| FinishSession
 	| RemoveSession
-	| SelectPlan;
+	| SelectPlan
+	| SetPreferences;

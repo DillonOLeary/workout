@@ -6,7 +6,7 @@ import type { LedgerEvent } from './events';
 import type { Measure } from './measure';
 
 const AT = '2026-08-23T18:00:00.000Z';
-const started: LedgerEvent = { type: 'SessionStarted', data: { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT, mode: 'live' } };
+const started: LedgerEvent = { type: 'SessionStarted', data: { session: 's1', plan: 'p', discipline: 'lift', routine: 'A', at: AT, mode: 'live' } };
 const open = () => evolve(initialState(), started);
 const log = (measure: Measure, over: Partial<Extract<LedgerCommand, { type: 'LogEntry' }>['data']> = {}): LedgerCommand => ({
 	type: 'LogEntry',
@@ -17,12 +17,15 @@ const set = (load = 35, reps = 10) => log({ of: 'load', load, reps });
 describe('decide — sessions', () => {
 	it('refuses a second session while one is open', () => {
 		expect(() =>
-			decide({ type: 'StartSession', data: { session: 's2', plan: 'p', kind: 'lift', day: 'B', at: AT } }, open())
+			decide({ type: 'StartSession', data: { session: 's2', plan: 'p', discipline: 'lift', routine: 'B', at: AT } }, open())
 		).toThrow(IllegalStateError);
 	});
-	it('opens a live session', () => {
-		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT } }, initialState());
+	it('opens a live session that says what it is', () => {
+		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', discipline: 'lift', routine: 'A', at: AT } }, initialState());
 		expect(e).toEqual(started);
+		expect(() =>
+			decide({ type: 'StartSession', data: { session: 's1', plan: 'p', discipline: 'stretch' as never, routine: 'S', at: AT } }, initialState())
+		).toThrow(ValidationError);
 	});
 	it('refuses an entry with no session in progress', () => {
 		expect(() => decide(set(), initialState())).toThrow(IllegalStateError);
@@ -37,7 +40,7 @@ describe('decide — sessions', () => {
 
 describe('evolve — the one live slot', () => {
 	it('a start takes the slot only when nothing is open', () => {
-		const second: LedgerEvent = { type: 'SessionStarted', data: { session: 's2', plan: 'p', kind: 'lift', day: 'B', at: AT, mode: 'live' } };
+		const second: LedgerEvent = { type: 'SessionStarted', data: { session: 's2', plan: 'p', discipline: 'lift', routine: 'B', at: AT, mode: 'live' } };
 		const state = evolve(open(), second);
 		expect(state.activeSession).toBe('s1');
 		expect(state.started).toEqual(['s1', 's2']);
@@ -92,20 +95,20 @@ describe('decide — the measure validates on its own branch', () => {
 
 describe('decide — LogAfter writes a closed session in one shot', () => {
 	// the overridable part: everything but the workout, which is the run throughout
-	type AfterData = Omit<Extract<LedgerCommand, { type: 'LogAfter' }>['data'], 'kind' | 'day'>;
+	type AfterData = Omit<Extract<LedgerCommand, { type: 'LogAfter' }>['data'], 'routine' | 'discipline'>;
 	const after = (over: Partial<AfterData> = {}): LedgerCommand => ({
 		type: 'LogAfter',
 		data: {
-			session: 'r1', plan: 'p', kind: 'run',
+			session: 'r1', plan: 'p', discipline: 'run', routine: 'run',
 			startAt: '2026-08-23T17:28:00.000Z', at: AT,
-			entries: [{ item: 'Run', index: 1, measure: { of: 'duration', minutes: 32 } }],
+			entries: [{ item: 'Easy run', index: 1, measure: { of: 'duration', minutes: 32 } }],
 			...over
 		}
 	});
 	it('emits started (after) · entries · finished, all backdated', () => {
 		const out = decide(after(), initialState());
 		expect(out.map((e) => e.type)).toEqual(['SessionStarted', 'EntryLogged', 'SessionFinished']);
-		expect(out[0].type === 'SessionStarted' && out[0].data.mode).toBe('after');
+		expect(out[0].type === 'SessionStarted' && out[0].data).toMatchObject({ mode: 'after', discipline: 'run', routine: 'run' });
 		expect(out[0].data.at).toBe('2026-08-23T17:28:00.000Z');
 		expect(out[2]).toEqual({ type: 'SessionFinished', data: { session: 'r1', at: AT } });
 	});
@@ -148,7 +151,7 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 	});
 	// s1 open with one set, then finished; s2 started and finished after it
 	const finish = (id: string): LedgerEvent => ({ type: 'SessionFinished', data: { session: id, at: AT } });
-	const start = (id: string): LedgerEvent => ({ type: 'SessionStarted', data: { session: id, plan: 'p', kind: 'lift', day: 'B', at: AT, mode: 'live' } });
+	const start = (id: string): LedgerEvent => ({ type: 'SessionStarted', data: { session: id, plan: 'p', discipline: 'lift', routine: 'B', at: AT, mode: 'live' } });
 	const withSet = evolve(open(), decide(set(), open())[0]);
 
 	it('corrects a set in the session in progress', () => {
@@ -188,7 +191,7 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 	});
 });
 
-describe('decide — idempotent removes and selects', () => {
+describe('decide — idempotent removes, selects and preferences', () => {
 	it('selects a plan once', () => {
 		const first = decide({ type: 'SelectPlan', data: { plan: 'p', at: AT } }, initialState());
 		expect(first).toHaveLength(1);
@@ -205,12 +208,31 @@ describe('decide — idempotent removes and selects', () => {
 		expect(state.activeSession).toBeNull(); // removing the live session abandons it
 		expect(decide({ type: 'RemoveSession', data: { session: 's1', at: AT } }, state)).toEqual([]);
 	});
+	it('records a preferences snapshot once, from the menu, one to three intents', () => {
+		const prefs = (intents: string[], equipment: string[] = ['gym', 'mat']): LedgerCommand => ({
+			type: 'SetPreferences',
+			data: { at: AT, intents: intents as never, equipment: equipment as never }
+		});
+		const [e] = decide(prefs(['move-better', 'calm-down']), initialState());
+		expect(e).toEqual({ type: 'PreferencesSet', data: { at: AT, intents: ['move-better', 'calm-down'], equipment: ['gym', 'mat'] } });
+		const state = evolve(initialState(), e);
+		expect(state.preferences).toEqual({ intents: ['move-better', 'calm-down'], equipment: ['gym', 'mat'] });
+		// the same snapshot, in any order, is nothing new
+		expect(decide(prefs(['calm-down', 'move-better'], ['mat', 'gym']), state)).toEqual([]);
+		expect(decide(prefs(['calm-down']), state)).toHaveLength(1);
+		expect(() => decide(prefs([]), state)).toThrow(ValidationError);
+		expect(() => decide(prefs(['move-better', 'calm-down', 'run-better', 'get-stronger']), state)).toThrow(ValidationError);
+		expect(() => decide(prefs(['move-better', 'move-better']), state)).toThrow(ValidationError);
+		expect(() => decide(prefs(['be-happy']), state)).toThrow(ValidationError);
+		expect(() => decide(prefs(['move-better'], ['pool']), state)).toThrow(ValidationError);
+		expect(decide(prefs(['move-better'], []), state)).toHaveLength(1); // nothing at all is a legal answer
+	});
 });
 
 describe('the fold reads raw history', () => {
 	it('folds retired names and shapes through the upcaster', () => {
 		const state = currentState([
-			{ type: 'SessionStarted', data: { session: 's1', plan: 'p', day: 'A', at: AT } }, // no mode: the first shape
+			{ type: 'SessionStarted', data: { session: 's1', plan: 'p', day: 'A', at: AT } }, // no mode, no discipline: the first shape
 			{ type: 'SetLogged', data: { session: 's1', plan: 'p', day: 'A', exercise: 'Goblet Squat', weight: 35, reps: 10, set: 1, at: AT } }
 		]);
 		expect(state.activeSession).toBe('s1');

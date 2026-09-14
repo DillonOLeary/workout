@@ -1,22 +1,27 @@
 <script lang="ts">
+	import { disciplineLabel } from '$lib/domain/labels';
+	import type { Discipline } from '$lib/domain/plan';
 	import type { DayCell, MonthGrid } from '$lib/domain/projections';
 
 	/**
-	 * The last five weeks as a calendar, one vocabulary: volt = lifted, ink =
-	 * ran, white with an ink outline = stretched, dashed = today and only
-	 * today — never a state.
+	 * The last five weeks as a calendar, one ink per discipline: volt = a
+	 * lift, ink = a run, white with an ink outline = a stretch, grey = yoga,
+	 * hatched volt = the floor standing in for the gym; dashed = today and
+	 * only today — never a state. A day with two sessions SPLITS — one stripe
+	 * each, in the order they happened — it never invents a colour and never
+	 * shows only the "important" one.
 	 *
 	 * Thirty-five boxes have to fit across a phone without a scroll, so the
 	 * boxes are tight (a 3px gutter, ~44px at the widest) and the day number
 	 * lives INSIDE the box instead of above it — one row of glyphs per week,
 	 * nothing stacked.
 	 */
-	let { grid }: { grid: MonthGrid } = $props();
+	let { grid, legend }: { grid: MonthGrid; legend: Discipline[] } = $props();
 
 	const describe = (c: DayCell) =>
-		[c.lifted ? 'lifted' : '', c.ran ? 'ran' : '', c.stretched ? 'stretched' : '', c.today ? 'today' : '']
-			.filter(Boolean)
-			.join(', ') || 'nothing';
+		[...c.did.map((d) => disciplineLabel(d).toLowerCase()), c.today ? 'today' : ''].filter(Boolean).join(', ') || 'nothing';
+	// the number sits on the last stripe: dark ink on a light one, paper on a dark one
+	const dark = (d: Discipline | undefined) => d === 'run' || d === 'yoga';
 </script>
 
 <div class="cal">
@@ -29,22 +34,21 @@
 				<div
 					class="cell"
 					role="listitem"
-					class:lifted={c.lifted}
-					class:ran={c.ran}
-					class:stretched={c.stretched}
+					class:did={c.did.length > 0}
 					class:today={c.today}
 					class:future={c.future}
+					class:dark={dark(c.did[c.did.length - 1])}
 					aria-label="{c.label}: {describe(c)}"
 				>
+					{#each c.did as d, k (k)}<span class="stripe {d}"></span>{/each}
 					<span class="n">{c.date}</span>
-					{#if (c.lifted || c.stretched) && c.ran}<span class="runbar"></span>{/if}
 				</div>
 			{/each}
 		{/each}
 	</div>
 </div>
 <div class="legend" aria-hidden="true">
-	<span class="sw lift"></span>lifted <span class="sw run"></span>ran <span class="sw stretch"></span>stretched
+	{#each legend as d (d)}<span class="sw {d}"></span>{disciplineLabel(d).toLowerCase()}{/each}
 	<span class="sw today"></span>today
 </div>
 
@@ -62,30 +66,41 @@
 	.cell {
 		position: relative;
 		width: 100%; max-width: 44px; aspect-ratio: 1; margin: 0 auto;
-		display: grid; place-items: center;
+		display: flex;
 		border-radius: var(--radius-sm); overflow: hidden;
 		background: var(--surface-sunken); border: 1px solid var(--border-soft);
 	}
-	.n { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink-3); }
-	.cell.stretched { background: var(--white); border-color: var(--ink); }
-	.cell.lifted { background: var(--volt); border-color: var(--ink); }
-	.cell.stretched .n, .cell.lifted .n { color: var(--ink); }
-	.cell.ran:not(.lifted):not(.stretched) { background: var(--ink); border-color: var(--ink); }
-	.cell.ran:not(.lifted):not(.stretched) .n { color: var(--white); }
-	/* lifted AND ran: the box keeps its color, the run takes the bottom edge */
-	.runbar { position: absolute; left: 0; right: 0; bottom: 0; height: 26%; background: var(--ink); }
+	.cell.did { border-color: var(--ink); }
+	/* one stripe per session, left to right in the order they happened */
+	.stripe { flex: 1 1 0; min-width: 0; }
+	.stripe.lift { background: var(--volt); }
+	.stripe.run { background: var(--ink); }
+	.stripe.mobility { background: var(--white); }
+	.stripe.yoga { background: var(--ink-3); }
+	.stripe.bodyweight { background: repeating-linear-gradient(135deg, var(--volt) 0 3px, var(--white) 3px 6px); }
+	.stripe + .stripe { border-left: 1px solid var(--ink); }
+	.n {
+		position: absolute; inset: 0; display: grid; place-items: center;
+		font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink-3);
+	}
+	.cell.did .n { color: var(--ink); }
+	.cell.dark .n { color: var(--white); }
 	.cell.today { outline: 2px dashed var(--ink); outline-offset: 1px; }
 	.cell.today .n { color: var(--ink); }
+	.cell.today.dark .n { color: var(--white); }
 	.cell.future { opacity: 0.5; }
 	.legend {
 		margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 		font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
 	}
-	.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-	.sw.lift { background: var(--volt); border: 1px solid var(--ink); }
-	.sw.run { background: var(--ink); margin-left: 6px; }
-	.sw.stretch { background: var(--white); border: 1px solid var(--ink); margin-left: 6px; }
-	.sw.today { background: transparent; border: 1px dashed var(--ink); margin-left: 6px; }
+	.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid var(--ink); }
+	.sw + .sw, .legend .sw:not(:first-child) { margin-left: 6px; }
+	.sw.lift { background: var(--volt); }
+	.sw.run { background: var(--ink); }
+	.sw.mobility { background: var(--white); }
+	.sw.yoga { background: var(--ink-3); }
+	.sw.bodyweight { background: repeating-linear-gradient(135deg, var(--volt) 0 2px, var(--white) 2px 4px); }
+	.sw.today { background: transparent; border: 1px dashed var(--ink); }
 
 	@media (max-width: 420px) {
 		.week { gap: 3px; }

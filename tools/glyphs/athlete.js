@@ -1,6 +1,6 @@
 /* Athlete rig v2: a body of tapered masses (deltoid, chest, glute, quad, calf; curved spine; wedge feet) shaded as lit mass.
    Poses can be joint ANGLES (FigureRig primitives) or ABSOLUTE joints — hip position + ankles ON THE FLOOR, knees solved by IK — so feet never slide or float.
-   31×31 grid, 6 stamps. */
+   31×31 grid. Every pose names its MOTION: a rep (12 stamps out and back along d), a breath (four stamps, the hold rising and falling) or a still (one stamp at d = 1). */
 (function () {
   const G = window.LedgerGlyphs, R = window.FigureRig, U = G.GRID_STEP, FLOOR = 0.021;
   const rad = (a) => (a * Math.PI) / 180, lerp = (a, b, d) => a + (b - a) * d;
@@ -109,7 +109,7 @@
   /* ---- the ten exercises. d = drive 0→1. Feet are given as ankle positions on the floor and never move unless the exercise moves them. ---- */
   const L = (d) => (a, b) => a + (b - a) * d;
   const EXERCISES = [
-    { id: 'goblet', name: 'Goblet Squat', cue: 'hips drop between the heels, knees forward, torso tips just enough to keep the bell over mid-foot', actor: ['thighL', 'thighR'],
+    { id: 'goblet', name: 'Goblet Squat', aliases: ['Bodyweight Squat'], cue: 'hips drop between the heels, knees forward, torso tips just enough to keep the bell over mid-foot', actor: ['thighL', 'thighR'],
       pose: (d) => { const l = L(d); return { hip: [l(0, -0.07), l(0.6, 0.34)], t: l(2, 28), legs: [{ ank: [0.0, ANK] }, { ank: [0.06, ANK] }], arms: [{ hand: [l(0.1, 0.02), l(0.82, 0.62)], bend: -1 }], world: [[l(0.1, 0.02), l(0.82, 0.62), l(0.1, 0.02), l(0.86, 0.66), 0.03]] }; } },
     { id: 'rdl', name: 'Romanian Deadlift', cue: 'hips travel back, knees stay soft, back flat; the bar slides down the thighs', actor: ['torso', 'head'],
       pose: (d) => { const l = L(d), hip = [l(0, -0.11), l(0.6, 0.55)]; const hand = [l(0.05, 0.1), l(0.5, 0.26)]; return { hip, t: l(2, 82), legs: [{ ank: [0.0, ANK] }, { ank: [0.05, ANK] }], arms: [{ hand, bend: 1 }], world: [[hand[0] - 0.05, hand[1] - 0.02, hand[0] + 0.05, hand[1] - 0.02, 0.03]] }; } },
@@ -119,9 +119,9 @@
       pose: (d) => { const l = L(d), y = l(0.78, 1.04), x = l(0.16, 0.1); return { view: 'front', hip: [0, 0.4], t: 0, legs: [{ ank: [-0.1, ANK], bend: 0 }, { ank: [0.1, ANK], bend: 0 }], arms: [{ hand: [-x, y], bend: -1 }, { hand: [x, y], bend: 1 }], world: [[-0.34, y, 0.34, y, 0.014], [-0.16, 0.37, 0.16, 0.37, 0.013], [-0.12, FLOOR, -0.12, 0.36, 0.013], [0.12, FLOOR, 0.12, 0.36, 0.013]] }; } },
     { id: 'row', name: 'Seated Row', cue: 'seated, feet braced, torso still; the handle comes to the ribs and the elbow passes behind', actor: ['uarmL', 'farmL'],
       pose: (d) => { const l = L(d), hand = [l(0.3, -0.02), l(0.5, 0.44)]; return { hip: [-0.12, 0.3], t: l(10, -6), legs: [{ ank: [0.3, ANK], bend: 1 }], arms: [{ hand, bend: -1 }], world: [[-0.34, 0.27, 0.02, 0.27, 0.013], [-0.28, FLOOR, -0.28, 0.26, 0.013], [hand[0] + 0.02, hand[1], 0.6, 0.5, 0.008], [0.6, FLOOR, 0.6, 0.9, 0.013]] }; } },
-    { id: 'plank', name: 'Long-Lever Plank', cue: 'a hold: elbows well ahead of the shoulders, one straight line from ear to heel. No pulse — just a breath: the hips settle a dot and come back', actor: ['torso'],
+    { id: 'plank', name: 'Long-Lever Plank', aliases: ['Plank', 'Forearm Plank'], motion: 'breath', cue: 'a hold: elbows well ahead of the shoulders, one straight line from ear to heel. No pulse — just a breath: the hips settle a dot and come back', actor: ['torso'],
       pose: (d) => { const l = L(d); return { hip: [0.08, l(0.3, 0.28)], t: l(-100, -98), legs: [{ ank: [0.52, 0.09], bend: 0, foot: 70 }], arms: [{ el: [-0.5, 0.055], hd: [-0.36, 0.055] }] }; } },
-    { id: 'lunge', name: 'DB Reverse Lunge', cue: 'front foot planted, shin vertical; the rear foot steps back onto its toes and the rear knee drops under the hip', actor: ['thighR', 'shinR'],
+    { id: 'lunge', name: 'DB Reverse Lunge', aliases: ['Reverse Lunge'], cue: 'front foot planted, shin vertical; the rear foot steps back onto its toes and the rear knee drops under the hip', actor: ['thighR', 'shinR'],
       pose: (d) => { const l = L(d), hip = [l(0.0, -0.02), l(0.6, 0.36)]; return { hip, t: l(2, 6), legs: [{ ank: [0.06, ANK], bend: 1 }, { knee: [l(0.01, -0.1), l(0.32, 0.09)], ank: [l(0.01, -0.37), l(ANK, 0.11)], foot: l(0, 80) }], arms: [{ hand: [hip[0] + 0.05, hip[1] + 0.02], bend: -1 }], world: [[hip[0] + 0.01, hip[1], hip[0] + 0.09, hip[1], 0.026]] }; } },
     { id: 'chest', name: 'Chest Press', cue: 'lying on the bench, feet flat; the bar presses from the chest to a straight arm', actor: ['uarmL', 'farmL'],
       pose: (d) => { const l = L(d), hand = [-0.28, l(0.5, 0.76)]; return { hip: [0.06, 0.37], t: -92, legs: [{ ank: [0.36, ANK], bend: 1 }, { ank: [0.42, ANK], bend: 1 }], arms: [{ hand, bend: 1 }], world: [[-0.5, 0.29, 0.26, 0.29, 0.013], [-0.42, FLOOR, -0.42, 0.28, 0.013], [0.2, FLOOR, 0.2, 0.28, 0.013], [hand[0], hand[1] - 0.05, hand[0], hand[1] + 0.05, 0.018]] }; } },
@@ -129,7 +129,7 @@
       pose: (d) => { const l = L(d), hand = [l(0.16, 0.12), l(1.08, 0.78)]; return { hip: [-0.06, 0.3], t: l(-4, -12), legs: [{ ank: [0.24, ANK], bend: 1 }], arms: [{ hand, bend: 1 }], world: [[-0.28, 0.27, 0.08, 0.27, 0.013], [-0.22, FLOOR, -0.22, 0.26, 0.013], [hand[0] - 0.14, hand[1], hand[0] + 0.14, hand[1], 0.013], [hand[0], hand[1], hand[0] + 0.02, 1.29, 0.008]] }; } },
     { id: 'bridge', name: 'DB Glute Bridge', cue: 'shoulders on the floor, feet flat and close; the hips drive up until hip and knee are in line', actor: ['torso'],
       pose: (d) => { const l = L(d), hip = [0.02, l(0.17, 0.36)], sh = [-0.3, 0.13]; const t = Math.atan2(sh[0] - hip[0], sh[1] - hip[1]) * 180 / Math.PI; return { hip, t, legs: [{ ank: [0.26, ANK], bend: 1 }, { ank: [0.32, ANK], bend: 1 }], arms: [{ el: [-0.16, 0.06], hd: [0.02, 0.06] }] }; } },
-    { id: 'calf', name: 'Standing Calf Raise', cue: 'hand on the wall; the whole body rises on the toes — the heel lifts, the toe never does', actor: ['shinL', 'shinR'],
+    { id: 'calf', name: 'Standing Calf Raise', aliases: ['Single-leg Calf Raise'], cue: 'hand on the wall; the whole body rises on the toes — the heel lifts, the toe never does', actor: ['shinL', 'shinR'],
       pose: (d) => { const l = L(d), rise = l(0, 0.06); return { hip: [0, 0.6 + rise], t: 1, legs: [{ ank: [0.0, ANK + rise], foot: l(0, 25) }, { ank: [0.04, ANK + rise], foot: l(0, 25) }], arms: [{ hand: [0.4, 0.86 + rise], bend: -1 }], world: [[0.42, FLOOR, 0.42, 1.24, 0.013]] }; } }
   ];
   /* ---- the rest of the lifts ---- */
@@ -140,22 +140,22 @@
       pose: (d) => { const l = L(d), hand = [l(0.3, 0.04), l(0.9, 0.93)]; return { hip: [-0.06, 0.6], t: 4, legs: [{ ank: [0.08, ANK], bend: 1 }, { ank: [-0.18, ANK], bend: 0 }], arms: [{ hand, bend: -1 }], world: [[hand[0] + 0.02, hand[1], 0.6, 0.95, 0.008], [0.6, FLOOR, 0.6, 1.24, 0.013]] }; } },
     { id: 'legcurl', name: 'Leg Curl', cue: 'prone on the bench; the shin swings from flat to past vertical while the hips stay down', actor: ['shinL', 'shinR'],
       pose: (d) => { const l = L(d), a = rad(l(0, 100)), knee = [0.34, 0.33]; const ank = [knee[0] + 0.27 * Math.cos(a), knee[1] + 0.27 * Math.sin(a)]; return { hip: [0.1, 0.37], t: -92, legs: [{ knee, ank, foot: l(0, -100) }], arms: [{ el: [-0.42, 0.24], hd: [-0.46, 0.1] }], world: [[-0.5, 0.29, 0.4, 0.29, 0.013], [-0.42, FLOOR, -0.42, 0.28, 0.013], [0.3, FLOOR, 0.3, 0.28, 0.013]] }; } },
-    { id: 'cph', name: 'Copenhagen Plank', cue: 'side plank with the top leg on a bench; the bottom leg lifts to meet it', actor: ['thighL', 'shinL'],
-      pose: (d) => { const l = L(d); return { hip: [0.05, 0.34], t: -100, legs: [{ ank: [l(0.34, 0.46), l(0.09, 0.27)], bend: 0, foot: 60 }, { ank: [0.5, 0.31], bend: 0, foot: 60 }], arms: [{ el: [-0.46, 0.055], hd: [-0.3, 0.055] }], world: [[0.3, 0.27, 0.62, 0.27, 0.013], [0.34, FLOOR, 0.34, 0.26, 0.013], [0.58, FLOOR, 0.58, 0.26, 0.013]] }; } },
+    { id: 'cph', name: 'Copenhagen Plank', motion: 'breath', cue: 'side plank with the top leg on a bench and the bottom leg held up to meet it. A breath: the hips dip a dot and come back', actor: ['thighL', 'shinL'],
+      pose: (d) => { const l = L(d); return { hip: [0.05, l(0.34, 0.32)], t: -100, legs: [{ ank: [0.46, 0.27], bend: 0, foot: 60 }, { ank: [0.5, 0.31], bend: 0, foot: 60 }], arms: [{ el: [-0.46, 0.055], hd: [-0.3, 0.055] }], world: [[0.3, 0.27, 0.62, 0.27, 0.013], [0.34, FLOOR, 0.34, 0.26, 0.013], [0.58, FLOOR, 0.58, 0.26, 0.013]] }; } },
     { id: 'deadbug', name: 'Dead Bug', cue: 'on the back, arms up, knees at 90°; one arm reaches overhead as the opposite leg extends, low back stays down', actor: ['thighR', 'shinR', 'uarmR', 'farmR'],
       pose: (d) => { const l = L(d); return { hip: [0.05, 0.12], t: -90, legs: [{ knee: [0.1, 0.4], ank: [0.37, 0.4], foot: -90 }, { knee: [l(0.1, 0.32), l(0.4, 0.27)], ank: [l(0.37, 0.58), l(0.4, 0.14)], foot: l(-90, -20) }], arms: [{ el: [-0.28, 0.33], hd: [-0.28, 0.54] }, { el: [l(-0.28, -0.48), l(0.33, 0.22)], hd: [l(-0.28, -0.6), l(0.54, 0.08)] }] }; } },
-    { id: 'sideplank', name: 'Side Plank', cue: 'a hold on the forearm, one straight line from shoulder to heel, top arm to the ceiling. A breath, no pulse', actor: ['torso'],
+    { id: 'sideplank', name: 'Side Plank', motion: 'breath', cue: 'a hold on the forearm, one straight line from shoulder to heel, top arm to the ceiling. A breath, no pulse', actor: ['torso'],
       pose: (d) => { const l = L(d); return { hip: [0.05, l(0.25, 0.23)], t: -100, legs: [{ ank: [0.5, 0.09], bend: 0, foot: 75 }], arms: [{ el: [-0.34, 0.055], hd: [-0.18, 0.055] }, { el: [-0.28, 0.5], hd: [-0.29, 0.7] }] }; } },
-    /* ---- stretches: d leans into the hold ---- */
-    { id: 'calfstretch', name: 'Calf stretch', cue: 'hands on the wall, rear leg straight with the heel down; the hips move toward the wall', actor: ['shinR'],
+    /* ---- stretches: stills. d leans into the hold, and the bake takes d = 1 — the stretch, not the standing-up-straight it leans in from ---- */
+    { id: 'calfstretch', name: 'Calf stretch', motion: 'still', cue: 'hands on the wall, rear leg straight with the heel down; the hips move toward the wall', actor: ['shinR'],
       pose: (d) => { const l = L(d); return { hip: [l(-0.08, 0.0), 0.58], t: l(8, 14), legs: [{ ank: [0.12, ANK], bend: 1 }, { ank: [-0.3, ANK], bend: 0 }], arms: [{ hand: [0.4, 0.86], bend: -1 }], world: [[0.42, FLOOR, 0.42, 1.24, 0.013]] }; } },
-    { id: 'hipflexor', name: 'Hip flexor stretch', cue: 'half-kneeling, hand on the front knee; the hips glide forward while the torso stays tall', actor: ['thighR'],
+    { id: 'hipflexor', name: 'Hip flexor stretch', motion: 'still', cue: 'half-kneeling, hand on the front knee; the hips glide forward while the torso stays tall', actor: ['thighR'],
       pose: (d) => { const l = L(d); return { hip: [l(-0.1, -0.02), l(0.38, 0.36)], t: l(0, -4), legs: [{ ank: [0.2, ANK], bend: 1 }, { knee: [-0.16, 0.09], ank: [-0.43, 0.1], foot: 80 }], arms: [{ hand: [0.18, 0.34], bend: -1 }] }; } },
-    { id: 'hamstring', name: 'Hamstring stretch', cue: 'heel up on a box, toes up, leg straight; the hinge comes from the hips, back flat', actor: ['torso', 'head'],
+    { id: 'hamstring', name: 'Hamstring stretch', motion: 'still', cue: 'heel up on a box, toes up, leg straight; the hinge comes from the hips, back flat', actor: ['torso', 'head'],
       pose: (d) => { const l = L(d); return { hip: [-0.06, 0.6], t: l(10, 58), legs: [{ ank: [-0.06, ANK], bend: 0 }, { ank: [0.34, 0.24], bend: 0, foot: -20 }], arms: [{ hand: [l(0.06, 0.3), l(0.56, 0.4)], bend: 1 }], world: [[0.2, FLOOR, 0.2, 0.2, 0.013], [0.44, FLOOR, 0.44, 0.2, 0.013], [0.2, 0.2, 0.44, 0.2, 0.013]] }; } },
-    { id: 'figure4', name: 'Figure-4 stretch', cue: 'seated, ankle on the opposite knee; the torso folds forward over the shin', actor: ['torso', 'head'],
+    { id: 'figure4', name: 'Figure-4 stretch', motion: 'still', cue: 'seated, ankle on the opposite knee; the torso folds forward over the shin', actor: ['torso', 'head'],
       pose: (d) => { const l = L(d); return { hip: [-0.08, 0.32], t: l(4, 30), legs: [{ ank: [0.2, ANK], bend: 1 }, { knee: [0.14, 0.42], ank: [0.24, 0.35], foot: 0 }], arms: [{ hand: [0.16, 0.42], bend: 1 }], world: [[-0.3, 0.29, 0.1, 0.29, 0.013], [-0.24, FLOOR, -0.24, 0.28, 0.013], [0.04, FLOOR, 0.04, 0.28, 0.013]] }; } },
-    { id: 'doorway', name: 'Doorway chest stretch', cue: 'forearm on the frame behind you; step through and let the chest lead', actor: ['torso'],
+    { id: 'doorway', name: 'Doorway chest stretch', motion: 'still', cue: 'forearm on the frame behind you; step through and let the chest lead', actor: ['torso'],
       pose: (d) => { const l = L(d); return { hip: [l(0, 0.05), 0.6], t: l(2, 10), legs: [{ ank: [0.2, ANK], bend: 1 }, { ank: [-0.16, ANK], bend: 0 }], arms: [{ el: [-0.14, 0.92], hd: [-0.17, 1.1] }], world: [[-0.19, FLOOR, -0.19, 1.24, 0.013], [-0.19, 1.24, 0.4, 1.24, 0.013]] }; } },
     /* ---- run drills: d is the drive ---- */
     { id: 'highknees', name: 'High knees', cue: 'on the toes; the knee drives to hip height while the arms run', actor: ['thighR', 'shinR'],
@@ -169,11 +169,68 @@
     { id: 'walklunge', name: 'Walking lunges', cue: 'a long stride; the rear knee drops toward the floor under the hip, front shin vertical', actor: ['thighR', 'shinR'],
       pose: (d) => { const l = L(d), hip = [l(0.0, 0.04), l(0.6, 0.37)]; return { hip, t: l(2, 5), legs: [{ ank: [0.22, ANK], bend: 1 }, { knee: [l(-0.02, -0.08), l(0.32, 0.1)], ank: [l(-0.02, -0.34), l(ANK, 0.12)], foot: l(0, 80) }], arms: [{ hand: [hip[0] + 0.05, hip[1] + 0.02], bend: -1 }], world: [[hip[0] + 0.01, hip[1], hip[0] + 0.09, hip[1], 0.026]] }; } }
   );
+
+  /* ---- yoga: fifteen poses in the same vocabulary, from the design's yoga-poses.js. A still bakes one stamp at d = 1; a breath rises and falls along [0, .5, 1, .5] ---- */
+  EXERCISES.push(
+    { id: 'lowlunge', name: 'Low Lunge', motion: 'still', cue: 'back knee down, shin along the mat; front knee over the ankle; torso tall, hands on the front thigh', actor: ['thighR'],
+      pose: () => ({ hip: [0, 0.33], t: 2, legs: [{ ank: [0.27, ANK], bend: 1 }, { knee: [-0.2, 0.09], ank: [-0.46, 0.1], foot: 170 }], arms: [{ hand: [0.2, 0.42], bend: -1 }] }) },
+    { id: 'halfsplit', name: 'Half Splits', motion: 'still', cue: 'hips back over the rear knee, front leg straight with the toes up, hinge from the hip', actor: ['torso'],
+      pose: () => ({ hip: [-0.14, 0.34], t: 52, legs: [{ ank: [0.36, ANK + 0.02], bend: 0, foot: -25 }, { knee: [-0.12, 0.09], ank: [-0.38, 0.1], foot: 170 }], arms: [{ hand: [0.2, 0.14], bend: 1 }] }) },
+    { id: 'chair', name: 'Chair Pose', motion: 'breath', cue: 'a squat you hold: knees over the ankles, arms in line with the torso. Breath: the hips settle a dot', actor: ['thighL', 'thighR'],
+      pose: (d) => { const l = L(d); return { hip: [-0.08, l(0.41, 0.395)], t: 32, legs: [{ ank: [0.04, ANK], bend: 1 }, { ank: [0.09, ANK], bend: 1 }], arms: [{ hand: [0.3, l(1.02, 1.005)], bend: -1 }] }; } },
+    { id: 'warrior2', name: 'Warrior II', motion: 'breath', cue: 'front view: wide stance, one knee bent to 90, arms out in a T. Breath: the hips settle', actor: ['thighR'],
+      pose: (d) => { const l = L(d), y = l(0.79, 0.78); return { view: 'front', hip: [0, l(0.44, 0.43)], t: 0, legs: [{ ank: [-0.3, ANK], bend: 0 }, { ank: [0.34, ANK], bend: 1 }], arms: [{ hand: [-0.52, y], bend: -1 }, { hand: [0.52, y], bend: 1 }] }; } },
+    { id: 'pigeon', name: 'Pigeon', motion: 'still', cue: 'front shin folded across on the mat, back leg long behind, torso upright with a hand down', actor: ['thighL'],
+      pose: () => ({ hip: [0, 0.17], t: 4, legs: [{ knee: [0.26, 0.12], ank: [0.05, 0.08], foot: 60 }, { knee: [-0.28, 0.1], ank: [-0.54, 0.09], foot: 170 }], arms: [{ hand: [0.18, 0.12], bend: 1 }] }) },
+    { id: 'bridgepose', name: 'Bridge', motion: 'breath', cue: 'shoulders down, feet flat and close, hips up until hip and knee are in line, arms on the mat. Breath: the hips', actor: ['torso'],
+      pose: (d) => { const l = L(d), hip = [0.02, l(0.33, 0.345)], sh = [-0.3, 0.13]; const t = Math.atan2(sh[0] - hip[0], sh[1] - hip[1]) * 180 / Math.PI; return { hip, t, legs: [{ ank: [0.26, ANK], bend: 1 }, { ank: [0.32, ANK], bend: 1 }], arms: [{ el: [-0.16, 0.06], hd: [0.02, 0.06] }] }; } },
+    { id: 'seatedfold', name: 'Seated Forward Fold', motion: 'still', cue: 'legs long, toes up, hinge forward with the hands to the shins. Bend the knees if the back rounds', actor: ['torso'],
+      pose: () => ({ hip: [-0.24, 0.13], t: 62, legs: [{ ank: [0.3, 0.1], bend: 0, foot: -70 }], arms: [{ hand: [0.24, 0.18], bend: 1 }] }) },
+    { id: 'supinetwist', name: 'Supine Twist', motion: 'still', cue: 'on the back, knees folded over to one side, one arm long overhead. The rotation is toward the camera', actor: ['thighL'],
+      pose: () => ({ hip: [0, 0.12], t: -90, legs: [{ knee: [0.2, 0.28], ank: [0.42, 0.13], foot: 20 }], arms: [{ el: [-0.46, 0.07], hd: [-0.62, 0.07] }] }) },
+    { id: 'downdog', name: 'Downward Dog', motion: 'breath', cue: 'hands and feet down, hips the apex, head between the arms. Breath: hips rise a dot, heels drop', actor: ['torso'],
+      pose: (d) => { const l = L(d); return { hip: [0.06, l(0.6, 0.61)], t: -125, legs: [{ ank: [0.3, ANK], bend: 0 }, { ank: [0.36, ANK], bend: 0 }], arms: [{ el: [-0.34, 0.24], hd: [-0.46, 0.06] }] }; } },
+    { id: 'puppy', name: 'Puppy Pose', motion: 'still', cue: 'hips stacked over the knees, chest and arms down the mat, forehead down', actor: ['torso'],
+      pose: () => ({ hip: [0, 0.33], t: 118, legs: [{ knee: [0.01, 0.09], ank: [-0.24, 0.1], foot: 170 }], arms: [{ el: [0.44, 0.09], hd: [0.62, 0.06] }] }) },
+    { id: 'thread', name: 'Thread the Needle', motion: 'still', cue: 'one shoulder on the mat with that arm along the floor; the free arm reaches to the ceiling', actor: ['uarmR'],
+      pose: () => ({ hip: [-0.06, 0.33], t: 118, legs: [{ knee: [-0.05, 0.09], ank: [-0.3, 0.1], foot: 170 }], arms: [{ el: [0.4, 0.07], hd: [0.56, 0.06] }, { el: [0.26, 0.38], hd: [0.28, 0.58] }] }) },
+    { id: 'sphinx', name: 'Sphinx', motion: 'still', cue: 'prone on the forearms, elbows under the shoulders, chest lifted, legs long', actor: ['torso'],
+      pose: () => ({ hip: [0.1, 0.1], t: -66, legs: [{ knee: [0.36, 0.09], ank: [0.6, 0.09], foot: 170 }], arms: [{ el: [-0.24, 0.07], hd: [-0.44, 0.07] }] }) },
+    { id: 'cowface', name: 'Cow-Face Arms', motion: 'still', cue: 'front view: one arm overhead and bent behind the head, the other bent behind the low back', actor: ['uarmL', 'uarmR'],
+      pose: () => ({ view: 'front', hip: [0, 0.6], t: 0, legs: [{ ank: [-0.12, ANK], bend: 0 }, { ank: [0.12, ANK], bend: 0 }], arms: [{ el: [-0.3, 0.66], hd: [-0.1, 0.64] }, { el: [0.3, 1.02], hd: [0.1, 1.08] }] }) },
+    { id: 'childreach', name: 'Child’s Pose, side reach', motion: 'still', cue: 'hips on the heels, forehead down, both arms walked to one side. The reach is toward the camera', actor: ['torso'],
+      pose: () => ({ hip: [-0.12, 0.2], t: 100, legs: [{ knee: [0.1, 0.09], ank: [-0.16, 0.09], foot: 170 }], arms: [{ el: [0.4, 0.08], hd: [0.58, 0.06] }] }) },
+    { id: 'savasana', name: 'Savasana', motion: 'breath', cue: 'flat on the back, toes up, arms by the sides. Breath: the chest, one dot', actor: ['torso'],
+      pose: (d) => { const l = L(d); return { hip: [-0.04, 0.1], t: l(-90, -88), legs: [{ ank: [0.46, 0.09], bend: 0, foot: -70 }, { ank: [0.5, 0.09], bend: 0, foot: -70 }], arms: [{ el: [-0.2, 0.06], hd: [0.0, 0.06] }] }; } }
+  );
+  /* ---- bodyweight: the floor's lifts. d is the drive; the two holds breathe ---- */
+  EXERCISES.push(
+    { id: 'pushup', name: 'Push-up', cue: 'hands under the shoulders, one line from ear to heel; the chest drops to a fist off the floor and presses back', actor: ['uarmL', 'farmL'],
+      pose: (d) => { const l = L(d); return { hip: [0.08, l(0.36, 0.17)], t: -95, legs: [{ ank: [0.54, 0.08], bend: 0, foot: 75 }], arms: [{ hand: [-0.3, 0.03], bend: 1 }] }; } },
+    { id: 'splitsquat', name: 'Split Squat', cue: 'a long stance, the rear heel up; the hips drop straight down until the rear knee is a fist off the floor', actor: ['thighL', 'thighR'],
+      pose: (d) => { const l = L(d); return { hip: [l(0.0, -0.02), l(0.58, 0.36)], t: l(2, 6), legs: [{ ank: [0.16, ANK], bend: 1 }, { knee: [l(-0.1, -0.12), l(0.33, 0.12)], ank: [l(-0.3, -0.36), l(0.13, 0.13)], foot: 70 }], arms: [{ hand: [l(0.06, 0.04), l(0.62, 0.4)], bend: -1 }] }; } },
+    { id: 'steplunge', name: 'Step-up', cue: 'one foot flat on the step; the whole body rises onto it and the trailing foot lands beside', actor: ['thighL', 'thighR'],
+      pose: (d) => { const l = L(d), top = 0.14 + 0.9 * U; return { hip: [l(-0.06, 0.18), l(0.5, 0.71)], t: l(12, 2), legs: [{ ank: [0.2, top], bend: 1 }, { ank: [l(-0.14, 0.12), l(ANK, top)], bend: 1 }], arms: [{ hand: [l(-0.02, 0.22), l(0.42, 0.61)], bend: -1 }], world: [[0.06, FLOOR, 0.06, 0.14, 0.013], [0.34, FLOOR, 0.34, 0.14, 0.013], [0.06, 0.14, 0.34, 0.14, 0.013]] }; } },
+    { id: 'slrdl', name: 'Single-leg RDL Reach', cue: 'balanced on one soft knee; the hips hinge back, the free leg reaches behind and the hand toward the floor', actor: ['torso', 'thighR'],
+      pose: (d) => { const l = L(d); return { hip: [l(0, -0.1), l(0.6, 0.55)], t: l(2, 78), legs: [{ ank: [0.02, ANK], bend: 1 }, { knee: [l(-0.04, -0.34), l(0.32, 0.52)], ank: [l(-0.05, -0.58), l(ANK, 0.44)], foot: l(0, 120) }], arms: [{ hand: [l(0.06, 0.16), l(0.5, 0.2)], bend: 1 }] }; } },
+    { id: 'hipbridge', name: 'Single-leg Hip Bridge', cue: 'one foot flat, the other leg held long; the hips drive up until hip and knee are in line', actor: ['torso'],
+      pose: (d) => { const l = L(d), hip = [0.02, l(0.17, 0.36)], sh = [-0.3, 0.13]; const t = Math.atan2(sh[0] - hip[0], sh[1] - hip[1]) * 180 / Math.PI; const knee = [hip[0] + 0.2, hip[1] + 0.21]; return { hip, t, legs: [{ ank: [0.26, ANK], bend: 1 }, { knee, ank: [knee[0] + 0.2, knee[1] + 0.18], foot: -40 }], arms: [{ el: [-0.16, 0.06], hd: [0.02, 0.06] }] }; } },
+    { id: 'bearcrawl', name: 'Bear Crawl', cue: 'hands under the shoulders, knees an inch off the floor; opposite hand and foot step together', actor: ['uarmL', 'thighR'],
+      pose: (d) => { const l = L(d); return { hip: [0.12, 0.44], t: -96, legs: [{ knee: [l(0.14, 0.2), 0.14], ank: [l(0.38, 0.44), 0.07], foot: 60 }, { knee: [l(0.22, 0.12), 0.14], ank: [l(0.46, 0.36), 0.07], foot: 60 }], arms: [{ hand: [l(-0.2, -0.3), 0.03], bend: 1 }, { hand: [l(-0.32, -0.22), 0.03], bend: 1 }] }; } },
+    { id: 'supermanhold', name: 'Superman Hold', motion: 'breath', cue: 'prone: arms and legs lifted off the floor, chin down. Breath: everything lifts a dot', actor: ['torso'],
+      pose: (d) => { const l = L(d), up = l(0, 0.015); return { hip: [0.06, 0.1], t: -80, legs: [{ knee: [0.32, 0.13 + up], ank: [0.56, 0.17 + up], foot: 0 }], arms: [{ el: [-0.44, 0.15 + up], hd: [-0.57, 0.2 + up] }] }; } },
+    { id: 'hollow', name: 'Hollow Hold', motion: 'breath', cue: 'on the back, low back pressed down; shoulders and straight legs held off the floor, arms overhead. Breath: a dot higher', actor: ['torso'],
+      pose: (d) => { const l = L(d), up = l(0, 0.015); return { hip: [0.04, 0.1], t: -74, legs: [{ knee: [0.3, 0.17 + up], ank: [0.55, 0.24 + up], foot: -60 }], arms: [{ el: [-0.48, 0.2 + up], hd: [-0.59, 0.27 + up] }] }; } },
+    { id: 'reversecrunch', name: 'Reverse Crunch', cue: 'on the back, knees at ninety; the hips curl up off the floor and lower slowly, the low back kept down', actor: ['thighL', 'shinL'],
+      pose: (d) => { const l = L(d); return { hip: [l(0.05, -0.02), l(0.12, 0.2)], t: l(-90, -78), legs: [{ knee: [l(0.12, -0.1), l(0.4, 0.44)], ank: [l(0.38, 0.14), l(0.4, 0.52)], foot: -90 }], arms: [{ el: [-0.14, 0.06], hd: [0.06, 0.06] }] }; } }
+  );
   const EXERCISE_BY_NAME = {}; for (const e of EXERCISES) { EXERCISE_BY_NAME[e.name] = e; for (const a of e.aliases || []) EXERCISE_BY_NAME[a] = e; }
   const GROUPS = [
     { title: 'Lifts', ids: ['goblet', 'gobletdeep', 'chest', 'facepull', 'pulldown', 'rdl', 'kbdl', 'calf', 'plank', 'ohp', 'row', 'lunge', 'legcurl', 'cph', 'deadbug', 'bridge', 'sideplank'] },
     { title: 'Stretches', ids: ['calfstretch', 'hipflexor', 'hamstring', 'figure4', 'doorway'] },
-    { title: 'Run drills', ids: ['highknees', 'carioca', 'legswing', 'askip', 'walklunge'] }
+    { title: 'Run drills', ids: ['highknees', 'carioca', 'legswing', 'askip', 'walklunge'] },
+    { title: 'Yoga', ids: ['lowlunge', 'halfsplit', 'chair', 'warrior2', 'pigeon', 'bridgepose', 'seatedfold', 'supinetwist', 'downdog', 'puppy', 'thread', 'sphinx', 'cowface', 'childreach', 'savasana'] },
+    { title: 'Bodyweight', ids: ['pushup', 'splitsquat', 'steplunge', 'slrdl', 'hipbridge', 'bearcrawl', 'supermanhold', 'hollow', 'reversecrunch'] }
   ];
 
   /* ---- rendering: one SDF, lit mass ---- */

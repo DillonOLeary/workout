@@ -2,6 +2,8 @@
 	import { enhance } from '$app/forms';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
+	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
+	import type { Plan } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	/**
@@ -12,7 +14,17 @@
 	let { data, form }: PageProps = $props();
 
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
-	let others = $derived(data.plans.filter((p) => p.id !== plan.id));
+	// what a plan asks of a week, in minutes: each cycle's target times its routines' average length
+	const weekMinutes = (p: Plan) =>
+		p.cycles.reduce(
+			(n, c) => n + c.target * Math.round(c.routines.reduce((m, r) => m + estimateMinutes(sessionSteps(p, { routine: r })), 0) / c.routines.length),
+			0
+		);
+	// "just show up more" is not a discipline — it only changes which plan is suggested: the shorter one first
+	let shorter = $derived(data.preferences.intents.includes('show-up-more'));
+	let others = $derived(
+		data.plans.filter((p) => p.id !== plan.id).sort((a, b) => (shorter ? weekMinutes(a) - weekMinutes(b) : 0))
+	);
 
 	let json = $state('');
 	// Switching plans is history (a PlanSelected event) — make it deliberate.
@@ -24,7 +36,10 @@
 		<a class="back" href="/plan" aria-label="Back to The Plan">←</a>
 		<h1>Change plan</h1>
 	</div>
-	<p class="current">Current: <b>{plan.name}</b></p>
+	<p class="current">Current: <b>{plan.name}</b> · about {weekMinutes(plan)} min a week</p>
+	{#if shorter && others.length}
+		<p class="current">You asked to just show up more — the shorter week is first.</p>
+	{/if}
 
 	{#if form?.message}
 		<p class="err">{form.message}</p>
@@ -43,7 +58,7 @@
 						>
 							<span class="planname">{p.name}</span>
 							{#if p.description}<span class="plandesc">{p.description}</span>{/if}
-							<span class="plansched">{p.schedule}</span>
+							<span class="plansched">{p.schedule} · about {weekMinutes(p)} min a week</span>
 						</button>
 						{#if confirming === p.id}
 							<div class="confirmrow">

@@ -1,29 +1,28 @@
 <script lang="ts">
-	import { paceLabel, rateLabel } from '$lib/domain/labels';
+	import { disciplineLabel, paceLabel, rateLabel } from '$lib/domain/labels';
+	import type { Discipline } from '$lib/domain/plan';
 	import type { Pace } from '$lib/domain/projections';
 
 	/**
-	 * The running average, as two numbers: lifts a week and run minutes a
-	 * week — each over the trailing four weeks, each with the direction it
-	 * came from underneath. Run days are not a third tile: the calendar
-	 * already shows them, and the minutes are the number the plan's goal is
-	 * written in.
-	 *
-	 * The goals are NOT here: the section's sentence above states both of
-	 * them once ("the plan asks 3 and 90"), so a tile saying "goal 90" again
-	 * would be the same fact twice. The tiles carry what the sentence can't:
-	 * the number as a number, and which way it moved. Two tiles across at
-	 * every width — they are one comparison, not two cards.
+	 * The running average, as one number per discipline: sessions a week over
+	 * the trailing four weeks, with the direction it came from underneath.
+	 * Sessions, because that is the unit every cycle's target is written in
+	 * and the thing a session says it was. The goals are NOT here: the
+	 * section's sentence above states them once, so a tile saying "goal 3"
+	 * again would be the same fact twice. The tiles carry what the sentence
+	 * can't: the number as a number, and which way it moved. Two across at
+	 * every width — they are one comparison, not a card deck.
 	 */
-	let { pace, runs = true }: { pace: Pace; runs?: boolean } = $props();
+	let { pace, disciplines }: { pace: Pace; disciplines: Discipline[] } = $props();
 
 	const weeks = $derived(Math.round(pace.days / 7));
-	const minutes = $derived(Math.round(pace.runMinutes.per));
 	const tiles = $derived(
-		[
-			{ key: 'lifts', caps: 'Lifts', value: rateLabel(pace.lifts.per), sub: paceLabel(pace.lifts.per, pace.lifts.prev) },
-			runs && { key: 'runmin', caps: 'Run min', value: rateLabel(minutes), sub: paceLabel(minutes, Math.round(pace.runMinutes.prev)) }
-		].filter((t) => !!t)
+		disciplines.map((d) => ({
+			key: d,
+			caps: disciplineLabel(d),
+			value: rateLabel(pace.by[d].per),
+			sub: paceLabel(pace.by[d].per, pace.by[d].prev)
+		}))
 	);
 </script>
 

@@ -1,14 +1,15 @@
 import { countOf, loadOf, uniformLoad, type Measure } from './measure';
-import type { Exercise, PrepItem } from './plan';
+import type { Cycle, Discipline, Exercise, Plan, PrepItem } from './plan';
+import { EQUIPMENT, type Equipment } from './preferences';
 import { rungLabel } from './racks';
 import type { Reason, Suggestion } from './progression';
 
 /**
- * The words. Every phrase a screen shows about a set, a load or a range is
- * written here once and tested as a string, because the per-hand and
- * per-side questions must be answered identically on the plan screen, the
- * gym floor and the ledger — two screens phrasing "3 × 8–12" differently is
- * how a lunge ends up meaning two different workouts.
+ * The words. Every phrase a screen shows about a set, a load, a range or a
+ * week is written here once and tested as a string, because the per-hand
+ * and per-side questions must be answered identically on the plan screen,
+ * the gym floor and the ledger — two screens phrasing "3 × 8–12" differently
+ * is how a lunge ends up meaning two different workouts.
  */
 
 /* ---------- dates ---------- */
@@ -33,24 +34,82 @@ export function spanLabel(fromIso: string, toIso: string): string {
 /** "40 lb each hand" vs "35 lb" — never a bare number for a two-dumbbell lift. */
 export function loadLabel(weight: number, ex: Exercise): string {
 	if (ex.kind !== 'load') return '';
-	return ex.each ? `${weight} lb each hand` : `${weight} lb`;
+	return ex.progress.each ? `${weight} lb each hand` : `${weight} lb`;
 }
 
 /** "40 /hand" · "35 lb" — the load as a tile says it. */
 export function loadShort(weight: number, ex: Exercise): string {
 	if (ex.kind !== 'load') return '';
-	return ex.each ? `${weight} /hand` : `${weight} lb`;
+	return ex.progress.each ? `${weight} /hand` : `${weight} lb`;
 }
 
-/** "35 lb" · "40 lb each hand" · "15s" · "8 reps" — one number in this exercise's own unit. */
+/** "35 lb" · "40 lb each hand" · "15s" · "8 reps" · "30 min" — one number in this exercise's own unit. */
 export function unitLabel(n: number, ex: Exercise): string {
-	if (ex.kind === 'load') return loadLabel(n, ex);
-	return ex.kind === 'hold' ? `${n}s` : `${n} reps`;
+	switch (ex.kind) {
+		case 'load':
+			return loadLabel(n, ex);
+		case 'hold':
+			return `${n}s`;
+		case 'run':
+			return `${n} min`;
+		case 'reps':
+			return `${n} reps`;
+	}
 }
 
-/** "lb" · "s" · "" — the unit a bare number wears next to it. */
+/** "lb" · "s" · "min" · "" — the unit a bare number wears next to it. */
 export function unitOf(ex: Exercise): string {
-	return ex.kind === 'load' ? 'lb' : ex.kind === 'hold' ? 's' : '';
+	switch (ex.kind) {
+		case 'load':
+			return 'lb';
+		case 'hold':
+			return 's';
+		case 'run':
+			return 'min';
+		case 'reps':
+			return '';
+	}
+}
+
+/* ---------- disciplines ---------- */
+
+/** "Lift" · "Yoga" · "Bodyweight" · "Stretch" · "Run" — the word a chip or a tile wears. */
+export function disciplineLabel(d: Discipline): string {
+	switch (d) {
+		case 'lift':
+			return 'Lift';
+		case 'yoga':
+			return 'Yoga';
+		case 'bodyweight':
+			return 'Bodyweight';
+		case 'mobility':
+			return 'Stretch';
+		case 'run':
+			return 'Run';
+	}
+}
+
+/** "lifts" · "yoga" · "floor sessions" · "stretches" · "runs" — counted, in a sentence. */
+export function disciplineNoun(d: Discipline, n: number): string {
+	const one = Math.round(n * 10) === 10;
+	switch (d) {
+		case 'lift':
+			return one ? 'lift' : 'lifts';
+		case 'yoga':
+			return 'yoga';
+		case 'bodyweight':
+			return one ? 'floor session' : 'floor sessions';
+		case 'mobility':
+			return one ? 'stretch' : 'stretches';
+		case 'run':
+			return one ? 'run' : 'runs';
+	}
+}
+
+/** "a, b and c" */
+export function listJoin(items: string[]): string {
+	if (items.length <= 1) return items.join('');
+	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
 /* ---------- rates ---------- */
@@ -80,29 +139,40 @@ export function paceLabel(per: number, prev: number): string {
 
 /**
  * The Ledger's one-line answer to "am I doing enough?": what the last four
- * weeks come to a week, and what the plan asked for, side by side. The numbers
- * are already on the tiles below it — this says what they MEAN, which is the
- * one thing a tile cannot do.
+ * weeks come to a week, per discipline, and what the plan asked for, side by
+ * side. The numbers are already on the tiles below it — this says what they
+ * MEAN, which is the one thing a tile cannot do.
  *
- *   "1.3 lifts and 36 run min a week — the plan asks 3 and 90"
- *   "2 lifts a week — the plan asks 2"          (a plan with no running)
+ *   "1.3 lifts, 0.5 yoga and 2 runs a week — the plan asks 3, 2 and 3"
+ *   "2 lifts a week — the plan asks 2"
  *   "Nothing logged in the last 4 weeks"
  */
-export function paceSentence(p: {
-	weeks: number;
-	lifts: number;
-	liftGoal: number;
-	/** null when the plan has no running */
-	runMinutes: number | null;
-	runGoal: number | null;
-}): string {
-	const lifts = rateLabel(p.lifts);
-	const runs = p.runMinutes === null ? null : rateLabel(Math.round(p.runMinutes));
-	if (lifts === '0' && (runs === null || runs === '0'))
-		return `Nothing logged in the last ${p.weeks} weeks`;
-	const noun = lifts === '1' ? 'lift' : 'lifts';
-	if (runs === null || p.runGoal === null) return `${lifts} ${noun} a week — the plan asks ${rateLabel(p.liftGoal)}`;
-	return `${lifts} ${noun} and ${runs} run min a week — the plan asks ${rateLabel(p.liftGoal)} and ${p.runGoal}`;
+export function paceSentence(p: { weeks: number; rates: { discipline: Discipline; per: number; target: number }[] }): string {
+	const rates = p.rates.filter((r) => r.target > 0 || Math.round(r.per * 10) > 0);
+	if (!rates.length || rates.every((r) => Math.round(r.per * 10) === 0)) return `Nothing logged in the last ${p.weeks} weeks`;
+	const did = listJoin(rates.map((r) => `${rateLabel(r.per)} ${disciplineNoun(r.discipline, r.per)}`));
+	return `${did} a week — the plan asks ${listJoin(rates.map((r) => rateLabel(r.target)))}`;
+}
+
+/** "Lift 3 · Yoga 2 · Stretch 3 · Run 3 — a week" — the plan's cadence, cycle by cycle. */
+export function scheduleLine(plan: Plan): string {
+	const on = plan.cycles.filter((c) => c.target > 0);
+	return on.length ? `${on.map((c) => `${c.title} ${c.target}`).join(' · ')} — a week` : plan.schedule;
+}
+
+/** "1 of 3 this week" */
+export const weekLine = (done: number, target: number): string => `${done} of ${target} this week`;
+
+/** "Lift · 1 of 2" · "No gym · 3 of 7" — where a routine sits in its cycle. */
+export function turnLabel(cycle: Cycle, routine: string): string {
+	const i = cycle.routines.indexOf(routine);
+	return cycle.routines.length === 1 ? cycle.title : `${cycle.title} · ${i + 1} of ${cycle.routines.length}`;
+}
+
+/** "needs a gym" · "needs a mat and running shoes" — why a routine is ruled out, never hidden. */
+export function needsLine(missing: Equipment[]): string {
+	const words = missing.map((m) => EQUIPMENT.find((e) => e.id === m)?.needed ?? m);
+	return `needs ${listJoin(words)}`;
 }
 
 /**
@@ -139,17 +209,19 @@ export function sessionSummary(p: { exercises: number; sets: number; minutes: nu
 
 /* ---------- the plan's numbers ---------- */
 
-/** "8–12 reps per side" · "20–45 sec" — the range, with its side rule. */
+const range = (ex: Exercise) => (ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`);
+
+/** "8–12 reps per side" · "20–45 sec" · "30 min" — the range, with its side rule. */
 export function rangeLabel(ex: Exercise): string {
-	const unit = ex.kind === 'hold' ? 'sec' : 'reps';
-	return `${ex.lo}–${ex.hi} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
+	const unit = ex.kind === 'hold' ? 'sec' : ex.kind === 'run' ? 'min' : 'reps';
+	return `${range(ex)} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
 }
 
-/** "3 × 6–12" · "3 × 10–20s" · "2 × 45s · L/R" · "3 × 8–12 · per side" — the plan row's dose. */
+/** "3 × 6–12" · "3 × 10–20s" · "2 × 45s · L/R" · "3 × 8–12 · per side" · "30 min" — the plan row's dose. */
 export function doseLabel(ex: Exercise): string {
-	const range = ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`;
+	if (ex.kind === 'run') return `${range(ex)} min`;
 	return (
-		`${ex.sets} × ${range}${ex.kind === 'hold' ? 's' : ''}` +
+		`${ex.sets} × ${range(ex)}${ex.kind === 'hold' ? 's' : ''}` +
 		(ex.side === 'sets' ? ' · L/R' : ex.side === 'reps' ? ' · per side' : '')
 	);
 }
@@ -164,10 +236,11 @@ export function holdLine(ex: Exercise, index: number): string {
 	return `HOLD ${index} OF ${ex.sets} · ${ex.lo}S${ex.side === 'sets' ? ' EACH SIDE' : ''}`;
 }
 
-/** "Easy jog · 3 min" · "Carioca · 30s each" · "One light set of the first lift" — a prep item, as the plan lists it. */
+/** "Easy jog · 3 min" · "Carioca · 30s each" · "Sun Salutation A × 3" · "One light set of the first lift" — a prep item, as the plan lists it. */
 export function prepLabel(item: PrepItem): string {
 	if (typeof item === 'string') return item;
 	if ('minutes' in item) return `${item.name} · ${item.minutes} min`;
+	if ('reps' in item) return `${item.name} × ${item.reps}${item.each ? ' each' : ''}`;
 	return `${item.name} · ${item.seconds}s${item.each ? ' each' : ''}`;
 }
 
@@ -176,45 +249,62 @@ export function durationLabel(seconds: number): string {
 	return seconds % 60 === 0 && seconds >= 60 ? `${seconds / 60} min` : `${seconds}s`;
 }
 
-/** "7 min · 5 areas · 9 holds" — a stretch day, as Today's row says it. */
-export function stretchDose(minutes: number, areas: number, holds: number): string {
-	return `${minutes} min · ${areas} ${areas === 1 ? 'area' : 'areas'} · ${holds} ${holds === 1 ? 'hold' : 'holds'}`;
-}
-
 /** "41 min · warm-up and cooldown done." — the receipt's one line about what never reached the ledger. */
 export function receiptLine(minutes: number, warm: boolean, cool: boolean): string {
 	const did = warm && cool ? 'warm-up and cooldown done' : warm ? 'warm-up done' : cool ? 'cooldown done' : null;
 	return `${minutes} min${did ? ` · ${did}` : ''}.`;
 }
 
-/** What a level-up costs here: a rack step, or a fixed increment. */
+/** What a level-up costs here: a rack step, a fixed increment, a rung — or nothing. */
 export function stepLabel(ex: Exercise): string {
-	if (ex.kind === 'hold') return `+${ex.inc}s`;
-	if (ex.kind === 'reps') return '+1 rep';
-	if (ex.rack) return rungLabel(ex.rack);
-	return `+${ex.inc} lb`;
+	switch (ex.progress.of) {
+		case 'size':
+			return ex.progress.rack ? rungLabel(ex.progress.rack) : `+${ex.progress.inc} lb`;
+		case 'time':
+			return `+${ex.progress.inc}s`;
+		case 'count':
+			return '+1 rep';
+		case 'variant':
+			return 'next rung';
+		case 'none':
+			return '';
+	}
 }
 
 /* ---------- a set ---------- */
 
-/** "45 lb × 12" · "50 /hand × 10" · "30s" · "12 reps" · "45 lb × —" — a tile or table value. */
+/** "45 lb × 12" · "50 /hand × 10" · "30s" · "12 reps" · "32 min" · "45 lb × —" — a tile or table value. */
 export function setValue(ex: Exercise, weight: number, count: number | null): string {
-	const c = count === null ? '—' : ex.kind === 'hold' ? `${count}s` : String(count);
-	if (ex.kind !== 'load') return ex.kind === 'hold' || count === null ? c : `${c} reps`;
-	return `${loadShort(weight, ex)} × ${c}`;
+	if (count === null) return ex.kind === 'load' ? `${loadShort(weight, ex)} × —` : '—';
+	switch (ex.kind) {
+		case 'load':
+			return `${loadShort(weight, ex)} × ${count}`;
+		case 'hold':
+			return `${count}s`;
+		case 'run':
+			return `${count} min`;
+		case 'reps':
+			return `${count} reps`;
+	}
 }
 
-/** "35 lb × 6–12" · "10–20s" · "45s" · "5–15" — a set that hasn't happened yet. */
+/** "35 lb × 6–12" · "10–20s" · "45s" · "5–15" · "30 min" — a set that hasn't happened yet. */
 export function plannedValue(ex: Exercise, weight: number): string {
-	const range = ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`;
-	if (ex.kind === 'hold') return `${range}s`;
-	if (ex.kind === 'reps') return range;
-	return `${loadShort(weight, ex)} × ${range}`;
+	switch (ex.kind) {
+		case 'load':
+			return `${loadShort(weight, ex)} × ${range(ex)}`;
+		case 'hold':
+			return `${range(ex)}s`;
+		case 'run':
+			return `${range(ex)} min`;
+		case 'reps':
+			return range(ex);
+	}
 }
 
-/** "12" · "15s" — one set's count in its own unit, for the muted "last time" beside a row. */
+/** "12" · "15s" · "30 min" — one set's count in its own unit, for the muted "last time" beside a row. */
 export function countLabel(m: Measure): string {
-	return m.of === 'hold' ? `${countOf(m)}s` : String(countOf(m));
+	return m.of === 'hold' ? `${countOf(m)}s` : m.of === 'duration' ? `${countOf(m)} min` : String(countOf(m));
 }
 
 /**
@@ -235,7 +325,7 @@ export function setsLine(sets: Measure[], ex?: Exercise): string {
 		const w = ex ? loadLabel(loadOf(sets[0]), ex) : `${loadOf(sets[0])} lb`;
 		return `${w} · ${sets.map(n).join(' · ')}`;
 	}
-	return sets.map((m) => `${loadOf(m)}×${n(m)}`).join(' · ') + (ex?.kind === 'load' && ex.each ? ' each hand' : '');
+	return sets.map((m) => `${loadOf(m)}×${n(m)}`).join(' · ') + (ex?.kind === 'load' && ex.progress.each ? ' each hand' : '');
 }
 
 /* ---------- the rule, explained ---------- */
@@ -257,10 +347,15 @@ export const ceilingHint = (ex: Exercise) => `At the ceiling (${ex.hi}s) — mak
  * silent — an unexplained lighter bar reads as a bug, which is worse than no
  * adjustment at all. Precedence: re-entry, then an adjustment, then a
  * level-up, then a warning about a miss. One sentence, never a list. A hold
- * gets one line only: that it has reached its ceiling.
+ * gets one line only: that it has reached its ceiling. A ladder says which
+ * rung, when the rung just changed or has run out.
  */
 export function loadHint(s: Suggestion, ex: Exercise): string | null {
-	if (s.kind !== 'load') return s.kind === 'hold' && s.ceiling ? ceilingHint(ex) : null;
+	if (s.kind !== 'load') {
+		if (s.variant?.promoted) return `Up a rung — ${s.variant.name} from here, reps from ${ex.lo}.`;
+		if (s.variant && s.ceiling) return `Top of the ladder (${s.variant.name}) — make it harder.`;
+		return ex.kind === 'hold' && s.ceiling ? ceilingHint(ex) : null;
+	}
 	if (s.reason === 'start' || ex.kind !== 'load') return null;
 	const where = (r: Reason) => s.sets.map((x, i) => (x.reason === r ? i : -1)).filter((i) => i >= 0);
 	if (s.reason === 'reentry')

@@ -7,7 +7,7 @@ import { ValidationError } from '@event-driven-io/emmett';
  *   load     — a weighted set: the load and the reps
  *   reps     — a bodyweight set: just the count (a dead bug, a sun salutation)
  *   hold     — a timed hold: seconds held, the bell aimed for, any load carried
- *   duration — minutes (a run)
+ *   duration — minutes (the run)
  *   step     — it happened (a warm-up line, a cooldown stretch, a walk)
  *
  * The measure is the heart of the vocabulary: a command carries one in, an
@@ -82,7 +82,7 @@ export function uniformLoad(sets: Measure[]): boolean {
  * count; which variant that becomes is the exercise's business, not theirs.
  */
 export function measureFor(
-	ex: { kind: 'load' | 'hold' | 'reps' },
+	ex: { kind: 'load' | 'hold' | 'reps' | 'run' },
 	v: { load: number; count: number; target?: number }
 ): Measure {
 	switch (ex.kind) {
@@ -92,6 +92,8 @@ export function measureFor(
 			return { of: 'reps', reps: v.count };
 		case 'hold':
 			return { of: 'hold', seconds: v.count, ...(v.target !== undefined ? { target: v.target } : {}) };
+		case 'run':
+			return { of: 'duration', minutes: v.count };
 	}
 }
 

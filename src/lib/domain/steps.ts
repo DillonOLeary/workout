@@ -1,4 +1,5 @@
-import { COOLDOWN_ITEM, RUN_ITEM, WARMUP_ITEM, entryKey, type EntryLogged, type Workout } from './events';
+import { COOLDOWN_ITEM, WARMUP_ITEM, entryKey, type EntryLogged, type Workout } from './events';
+import { prepLabel } from './labels';
 import { isSet } from './measure';
 import {
 	cooldownFor,
@@ -8,13 +9,16 @@ import {
 	warmupFor,
 	type Exercise,
 	type Plan,
-	type PrepItem
+	type PrepItem,
+	type RunEx
 } from './plan';
 
 /**
  * A session, as a list of STEPS the floor walks one at a time: warm-up lines,
  * every set, the cooldown — or, for a run, its warm-up, the run, its
- * cooldown. The plan owns the order; you own the numbers.
+ * cooldown. The plan owns the order; you own the numbers. Every routine is
+ * built the same way: the run is a routine whose one exercise measures
+ * minutes, so it gets a run step where a lift gets its sets.
  *
  * Steps are derived from the plan, never stored. Which ones are DONE is read
  * from the session's entries. A rest is not a step: it is a clock that runs
@@ -32,7 +36,7 @@ const COOLDOWN_SECONDS = 60;
 type StepBase = {
 	/** the entry identity — item#index */
 	key: string;
-	/** the group the list shows it under: 'Warm-up', an exercise name, 'Cooldown', the run's title */
+	/** the group the list shows it under: 'Warm-up', an exercise name, 'Cooldown' */
 	section: string;
 	/** EntryLogged.item */
 	item: string;
@@ -55,26 +59,25 @@ export type Step = StepBase &
 		| { kind: 'prep'; text: string }
 		| { kind: 'timed'; text: string; name: string; seconds: number }
 		| { kind: 'set'; ex: Exercise }
-		| { kind: 'run'; minutes: number }
+		| { kind: 'run'; minutes: number; ex: RunEx }
 	);
 export type StepKind = Step['kind'];
 
-/** The day's exercises; nothing for a run or a day the plan doesn't have. */
-export function dayExercises(plan: Plan | undefined, w: Workout): Exercise[] {
-	if (!plan || w.kind !== 'lift') return [];
-	return plan.days[w.day] ?? [];
+/** The routine's exercises; nothing for a routine the plan doesn't have. */
+export function routineExercises(plan: Plan | undefined, w: Workout): Exercise[] {
+	return plan?.routines[w.routine] ?? [];
 }
 
-/** Prep items as steps: a string is a line you tick, a timed item counts down — twice when it is per side. */
+/** Prep items as steps: a string or a count is a line you tick, a timed item counts down — twice when it is per side. */
 function prepSteps(items: PrepItem[], section: string, item: string, proseSeconds: number): Step[] {
 	const out: Step[] = [];
 	let n = 0;
 	for (const it of items) {
-		if (typeof it === 'string') {
+		if (typeof it === 'string' || 'reps' in it) {
 			n++;
 			out.push({
 				key: entryKey(item, n), kind: 'prep', section, item, index: n,
-				label: `STEP ${n}`, text: it, estimate: proseSeconds
+				label: `STEP ${n}`, text: prepLabel(it), estimate: proseSeconds
 			});
 			continue;
 		}
@@ -84,7 +87,7 @@ function prepSteps(items: PrepItem[], section: string, item: string, proseSecond
 			n++;
 			out.push({
 				key: entryKey(item, n), kind: 'timed', section, item, index: n,
-				label: `STEP ${n}${side}`, text: `${it.name} · ${seconds % 60 === 0 && seconds >= 60 ? `${seconds / 60} min` : `${seconds}s`}`,
+				label: `STEP ${n}${side}`, text: prepLabel({ name: it.name, ...('minutes' in it ? { minutes: it.minutes } : { seconds }) }),
 				name: it.name, seconds, estimate: seconds
 			});
 		}
@@ -92,8 +95,13 @@ function prepSteps(items: PrepItem[], section: string, item: string, proseSecond
 	return out;
 }
 
-/** One exercise's sets, with the rest before each set folded into its estimate. */
-function setSteps(plan: Plan, ex: Exercise): Step[] {
+/** One exercise's sets, with the rest before each set folded into its estimate — or the run, as one step. */
+function exerciseSteps(plan: Plan, ex: Exercise): Step[] {
+	if (ex.kind === 'run')
+		return [{
+			key: entryKey(ex.name, 1), kind: 'run', section: ex.name, item: ex.name, index: 1,
+			label: 'RUN', minutes: ex.hi, ex, estimate: ex.hi * 60
+		}];
 	const hold = ex.kind === 'hold';
 	const rest = restFor(plan, ex);
 	const out: Step[] = [];
@@ -107,42 +115,24 @@ function setSteps(plan: Plan, ex: Exercise): Step[] {
 }
 
 /**
- * The whole workout, in order. A lift day the plan doesn't have → no steps.
- * `extra` is exercises added on the floor, by name — each becomes a section
- * after the plan's own, once.
+ * The whole workout, in order: the routine's warm-up, its exercises, its
+ * cooldown. A routine the plan doesn't have → no steps. `extra` is exercises
+ * added on the floor, by name — each becomes a section after the plan's own,
+ * once.
  */
 export function sessionSteps(plan: Plan | undefined, w: Workout, extra: string[] = []): Step[] {
-	if (!plan) return [];
-	if (w.kind === 'lift' && !plan.days[w.day]) return [];
-	const out: Step[] = w.kind === 'run' ? runSteps(plan) : liftSteps(plan, w.day);
+	if (!plan || !plan.routines[w.routine]) return [];
+	const out: Step[] = prepSteps(warmupFor(plan, w.routine), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
+	for (const ex of plan.routines[w.routine]) out.push(...exerciseSteps(plan, ex));
+	out.push(...prepSteps(cooldownFor(plan, w.routine), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
 	const have = new Set(out.map((s) => s.section));
 	for (const name of extra) {
 		const ex = exerciseNamed(plan, name);
 		if (!ex || have.has(ex.name)) continue;
 		have.add(ex.name);
-		out.push(...setSteps(plan, ex));
+		out.push(...exerciseSteps(plan, ex));
 	}
 	return out;
-}
-
-function liftSteps(plan: Plan, day: string): Step[] {
-	const out: Step[] = prepSteps(warmupFor(plan, day), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
-	for (const ex of plan.days[day] ?? []) out.push(...setSteps(plan, ex));
-	out.push(...prepSteps(cooldownFor(plan, day), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
-	return out;
-}
-
-/** Warm-up · run · cooldown. A plan without a run day still gets the bare run. */
-function runSteps(plan: Plan): Step[] {
-	const run = plan.run ?? { title: 'Run', minutes: 30 };
-	return [
-		...prepSteps(run.warmup ?? [], WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS),
-		{
-			key: entryKey(RUN_ITEM, 1), kind: 'run', section: run.title, item: RUN_ITEM, index: 1,
-			label: 'RUN', minutes: run.minutes, estimate: run.minutes * 60
-		},
-		...prepSteps(run.cooldown ?? [], COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS)
-	];
 }
 
 /** "about N min" — from the steps themselves, so it is the number you'd argue with. */
@@ -155,11 +145,11 @@ export function estimateMinutes(steps: Step[], from = 0): number {
 export type Entry = EntryLogged['data'];
 
 /**
- * Exercises this session logged that its plan day doesn't cover — a stretch
+ * Exercises this session logged that its routine doesn't cover — a stretch
  * added from the ⋯ sheet, say. Handed back as `extra` so a reload keeps the section.
  */
 export function loggedOutside(plan: Plan | undefined, w: Workout, entries: Entry[]): string[] {
-	const planned = new Set(dayExercises(plan, w).map((ex) => ex.name));
+	const planned = new Set(routineExercises(plan, w).map((ex) => ex.name));
 	const out: string[] = [];
 	for (const e of entries) {
 		if (!isSet(e.measure) || planned.has(e.item) || out.includes(e.item)) continue;

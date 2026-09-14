@@ -7,38 +7,57 @@ import { RACKS, type Rack } from './racks';
  * reference data lives happily in a plain table, and events point at it by
  * id (SessionStarted.plan) and by name (EntryLogged.item).
  *
+ * Four words, kept apart:
+ *   routine — a thing the plan offers, with a discipline. "Squat & Shove".
+ *   cycle   — an ordered list of routine keys with a weekly target in
+ *             sessions. Its position is derived from the last one finished.
+ *   session — one time a routine was done. The event (events.ts).
+ *   day     — a calendar bucket the Ledger draws. No opinion.
+ *
+ * Yoga at 7am and a lift at 6pm is one day, two sessions, two disciplines,
+ * and no type below needs a special case for that sentence.
+ *
  * A plan row is data from outside, exactly like an event row — so it has a
  * read boundary too. `parsePlan`, at the bottom of this file, is the only
- * way a plan enters the domain: it rebuilds the shape (legacy flags become
- * `kind`, a one-line warm-up becomes a list) so nothing downstream sniffs.
+ * way a plan enters the domain, and it refuses what the fields cannot say
+ * about each other.
  */
 
+/** What a routine IS. Required on every routine — never inferred. */
+export type Discipline = 'lift' | 'yoga' | 'bodyweight' | 'mobility' | 'run';
+export const DISCIPLINES: readonly Discipline[] = ['lift', 'yoga', 'bodyweight', 'mobility', 'run'];
+export const isDiscipline = (v: unknown): v is Discipline => DISCIPLINES.includes(v as Discipline);
+
 /**
- * What an exercise MEASURES decides everything else about it — which
- * Measure a set writes, which axis progression moves, how a number reads:
+ * An exercise measures one thing and progresses another. What a set WRITES
+ * is its `kind` (measure.ts decides the variant); what the RULE moves is its
+ * `progress`, named per exercise:
  *
- *   load — a weighted set. Progress the LOAD: hit the top of the range and
- *          that set takes the next size up — the rack's next rung, or +inc
- *          on a machine stack. `start` is the first-ever load; `each` says
- *          the number is per hand.
- *   hold — a timed hold. Progress the SECONDS: ring the bell and the next
- *          target is +inc, capped at `hi` — past the ceiling, make the pose
- *          harder, never longer. A range of ONE number (`lo === hi`) is a
- *          stretch: nothing to dial, nothing to progress, `inc` is 0 — the
- *          floor says Start 45s and rings the bell (isFixedHold).
- *   reps — a bodyweight count. Carry last time's number, capped at `hi`.
- *
- * Three kinds, a closed union: every consumer switches on `kind`, and a
- * field that only means something for one kind exists only on that kind.
- * That is the whole "escalation path" — chosen per exercise, by name, not
- * inferred from a combination of flags.
+ *   size    — a loaded set: top of the range → the next size up for THAT
+ *             set. `start` is the first-ever load, `inc` the machine's step
+ *             (ignored when a `rack` says what sizes exist), `each` says the
+ *             number is per hand.
+ *   time    — a strength hold: ring the bell → +inc seconds, capped at `hi`.
+ *             Past the ceiling, make it harder, never longer.
+ *   count   — carry last time's reps, capped at `hi`.
+ *   variant — every set at `hi` → the next rung of the ladder, reps back to
+ *             `lo`. The rung is derived from the stream, like a rack walk.
+ *   none    — it does not progress. A stretch, a yoga hold, the run. The
+ *             dose is the dose, and suggest() returns early.
  */
+export type Progress =
+	| { of: 'size'; start: number; inc: number; rack?: Rack; each?: boolean }
+	| { of: 'time'; inc: number }
+	| { of: 'count' }
+	| { of: 'variant'; ladder: string[] }
+	| { of: 'none' };
+
 type ExerciseBase = {
 	name: string;
 	equip: string;
 	tag: string;
 	sets: number;
-	/** the range: reps — or seconds, for a hold */
+	/** the range: reps — seconds for a hold, minutes for a run */
 	lo: number;
 	hi: number;
 	/**
@@ -56,54 +75,37 @@ type ExerciseBase = {
 	rest?: number;
 };
 
-export type Loaded = ExerciseBase & {
-	kind: 'load';
-	/** the load (lb) for a first-ever session */
-	start: number;
-	/** the smallest step a machine stack takes; ignored when `rack` is set */
-	inc: number;
-	/**
-	 * Which rack this comes off (racks.ts). Free weights come in discrete
-	 * sizes, so a level-up is "the next bell up", not "+inc" — there is no
-	 * 37.5 lb kettlebell. Machines leave it absent: stacks vary too much to
-	 * model, so `inc` rules.
-	 */
-	rack?: Rack;
-	/**
-	 * absent = one implement, or a machine stack: the number IS the load.
-	 * true = the number is PER HAND (two dumbbells), so the total is double.
-	 * A goblet squat at 35 and an RDL at 40 each are not the same 35 and 40.
-	 */
-	each?: boolean;
-};
-export type Held = ExerciseBase & {
-	kind: 'hold';
-	/** seconds added to the target after a hold that rang its bell */
-	inc: number;
-};
-export type Counted = ExerciseBase & { kind: 'reps' };
-export type Exercise = Loaded | Held | Counted;
+/**
+ * The legal pairings, and only these — anything else fails parsePlan:
+ *   load + size · hold + time · hold + none · reps + count · reps + variant ·
+ *   reps + none · run + none
+ */
+export type Loaded = ExerciseBase & { kind: 'load'; progress: Extract<Progress, { of: 'size' }> };
+export type Held = ExerciseBase & { kind: 'hold'; progress: Extract<Progress, { of: 'time' | 'none' }> };
+export type Counted = ExerciseBase & { kind: 'reps'; progress: Extract<Progress, { of: 'count' | 'variant' | 'none' }> };
+/** The run: one exercise that measures minutes. A routine of one of these is a run. */
+export type RunEx = ExerciseBase & { kind: 'run'; progress: Extract<Progress, { of: 'none' }> };
+export type Exercise = Loaded | Held | Counted | RunEx;
+export type Kind = Exercise['kind'];
 
 /**
  * One line of a warm-up or cooldown. A plain string is an instruction you
  * tick off ("One bodyweight set of the first lift"); a timed item is a
  * countdown the floor runs for you — a jog by the minute, a drill or a
- * stretch by the second, `each` when it is once per side.
+ * stretch by the second, `each` when it is once per side; a counted item is
+ * a line you tick after N of something ("Sun Salutation A × 3").
  */
 export type PrepItem =
 	| string
 	| { name: string; seconds: number; each?: boolean }
-	| { name: string; minutes: number };
+	| { name: string; minutes: number }
+	| { name: string; reps: number; each?: boolean };
 
-export type DayInfo = {
+/** A thing the plan offers. Reference data; the session carries its own copy of `discipline`. */
+export type Routine = {
 	title: string;
+	discipline: Discipline;
 	desc?: string;
-	/**
-	 * What kind of day it is. A stretch day is a day of holds that Today
-	 * offers as a quiet row, never as the pick, and the week marks as
-	 * "stretched" rather than "lifted". Absent = a lift.
-	 */
-	kind?: 'lift' | 'stretch';
 	/** warm-up and cooldown are lists of STEPS, one line each — every line takes a turn on the floor */
 	warmup?: PrepItem[];
 	cooldown?: PrepItem[];
@@ -112,17 +114,20 @@ export type DayInfo = {
 };
 
 /**
- * The guided run. `minutes` is the target the clock counts toward; the
- * warm-up (a jog, drills, dynamic stretches) and cooldown (a walk, static
- * stretches) are steps the floor walks before and after. A run logged after
- * the fact writes the same session shape with one entry.
+ * Routines you work THROUGH, in order, at a cadence. Two long (A/B), seven
+ * long (the no-gym block), one long (a routine you simply repeat) — or
+ * mixed, since discipline lives on the routine. Position is never stored:
+ * it is the routine after the last one of this cycle you finished.
  */
-export type RunDay = {
+export type Cycle = {
+	id: string;
 	title: string;
-	minutes: number;
-	note?: string;
-	warmup?: PrepItem[];
-	cooldown?: PrepItem[];
+	/** ordered routine keys */
+	routines: string[];
+	/** sessions a week. Always sessions. 0 = never offered on its own */
+	target: number;
+	/** takes that cycle's target while it is ruled out (the floor stands in for the gym) */
+	standsInFor?: string;
 };
 
 export type Plan = {
@@ -130,82 +135,112 @@ export type Plan = {
 	name: string;
 	description?: string;
 	schedule: string;
-	dayInfo?: Record<string, DayInfo>;
-	days: Record<string, Exercise[]>;
-	/** absent = true. false hides all running UI while this plan is active. */
-	runs?: boolean;
-	/** weekly run-minute goal for the meter/badge; absent = DEFAULT_RUN_TARGET */
-	runTarget?: number;
-	/**
-	 * Lift sessions a week the plan is asking for — the number the Ledger's
-	 * running average is measured against. It is NOT the count of lift days:
-	 * an A/B plan has two days and can ask for three sessions a week (A, B, A).
-	 * Absent = one session per lift day.
-	 */
-	liftTarget?: number;
-	/** warm-up / cooldown for days whose dayInfo doesn't carry their own */
+	/** what the week is made of */
+	cycles: Cycle[];
+	/** key → the work */
+	routines: Record<string, Exercise[]>;
+	/** key → what it is */
+	routineInfo: Record<string, Routine>;
+	/** seconds between sets, unless the exercise says otherwise; absent = DEFAULT_REST */
+	rest?: number;
+	/** warm-up / cooldown for routines whose info doesn't carry their own */
 	warmup?: PrepItem[];
 	cooldown?: PrepItem[];
 	cue?: string;
-	/** seconds between sets, unless the exercise says otherwise; absent = DEFAULT_REST */
-	rest?: number;
-	/** the guided run this plan offers; absent = a plain run */
-	run?: RunDay;
 };
 
 /* ---------- reading a plan ---------------------------------------------
-   The defaults live here, once. A screen that wants "the run target" asks
-   the plan — it never writes `?? 150` itself. */
+   The defaults live here, once. A screen that wants "the rest" asks the
+   plan — it never writes `?? 60` itself. */
 
 export const DEFAULT_REST = 60;
-export const DEFAULT_RUN_TARGET = 150;
 
-export const warmupFor = (plan: Plan | undefined, day: string): PrepItem[] =>
-	plan?.dayInfo?.[day]?.warmup ?? plan?.warmup ?? [];
-export const cooldownFor = (plan: Plan | undefined, day: string): PrepItem[] =>
-	plan?.dayInfo?.[day]?.cooldown ?? plan?.cooldown ?? [];
-/** What kind of day this is; a day the plan says nothing about is a lift. */
-export const dayKind = (plan: Plan | undefined, day: string): 'lift' | 'stretch' =>
-	plan?.dayInfo?.[day]?.kind ?? 'lift';
-/** The lift days, in plan order — what Today alternates between. */
-export const liftDays = (plan: Plan): string[] => Object.keys(plan.days).filter((d) => dayKind(plan, d) === 'lift');
-/** The stretch days, in plan order — offered as a row, never the pick. */
-export const stretchDays = (plan: Plan): string[] =>
-	Object.keys(plan.days).filter((d) => dayKind(plan, d) === 'stretch');
-/** An exercise by name, from any day of the plan — how a one-off stretch finds its shape. */
-export const exerciseNamed = (plan: Plan | undefined, name: string): Exercise | undefined =>
-	plan && Object.values(plan.days).flat().find((ex) => ex.name === name);
-/** A timed prep item's countdown, in seconds; 0 for a plain instruction. */
-export const prepSeconds = (item: PrepItem): number =>
-	typeof item === 'string' ? 0 : 'seconds' in item ? item.seconds : item.minutes * 60;
-/** A hold with nowhere to go — a fixed length, so the floor has nothing to dial. */
-export const isFixedHold = (ex: Exercise): boolean => ex.kind === 'hold' && ex.lo === ex.hi;
+export const warmupFor = (plan: Plan | undefined, routine: string): PrepItem[] =>
+	plan?.routineInfo[routine]?.warmup ?? plan?.warmup ?? [];
+export const cooldownFor = (plan: Plan | undefined, routine: string): PrepItem[] =>
+	plan?.routineInfo[routine]?.cooldown ?? plan?.cooldown ?? [];
 /** The one line shown under every prep step. */
-export const cueFor = (plan: Plan | undefined, day: string): string | undefined =>
-	plan?.dayInfo?.[day]?.cue ?? plan?.cue;
+export const cueFor = (plan: Plan | undefined, routine: string): string | undefined =>
+	plan?.routineInfo[routine]?.cue ?? plan?.cue;
 export const restFor = (plan: Plan | undefined, ex: Exercise): number => ex.rest ?? plan?.rest ?? DEFAULT_REST;
-export const runTarget = (plan: Plan): number => plan.runTarget ?? DEFAULT_RUN_TARGET;
-/** Lift sessions a week the plan asks for; absent = one per lift day. */
-export const liftTarget = (plan: Plan): number => plan.liftTarget ?? liftDays(plan).length;
-export const hasRuns = (plan: Plan): boolean => plan.runs !== false;
+/** Display title for a routine: its info's title, else "Workout X" for a key the plan no longer has. */
+export const routineTitle = (plan: Plan | undefined, routine: string): string =>
+	plan?.routineInfo[routine]?.title ?? 'Workout ' + routine;
+/** What a routine IS — undefined for a key the plan doesn't have. */
+export const disciplineOf = (plan: Plan | undefined, routine: string): Discipline | undefined =>
+	plan?.routineInfo[routine]?.discipline;
+/** Every routine of a discipline, in plan order. */
+export const routinesOf = (plan: Plan, discipline: Discipline): string[] =>
+	Object.keys(plan.routines).filter((r) => disciplineOf(plan, r) === discipline);
+/** The disciplines a plan's cycles cover, in cycle order, once each. */
+export function disciplinesOf(plan: Plan): Discipline[] {
+	const out: Discipline[] = [];
+	for (const c of plan.cycles)
+		for (const r of c.routines) {
+			const d = disciplineOf(plan, r);
+			if (d && !out.includes(d)) out.push(d);
+		}
+	return out;
+}
+/** The disciplines one cycle turns through — one, usually; the no-gym block mixes two. */
+export function cycleDisciplines(plan: Plan, cycle: Cycle): Discipline[] {
+	const out: Discipline[] = [];
+	for (const r of cycle.routines) {
+		const d = disciplineOf(plan, r);
+		if (d && !out.includes(d)) out.push(d);
+	}
+	return out;
+}
+/** Every routine key, in cycle order and then the rest — what a row of chips shows. */
+export function routineKeys(plan: Plan): string[] {
+	const out: string[] = [];
+	for (const c of plan.cycles) for (const r of c.routines) if (!out.includes(r)) out.push(r);
+	for (const r of Object.keys(plan.routines)) if (!out.includes(r)) out.push(r);
+	return out;
+}
+/** The first cycle a routine belongs to, if any. */
+export const cycleOf = (plan: Plan, routine: string): Cycle | undefined =>
+	plan.cycles.find((c) => c.routines.includes(routine));
+/** An exercise by name, from any routine of the plan — how a one-off stretch finds its shape. */
+export const exerciseNamed = (plan: Plan | undefined, name: string): Exercise | undefined =>
+	plan && Object.values(plan.routines).flat().find((ex) => ex.name === name);
+/** Every exercise in the plan, once each by name, in plan order. */
+export function planExercises(plan: Plan): Exercise[] {
+	const seen = new Set<string>();
+	const out: Exercise[] = [];
+	for (const list of Object.values(plan.routines))
+		for (const ex of list)
+			if (!seen.has(ex.name)) {
+				seen.add(ex.name);
+				out.push(ex);
+			}
+	return out;
+}
+/** A timed prep item's countdown, in seconds; 0 for a line you tick. */
+export const prepSeconds = (item: PrepItem): number =>
+	typeof item === 'string' || 'reps' in item ? 0 : 'seconds' in item ? item.seconds : item.minutes * 60;
 
 /* ---------- accepting a plan --------------------------------------------- */
 
 type Raw = Record<string, unknown>;
 const isObj = (v: unknown): v is Raw => !!v && typeof v === 'object' && !Array.isArray(v);
 const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+const count = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
 
-/** One prep item: a string, or a timed item with a name and seconds or minutes. */
+/** One prep item: a string, or a named item with seconds, minutes or reps. */
 function parsePrepItem(v: unknown, where: string): PrepItem {
 	if (typeof v === 'string') return v;
 	if (isObj(v) && typeof v.name === 'string' && v.name) {
-		if (positive(v.seconds) && v.minutes === undefined) {
-			if (v.each !== undefined && typeof v.each !== 'boolean') throw new Error(`${where} "${v.name}" each must be a boolean`);
-			return { name: v.name, seconds: v.seconds, ...(v.each !== undefined ? { each: v.each as boolean } : {}) };
+		const keys = ['seconds', 'minutes', 'reps'].filter((k) => v[k] !== undefined);
+		if (v.each !== undefined && typeof v.each !== 'boolean') throw new Error(`${where} "${v.name}" each must be a boolean`);
+		if (keys.length === 1) {
+			const each = v.each !== undefined ? { each: v.each as boolean } : {};
+			if (positive(v.seconds)) return { name: v.name, seconds: v.seconds, ...each };
+			if (positive(v.minutes) && v.each === undefined) return { name: v.name, minutes: v.minutes };
+			if (positive(v.reps) && Number.isInteger(v.reps)) return { name: v.name, reps: v.reps, ...each };
 		}
-		if (positive(v.minutes) && v.seconds === undefined) return { name: v.name, minutes: v.minutes };
 	}
-	throw new Error(`${where} must be a string or a list of strings and timed items`);
+	throw new Error(`${where} must be a string or a list of strings and timed or counted items`);
 }
 
 /** A step list: one item per line, each a string or a timed item. */
@@ -215,9 +250,49 @@ function stepList(v: unknown, where: string): PrepItem[] | undefined {
 	throw new Error(`${where} must be a list of strings and timed items`);
 }
 
-function parseExercise(raw: unknown, day: string): Exercise {
+function parseProgress(e: Raw, name: string): Progress {
+	const p = e.progress;
+	if (!isObj(p)) throw new Error(`"${name}" needs a progress: size, time, count, variant or none`);
+	const num = (k: string): number => {
+		if (typeof p[k] !== 'number' || !Number.isFinite(p[k])) throw new Error(`"${name}" progress needs numeric ${k}`);
+		return p[k] as number;
+	};
+	switch (p.of) {
+		case 'size': {
+			if (p.rack !== undefined && !Object.keys(RACKS).includes(p.rack as string))
+				throw new Error(`"${name}" rack must be ${Object.keys(RACKS).join(', ')} (omit it for machines)`);
+			if (p.each !== undefined && typeof p.each !== 'boolean') throw new Error(`"${name}" each must be a boolean`);
+			return {
+				of: 'size',
+				start: num('start'),
+				inc: num('inc'),
+				...(p.rack !== undefined ? { rack: p.rack as Rack } : {}),
+				...(p.each !== undefined ? { each: p.each as boolean } : {})
+			};
+		}
+		case 'time': {
+			const inc = num('inc');
+			if (inc <= 0) throw new Error(`"${name}" needs a positive inc to progress`);
+			return { of: 'time', inc };
+		}
+		case 'count':
+			return { of: 'count' };
+		case 'variant': {
+			const ladder = p.ladder;
+			if (!Array.isArray(ladder) || !ladder.length || !ladder.every((s) => typeof s === 'string' && s))
+				throw new Error(`"${name}" variant progress needs a ladder of names`);
+			return { of: 'variant', ladder: ladder as string[] };
+		}
+		case 'none':
+			return { of: 'none' };
+		default:
+			throw new Error(`"${name}" progress must be size, time, count, variant or none`);
+	}
+}
+
+function parseExercise(raw: unknown, routine: string): Exercise {
 	if (!isObj(raw) || typeof raw.name !== 'string' || !raw.name)
-		throw new Error(`exercise in day "${day}" is missing a name`);
+		throw new Error(`exercise in routine "${routine}" is missing a name`);
 	const e = raw;
 	const name = e.name as string;
 	const num = (k: string): number => {
@@ -245,64 +320,52 @@ function parseExercise(raw: unknown, day: string): Exercise {
 	if (base.lo > base.hi) throw new Error(`"${name}" lo must not exceed hi`);
 	if (base.side === 'sets' && base.sets % 2 !== 0)
 		throw new Error(`"${name}" side "sets" needs an even number of sets — one per side`);
+	const progress = parseProgress(e, name);
+	const pairing = `${String(e.kind)} + ${progress.of}`;
 	switch (e.kind) {
-		case 'load': {
-			if (e.rack !== undefined && !Object.keys(RACKS).includes(e.rack as string))
-				throw new Error(`"${name}" rack must be ${Object.keys(RACKS).join(', ')} (omit it for machines)`);
-			if (e.each !== undefined && typeof e.each !== 'boolean') throw new Error(`"${name}" each must be a boolean`);
-			return {
-				...base,
-				kind: 'load',
-				start: num('start'),
-				inc: num('inc'),
-				...(e.rack !== undefined ? { rack: e.rack as Rack } : {}),
-				...(e.each !== undefined ? { each: e.each as boolean } : {})
-			};
-		}
-		case 'hold': {
-			const inc = num('inc');
-			// a hold with a range climbs by inc; a fixed hold (a stretch) has
-			// nowhere to climb, and says so — the two fields must agree
-			if (base.lo < base.hi && inc <= 0) throw new Error(`"${name}" needs a positive inc to progress`);
-			if (base.lo === base.hi && inc !== 0) throw new Error(`"${name}" is a fixed hold: inc must be 0`);
-			return { ...base, kind: 'hold', inc };
-		}
+		case 'load':
+			if (progress.of !== 'size') throw new Error(`"${name}": ${pairing} is not a legal pairing — a load progresses by size`);
+			return { ...base, kind: 'load', progress };
+		case 'hold':
+			if (progress.of === 'time') {
+				// a hold with a range climbs by inc; a fixed hold (a stretch) has
+				// nowhere to climb, and says so — the two must agree
+				if (base.lo === base.hi) throw new Error(`"${name}" is a fixed hold: its progress is none`);
+				return { ...base, kind: 'hold', progress };
+			}
+			if (progress.of === 'none') {
+				if (base.lo !== base.hi) throw new Error(`"${name}" does not progress, so it has one length: lo must equal hi`);
+				return { ...base, kind: 'hold', progress };
+			}
+			throw new Error(`"${name}": ${pairing} is not a legal pairing — a hold progresses by time, or not at all`);
 		case 'reps':
-			return { ...base, kind: 'reps' };
+			if (progress.of === 'count' || progress.of === 'variant' || progress.of === 'none')
+				return { ...base, kind: 'reps', progress };
+			throw new Error(`"${name}": ${pairing} is not a legal pairing — reps progress by count, by variant, or not at all`);
+		case 'run':
+			if (progress.of !== 'none') throw new Error(`"${name}": ${pairing} is not a legal pairing — a run does not progress`);
+			return { ...base, kind: 'run', progress };
 		default:
-			throw new Error(`"${name}" kind must be load, hold or reps`);
+			throw new Error(`"${name}" kind must be load, hold, reps or run`);
 	}
 }
 
-function parseRun(v: unknown): RunDay {
-	if (!isObj(v) || typeof v.title !== 'string' || !positive(v.minutes)) throw new Error('run needs a title and positive minutes');
-	if (v.note !== undefined && typeof v.note !== 'string') throw new Error('run note must be a string');
-	const warmup = stepList(v.warmup, 'run warmup');
-	const cooldown = stepList(v.cooldown, 'run cooldown');
-	return {
-		title: v.title,
-		minutes: v.minutes,
-		...(v.note !== undefined ? { note: v.note as string } : {}),
-		...(warmup ? { warmup } : {}),
-		...(cooldown ? { cooldown } : {})
-	};
-}
-
-function parseDayInfo(v: unknown): Record<string, DayInfo> {
-	if (!isObj(v)) throw new Error('dayInfo must be an object');
-	const out: Record<string, DayInfo> = {};
-	for (const [d, info] of Object.entries(v)) {
-		if (!isObj(info) || typeof info.title !== 'string') throw new Error(`dayInfo "${d}" needs a title`);
-		if (info.desc !== undefined && typeof info.desc !== 'string') throw new Error(`dayInfo "${d}" desc must be a string`);
-		if (info.kind !== undefined && info.kind !== 'lift' && info.kind !== 'stretch')
-			throw new Error(`dayInfo "${d}" kind must be "lift" or "stretch"`);
-		if (info.cue !== undefined && typeof info.cue !== 'string') throw new Error(`dayInfo "${d}" cue must be a string`);
-		const warmup = stepList(info.warmup, `dayInfo "${d}" warmup`);
-		const cooldown = stepList(info.cooldown, `dayInfo "${d}" cooldown`);
-		out[d] = {
+function parseRoutineInfo(v: unknown, keys: string[]): Record<string, Routine> {
+	if (!isObj(v)) throw new Error('routineInfo must be an object with an entry per routine');
+	const out: Record<string, Routine> = {};
+	for (const r of keys) {
+		const info = v[r];
+		if (!isObj(info) || typeof info.title !== 'string' || !info.title) throw new Error(`routineInfo "${r}" needs a title`);
+		if (!isDiscipline(info.discipline))
+			throw new Error(`routineInfo "${r}" needs a discipline: ${DISCIPLINES.join(', ')}`);
+		if (info.desc !== undefined && typeof info.desc !== 'string') throw new Error(`routineInfo "${r}" desc must be a string`);
+		if (info.cue !== undefined && typeof info.cue !== 'string') throw new Error(`routineInfo "${r}" cue must be a string`);
+		const warmup = stepList(info.warmup, `routineInfo "${r}" warmup`);
+		const cooldown = stepList(info.cooldown, `routineInfo "${r}" cooldown`);
+		out[r] = {
 			title: info.title,
+			discipline: info.discipline,
 			...(info.desc !== undefined ? { desc: info.desc as string } : {}),
-			...(info.kind !== undefined ? { kind: info.kind as 'lift' | 'stretch' } : {}),
 			...(warmup ? { warmup } : {}),
 			...(cooldown ? { cooldown } : {}),
 			...(info.cue !== undefined ? { cue: info.cue as string } : {})
@@ -311,54 +374,82 @@ function parseDayInfo(v: unknown): Record<string, DayInfo> {
 	return out;
 }
 
+function parseCycles(v: unknown, keys: string[]): Cycle[] {
+	if (!Array.isArray(v) || !v.length) throw new Error('cycles must be a non-empty list');
+	const out: Cycle[] = [];
+	for (const c of v) {
+		if (!isObj(c) || typeof c.id !== 'string' || !c.id || typeof c.title !== 'string' || !c.title)
+			throw new Error('every cycle needs an id and a title');
+		if (out.some((x) => x.id === c.id)) throw new Error(`cycle "${c.id}" is listed twice`);
+		if (!Array.isArray(c.routines) || !c.routines.length || !c.routines.every((r) => typeof r === 'string'))
+			throw new Error(`cycle "${c.id}" needs a non-empty list of routines`);
+		for (const r of c.routines as string[]) if (!keys.includes(r)) throw new Error(`cycle "${c.id}" names a routine the plan doesn't have: "${r}"`);
+		if (!count(c.target)) throw new Error(`cycle "${c.id}" target must be a whole number of sessions a week`);
+		if (c.standsInFor !== undefined && typeof c.standsInFor !== 'string') throw new Error(`cycle "${c.id}" standsInFor must name a cycle`);
+		out.push({
+			id: c.id,
+			title: c.title,
+			routines: [...(c.routines as string[])],
+			target: c.target,
+			...(c.standsInFor !== undefined ? { standsInFor: c.standsInFor as string } : {})
+		});
+	}
+	for (const c of out)
+		if (c.standsInFor !== undefined && (c.standsInFor === c.id || !out.some((x) => x.id === c.standsInFor)))
+			throw new Error(`cycle "${c.id}" stands in for a cycle the plan doesn't have: "${c.standsInFor}"`);
+	return out;
+}
+
 /**
  * A plan from the outside — a pasted JSON row, or a row read back from the
  * table. Parse, don't validate: the result is rebuilt field by field, and
  * anything the fields can't say about each other (a range upside down, a
- * stretch day with a squat on it, a run on a plan that has none) is refused
- * here with a sentence, instead of becoming a step nobody asked for. There
- * are no legacy readers: the shipped plans are rewritten from code on every
- * boot, and the table has never held a custom row (checked 2026-09-08).
+ * mobility routine with a squat on it, a cycle naming a routine that isn't
+ * there, a run routine with no run in it) is refused here with a sentence,
+ * instead of becoming a step nobody asked for. There are no legacy readers:
+ * the shipped plans are rewritten from code on every boot, and a row nobody
+ * can read is logged and skipped by listPlans.
  */
 export function parsePlan(raw: unknown): Plan {
 	const p = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
-	if (!isObj(p)) throw new Error('a plan is an object with id, name and days');
-	if (!p.id || !p.name || !p.days) throw new Error('needs id, name, days');
+	if (!isObj(p)) throw new Error('a plan is an object with id, name, routines, routineInfo and cycles');
+	if (!p.id || !p.name || !p.routines || !p.routineInfo || !p.cycles)
+		throw new Error('needs id, name, routines, routineInfo, cycles');
 	if (typeof p.id !== 'string' || typeof p.name !== 'string') throw new Error('id and name must be strings');
 	if (p.description !== undefined && typeof p.description !== 'string') throw new Error('description must be a string');
-	if (p.runs !== undefined && typeof p.runs !== 'boolean') throw new Error('runs must be a boolean');
-	if (p.runTarget !== undefined && !positive(p.runTarget)) throw new Error('runTarget must be a positive number of minutes');
-	if (p.liftTarget !== undefined && !positive(p.liftTarget)) throw new Error('liftTarget must be a positive number of sessions a week');
 	if (p.cue !== undefined && typeof p.cue !== 'string') throw new Error('cue must be a string');
 	if (p.rest !== undefined && !positive(p.rest)) throw new Error('rest must be a positive number of seconds');
 	const warmup = stepList(p.warmup, 'warmup');
 	const cooldown = stepList(p.cooldown, 'cooldown');
-	const run = p.run === undefined ? undefined : parseRun(p.run);
-	if (p.runs === false && run) throw new Error('runs is false but a run is defined');
-	const dayInfo = p.dayInfo === undefined ? undefined : parseDayInfo(p.dayInfo);
-	if (!isObj(p.days) || !Object.keys(p.days).length) throw new Error('days must be a non-empty object');
-	const days: Record<string, Exercise[]> = {};
-	for (const [day, list] of Object.entries(p.days)) {
-		if (!Array.isArray(list) || !list.length) throw new Error(`day "${day}" needs a non-empty exercise list`);
-		days[day] = list.map((e) => parseExercise(e, day));
-		// a stretch day is a day of holds — that is what makes it one
-		if (dayInfo?.[day]?.kind === 'stretch' && days[day].some((ex) => ex.kind !== 'hold'))
-			throw new Error(`day "${day}" is a stretch day: every exercise must be a hold`);
+	if (!isObj(p.routines) || !Object.keys(p.routines).length) throw new Error('routines must be a non-empty object');
+	const keys = Object.keys(p.routines);
+	const routineInfo = parseRoutineInfo(p.routineInfo, keys);
+	const cycles = parseCycles(p.cycles, keys);
+	const routines: Record<string, Exercise[]> = {};
+	for (const [r, list] of Object.entries(p.routines)) {
+		if (!Array.isArray(list) || !list.length) throw new Error(`routine "${r}" needs a non-empty exercise list`);
+		routines[r] = list.map((e) => parseExercise(e, r));
+		const discipline = routineInfo[r].discipline;
+		// a stretch routine is a routine of holds — that is what makes it one
+		if (discipline === 'mobility' && routines[r].some((ex) => ex.kind !== 'hold'))
+			throw new Error(`routine "${r}" is mobility: every exercise must be a hold`);
+		// the run is a routine with one exercise that measures minutes — and
+		// nothing else has one
+		const runs = routines[r].filter((ex) => ex.kind === 'run').length;
+		if (discipline === 'run' && runs !== 1) throw new Error(`routine "${r}" is a run: it needs exactly one run exercise`);
+		if (discipline !== 'run' && runs) throw new Error(`routine "${r}" has a run in it but is not a run`);
 	}
 	return {
 		id: p.id,
 		name: p.name,
 		schedule: typeof p.schedule === 'string' ? p.schedule : '',
 		...(p.description !== undefined ? { description: p.description as string } : {}),
-		...(dayInfo ? { dayInfo } : {}),
-		days,
-		...(p.runs !== undefined ? { runs: p.runs as boolean } : {}),
-		...(p.runTarget !== undefined ? { runTarget: p.runTarget as number } : {}),
-		...(p.liftTarget !== undefined ? { liftTarget: p.liftTarget as number } : {}),
+		cycles,
+		routines,
+		routineInfo,
+		...(p.rest !== undefined ? { rest: p.rest as number } : {}),
 		...(warmup ? { warmup } : {}),
 		...(cooldown ? { cooldown } : {}),
-		...(p.cue !== undefined ? { cue: p.cue as string } : {}),
-		...(p.rest !== undefined ? { rest: p.rest as number } : {}),
-		...(run ? { run } : {})
+		...(p.cue !== undefined ? { cue: p.cue as string } : {})
 	};
 }

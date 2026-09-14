@@ -14,7 +14,7 @@
 	import { EntryQueue, type QueueOp } from '$lib/components/floor/queue.svelte';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
-	import { dayTitle, historyFor, lastEntryFor, sessionEntries, weekRunMinutes } from '$lib/domain/projections';
+	import { historyFor, lastEntryFor, sessionEntries, weekProgress } from '$lib/domain/projections';
 	import { bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
 	import {
 		countLabel,
@@ -38,7 +38,7 @@
 		sessionSteps,
 		type Step
 	} from '$lib/domain/steps';
-	import { cueFor, isFixedHold, restFor, runTarget, stretchDays, type Exercise } from '$lib/domain/plan';
+	import { cueFor, cycleOf, restFor, routineTitle, routinesOf, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -56,12 +56,15 @@
 	   exactly one step at a time with one big button. Rests are not steps: a
 	   rest is a clock that runs under the next set. */
 	const workout = session.workout;
-	const isRunDay = workout.kind === 'run';
-	const title = dayTitle(plan, workout);
-	const cue = workout.kind === 'lift' ? cueFor(plan, workout.day) : plan.cue;
+	// what the session says it is — the run has no sets to count on the receipt
+	const isRunDay = session.discipline === 'run';
+	const title = routineTitle(plan, workout.routine);
+	const cue = cueFor(plan, workout.routine);
 	const sessionAt = session.at;
-	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch days */
-	const stretchPool: Exercise[] = stretchDays(plan).flatMap((d) => plan.days[d]);
+	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch routines */
+	const stretchPool: Exercise[] = routinesOf(plan, 'mobility').flatMap((r) => plan.routines[r]);
+	/** the week this routine's cycle is having — the run's meta line says where it stands */
+	const cycle = cycleOf(plan, workout.routine);
 
 	/* ---------- the optimistic queue (queue.svelte.ts) ----------
 	   The screen updates the frame you press; the server catches up in the
@@ -142,8 +145,8 @@
 	// the step's kind says what it carries: only a set has an exercise
 	let ex = $derived<Exercise | undefined>(st?.kind === 'set' ? st.ex : undefined);
 	let atSet = $derived(st?.kind === 'set');
-	/** a stretch: a fixed hold, nothing to dial — Start 45s, the bell, the other side */
-	let fixed = $derived(!!ex && isFixedHold(ex));
+	/** a stretch: a hold that does not progress, nothing to dial — Start 45s, the bell, the other side */
+	let fixed = $derived(!!ex && ex.progress.of === 'none');
 	let stepDone = $derived(!!st && progress.done.has(st.key));
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
@@ -211,7 +214,7 @@
 	   hold you dropped early is the one time the count goes under the floor. */
 	const bumpReps = (dir: 1 | -1) => {
 		if (!dialEx || clock.active) return;
-		if (editing && dialEx.kind === 'hold') reps = Math.max(1, Math.min(dialEx.hi, reps + dir * (dialEx.inc || 5)));
+		if (editing && dialEx.kind === 'hold') reps = Math.max(1, Math.min(dialEx.hi, reps + dir * (dialEx.progress.of === 'time' ? dialEx.progress.inc : 5)));
 		else reps = bumpCount(dialEx, reps, dir);
 	};
 	const bumpWeight = (dir: 1 | -1) => {
@@ -308,7 +311,7 @@
 				// place the ledger speaks on the floor
 				const was = last?.sets[s.index - 1];
 				// a stretch has no number to beat, so it gets no number to look at
-				const lastN = was && !isFixedHold(x) ? countLabel(was) : undefined;
+				const lastN = was && x.progress.of !== 'none' ? countLabel(was) : undefined;
 				if (editing === s.key)
 					return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'editing', state: 'editing', tappable: true };
 				if (e)
@@ -337,18 +340,24 @@
 
 	/* ---------- the lines above the table ---------- */
 	let heading = $derived(!st ? 'Done' : st.kind === 'set' ? st.ex.name : st.section);
-	let weekMin = $derived(weekRunMinutes(data.events, opened));
+	// this session counts: an unfinished one today is still one. A snapshot on
+	// purpose — data.events never refreshes mid-session
+	// svelte-ignore state_referenced_locally
+	const week = cycle ? weekProgress(data.events, plan, cycle, opened) : null;
 	let meta = $derived.by(() => {
 		if (!st) return '';
 		if (st.kind === 'prep' || st.kind === 'timed') {
 			const n = steps.filter((s) => s.section === st.section).length;
 			return `${st.section.toUpperCase()} · STEP ${st.index} OF ${n}`;
 		}
-		if (st.kind === 'run') return `TARGET ${st.minutes} MIN · ${weekMin} OF ${runTarget(plan)} MIN THIS WEEK`;
+		if (st.kind === 'run') return `TARGET ${st.minutes} MIN${week && week.target ? ` · ${week.done} OF ${week.target} THIS WEEK` : ''}`;
 		const x = st.ex;
 		// a stretch has no target to state — it says how long, and which side
-		if (isFixedHold(x)) return holdLine(x, st.index);
-		return `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.each ? ' · PER HAND' : ''}${x.kind === 'reps' ? ` · ${x.equip.toUpperCase()}` : ''}`;
+		if (x.progress.of === 'none' && x.kind === 'hold') return holdLine(x, st.index);
+		// a ladder says which rung, where a lift would say the weight
+		const v = suggestionFor(x);
+		const rung = v.kind === 'count' && v.variant ? ` · ${v.variant.name.toUpperCase()}` : '';
+		return `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.progress.each ? ' · PER HAND' : ''}${rung}${x.kind === 'reps' && !rung ? ` · ${x.equip.toUpperCase()}` : ''}`;
 	});
 	// the reasoning behind the preloaded weight, so a drop is never silent —
 	// only before the first set: after that the table carries the session's
@@ -356,7 +365,7 @@
 	let hint = $derived.by(() => {
 		if (!st || editing) return null;
 		if (st.kind === 'prep' || st.kind === 'timed') return cue ?? null;
-		if (st.kind === 'run') return plan.run?.note ?? null;
+		if (st.kind === 'run') return st.ex.note ?? null;
 		const x = st.ex;
 		if (setsDoneFor(x.name) > 0) return null;
 		return loadHint(suggestionFor(x), x);
@@ -668,7 +677,7 @@
 					<div class="fl-tiles" class:single={tileBW}>
 						{#if tileHold}
 							<AdjustTile
-								label={editing ? 'Held' : `Hold · +${dialEx.kind === 'hold' ? dialEx.inc : 5}s`}
+								label={editing ? 'Held' : `Hold · +${dialEx.kind === 'hold' && dialEx.progress.of === 'time' ? dialEx.progress.inc : 5}s`}
 								bind:value={reps}
 								min={editing ? 1 : dialEx.lo}
 								max={dialEx.hi}
@@ -743,7 +752,7 @@
 	open={sheetOpen}
 	title={heading === 'Done' ? title : heading}
 	ex={atSet ? ex : undefined}
-	cue={st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? plan.run?.note : undefined}
+	cue={st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? st.ex.note : undefined}
 	{sections}
 	stretches={addable}
 	backLabel={position}

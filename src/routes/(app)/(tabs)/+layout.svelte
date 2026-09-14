@@ -69,12 +69,18 @@
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
 		overscroll-behavior-y: contain;
+		/* a column, so the shell can fill the height it has: Today measures
+		   the room under its card and a short page must not leave it guessing */
+		display: flex;
+		flex-direction: column;
 	}
 	.shell {
+		width: 100%;
 		max-width: var(--content-max);
 		margin: 0 auto;
 		padding: var(--page-pad);
 		padding-bottom: 64px;
+		flex: 1 0 auto;
 		display: flex;
 		flex-direction: column;
 		gap: 24px;

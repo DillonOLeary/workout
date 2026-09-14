@@ -82,7 +82,7 @@
 		</div>
 		{#if ex}
 			<section>
-				<p class="equip">{ex.equip}{ex.kind === 'load' && ex.each ? ' · weight is per hand' : ''}</p>
+				<p class="equip">{ex.equip}{ex.kind === 'load' && ex.progress.each ? ' · weight is per hand' : ''}</p>
 				{#if ex.note}<p class="note">{ex.note}</p>{/if}
 			</section>
 		{:else if cue}

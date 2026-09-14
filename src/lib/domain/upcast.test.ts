@@ -6,9 +6,9 @@ const AT = '2026-08-23T18:00:00.000Z';
 const row = (type: string, data: unknown): StoredEvent => ({ type, data });
 
 describe('the read boundary — old rows read back in the current vocabulary', () => {
-	it('fills mode on a SessionStarted written before it existed, and strips what entries never needed', () => {
+	it('fills mode and discipline on a SessionStarted written before they existed, and strips what entries never needed', () => {
 		expect(upcast(row('SessionStarted', { session: 's1', plan: 'p', day: 'A', at: AT }))).toEqual([
-			{ type: 'SessionStarted', data: { session: 's1', plan: 'p', at: AT, mode: 'live', kind: 'lift', day: 'A' } }
+			{ type: 'SessionStarted', data: { session: 's1', plan: 'p', at: AT, mode: 'live', discipline: 'lift', routine: 'A' } }
 		]);
 		expect(
 			upcast(row('EntryLogged', { session: 's1', plan: 'p', day: 'A', item: 'Warm-up', index: 1, at: AT, measure: { of: 'step' } }))
@@ -18,21 +18,39 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 		]);
 	});
 
+	it('asks the plans what discipline an old session was, and remembers the retired ones itself', () => {
+		const lookup = (plan: string, routine: string) => (plan === 'p' && routine === 'S' ? ('mobility' as const) : undefined);
+		const [s] = upcast(row('SessionStarted', { session: 's1', plan: 'p', day: 'S', at: AT, mode: 'live' }), lookup);
+		expect(s.type === 'SessionStarted' && s.data.discipline).toBe('mobility');
+		// a kind: 'lift' row with a day the lookup doesn't know is a lift
+		const [l] = upcast(row('SessionStarted', { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT, mode: 'live' }), lookup);
+		expect(l.type === 'SessionStarted' && l.data).toMatchObject({ discipline: 'lift', routine: 'A' });
+		// Hold Steady is gone from the table; its sessions still say yoga
+		const [y] = upcast(row('SessionStarted', { session: 's1', plan: 'yoga-2day-v1', day: '2', at: AT, mode: 'live' }), lookup);
+		expect(y.type === 'SessionStarted' && y.data).toMatchObject({ discipline: 'yoga', routine: '2' });
+		// a row that already says what it was is believed over the plan
+		const [k] = upcast(row('SessionStarted', { session: 's1', plan: 'p', routine: 'S', discipline: 'yoga', at: AT, mode: 'live' }), lookup);
+		expect(k.type === 'SessionStarted' && k.data.discipline).toBe('yoga');
+	});
+
 	it('passes a current row through unchanged', () => {
-		const started = row('SessionStarted', { session: 's1', plan: 'p', at: AT, mode: 'after', kind: 'lift', day: 'A' });
+		const started = row('SessionStarted', { session: 's1', plan: 'p', at: AT, mode: 'after', discipline: 'lift', routine: 'A' });
 		expect(upcast(started)).toEqual([started]);
 		const removed = row('SessionRemoved', { session: 's1', at: AT });
 		expect(upcast(removed)).toEqual([removed]);
 		const chosen = row('PlanSelected', { plan: 'p', at: AT });
 		expect(upcast(chosen)).toEqual([chosen]);
+		const prefs = row('PreferencesSet', { at: AT, intents: ['move-better'], equipment: ['mat'] });
+		expect(upcast(prefs)).toEqual([prefs]);
 	});
 
-	it('reads the sentinel run day as the run kind, and a kind as itself', () => {
+	it('reads the sentinel run day, and the run kind, as the routine called run', () => {
 		expect(upcast(row('SessionStarted', { session: 'r', plan: '', day: 'run', at: AT, mode: 'after' }))).toEqual([
-			{ type: 'SessionStarted', data: { session: 'r', plan: '', at: AT, mode: 'after', kind: 'run' } }
+			{ type: 'SessionStarted', data: { session: 'r', plan: '', at: AT, mode: 'after', discipline: 'run', routine: 'run' } }
 		]);
-		const run = row('SessionStarted', { session: 'r', plan: 'p', at: AT, mode: 'live', kind: 'run' });
-		expect(upcast(run)).toEqual([run]);
+		expect(upcast(row('SessionStarted', { session: 'r', plan: 'p', at: AT, mode: 'live', kind: 'run' }))).toEqual([
+			{ type: 'SessionStarted', data: { session: 'r', plan: 'p', at: AT, mode: 'live', discipline: 'run', routine: 'run' } }
+		]);
 	});
 
 	it('reads a bodyweight set written as a load of 0 as a reps measure', () => {
@@ -67,7 +85,7 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 		expect(out.map((e) => e.type)).toEqual(['SessionStarted', 'EntryLogged', 'SessionFinished']);
 		expect(out[0]).toEqual({
 			type: 'SessionStarted',
-			data: { session: runSessionId(AT), plan: '', at: '2026-08-23T17:30:00.000Z', mode: 'after', kind: 'run' }
+			data: { session: runSessionId(AT), plan: '', at: '2026-08-23T17:30:00.000Z', mode: 'after', discipline: 'run', routine: 'run' }
 		});
 		expect(out[1].type === 'EntryLogged' && out[1].data.measure).toEqual({ of: 'duration', minutes: 30 });
 		expect(out[2]).toEqual({ type: 'SessionFinished', data: { session: runSessionId(AT), at: AT } });
