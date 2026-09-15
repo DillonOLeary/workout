@@ -4,25 +4,25 @@
 	import type { DayCell, MonthGrid } from '$lib/domain/projections';
 
 	/**
-	 * The last five weeks as a calendar, one ink per discipline: volt = a
-	 * lift, ink = a run, white with an ink outline = a stretch, grey = yoga,
-	 * hatched volt = the floor standing in for the gym; dashed = today and
-	 * only today — never a state. A day with two sessions SPLITS — one stripe
-	 * each, in the order they happened — it never invents a colour and never
-	 * shows only the "important" one.
+	 * The last five weeks as a calendar, one ink per discipline (the shared
+	 * `.ink-*` rules in design/disciplines.css); dashed = today and only today
+	 * — never a state. A day with two sessions SPLITS — one stripe each, in
+	 * the order they happened — it never invents a colour and never shows
+	 * only the "important" one. No legend of its own: the Ledger's legend
+	 * under it carries the numbers too.
 	 *
 	 * Thirty-five boxes have to fit across a phone without a scroll, so the
 	 * boxes are tight (a 3px gutter, ~44px at the widest) and the day number
 	 * lives INSIDE the box instead of above it — one row of glyphs per week,
 	 * nothing stacked.
 	 */
-	let { grid, legend }: { grid: MonthGrid; legend: Discipline[] } = $props();
+	let { grid }: { grid: MonthGrid } = $props();
 
 	const describe = (c: DayCell) =>
 		[...c.did.map((d) => disciplineLabel(d).toLowerCase()), c.today ? 'today' : ''].filter(Boolean).join(', ') || 'nothing';
 	// the number sits on the last stripe: dark ink on a light one, paper on a
 	// dark one. Every discipline says which — a new one is a type error here,
-	// and the stripe colours in the stylesheet below are the other list to extend
+	// and its colour goes in design/disciplines.css
 	const INK: Record<Discipline, 'light' | 'dark'> = { lift: 'light', yoga: 'dark', bodyweight: 'light', mobility: 'light', run: 'dark' };
 	const dark = (d: Discipline | undefined) => d !== undefined && INK[d] === 'dark';
 </script>
@@ -43,16 +43,12 @@
 					class:dark={dark(c.did[c.did.length - 1])}
 					aria-label="{c.label}: {describe(c)}"
 				>
-					{#each c.did as d, k (k)}<span class="stripe {d}"></span>{/each}
+					{#each c.did as d, k (k)}<span class="stripe ink-{d}"></span>{/each}
 					<span class="n">{c.date}</span>
 				</div>
 			{/each}
 		{/each}
 	</div>
-</div>
-<div class="legend" aria-hidden="true">
-	{#each legend as d (d)}<span class="sw {d}"></span>{disciplineLabel(d).toLowerCase()}{/each}
-	<span class="sw today"></span>today
 </div>
 
 <style>
@@ -74,14 +70,9 @@
 		background: var(--surface-sunken); border: 1px solid var(--border-soft);
 	}
 	.cell.did { border-color: var(--ink); }
-	/* one stripe per session, left to right in the order they happened — one
-	   rule per discipline, the twin of INK above */
+	/* one stripe per session, left to right in the order they happened; its
+	   colour is the discipline's shared ink (a global rule, so no :global here) */
 	.stripe { flex: 1 1 0; min-width: 0; }
-	.stripe.lift { background: var(--volt); }
-	.stripe.run { background: var(--ink); }
-	.stripe.mobility { background: var(--white); }
-	.stripe.yoga { background: var(--ink-3); }
-	.stripe.bodyweight { background: repeating-linear-gradient(135deg, var(--volt) 0 3px, var(--white) 3px 6px); }
 	.stripe + .stripe { border-left: 1px solid var(--ink); }
 	.n {
 		position: absolute; inset: 0; display: grid; place-items: center;
@@ -93,18 +84,6 @@
 	.cell.today .n { color: var(--ink); }
 	.cell.today.dark .n { color: var(--white); }
 	.cell.future { opacity: 0.5; }
-	.legend {
-		margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-		font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
-	}
-	.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid var(--ink); }
-	.sw + .sw, .legend .sw:not(:first-child) { margin-left: 6px; }
-	.sw.lift { background: var(--volt); }
-	.sw.run { background: var(--ink); }
-	.sw.mobility { background: var(--white); }
-	.sw.yoga { background: var(--ink-3); }
-	.sw.bodyweight { background: repeating-linear-gradient(135deg, var(--volt) 0 2px, var(--white) 2px 4px); }
-	.sw.today { background: transparent; border: 1px dashed var(--ink); }
 
 	@media (max-width: 420px) {
 		.week { gap: 3px; }

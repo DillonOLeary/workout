@@ -1,5 +1,5 @@
 import { countOf, loadOf, uniformLoad, type Measure } from './measure';
-import type { Cycle, Discipline, Exercise, Plan, PrepItem } from './plan';
+import type { BlockId, Cycle, Discipline, Exercise, Plan, PrepItem } from './plan';
 import { EQUIPMENT, type Equipment } from './preferences';
 import { rungLabel } from './racks';
 import type { Reason, Suggestion } from './progression';
@@ -138,20 +138,68 @@ export function paceLabel(per: number, prev: number): string {
 }
 
 /**
- * The Ledger's one-line answer to "am I doing enough?": what the last four
- * weeks come to a week, per discipline, and what the plan asked for, side by
- * side. The numbers are already on the tiles below it — this says what they
- * MEAN, which is the one thing a tile cannot do.
+ * "asks 3 · ↑ from 2" · "asks 3 · same" · "asks 3 · ↑ from 0" — the legend's
+ * line under a rate: what the week asks, and where the rate came from, short
+ * enough for a phone's column.
+ */
+export function paceSub(target: number, per: number, prev: number): string {
+	const from = paceLabel(per, prev);
+	const short = from === 'same as before' ? 'same' : from === 'nothing before that' ? '↑ from 0' : from === 'nothing logged' ? 'none yet' : from;
+	return `asks ${target} · ${short}`;
+}
+
+/**
+ * The Ledger's one-line answer to "am I doing enough?": how often you show
+ * up against what the week asks, in total, and where the gap is. The
+ * numbers per discipline are on the legend under it — this says what they
+ * MEAN, which is the one thing a number cannot do.
  *
- *   "1.3 lifts, 0.5 yoga and 2 runs a week — the plan asks 3, 2 and 3"
- *   "2 lifts a week — the plan asks 2"
+ *   "Showing up 6.5 times a week of the 11 the plan asks — lifts are the gap."
+ *   "Showing up 11 times a week of the 11 the plan asks."
  *   "Nothing logged in the last 4 weeks"
  */
 export function paceSentence(p: { weeks: number; rates: { discipline: Discipline; per: number; target: number }[] }): string {
-	const rates = p.rates.filter((r) => r.target > 0 || Math.round(r.per * 10) > 0);
-	if (!rates.length || rates.every((r) => Math.round(r.per * 10) === 0)) return `Nothing logged in the last ${p.weeks} weeks`;
-	const did = listJoin(rates.map((r) => `${rateLabel(r.per)} ${disciplineNoun(r.discipline, r.per)}`));
-	return `${did} a week — the plan asks ${listJoin(rates.map((r) => rateLabel(r.target)))}`;
+	const total = p.rates.reduce((n, r) => n + r.per, 0);
+	if (Math.round(total * 10) === 0) return `Nothing logged in the last ${p.weeks} weeks`;
+	const asked = p.rates.reduce((n, r) => n + r.target, 0);
+	const gap = p.rates.map((r) => ({ r, short: r.target - r.per })).sort((a, b) => b.short - a.short)[0];
+	const tail = gap && gap.short >= 0.5 ? ` — ${disciplineNoun(gap.r.discipline, 2)} ${gap.r.discipline === 'yoga' ? 'is' : 'are'} the gap.` : '.';
+	return `Showing up ${rateLabel(total)} times a week of the ${rateLabel(asked)} the plan asks${tail}`;
+}
+
+/** "3 a week · 1 done" — a cycle's cadence, and the week so far. */
+export const weekMeta = (target: number, done: number): string => `${target} a week · ${done} done`;
+
+/** "yoga" · "stretch" · "run" — a block, in a sentence. */
+export function blockLabel(b: BlockId): string {
+	switch (b) {
+		case 'yoga':
+			return 'yoga';
+		case 'mob':
+			return 'stretch';
+		case 'run':
+			return 'run';
+	}
+}
+
+/**
+ * "switched to Open to Work · yoga, stretch, run on" · "run off" — one
+ * change to the week, as the Ledger's divider says it.
+ */
+export function weekChangeLine(c: { programme?: string; blocks: { block: BlockId; on: boolean }[] }, programmeName: (id: string) => string): string {
+	const parts: string[] = [];
+	if (c.programme) parts.push(`switched to ${programmeName(c.programme)}`);
+	const on = c.blocks.filter((b) => b.on).map((b) => blockLabel(b.block));
+	const off = c.blocks.filter((b) => !b.on).map((b) => blockLabel(b.block));
+	if (on.length) parts.push(`${on.join(', ')} on`);
+	if (off.length) parts.push(`${off.join(', ')} off`);
+	return parts.join(' · ');
+}
+
+/** "11 sessions a week · about 6 h" — what the week comes to. */
+export function weekHead(sessions: number, minutes: number): string {
+	const time = minutes >= 90 ? `about ${rateLabel(Math.round(minutes / 30) / 2)} h` : `about ${minutes} min`;
+	return `${sessions} sessions a week · ${time}`;
 }
 
 /** "Lift 3 · Yoga 2 · Stretch 3 · Run 3 — a week" — the plan's cadence, cycle by cycle. */
@@ -197,14 +245,26 @@ export function trendTally(tones: string[]): string {
 
 /**
  * A whole session folded to one line, for a list that would otherwise print
- * every set of every day: "4 exercises · 12 sets", "3 sets · 25 min".
+ * every set of every session: "20 sets · 48 min", "9 holds · 11 min",
+ * "32 min" (a run), "nothing logged".
  */
-export function sessionSummary(p: { exercises: number; sets: number; minutes: number }): string {
+export function sessionSummary(p: { sets: number; holds?: boolean; minutes: number }): string {
 	const parts: string[] = [];
-	if (p.exercises) parts.push(`${p.exercises} ${p.exercises === 1 ? 'exercise' : 'exercises'}`);
-	if (p.sets) parts.push(`${p.sets} ${p.sets === 1 ? 'set' : 'sets'}`);
+	if (p.sets) parts.push(`${p.sets} ${p.holds ? (p.sets === 1 ? 'hold' : 'holds') : p.sets === 1 ? 'set' : 'sets'}`);
 	if (p.minutes) parts.push(`${p.minutes} min`);
 	return parts.join(' · ') || 'nothing logged';
+}
+
+/**
+ * "40 lb · 3 × 8" · "45 /hand · 3 × 6" · "2 × 14" · "3 × 15s" · "30 min" ·
+ * "skipped" — one exercise of a session logged after the fact, as its line
+ * says it: every set the same numbers.
+ */
+export function lineValue(ex: Exercise, sets: number, weight: number, count: number): string {
+	if (ex.kind === 'run') return `${count} min`;
+	if (!sets) return 'skipped';
+	const reps = `${sets} × ${count}${ex.kind === 'hold' ? 's' : ''}`;
+	return ex.kind === 'load' ? `${loadShort(weight, ex)} · ${reps}` : reps;
 }
 
 /* ---------- the plan's numbers ---------- */

@@ -1,7 +1,17 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
 import { capitalise, disciplineLabel, fmtDate, fmtShort, needsLine, setsPhrase, spanLabel, unitLabel, weekLine } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
-import { DISCIPLINES, cycleDisciplines, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
+import {
+	BLOCK_IDS,
+	DISCIPLINES,
+	cycleDisciplines,
+	routineTitle,
+	type BlockId,
+	type Cycle,
+	type Discipline,
+	type Exercise,
+	type Plan
+} from './plan';
 import { DEFAULT_PREFERENCES, missingFor, weightedUp, type Preferences } from './preferences';
 import {
 	REENTRY_DAYS,
@@ -57,6 +67,8 @@ export type SessionView = {
 	at: string;
 	dateLabel: string;
 	finished: boolean;
+	/** when it ended — what "48 min" on the Ledger measures for a lift */
+	finishedAt?: string;
 	/** 'after' = written in one shot, backdated; 'live' = walked on the floor */
 	mode: 'live' | 'after';
 	/** the lifts: one row per exercise, its sets in order */
@@ -70,7 +82,6 @@ export type SessionView = {
 	/** every entry, whatever it measured */
 	entries: number;
 };
-export type PlanSwitchView = { at: string; dateLabel: string; plan: string };
 
 /**
  * Sessions newest-first, each with its logged rows. Removed sessions are
@@ -120,7 +131,10 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 			if (s && was) s.entries.set(key, { ...was, measure: e.data.measure });
 		} else if (e.type === 'SessionFinished') {
 			const s = map.get(e.data.session);
-			if (s) s.view.finished = true;
+			if (s) {
+				s.view.finished = true;
+				s.view.finishedAt = e.data.at;
+			}
 		}
 	}
 	return Array.from(map.values())
@@ -175,21 +189,41 @@ export function sessionEntries(events: LedgerEvent[], session: string): EntryLog
 	return out;
 }
 
-/** Plan switches newest-first, for the ledger. */
-export function projectPlanSwitches(events: LedgerEvent[]): PlanSwitchView[] {
-	return events
-		.filter((e) => e.type === 'PlanSelected')
-		.map((e) => ({ at: e.data.at, dateLabel: fmtDate(e.data.at), plan: e.data.plan }))
-		.sort((a, b) => b.at.localeCompare(a.at));
-}
-
-/** Active plan is itself a projection: the last PlanSelected wins. */
-export function activePlanId(events: LedgerEvent[]): string | null {
+/** The programme the week lifts on is itself a projection: the last ProgrammeSelected wins. */
+export function activeProgramme(events: LedgerEvent[]): string | null {
 	for (let i = events.length - 1; i >= 0; i--) {
 		const e = events[i];
-		if (e.type === 'PlanSelected') return e.data.plan;
+		if (e.type === 'ProgrammeSelected') return e.data.programme;
 	}
 	return null;
+}
+
+/** Which blocks of the week are on: everything, until a switch says otherwise. */
+export function blocksOn(events: LedgerEvent[]): BlockId[] {
+	const on: Record<BlockId, boolean> = { yoga: true, mob: true, run: true };
+	for (const e of events) if (e.type === 'BlockToggled') on[e.data.block] = e.data.on;
+	return BLOCK_IDS.filter((b) => on[b]);
+}
+
+/**
+ * When the week changed, newest first — a programme switch and the block
+ * switches made at the same moment read as one change (a stored plan
+ * choice comes back as several events with one `at`).
+ */
+export type WeekChange = { at: string; dateLabel: string; programme?: string; blocks: { block: BlockId; on: boolean }[] };
+export function weekChanges(events: LedgerEvent[]): WeekChange[] {
+	const out: WeekChange[] = [];
+	for (const e of events) {
+		if (e.type !== 'ProgrammeSelected' && e.type !== 'BlockToggled') continue;
+		let c = out.find((x) => x.at === e.data.at);
+		if (!c) {
+			c = { at: e.data.at, dateLabel: fmtDate(e.data.at), blocks: [] };
+			out.push(c);
+		}
+		if (e.type === 'ProgrammeSelected') c.programme = e.data.programme;
+		else c.blocks.push({ block: e.data.block, on: e.data.on });
+	}
+	return out.sort((a, b) => b.at.localeCompare(a.at));
 }
 
 /** What you last said you were after — the last snapshot wins, over the defaults. */

@@ -1,10 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
-import { listPlans } from '$lib/server/plans';
+import { listProgrammes } from '$lib/server/plans';
 import { requireUid } from '$lib/server/auth';
 import type { AfterEntry } from '$lib/domain/commands';
 import { parseWorkout } from '$lib/domain/events';
 import { disciplineOf } from '$lib/domain/plan';
+import { wholePlan } from '$lib/domain/plans';
 import type { Actions } from './$types';
 
 /**
@@ -25,7 +26,7 @@ export const actions: Actions = {
 		if (!plan || !workout) return fail(400, { message: 'Missing routine or plan.' });
 		if (Number.isNaN(Date.parse(startAt)) || Number.isNaN(Date.parse(at)))
 			return fail(400, { message: 'When did it happen?' });
-		const discipline = disciplineOf((await listPlans()).find((p) => p.id === plan), workout.routine);
+		const discipline = disciplineOf((await listProgrammes()).map(wholePlan).find((p) => p.id === plan), workout.routine);
 		if (!discipline) return fail(400, { message: 'That routine is not on this plan.' });
 		let entries: AfterEntry[];
 		try {

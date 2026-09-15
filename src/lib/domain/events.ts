@@ -1,10 +1,10 @@
 import type { Event } from '@event-driven-io/emmett';
 import type { Measure } from './measure';
-import type { Discipline } from './plan';
+import type { BlockId, Discipline } from './plan';
 import type { Equipment, Intent } from './preferences';
 
 /**
- * The seven facts this app can record — the vocabulary. Note the tense: every
+ * The eight facts this app can record — the vocabulary. Note the tense: every
  * name is past tense because an event is something that already happened —
  * it can be appended, never edited. (A correction is itself a new event —
  * EntryCorrected — not an UPDATE of the one it corrects.)
@@ -88,7 +88,11 @@ export type SessionFinished = Event<'SessionFinished', { session: string; at: st
  */
 export type SessionRemoved = Event<'SessionRemoved', { session: string; at: string }>;
 
-export type PlanSelected = Event<'PlanSelected', { plan: string; at: string }>;
+/** You switched the lifting to another programme. The blocks stay as they were. */
+export type ProgrammeSelected = Event<'ProgrammeSelected', { programme: string; at: string }>;
+
+/** You switched a block of the week on or off — a fact with a date, so the Ledger can say when the week changed. */
+export type BlockToggled = Event<'BlockToggled', { block: BlockId; on: boolean; at: string }>;
 
 /**
  * What you told the app about yourself — an event, not a settings row,
@@ -109,7 +113,8 @@ export type LedgerEvent =
 	| EntryCorrected
 	| SessionFinished
 	| SessionRemoved
-	| PlanSelected
+	| ProgrammeSelected
+	| BlockToggled
 	| PreferencesSet;
 
 /**

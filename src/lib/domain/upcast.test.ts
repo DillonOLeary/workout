@@ -41,10 +41,35 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 		expect(upcast(started)).toEqual([started]);
 		const removed = row('SessionRemoved', { session: 's1', at: AT });
 		expect(upcast(removed)).toEqual([removed]);
-		const chosen = row('PlanSelected', { plan: 'p', at: AT });
+		const chosen = row('ProgrammeSelected', { programme: 'p', at: AT });
 		expect(upcast(chosen)).toEqual([chosen]);
+		const switched = row('BlockToggled', { block: 'run', on: false, at: AT });
+		expect(upcast(switched)).toEqual([switched]);
 		const prefs = row('PreferencesSet', { at: AT, intents: ['move-better'], equipment: ['mat'] });
 		expect(upcast(prefs)).toEqual([prefs]);
+	});
+
+	it('reads a plan chosen as the programme it was and its blocks switched — one row, several facts', () => {
+		expect(upcast(row('PlanSelected', { plan: 'ab-fullbody-v1', at: AT }))).toEqual([
+			{ type: 'ProgrammeSelected', data: { programme: 'ab-fullbody-v1', at: AT } },
+			{ type: 'BlockToggled', data: { block: 'yoga', on: true, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'mob', on: true, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'run', on: true, at: AT } }
+		]);
+		expect(upcast(row('PlanSelected', { plan: 'her-12-v1', at: AT }))).toEqual([
+			{ type: 'ProgrammeSelected', data: { programme: 'her-12-v1', at: AT } },
+			{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'mob', on: false, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'run', on: true, at: AT } }
+		]);
+		// Hold Steady had no lifting: choosing it switched the blocks and left the programme alone
+		expect(upcast(row('PlanSelected', { plan: 'yoga-2day-v1', at: AT }))).toEqual([
+			{ type: 'BlockToggled', data: { block: 'yoga', on: true, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'mob', on: false, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'run', on: false, at: AT } }
+		]);
+		// a plan the table never knew reads as a programme, its blocks unsaid — no row needs this
+		expect(upcast(row('PlanSelected', { plan: 'p', at: AT }))).toEqual([{ type: 'ProgrammeSelected', data: { programme: 'p', at: AT } }]);
 	});
 
 	it('reads the sentinel run day, and the run kind, as the routine called run', () => {

@@ -52,10 +52,10 @@ Empty phone → the shared demo sandbox.
 
 ```
 src/lib/design/       design tokens (colors, type, spacing, effects, motion) + glyph-frames.json (the dot-matrix figures, baked) and glyphs.ts (their clock)
-src/lib/components/   Button, Card, TabBar, Chip, ExerciseGlyph, MonthGrid, PaceTiles, TrendRow, floor/{StepTable,AdjustTile,FloorPrimary,FloorSheet,bell,entry-queue,countdown}
+src/lib/components/   Button, Card, TabBar, Chip, ExerciseGlyph, MonthGrid, TrendRow, floor/{StepTable,AdjustTile,FloorPrimary,FloorSheet,bell,entry-queue,countdown}
 src/lib/domain/       measure · events · commands · preferences · upcast · decider │ projections · progression · labels │ plan · plans · racks · steps — pure, no I/O
 src/lib/server/       Emmett event store, plans table, HMAC login (server-only)
-src/routes/           login · Today (+ Log it after) / Ledger (did I show up · am I getting stronger · what I did) / The Plan (+ What I'm after, Change plan, Why) · /floor the gym floor
+src/routes/           login · Today (+ Log it after) / Ledger (did I show up · am I getting stronger · what I did) / The Plan (the week: one lift programme + the blocks that are on, What I'm after; + Lift programme, Why) · /floor the gym floor
 tools/glyphs/         the dot-athlete generator (51 poses in three gears: rep, breath, still) + bake.mjs — rewrites glyph-frames.json (--check proves it matches)
 tools/stream/         forensics.sql — read-only queries over the event store: streams, counts by event name, what the upcaster's header counts
 ```
@@ -63,7 +63,7 @@ tools/stream/         forensics.sql — read-only queries over the event store: 
 ## Checks
 
 ```sh
-pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, preferences, glyph frames (168 tests)
+pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, preferences, glyph frames (179 tests)
 pnpm check    # svelte-check
 pnpm build    # production build
 ```

@@ -79,7 +79,7 @@ feels like it belongs in two places, the table says which. The smell that
 produced this shape was `projections.ts` holding the read model, the rule
 *and* the words at once, while every screen re-derived the words for itself.
 
-### The measure, and the seven facts
+### The measure, and the eight facts
 
 [measure.ts](src/lib/domain/measure.ts) is the heart of the vocabulary. An
 entry measures exactly one of:
@@ -101,7 +101,7 @@ they govern; `measureFor(exercise, …)` is the one place "which variant does
 this exercise write" is decided. Note there is no "load of 0 means
 bodyweight": a convention is exactly what a union exists to remove.
 
-[events.ts](src/lib/domain/events.ts) then names the seven facts:
+[events.ts](src/lib/domain/events.ts) then names the eight facts:
 
 | Event | Meaning |
 |---|---|
@@ -110,7 +110,8 @@ bodyweight": a convention is exactly what a union exists to remove.
 | `EntryCorrected` | a set you fixed: the same identity, the measure it should have carried. The original stays in the stream; every reader takes the last word |
 | `SessionFinished` | the workout ended |
 | `SessionRemoved` | the event-sourced delete — a fact about a fact |
-| `PlanSelected` | you switched programs |
+| `ProgrammeSelected` | you switched the lifting to another programme — the blocks stay as they were |
+| `BlockToggled` | you switched a block of the week (yoga · stretch · run) on or off — a fact with a date, so the Ledger can say when the week changed |
 | `PreferencesSet` | what you told the app you're after and what you've got — a full snapshot with a date, so "you said you wanted to run better six weeks ago" is sayable |
 
 A **workout is a session: an ordered list of entries, each with one
@@ -291,7 +292,9 @@ else lives there:
   Ledger says it in one sentence against the cycles' targets), so "am I
   doing less than I meant to?" gets a direction and not just a number. Rates
   divide by the window the fold was given, never by weeks it assumes
-- `activePlanId` → last `PlanSelected` wins
+- `activeProgramme` → last `ProgrammeSelected` wins; `blocksOn` → every block,
+  until a `BlockToggled` says otherwise; `weekChanges` → both, grouped by the
+  moment they happened, for the Ledger's dividers between sessions
 
 Even "is a session open?" is a projection (`currentState(events).activeSession`
 in [+layout.server.ts](src/routes/(app)/+layout.server.ts)) — the same
@@ -379,11 +382,14 @@ the place to see it pay off.
 
 ### Not everything is an event — and the plan has a boundary too
 
-Plans are reference data — rows in `ledger_plans`
+Programmes are reference data — rows in `ledger_plans`
 ([src/lib/server/plans.ts](src/lib/server/plans.ts)), UPSERTed, no history.
 Events point at them by id. Deciding *what deserves history* is the actual
-modelling skill; the Insert card on `/plan/change` does both writes side by
-side: plan row → table, `PlanSelected` → ledger.
+modelling skill, and the split is visible on The Plan: the programme row is
+a table row, *choosing* it is a `ProgrammeSelected` event, and a block's
+switch is a `BlockToggled` event — the Ledger shows when the week changed,
+the table only knows what a programme is now. New programmes are added at
+the table, not in the app.
 
 [src/lib/domain/plan.ts](src/lib/domain/plan.ts) is the model, and four
 words are kept apart in it. A **routine** is a thing the plan offers, with a
@@ -393,10 +399,17 @@ routine keys with a weekly `target` in sessions — two long (A/B), seven long
 discipline lives on the routine; its position is never stored. A **session**
 is one time a routine was done (the event). A **day** is a calendar bucket
 the Ledger draws, with no opinion. A plan is a handful of cycles over a set
-of routines — Open to Work is lift 3 · yoga 2 · stretch 3 · run 3 a week,
-plus a no-gym cycle at `target: 0` that `standsInFor: 'lift'`. The plan
-writes the targets; the user never does — cadence is the part of a programme
-you audit, and a dial would be a second source of truth.
+of routines — but a plan is not the unit a person chooses. The **week** is
+one lift **programme** (a lift-only plan, a table row: Open to Work, Full
+Range of Motion) plus the **blocks** that are on (`BLOCKS` in
+[plans.ts](src/lib/domain/plans.ts): yoga 2 · stretch 3 · run 3 a week, and
+a no-gym block at `target: 0` that `standsInFor: 'lift'` and has no switch).
+`composePlan` folds them into the one `Plan` every projection, step list and
+rule consumes — once, in the layout load — so nothing downstream knows the
+difference; every block's routines are known whether or not the block is on,
+so a session of a block you switched off still has a title. The plan and the
+block write the targets; the user never does — cadence is the part of a
+programme you audit, and a dial would be a second source of truth.
 
 An exercise **measures one thing and progresses another**. Its `kind` —
 `load` | `hold` | `reps` | `run` — decides which measure a set writes; its
@@ -424,9 +437,10 @@ is refused with a sentence, and a
 stored row nobody can read is logged and skipped, never a 500. Unlike the
 event stream, the plan table has no upcasters: the shipped plans are rewritten
 from code on every boot (and a retired one — Hold Steady — deleted the same
-way), so there is no old shape to read. One consequence worth knowing: editing `DEFAULT_PLANS` in
+way), so there is no old shape to read. One consequence worth knowing: editing `DEFAULT_PROGRAMMES`
+(or `BLOCKS`, which are code and never stored) in
 [plans.ts](src/lib/domain/plans.ts) *is* the migration. `ensureReady`
-upserts the shipped plans on every boot, so a new exercise, a widened rep
+upserts the shipped programmes on every boot, so a new exercise, a widened rep
 range or a rewritten note reaches every database the next time a worker
 starts — no migration file, no upcaster. History for an exercise that has
 since left the plan stays in the stream under its old name, and the Ledger
@@ -440,8 +454,9 @@ layer: `decider.test.ts` (the write-side rules — including that a correction
 on anything but the latest session fails, that one changing a set's variant
 fails, that a removal on an older one does not, and that the same
 preferences twice record nothing), `upcast.test.ts` (every retired shape,
-that an old session asks the plans what it was, and that reading twice is
-reading once), `progression.test.ts` (the rule, against a `History` literal —
+that an old session reads as what its plan said on the day, that a plan
+chosen reads as a programme chosen and its blocks switched, and that reading
+twice is reading once), `progression.test.ts` (the rule, against a `History` literal —
 no events needed; the rung counted from the stream), `labels.test.ts` (every
 phrase, as a string), `projections.test.ts` (the folds, fed the retired
 `SetLogged` shape on purpose so the boundary is proved every run; that a
@@ -473,8 +488,8 @@ src/routes/
    │  ├─ log/after/+page.svelte   Log it after — a child of Today  (/log/after)
    │  ├─ ledger/+page.svelte      Ledger — tab 2: the month, the weekly average, the trends, then the days (folded, one row each)  (/ledger)
    │  ├─ plan/+page.svelte        The Plan — tab 3  (/plan)
-   │  ├─ plan/change/             other plans + the plans table, and its actions (/plan/change)
-   │  ├─ plan/after/              What I'm after — the two menus, one PreferencesSet (/plan/after)
+   │  ├─ plan/+page.server.ts     its two acts: a block's switch (BlockToggled), What I'm after (PreferencesSet)
+   │  ├─ plan/programme/          the lift programme — the one real choice (ProgrammeSelected)  (/plan/programme)
    │  └─ plan/why/+page.svelte    the cited case — a child of The Plan (/plan/why)
    ├─ floor/+page.svelte          gym floor — outside (tabs): no tab bar  (/floor)
    └─ export/+server.ts           GET /export: the stream as a JSON download

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PLANS } from '$lib/domain/plans';
+import { SHIPPED_PLANS } from '$lib/domain/plans';
 import { planExercises } from '$lib/domain/plan';
 import data from './glyph-frames.json';
 import { GRID, MOTIONS, cycleMs, frameAt, framesFor, glyphFor, motionOf, repMs, workFrame } from './glyphs';
@@ -14,7 +14,7 @@ const gears = Object.keys(MOTIONS) as Motion[];
 
 describe('exercise glyphs', () => {
 	it('every exercise of every shipped plan has a figure — the run included', () => {
-		for (const plan of DEFAULT_PLANS)
+		for (const plan of SHIPPED_PLANS)
 			for (const ex of planExercises(plan)) {
 				if (ex.kind === 'run') continue; // the run is a clock, not a figure
 				expect(framesFor(ex.name), ex.name).not.toBeNull();

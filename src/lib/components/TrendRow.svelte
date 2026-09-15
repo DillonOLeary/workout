@@ -6,10 +6,11 @@
 	import type { Exercise } from '$lib/domain/plan';
 
 	/**
-	 * One exercise over time: name · load strip · what the rule has queued,
-	 * with the status sentence as the hero — one line, cut short, until you
-	 * open the row. Tap to expand this exercise's own session list in place —
-	 * the trust surface stays in the table.
+	 * One exercise over time, in one line: a mark for what the rule is about
+	 * to do (↑ up a size, ↓ back one, — nothing), the name, the load strip,
+	 * and what it has queued next. The sentence and this exercise's own
+	 * session list are one tap in — the trust surface stays in the table,
+	 * and a closed row stays one line tall.
 	 */
 	let {
 		ex,
@@ -19,13 +20,14 @@
 	}: { ex: Exercise; trend: Trend; open?: boolean; ontoggle: () => void } = $props();
 
 	const unit = $derived(unitOf(ex));
+	const mark = $derived(trend.tone === 'up' ? '↑' : trend.tone === 'down' ? '↓' : '—');
 	// plain divs, not SVG: one bar per session, normalised to this exercise's
 	// own min/max over the window, plus the load the rule has queued next
 	const bars = $derived.by(() => {
 		const loads = [...trend.points.map((p) => p.load), trend.next];
 		const min = Math.min(...loads);
 		const max = Math.max(...loads);
-		const h = (v: number) => (max === min ? 14 : 6 + ((v - min) / (max - min)) * 18);
+		const h = (v: number) => (max === min ? 12 : 5 + ((v - min) / (max - min)) * 15);
 		return [
 			...trend.points.map((p) => ({ h: h(p.load), kind: p.earned ? 'earned' : p.missed ? 'missed' : 'plain' })),
 			{ h: h(trend.next), kind: 'next' }
@@ -37,15 +39,16 @@
 
 <div class="row" class:open>
 	<button type="button" class="hit" onclick={ontoggle} aria-expanded={open}>
+		<span class="mark {trend.tone}" aria-label={trend.tone}>{mark}</span>
 		<span class="name">{ex.name}</span>
 		<span class="strip" aria-hidden="true">
 			{#each bars as b, i (i)}<span class="bar {b.kind}" style="height: {b.h}px"></span>{/each}
 		</span>
 		<span class="now"><b>{trend.next}</b>{#if unit}<i>{unit}</i>{/if}</span>
-		<span class="sentence {trend.tone}" class:clip={!open}>{trend.sentence}</span>
 	</button>
 	{#if open}
 		<div class="hist" transition:slide={{ duration: OPEN }}>
+			<span class="sentence {trend.tone}">{trend.sentence}</span>
 			{#each recent as p (p.at)}
 				<div class="hrow">
 					<span class="hdate">{p.dateLabel}</span>
@@ -63,32 +66,35 @@
 
 <style>
 	.row { border-top: 1px solid var(--border-soft); }
-	.row:first-child { border-top: none; }
 	.hit {
-		width: 100%; min-height: 64px; padding: 10px 16px;
-		display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: 'name strip now' 'sent sent sent';
-		column-gap: 14px; row-gap: 4px; align-items: center;
+		width: 100%; min-height: 52px; padding: 6px 16px;
+		display: grid; grid-template-columns: 28px 1fr auto auto; column-gap: 10px; align-items: center;
 		background: transparent; border: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
 		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.hit:hover { background: var(--volt-tint); }
-	.row.open .hit { background: var(--surface-sunken); }
-	.name { grid-area: name; font-weight: var(--weight-bold); font-size: 15px; min-width: 0; }
-	.strip { grid-area: strip; display: flex; align-items: flex-end; gap: 2px; height: 24px; }
+	.row.open .hit { background: var(--paper-2); }
+	/* the mark: a pill only when the rule is about to move something */
+	.mark {
+		display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 22px;
+		font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--ink-3); border-radius: var(--radius-pill);
+	}
+	.mark.up { background: var(--volt); border: 1px solid var(--ink); color: var(--ink); }
+	.mark.down { background: var(--white); border: 1px solid var(--danger); color: var(--danger); }
+	.name { font-weight: var(--weight-bold); font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.strip { display: flex; align-items: flex-end; gap: 2px; height: 20px; }
 	.bar { display: block; width: 5px; border-radius: 1px; background: var(--ink-3); }
 	.bar.earned { background: var(--volt); border: 1px solid var(--ink); }
 	.bar.missed { background: var(--white); border: 1px solid var(--danger); }
 	.bar.next { background: var(--ink-2); opacity: 0.6; }
-	.now { grid-area: now; font-family: var(--font-mono); font-size: 16px; font-weight: 800; min-width: 44px; text-align: right; }
+	.now { font-family: var(--font-mono); font-size: 15px; font-weight: 800; min-width: 44px; text-align: right; }
 	.now i { font-style: normal; font-size: 11px; color: var(--ink-3); margin-left: 2px; }
-	.sentence { grid-area: sent; font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); line-height: 1.4; min-width: 0; }
-	/* one line, closed; the whole sentence once the row is open */
-	.sentence.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.sentence.flat { color: var(--ink-3); }
-	.sentence.up { background: var(--volt-tint); display: inline-block; padding: 1px 6px; border-radius: 4px; color: var(--ink); justify-self: start; max-width: 100%; }
-	.sentence.down, .sentence.warn { color: var(--ink-2); }
 
-	.hist { padding: 4px 16px 12px; background: var(--surface-sunken); }
+	/* open: the sentence, then this exercise's own sessions, indented under the name */
+	.hist { display: flex; flex-direction: column; padding: 2px 16px 12px 54px; background: var(--paper-2); }
+	.sentence { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); line-height: 1.4; margin-bottom: 6px; }
+	.sentence.flat { color: var(--ink-3); }
+	.sentence.up { background: var(--volt-tint); align-self: flex-start; padding: 1px 6px; border-radius: 4px; color: var(--ink); }
 	.hrow { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--border-soft); }
 	.hdate { font-family: var(--font-mono); font-size: 12px; font-weight: 700; white-space: nowrap; }
 	.hsets { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); text-align: right; }

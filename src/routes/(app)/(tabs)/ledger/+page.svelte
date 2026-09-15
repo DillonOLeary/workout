@@ -3,21 +3,21 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import MonthGrid from '$lib/components/MonthGrid.svelte';
-	import PaceTiles from '$lib/components/PaceTiles.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
-	import { disciplineLabel, fmtShort, paceSentence, sessionSummary, setsLine, trendTally } from '$lib/domain/labels';
-	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
+	import { disciplineLabel, fmtShort, paceSentence, paceSub, rateLabel, sessionSummary, setsLine, trendTally, weekChangeLine } from '$lib/domain/labels';
+	import { countOf, loadOf, uniformLoad, type Measure } from '$lib/domain/measure';
 	import { cycleDisciplines, disciplinesOf, planExercises, progresses, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
 	import {
 		TREND_WINDOW,
 		monthGrid,
-		projectPlanSwitches,
 		projectSessions,
 		trendFor,
+		weekChanges,
 		weeklyPace,
 		type SessionRow,
-		type SessionView
+		type SessionView,
+		type WeekChange
 	} from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
@@ -29,46 +29,44 @@
 	 * Tab 2 is everything that already happened, as three questions in the
 	 * order you ask them — did I show up (the month, and what it averages to
 	 * a week), am I getting stronger (each exercise), and what did I actually
-	 * do (the days). The page needs no heading saying how it's going: the
-	 * whole page is how it's going.
+	 * do (the sessions). One scroll: each section leads with its answer in a
+	 * sentence and puts the picture underneath as corroboration, and each
+	 * names the window it speaks for, because "6.5 times a week" means
+	 * nothing without "over the last four weeks".
 	 *
-	 * Each section LEADS WITH ITS ANSWER in a sentence and puts the picture
-	 * underneath as corroboration — the shape a trend row already has, one
-	 * level up — and each names the window it speaks for, because "1.3 lifts
-	 * a week" means nothing without "over the last four weeks".
-	 *
-	 * The days are the event stream made human-readable: two columns — the
-	 * exercise, and what happened — but FOLDED, one row per day, because a
-	 * page that prints every set of every session is a page nobody reaches the
-	 * bottom of. A day opens on a tap; the latest one starts open, since it is
-	 * the only one still correctable. Freedom inside the latest session,
-	 * immutability before it: on the latest card a row opens inline and
-	 * Save writes a correction; older cards are read-only, because the rule
-	 * has already read them. Removing is the rare correction that works on
-	 * any session, so it hides behind one toggle instead of sitting on
-	 * every card.
+	 * The sessions are the event stream made human-readable, FOLDED — one
+	 * shell per session, runs included — because a page that prints every
+	 * set of every session is a page nobody reaches the bottom of. A session
+	 * opens on a tap; the latest one starts open, since it is the only one
+	 * still correctable: on it a row opens inline and Save writes a
+	 * correction, and Remove sits in its footer. Older cards are read-only,
+	 * because the rule has already read them. When the week changed — a
+	 * programme switched, a block turned on or off — is a divider between
+	 * the sessions it fell between, not a footnote.
 	 */
-	let editMode = $state(false);
 
 	/* ---------- the long view: a month of days, a running average, the trends ---- */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let grid = $derived(monthGrid(data.events, now));
 	let pace = $derived(weeklyPace(data.events, now));
-	// the disciplines this ledger speaks of: the plan's, plus anything actually done in the window
+	let weeks = $derived(Math.round(pace.days / 7));
+	// the disciplines this ledger speaks of: the week's, plus anything actually done in the window
 	let disciplines = $derived.by(() => {
 		const out = disciplinesOf(plan);
 		for (const d of Object.keys(pace.by) as Discipline[]) if (!out.includes(d) && (pace.by[d].per > 0 || pace.by[d].prev > 0)) out.push(d);
 		return out;
 	});
-	// what the plan asks of each discipline a week: its cycles' targets, summed
+	// what the week asks of each discipline: its cycles' targets, summed
 	const targetFor = (d: Discipline) => plan.cycles.filter((c) => cycleDisciplines(plan, c).includes(d)).reduce((n, c) => n + c.target, 0);
-	// the section's answer: what the average comes to, against what the plan asked
+	// the section's answer: the total against what the week asks, and where the gap is
 	let paceLine = $derived(
-		paceSentence({ weeks: Math.round(pace.days / 7), rates: disciplines.map((d) => ({ discipline: d, per: pace.by[d].per, target: targetFor(d) })) })
+		paceSentence({ weeks, rates: disciplines.map((d) => ({ discipline: d, per: pace.by[d].per, target: targetFor(d) })) })
 	);
+	// the legend carries the numbers: one row per discipline, its rate, what the week asks, where it came from
+	let legend = $derived(disciplines.map((d) => ({ d, per: pace.by[d].per, sub: paceSub(targetFor(d), pace.by[d].per, pace.by[d].prev) })));
 
 	// every exercise that progresses, in plan order, once — from the cycles the
-	// plan asks for this week, plus anything else with history. The session in
+	// week asks for, plus anything else with history. The session in
 	// progress is excluded: the rule never grades the set it is suggesting
 	let askedRoutines = $derived(new Set(plan.cycles.filter((c) => c.target > 0).flatMap((c) => c.routines)));
 	let trends = $derived(
@@ -81,7 +79,6 @@
 			}))
 			.filter((t) => t.asked || t.trend.sessions > 0)
 	);
-	// the trend row that is open — `openRow` below belongs to the day editor
 	let openTrend = $state<string | null>(null);
 	let trendLine = $derived(trendTally(trends.map((t) => t.trend.tone)));
 
@@ -92,23 +89,33 @@
 		if (removing && !(e.target as HTMLElement | null)?.closest('.remove')) removing = null;
 	}
 
-	// one list: a run is a session with one entry, so every row is a session
+	/* ---------- the sessions, and the week's changes between them ---------- */
 	let entries = $derived(projectSessions(data.events));
-	let switches = $derived(projectPlanSwitches(data.events));
-
+	let changes = $derived(weekChanges(data.events));
 	const PAGE = 20;
 	let shown = $state(PAGE);
 	let visible = $derived(entries.slice(0, shown));
-	// how long this ledger has been kept — the day list's own window
+	// one list, newest first: a change to the week sits between the sessions it fell between
+	type Item = { kind: 'session'; s: SessionView } | { kind: 'change'; c: WeekChange };
+	let items = $derived.by((): Item[] => {
+		const oldest = visible.length ? visible[visible.length - 1].at : '';
+		const all = entries.length <= shown;
+		const out: Item[] = [
+			...visible.map((s): Item => ({ kind: 'session', s })),
+			...changes.filter((c) => all || c.at >= oldest).map((c): Item => ({ kind: 'change', c }))
+		];
+		const at = (i: Item) => (i.kind === 'session' ? i.s.at : i.c.at);
+		return out.sort((a, b) => at(b).localeCompare(at(a)));
+	});
+	// how long this ledger has been kept — the list's own window
 	let sinceLine = $derived(
 		entries.length
 			? `${entries.length} ${entries.length === 1 ? 'session' : 'sessions'} since ${fmtShort(entries[entries.length - 1].at)}`
 			: ''
 	);
 
-	/* ---------- the day list: one row per session, opened on a tap ----------
-	   The latest session starts open — it is the one a correction can still
-	   reach, so the tap count for "fix what I just did" does not go up. */
+	// The latest session starts open — it is the one a correction can still
+	// reach, so the tap count for "fix what I just did" does not go up.
 	let opened = $state<string | null | undefined>(undefined);
 	const isOpen = (id: string) => (opened === undefined ? id === data.latestSession : opened === id);
 	function toggleSession(id: string) {
@@ -116,34 +123,44 @@
 		opened = shut ? null : id;
 		if (shut) editingRow = null;
 	}
-	const summaryOf = (s: SessionView) =>
-		sessionSummary({
-			exercises: s.rows.length,
-			sets: s.rows.reduce((n, r) => n + r.sets.length, 0),
-			minutes: s.minutes
-		});
+	// "20 sets · 48 min" — the sets, and how long the floor took (a run's minutes are its entry)
+	const summaryOf = (s: SessionView) => {
+		const sets = s.rows.reduce((n, r) => n + r.sets.length, 0);
+		const holds = sets > 0 && s.rows.every((r) => r.sets.every((m) => m.of === 'hold'));
+		const walked = s.mode === 'live' && s.finishedAt ? Math.round((Date.parse(s.finishedAt) - Date.parse(s.at)) / 60000) : 0;
+		return sessionSummary({ sets, holds, minutes: s.minutes || (walked > 0 && walked <= 240 ? walked : 0) });
+	};
 
 	const exByName = (name: string): Exercise | undefined =>
 		data.plans.flatMap((p) => Object.values(p.routines).flat()).find((e) => e.name === name);
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
-	// a session of a plan that is gone has no title to look up; it has its own discipline
+	// a session of a routine that is gone has no title to look up; it has its own discipline
 	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
+	// "yoga, stretch, run on" — the block half of a change, after the programme half
+	const blocksText = (c: WeekChange) => {
+		const t = weekChangeLine({ blocks: c.blocks }, planName);
+		return t ? `${c.programme ? ' · ' : ''}${t}` : '';
+	};
 
 	/* ---------- inline edit, the latest session only ----------
-	   A row opens as the Log-it-after line, one per set: − 40 lb + × − 8 +.
-	   Save posts one correction per changed set; the decider is what refuses
-	   anything older — this screen only hides the gesture there. */
+	   A row opens as one line per set. A loaded lift with every set at one
+	   weight gets a single WEIGHT · ALL SETS stepper; sets at different loads
+	   keep a stepper each. Save posts one correction per changed set; the
+	   decider is what refuses anything older — this screen only hides the
+	   gesture there. */
 	type EditSet = { item: string; index: number; ex?: Exercise; of: Measure['of']; weight: number; count: number; target?: number };
 	let editingRow = $state<string | null>(null);
 	let edit = $state<EditSet[]>([]);
 	let original = $state<Measure[]>([]);
+	let uniform = $state(false);
 
 	function openRow(s: SessionView, row: SessionRow) {
 		const key = `${s.id}:${row.item}`;
 		if (editingRow === key) return (editingRow = null);
 		const ex = exByName(row.item);
 		original = row.sets;
+		uniform = row.sets[0]?.of === 'load' && uniformLoad(row.sets);
 		// the set number the entry was logged as — a skipped set 1 must not shift the rest
 		edit = row.sets.map((m, i) => ({
 			item: row.item, index: row.indices[i], ex, of: m.of, weight: loadOf(m), count: countOf(m),
@@ -156,12 +173,16 @@
 		if (editingRow === key) return (editingRow = null);
 		// the duration entries, by identity — a correction names the entry it fixes
 		original = s.durations.map((d) => ({ of: 'duration', minutes: d.minutes }));
+		uniform = false;
 		edit = s.durations.map((d) => ({ item: d.item, index: d.index, of: 'duration', weight: 0, count: d.minutes }));
 		editingRow = key;
 	}
 	// the same ± as the floor where the exercise is known; a plain step where it isn't
-	const bumpWeight = (e: EditSet, dir: 1 | -1) => {
-		e.weight = e.ex?.kind === 'load' ? bumpLoad(e.ex, e.weight, dir) : Math.max(0, e.weight + dir * 5);
+	const stepWeight = (e: EditSet, dir: 1 | -1) => (e.ex?.kind === 'load' ? bumpLoad(e.ex, e.weight, dir) : Math.max(0, e.weight + dir * 5));
+	const bumpWeight = (e: EditSet, dir: 1 | -1) => (e.weight = stepWeight(e, dir));
+	const bumpAll = (dir: 1 | -1) => {
+		const w = stepWeight(edit[0], dir);
+		for (const e of edit) e.weight = w;
 	};
 	const bumpReps = (e: EditSet, dir: 1 | -1) => {
 		if (e.of === 'duration') e.count = Math.max(1, Math.min(600, e.count + dir * 5));
@@ -185,34 +206,38 @@
 			.filter((c) => JSON.stringify(c.measure) !== JSON.stringify(c.was))
 			.map(({ item, index, measure }) => ({ item, index, measure }))
 	);
-	const unitOf = (e: EditSet) => (e.of === 'hold' ? 's' : e.of === 'duration' ? ' min' : e.of === 'reps' ? ' reps' : '');
+	const unitOf = (e: EditSet) => (e.of === 'hold' ? 's' : e.of === 'duration' ? ' min' : ' reps');
+	const weightUnit = (e: EditSet) => (e.ex?.kind === 'load' && e.ex.progress.each ? '/hand' : 'lb');
+	const labelOf = (e: EditSet) => (e.of === 'duration' ? 'Run' : e.of === 'hold' ? `Hold ${e.index}` : `Set ${e.index}`);
 </script>
 
 <svelte:window onclick={onWindowClick} />
 
 <div class="col">
-	<div class="head">
-		<h1>Ledger</h1>
-		<button type="button" class="edit" aria-pressed={editMode} onclick={() => (editMode = !editMode)}>
-			{editMode ? 'Done' : 'Edit entries'}
-		</button>
-	</div>
+	<h1>Ledger</h1>
 
 	{#if form?.message}
 		<p class="err">{form.message}</p>
 	{/if}
 
-	<!-- did I show up: the answer, the month, and what it averages to a week -->
+	<!-- did I show up: the answer, the month, and the legend with its numbers -->
 	<section class="sect">
 		<div class="sechead">
 			<span class="caps">Did I show up</span>
-			<span class="meta">{grid.span}</span>
+			<span class="meta">last {weeks} weeks · {grid.span}</span>
 		</div>
 		<Card>
-			<p class="answer">{paceLine}</p>
-			<div class="pair">
-				<div class="calside"><MonthGrid {grid} legend={disciplines} /></div>
-				<div class="side"><PaceTiles {pace} {disciplines} /></div>
+			<div class="showup">
+				<p class="answer">{paceLine}</p>
+				<MonthGrid {grid} />
+				<div class="legend">
+					{#each legend as l (l.d)}
+						<span class="lsw ink-{l.d}"></span>
+						<span class="llabel">{disciplineLabel(l.d)}</span>
+						<span class="lrate">{rateLabel(l.per)}<i>/wk</i></span>
+						<span class="lsub">{l.sub}</span>
+					{/each}
+				</div>
 			</div>
 		</Card>
 	</section>
@@ -225,7 +250,7 @@
 				<span class="meta">last {TREND_WINDOW} sessions</span>
 			</div>
 			<Card pad={false}>
-				{#if trendLine}<p class="answer inrow">{trendLine}</p>{/if}
+				{#if trendLine}<p class="tally">{trendLine}</p>{/if}
 				{#each trends as t (t.ex.name)}
 					<TrendRow
 						ex={t.ex}
@@ -238,188 +263,147 @@
 		</section>
 	{/if}
 
-	<div class="sechead daycaps">
-		<span class="caps">What I did</span>
-		<span class="meta">{sinceLine}</span>
-	</div>
+	<section class="sect">
+		<div class="sechead">
+			<span class="caps">What I did</span>
+			<span class="meta">{sinceLine}</span>
+		</div>
 
-	{#if entries.length === 0}
-		<Card><div class="empty">Nothing logged yet. Start from Today.</div></Card>
-	{/if}
+		{#if entries.length === 0}
+			<Card><div class="empty">Nothing logged yet. Start from Today.</div></Card>
+		{/if}
 
-	{#snippet removeBtn(id: string)}
-		<form method="POST" action="?/remove" use:enhance>
-			<input type="hidden" name="session" value={id} />
-			{#if removing === id}
-				<button type="submit" class="remove armed">Remove?</button>
-			{:else}
-				<button type="button" class="remove" onclick={() => (removing = id)}>Remove</button>
-			{/if}
-		</form>
-	{/snippet}
+		{#snippet stepper(value: number, unit: string, less: () => void, more: () => void, wide = false)}
+			<span class="ctl">
+				<button type="button" class="pm" aria-label="Less" onclick={less}>−</button>
+				<span class="num" class:wide>{value}<span class="unit">{unit}</span></span>
+				<button type="button" class="pm" aria-label="More" onclick={more}>+</button>
+			</span>
+		{/snippet}
 
-	{#snippet editor(s: SessionView)}
-		<form
-			method="POST"
-			action="?/correct"
-			class="editor"
-			use:enhance={() =>
-				async ({ update, result }) => {
-					await update();
-					if (result.type === 'success') editingRow = null;
-				}}
-		>
-			<input type="hidden" name="session" value={s.id} />
-			<input type="hidden" name="corrections" value={JSON.stringify(corrections)} />
-			{#each edit as e, i (e.index)}
-				<div class="eline">
-					<span class="elbl">{e.of === 'duration' ? 'RUN' : e.of === 'hold' ? `HOLD ${e.index}` : `SET ${e.index}`}</span>
+		{#snippet editor(s: SessionView)}
+			<form
+				method="POST"
+				action="?/correct"
+				class="editor"
+				use:enhance={() =>
+					async ({ update, result }) => {
+						await update();
+						if (result.type === 'success') editingRow = null;
+					}}
+			>
+				<input type="hidden" name="session" value={s.id} />
+				<input type="hidden" name="corrections" value={JSON.stringify(corrections)} />
+				{#if uniform && edit[0]}
+					<span class="elbl">Weight · all sets</span>
+					{@render stepper(edit[0].weight, ` ${weightUnit(edit[0])}`, () => bumpAll(-1), () => bumpAll(1), true)}
+					<span class="edivider"></span>
+				{/if}
+				{#each edit as e, i (e.index)}
+					<span class="elbl">{labelOf(e)}</span>
 					<span class="ectls">
-						{#if e.of === 'load'}
-							<span class="ctl">
-								<button type="button" class="pm" aria-label="Less weight" onclick={() => bumpWeight(edit[i], -1)}>−</button>
-								<span class="num">{e.weight}<span class="unit"> {e.ex?.kind === 'load' && e.ex.progress.each ? '/hand' : 'lb'}</span></span>
-								<button type="button" class="pm" aria-label="More weight" onclick={() => bumpWeight(edit[i], 1)}>+</button>
-							</span>
+						{#if e.of === 'load' && !uniform}
+							{@render stepper(e.weight, ` ${weightUnit(e)}`, () => bumpWeight(edit[i], -1), () => bumpWeight(edit[i], 1), true)}
 							<span class="times">×</span>
 						{/if}
-						<span class="ctl">
-							<button type="button" class="pm" aria-label="Fewer" onclick={() => bumpReps(edit[i], -1)}>−</button>
-							<span class="num">{e.count}<span class="unit">{unitOf(e)}</span></span>
-							<button type="button" class="pm" aria-label="More" onclick={() => bumpReps(edit[i], 1)}>+</button>
-						</span>
+						{@render stepper(e.count, unitOf(e), () => bumpReps(edit[i], -1), () => bumpReps(edit[i], 1))}
 					</span>
+				{/each}
+				<div class="ebtns">
+					<button type="submit" class="esave" disabled={!corrections.length}>Save</button>
+					<button type="button" class="ecancel" onclick={() => (editingRow = null)}>Cancel</button>
 				</div>
-			{/each}
-			<div class="ebtns">
-				<button type="submit" class="esave" disabled={!corrections.length}>Save</button>
-				<button type="button" class="ecancel" onclick={() => (editingRow = null)}>Cancel</button>
-			</div>
-		</form>
-	{/snippet}
+			</form>
+		{/snippet}
 
-	<div class="days">
-	{#each visible as s (s.id)}
-		{@const latest = s.id === data.latestSession}
-		{#if s.discipline === 'run' && s.rows.length === 0}
-			<!-- a run is already one line — the same shell as a folded day, with
-			     nothing to open (the latest one opens its editor) -->
-			<Card pad={false}>
-				{#if latest}
-					<button type="button" class="line tap" onclick={() => openRun(s)} aria-expanded={editingRow === `${s.id}:run`}>
-						<span class="date">{s.dateLabel}</span>
-						<span class="runlbl">{routineTitle(planById(s.plan), s.workout.routine)}</span>
-						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
-						<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
-					</button>
+		<div class="list">
+			{#each items as it (it.kind === 'session' ? it.s.id : it.c.at)}
+				{#if it.kind === 'change'}
+					<!-- the week changed here: a divider, not a footnote -->
+					<div class="wchange">
+						<span class="wrule"></span>
+						<span class="wtext">{it.c.dateLabel} · {#if it.c.programme}switched to <b>{planName(it.c.programme)}</b>{/if}{blocksText(it.c)}</span>
+						<span class="wrule"></span>
+					</div>
 				{:else}
-					<div class="line">
-						<span class="date">{s.dateLabel}</span>
-						<span class="runlbl">{routineTitle(planById(s.plan), s.workout.routine)}</span>
-						{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
-						<span class="runmin">{s.minutes ? `${s.minutes} min` : '—'}</span>
-					</div>
-				{/if}
-				{#if editMode}<div class="removerow">{@render removeBtn(s.id)}</div>{/if}
-				{#if editingRow === `${s.id}:run`}{@render editor(s)}{/if}
-			</Card>
-		{:else}
-			{@const open = isOpen(s.id)}
-			<Card pad={false}>
-				<div class="sesshead" class:open>
-					<!-- the badges ride inside the tap target (they are spans), so the
-					     row stays one line and Remove is the only thing that needs its
-					     own — it is a button, and buttons do not nest -->
-					<button type="button" class="sesstoggle" onclick={() => toggleSession(s.id)} aria-expanded={open}>
-						<span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
-						<span class="date">{s.dateLabel}</span>
-						<span class="ttl">
-							{routineTitle(planById(s.plan), s.workout.routine)}
-							{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
-							{#if s.mode === 'after'}<Badge tone="neutral">Logged after</Badge>{/if}
-						</span>
-						<span class="sum">{summaryOf(s)}</span>
-					</button>
-				</div>
-				{#if editMode}<div class="removerow">{@render removeBtn(s.id)}</div>{/if}
-				{#if open}
-				{#each s.rows as row (row.item)}
-					{@const ex = exByName(row.item)}
-					{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
-					{@const key = `${s.id}:${row.item}`}
-					{#if latest}
-						<!-- the latest session: every row is one tap from its numbers -->
-						<button type="button" class="sessrow tap" class:opened={editingRow === key} onclick={() => openRow(s, row)} aria-expanded={editingRow === key}>
-							<span class="exname">
-								{row.item}
-								{#if lvl}<span class="uppill">↑</span>{/if}
+					{@const s = it.s}
+					{@const latest = s.id === data.latestSession}
+					{@const open = isOpen(s.id)}
+					<Card pad={false} interactive={latest}>
+						<!-- the whole head is the tap: the date, what it came to, what it was -->
+						<button type="button" class="shead" class:open={open && latest} onclick={() => toggleSession(s.id)} aria-expanded={open}>
+							<span class="date">{s.dateLabel}</span>
+							<span class="sum">{summaryOf(s)}</span>
+							<span class="ttl">
+								{titleOf(s)}{#if s.mode === 'after'}<span class="after"> · after</span>{/if}
+								{#if !s.finished}<Badge tone="open">In progress</Badge>{/if}
 							</span>
-							<span class="val">{setsLine(row.sets, ex)}</span>
 						</button>
-						{#if editingRow === key}{@render editor(s)}{/if}
-					{:else}
-						<div class="sessrow">
-							<span class="exname">
-								{row.item}
-								{#if lvl}<span class="uppill">↑</span>{/if}
-							</span>
-							<span class="val">{setsLine(row.sets, ex)}</span>
-						</div>
-					{/if}
-				{/each}
-				{#if s.minutes}
-					{#if latest}
-						<button type="button" class="sessrow tap" class:opened={editingRow === `${s.id}:run`} onclick={() => openRun(s)}>
-							<span class="exname">Run</span>
-							<span class="val">{s.minutes} min</span>
-						</button>
-						{#if editingRow === `${s.id}:run`}{@render editor(s)}{/if}
-					{:else}
-						<div class="sessrow">
-							<span class="exname">Run</span>
-							<span class="val">{s.minutes} min</span>
-						</div>
-					{/if}
+						{#if open}
+							{#each s.rows as row (row.item)}
+								{@const ex = exByName(row.item)}
+								{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
+								{@const key = `${s.id}:${row.item}`}
+								{#if latest}
+									<!-- the latest session: every row is one tap from its numbers -->
+									<button type="button" class="srow tap" class:opened={editingRow === key} onclick={() => openRow(s, row)} aria-expanded={editingRow === key}>
+										<span class="exname">{row.item}{#if lvl}<span class="uppill">↑</span>{/if}</span>
+										<span class="val">{setsLine(row.sets, ex)}</span>
+									</button>
+									{#if editingRow === key}{@render editor(s)}{/if}
+								{:else}
+									<div class="srow">
+										<span class="exname">{row.item}{#if lvl}<span class="uppill">↑</span>{/if}</span>
+										<span class="val">{setsLine(row.sets, ex)}</span>
+									</div>
+								{/if}
+							{/each}
+							{#each s.durations as d (d.index)}
+								{#if latest}
+									<button type="button" class="srow tap" class:opened={editingRow === `${s.id}:run`} onclick={() => openRun(s)} aria-expanded={editingRow === `${s.id}:run`}>
+										<span class="exname">{d.item}</span>
+										<span class="val">{d.minutes} min</span>
+									</button>
+								{:else}
+									<div class="srow">
+										<span class="exname">{d.item}</span>
+										<span class="val">{d.minutes} min</span>
+									</div>
+								{/if}
+							{/each}
+							{#if latest && editingRow === `${s.id}:run`}{@render editor(s)}{/if}
+							{#if latest}
+								<!-- the footer only the latest session has: prep is present, not itemised, and Remove waits for intent -->
+								<div class="cfoot">
+									<span class="prepline">{s.prep ? `+ ${s.prep} prep ${s.prep === 1 ? 'step' : 'steps'} · ` : ''}tap a line to fix it</span>
+									<form method="POST" action="?/remove" use:enhance>
+										<input type="hidden" name="session" value={s.id} />
+										{#if removing === s.id}
+											<button type="submit" class="remove armed">Remove?</button>
+										{:else}
+											<button type="button" class="remove" onclick={() => (removing = s.id)}>Remove</button>
+										{/if}
+									</form>
+								</div>
+							{:else if s.prep}
+								<div class="prepline pad">+ {s.prep} prep {s.prep === 1 ? 'step' : 'steps'} — warm-up, cooldown</div>
+							{/if}
+						{/if}
+					</Card>
 				{/if}
-				<!-- prep is present, not itemised: it never leads the row -->
-				{#if s.prep}
-					<div class="prepline">+ {s.prep} prep {s.prep === 1 ? 'step' : 'steps'} — warm-up, cooldown</div>
-				{/if}
-				{/if}
-			</Card>
+			{/each}
+		</div>
+
+		{#if entries.length > shown}
+			<button type="button" class="more" onclick={() => (shown += PAGE)}>
+				Show more — {entries.length - shown} older
+			</button>
 		{/if}
-	{/each}
-	</div>
-
-	{#if editMode && entries.length > 1}
-		<p class="histnote">Older sets are history — remove the session and log it again if it's wrong.</p>
-	{/if}
-
-	{#if entries.length > shown}
-		<button type="button" class="more" onclick={() => (shown += PAGE)}>
-			Show more — {entries.length - shown} older
-		</button>
-	{/if}
-
-	<div class="foot">
-		{#if switches.length}
-			<details class="switches">
-				<summary>{switches.length} plan {switches.length === 1 ? 'change' : 'changes'}</summary>
-				{#each switches as w (w.at)}
-					<div class="switchline">
-						<span class="date">{w.dateLabel}</span>
-						<span class="switchtext">Switched plan → <b>{planName(w.plan)}</b></span>
-					</div>
-				{/each}
-			</details>
-		{/if}
-	</div>
+	</section>
 </div>
 
 <style>
 	.col { display: flex; flex-direction: column; gap: 16px; }
-	.head { display: flex; align-items: center; gap: 14px; }
-	.head h1 { flex: 1; }
 	h1 {
 		margin: 0;
 		font-family: var(--font-display);
@@ -427,25 +411,6 @@
 		font-size: var(--text-display);
 		line-height: var(--leading-tight);
 	}
-	/* removals are rare: one quiet toggle, not a button on every card */
-	.edit {
-		min-height: 44px;
-		padding: 0 14px;
-		background: transparent;
-		border: 1px solid var(--border-soft);
-		border-radius: var(--radius-pill);
-		font-family: var(--font-body);
-		font-size: 12px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		cursor: pointer;
-		transition: background var(--dur-med) var(--ease-snap);
-	}
-	.edit:hover { color: var(--ink); border-color: var(--ink); }
-	.edit[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); background: var(--volt-tint); }
-
 	.caps {
 		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
 		text-transform: uppercase; color: var(--ink-3);
@@ -455,142 +420,94 @@
 	.sect { display: flex; flex-direction: column; gap: 10px; }
 	.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 	.meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
-	.daycaps { margin-bottom: -8px; }
-	/* a phone reads the calendar then the average; a wide screen reads them
-	   side by side — the calendar stops at 332px, so the room to its right is
-	   exactly what the average needs */
-	.pair { display: flex; flex-direction: column; gap: 16px; }
-	.calside { width: 100%; }
-	.side { min-width: 0; }
-	@media (min-width: 720px) {
-		.pair { flex-direction: row; align-items: flex-start; gap: 28px; }
-		/* the calendar keeps its full 332px; a flex child with only a max-width
-		   shrinks to its content, and 35 boxes collapse to dots */
-		.calside { flex: 0 0 332px; }
-		.side { flex: 1 1 200px; }
-	}
-	/* the section's answer, in words — the picture under it is corroboration */
-	.answer { margin: 0 0 14px; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
-	/* inside a pad={false} card it is the first row, not a floating line */
-	.answer.inrow {
-		margin: 0; padding: 12px 16px;
-		font-size: 14px; color: var(--ink-2);
-		border-bottom: 1px solid var(--border-soft); background: var(--surface-sunken);
-		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-	}
-
-	.empty { font-size: 16px; color: var(--ink-2); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
-	.histnote { margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+	.empty { font-size: 16px; color: var(--ink-2); }
 
-	/* the event-sourced delete: the word is plain, the red waits for intent */
-	.remove {
-		min-height: 44px;
-		padding: 0 14px;
-		background: transparent;
-		border: 1px solid var(--border-soft);
-		border-radius: var(--radius-pill);
-		font-family: var(--font-body);
-		font-size: 12px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		cursor: pointer;
-		transition: background var(--dur-med) var(--ease-snap), color var(--dur-med) var(--ease-snap);
+	/* did I show up: the answer, the calendar, the legend that carries the numbers */
+	.showup { display: flex; flex-direction: column; gap: 14px; }
+	.answer { margin: 0; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
+	.legend {
+		display: grid; grid-template-columns: auto 1fr auto auto; column-gap: 12px; align-items: center;
+		border-top: 1px solid var(--border-soft); padding-top: 6px;
 	}
-	.remove:hover { color: var(--danger); border-color: var(--danger); }
-	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
-	.removerow { display: flex; justify-content: flex-end; padding: 0 12px 10px; }
-	.line {
-		display: flex; justify-content: space-between; align-items: center; gap: 12px;
-		width: 100%; min-height: 56px; padding: 8px 16px;
-	}
-	/* never break a date mid-word — "Sun, Aug 2" over three lines is what let
-	   the badges keep their full width and push Remove off the card */
-	.date { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
-	.runlbl { font-weight: var(--weight-bold); flex: 1; text-align: left; }
-	.runmin { font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 16px; white-space: nowrap; }
-	.prepline {
-		padding: 8px 24px 12px; border-top: 1px solid var(--border-soft);
-		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
-	}
+	.lsw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ink); }
+	.llabel { font-size: 14px; font-weight: var(--weight-bold); min-height: 36px; display: flex; align-items: center; }
+	.lrate { font-family: var(--font-mono); font-size: 14px; font-weight: 800; text-align: right; }
+	.lrate i { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 1px; }
+	.lsub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: right; white-space: nowrap; }
 
-	/* the day, folded: a tap target that carries the date, what it was and
-	   what it came to — the sets themselves are one tap in */
-	.sesshead {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 4px 8px;
-		padding: 0 12px 0 0;
-		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-	}
-	/* closed, a day is a plain row like a run; open, its head is the header
-	   of the rows under it */
-	.sesshead.open { background: var(--surface-sunken); }
-	.sesshead:not(.open) { border-radius: var(--radius-lg); }
-	.days { display: flex; flex-direction: column; gap: 8px; }
-	.sesstoggle {
-		flex: 1 1 auto; min-width: 0;
-		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'chev date sum' '. ttl ttl';
+	/* am I getting stronger: the tally is the first row, plain */
+	.tally { margin: 0; padding: 12px 16px; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
+
+	/* what I did: one shell per session, the week's changes between them */
+	.list { display: flex; flex-direction: column; gap: 8px; }
+	.wchange { display: flex; align-items: center; gap: 10px; padding: 6px 4px; }
+	.wrule { flex: 1; border-top: 1px dashed var(--ink-3); }
+	.wtext { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: center; }
+	.wtext b { color: var(--ink); }
+	.shead {
+		width: 100%;
+		display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'date sum' 'ttl ttl';
 		column-gap: 10px; row-gap: 2px; align-items: center;
-		min-height: 56px; padding: 8px 8px 8px 16px;
+		min-height: 56px; padding: 10px 16px;
 		background: transparent; border: none; font: inherit; color: inherit; text-align: left;
 		cursor: pointer; touch-action: manipulation; border-radius: var(--radius-lg);
 		transition: background var(--dur-med) var(--ease-snap);
 	}
-	.sesstoggle:hover { background: var(--volt-tint); }
-	.chev { grid-area: chev; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
-	.sesshead .date { grid-area: date; }
-	.ttl { grid-area: ttl; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: var(--weight-bold); font-size: 15px; }
+	.shead:hover { background: var(--volt-tint); }
+	/* open, the latest session's head is the header of the rows under it */
+	.shead.open { background: var(--paper-2); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+	/* never break a date mid-word */
+	.date { grid-area: date; font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
 	.sum { grid-area: sum; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: right; white-space: nowrap; }
-	/* wide enough for one line: date, what it was, what it came to */
-	@media (min-width: 700px) {
-		.sesstoggle { grid-template-columns: auto auto 1fr auto; grid-template-areas: 'chev date ttl sum'; }
-	}
+	.ttl { grid-area: ttl; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: var(--weight-bold); font-size: 15px; }
+	.after { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--ink-3); }
 	/* two columns: the exercise, and what happened */
-	.sessrow {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 16px;
-		align-items: center;
-		width: 100%;
-		min-height: 44px;
-		padding: 14px 24px;
-		border-top: 1px solid var(--border-soft);
+	.srow {
+		display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
+		width: 100%; min-height: 44px; padding: 10px 16px; border-top: 1px solid var(--border-soft);
 	}
-	/* a tappable row: the same two columns, and paper-2 while it is open */
 	.tap {
 		background: transparent; border-left: none; border-right: none; border-bottom: none;
 		font: inherit; color: inherit; text-align: left; cursor: pointer; touch-action: manipulation;
 		transition: background var(--dur-med) var(--ease-snap);
 	}
-	.line.tap { border: none; border-radius: var(--radius-lg); }
 	.tap:hover { background: var(--volt-tint); }
-	.tap.opened { background: var(--surface-sunken); }
-	.exname { font-weight: var(--weight-bold); font-size: 16px; }
+	.tap.opened { background: var(--paper-2); }
+	.tap.opened .val { color: var(--ink); font-weight: 800; }
+	.exname { font-weight: var(--weight-bold); font-size: 15px; }
 	.uppill {
-		margin-left: 8px;
-		background: var(--volt);
-		border: 1px solid var(--ink);
-		border-radius: var(--radius-pill);
-		padding: 1px 8px;
-		font-size: 12px;
-		font-weight: var(--weight-bold);
+		margin-left: 8px; background: var(--volt); border: 1px solid var(--ink); border-radius: var(--radius-pill);
+		padding: 0 7px; font-size: 12px; font-weight: var(--weight-bold);
 	}
-	.val { font-family: var(--font-mono); font-size: 15px; color: var(--ink-2); text-align: right; }
+	.val { font-family: var(--font-mono); font-size: 14px; color: var(--ink-2); text-align: right; }
+	.prepline { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+	.prepline.pad { padding: 8px 16px 12px; border-top: 1px solid var(--border-soft); }
+	.cfoot {
+		display: flex; justify-content: space-between; align-items: center; gap: 12px;
+		padding: 8px 8px 8px 16px; background: var(--paper-2); border-top: 1px solid var(--border-soft);
+		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+	}
+	/* the event-sourced delete: the word is plain, the red waits for intent */
+	.remove {
+		min-height: 40px; padding: 0 14px;
+		background: transparent; border: 1px solid var(--border-soft); border-radius: var(--radius-pill);
+		font-family: var(--font-body); font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink-3); cursor: pointer;
+		transition: background var(--dur-med) var(--ease-snap), color var(--dur-med) var(--ease-snap);
+	}
+	.remove:hover { color: var(--danger); border-color: var(--danger); }
+	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
 
-	/* the inline editor: the Log-it-after line, one per set, then Save / Cancel */
+	/* the inline editor: label / stepper, the steppers on the right so every number lines up */
 	.editor {
-		display: flex; flex-direction: column; gap: 6px;
-		padding: 8px 24px 14px; background: var(--surface-sunken); border-top: 1px solid var(--border-soft);
+		display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 2px; align-items: center;
+		padding: 0 16px 12px; background: var(--paper-2);
 	}
-	.eline { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-	.elbl { font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-3); }
-	.ectls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-	.ctl { display: inline-flex; align-items: center; gap: 2px; }
+	.elbl { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+	.edivider { grid-column: 1 / -1; border-top: 1px solid var(--border-soft); margin: 4px 0; }
+	.ectls { display: inline-flex; align-items: center; gap: 8px; justify-self: end; flex-wrap: wrap; justify-content: flex-end; }
+	.ctl { display: inline-flex; align-items: center; gap: 2px; justify-self: end; }
 	.pm {
 		width: 44px; min-height: 44px;
 		background: transparent; border: none; border-radius: var(--radius-sm);
@@ -598,10 +515,11 @@
 		touch-action: manipulation;
 	}
 	.pm:hover { background: var(--volt-tint); }
-	.num { font-family: var(--font-mono); font-weight: 800; font-size: 18px; min-width: 44px; text-align: center; }
+	.num { font-family: var(--font-mono); font-weight: 800; font-size: 18px; min-width: 72px; text-align: center; }
+	.num.wide { min-width: 88px; }
 	.unit { font-size: 12px; font-weight: 700; color: var(--ink-3); }
 	.times { font-family: var(--font-mono); color: var(--ink-3); }
-	.ebtns { display: flex; gap: 8px; margin-top: 6px; }
+	.ebtns { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 	.esave {
 		flex: 1; min-height: 48px;
 		background: var(--volt); color: var(--ink);
@@ -611,58 +529,18 @@
 	}
 	.esave:disabled { opacity: 0.4; cursor: default; }
 	.ecancel {
-		min-height: 48px; padding: 0 16px;
-		background: var(--white); color: var(--ink-2);
-		border: 1px solid var(--border-soft); border-radius: var(--radius-md);
-		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 15px;
-		cursor: pointer;
+		min-height: 48px; padding: 0 12px; background: none; border: none; cursor: pointer;
+		font-family: var(--font-body); font-size: 15px; font-weight: var(--weight-bold); color: var(--ink-2);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 
 	.more {
-		min-height: var(--hit-min);
-		padding: 0 22px;
-		font-family: var(--font-body);
-		font-weight: var(--weight-bold);
-		font-size: var(--text-md);
-		color: var(--ink);
-		background: var(--white);
-		border: var(--border-w) solid var(--ink);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised);
-		cursor: pointer;
+		align-self: flex-start;
+		min-height: var(--hit-min); padding: 0 22px;
+		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: var(--text-md); color: var(--ink);
+		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
+		box-shadow: var(--shadow-raised); cursor: pointer;
 	}
 	.more:hover { background: var(--volt-tint); }
 	.more:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
-
-	.foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-
-	/* Plan switches: recorded honestly, displayed quietly */
-	.switches summary {
-		list-style: none;
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		min-height: 44px;
-		cursor: pointer;
-		font-size: 12px;
-		font-weight: var(--weight-bold);
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		border-radius: var(--radius-sm);
-		padding: 0 4px;
-	}
-	.switches summary::-webkit-details-marker { display: none; }
-	.switches summary::before { content: '▸'; }
-	.switches[open] summary::before { content: '▾'; }
-	.switches summary:hover { color: var(--ink); background: var(--volt-tint); }
-	.switchline {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 4px;
-		border-top: 1px solid var(--border-soft);
-	}
-	.switchtext { font-size: 15px; color: var(--ink-2); }
 </style>

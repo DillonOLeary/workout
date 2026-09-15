@@ -5,7 +5,8 @@ import type { Discipline, Exercise, Plan } from './plan';
 import { DEFAULT_PREFERENCES, type Preferences } from './preferences';
 import { REENTRY_WARN_DAYS, suggest } from './progression';
 import {
-	historyFor, monthGrid, nextInCycle, preferences, projectSessions, queue, sessionEntries, staleness, trendFor, weekProgress, weeklyPace
+	activeProgramme, blocksOn, historyFor, monthGrid, nextInCycle, preferences, projectSessions, queue, sessionEntries, staleness, trendFor,
+	weekChanges, weekProgress, weeklyPace
 } from './projections';
 import { upcastAll } from './upcast';
 
@@ -257,6 +258,33 @@ describe('cycles — where each one is turned to, and how far behind', () => {
 			['lift', 1], ['mob', 3], ['run', 2], ['bw', 3]
 		]);
 		expect(staleness([], plan, NOW).every((s) => s.daysSince === null)).toBe(true);
+	});
+});
+
+describe('the week — one programme, the blocks that are on, and when it changed', () => {
+	const at = (daysAgo: number) => new Date(NOW - daysAgo * DAY).toISOString();
+	it('lifts on the last programme chosen, and has every block on until a switch says otherwise', () => {
+		expect(activeProgramme([])).toBeNull();
+		expect(blocksOn([])).toEqual(['yoga', 'mob', 'run']);
+		const ev: LedgerEvent[] = [
+			{ type: 'ProgrammeSelected', data: { programme: 'ab-fullbody-v1', at: at(9) } },
+			{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: at(5) } },
+			{ type: 'ProgrammeSelected', data: { programme: 'her-12-v1', at: at(3) } },
+			{ type: 'BlockToggled', data: { block: 'run', on: false, at: at(2) } },
+			{ type: 'BlockToggled', data: { block: 'yoga', on: true, at: at(1) } }
+		];
+		expect(activeProgramme(ev)).toBe('her-12-v1');
+		expect(blocksOn(ev)).toEqual(['yoga', 'mob']);
+	});
+	it('reads a stored plan choice as one change to the week, and lists changes newest first', () => {
+		const ev = [
+			...raw('PlanSelected', { plan: 'ab-fullbody-v1', at: at(9) }),
+			...raw('BlockToggled', { block: 'run', on: false, at: at(2) })
+		];
+		expect(weekChanges(ev)).toEqual([
+			{ at: at(2), dateLabel: expect.any(String), blocks: [{ block: 'run', on: false }] },
+			{ at: at(9), dateLabel: expect.any(String), programme: 'ab-fullbody-v1', blocks: [{ block: 'yoga', on: true }, { block: 'mob', on: true }, { block: 'run', on: true }] }
+		]);
 	});
 });
 

@@ -2,7 +2,7 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
-import { isDiscipline } from './plan';
+import { BLOCK_IDS, isBlockId, isDiscipline, type BlockId } from './plan';
 import { MAX_INTENTS, isEquipment, isIntent, samePreferences, type Preferences } from './preferences';
 import { upcast } from './upcast';
 
@@ -19,9 +19,10 @@ import { upcast } from './upcast';
  * from events on every command, which is the whole point.
  *
  * State holds only what the RULES need (is a session open? which is the
- * latest? which entries has each got? which plan is active? what did you
- * last say you were after?). Everything a screen needs lives in
- * projections.ts instead — including what a session IS.
+ * latest? which entries has each got? which programme, which blocks on,
+ * what did you last say you were after — so saying it again records
+ * nothing?). Everything a screen needs lives in projections.ts instead —
+ * including what a session IS.
  *
  * The decider validates SHAPE, never meaning: it does not know the plan, so
  * it cannot say whether "Goblet Squat #4" is a set the routine asked for.
@@ -34,7 +35,9 @@ import { upcast } from './upcast';
 export type LedgerState = {
 	/** the one live slot: the session the floor is walking, if any */
 	activeSession: string | null;
-	activePlanId: string | null;
+	activeProgramme: string | null;
+	/** which blocks of the week are on — everything, until a switch says otherwise */
+	blocks: Record<BlockId, boolean>;
 	/**
 	 * every session ever started (runs included), in the order it was started.
 	 * RemoveSession refuses an unknown id; the last one not removed is the
@@ -55,7 +58,8 @@ export type LedgerState = {
 
 export const initialState = (): LedgerState => ({
 	activeSession: null,
-	activePlanId: null,
+	activeProgramme: null,
+	blocks: { yoga: true, mob: true, run: true },
 	started: [],
 	removedSessions: {},
 	logged: {},
@@ -105,8 +109,10 @@ function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
 				// removing an in-progress session also abandons it
 				activeSession: state.activeSession === data.session ? null : state.activeSession
 			};
-		case 'PlanSelected':
-			return { ...state, activePlanId: data.plan };
+		case 'ProgrammeSelected':
+			return { ...state, activeProgramme: data.programme };
+		case 'BlockToggled':
+			return { ...state, blocks: { ...state.blocks, [data.block]: data.on } };
 		case 'PreferencesSet':
 			return { ...state, preferences: { intents: data.intents, equipment: data.equipment } };
 	}
@@ -207,11 +213,20 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			return [{ type: 'SessionRemoved', data: { session, at } }];
 		}
 
-		case 'SelectPlan': {
-			// Selecting the already-active plan records nothing: deciders may
-			// return zero events, which makes retries naturally idempotent.
-			if (state.activePlanId === command.data.plan) return [];
-			return [{ type: 'PlanSelected', data: { plan: command.data.plan, at: command.data.at } }];
+		case 'SelectProgramme': {
+			// Selecting the programme already lifted on records nothing: deciders
+			// may return zero events, which makes retries naturally idempotent.
+			if (state.activeProgramme === command.data.programme) return [];
+			return [{ type: 'ProgrammeSelected', data: { programme: command.data.programme, at: command.data.at } }];
+		}
+
+		case 'ToggleBlock': {
+			// the blocks are a closed set, so a switch that names no block is
+			// refused here; a switch to where it already is records nothing
+			const { block, on, at } = command.data;
+			if (!isBlockId(block)) throw new ValidationError(`No such block — the week has ${BLOCK_IDS.join(', ')}.`);
+			if (state.blocks[block] === on) return [];
+			return [{ type: 'BlockToggled', data: { block, on, at } }];
 		}
 
 		case 'SetPreferences': {

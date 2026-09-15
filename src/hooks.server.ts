@@ -37,6 +37,14 @@ export const handle: Handle = ({ event, resolve }) => {
 	if (url.pathname === '/log') {
 		return new Response(null, { status: 301, headers: { location: `/floor${url.search}` } });
 	}
+	// The Plan's two child pages folded into it and into the programme page
+	// when plans stopped being the unit (2026-09-14).
+	if (url.pathname === '/plan/change') {
+		return new Response(null, { status: 301, headers: { location: '/plan/programme' } });
+	}
+	if (url.pathname === '/plan/after') {
+		return new Response(null, { status: 301, headers: { location: '/plan' } });
+	}
 
 	// Who's here? Verified on every request; re-issued on every request so
 	// the 400-day cookie clock restarts each visit — you just stay signed in.

@@ -1,6 +1,6 @@
 import type { LedgerEvent, StoredEvent } from './events';
 import type { Measure } from './measure';
-import type { Discipline } from './plan';
+import { BLOCK_IDS, type BlockId, type Discipline } from './plan';
 
 /**
  * The read boundary. The stream is never rewritten: a row appended in July's
@@ -26,7 +26,7 @@ import type { Discipline } from './plan';
  *   SessionStruck 7 · SessionStarted 121, none carrying `discipline` — 66
  *   without `mode`, 26 spelling the run as day: 'run' or kind: 'run', the
  *   rest keyed by `day` under the three shipped plans in the table below ·
- *   EntryLogged carrying plan/day 77, at load 0 4.
+ *   EntryLogged carrying plan/day 77, at load 0 4 · PlanSelected 40.
  * Delete a case only when its count is zero — and count again first.
  */
 
@@ -62,6 +62,8 @@ type EntryLoggedV1 = {
 	data: { session: string; item: string; index: number; at: string; measure: Measure };
 };
 type SessionFinishedV1 = { type: 'SessionFinished'; data: { session: string; at: string } };
+/** A plan was the unit a person chose, until the week became a programme plus blocks (2026-09-14). */
+type PlanSelectedV1 = { type: 'PlanSelected'; data: { plan: string; at: string } };
 
 /** A retired run's session id: its `at` timestamp was always its identity. */
 export const runSessionId = (at: string) => `run-${at}`;
@@ -81,6 +83,19 @@ const DISCIPLINE_BEFORE_2026_09_14: Record<string, Record<string, Discipline>> =
 	'ab-fullbody-v1': { A: 'lift', B: 'lift', S: 'mobility', run: 'run' },
 	'her-12-v1': { '1': 'lift', '2': 'lift', run: 'run' },
 	'yoga-2day-v1': { '1': 'yoga', '2': 'yoga' }
+};
+
+/**
+ * What choosing a plan MEANT, now that the week is one lift programme plus
+ * the blocks that are on: the programme it was, and its blocks switched on
+ * (and the ones it lacked, off). Hold Steady had no lifting of its own —
+ * choosing it was its blocks only; the programme stays whatever it was. An
+ * unknown id (no row needs this) reads as a programme with no blocks said.
+ */
+const WEEK_OF_PLAN: Record<string, { programme?: string; on: Partial<Record<BlockId, boolean>> }> = {
+	'ab-fullbody-v1': { programme: 'ab-fullbody-v1', on: { yoga: true, mob: true, run: true } },
+	'her-12-v1': { programme: 'her-12-v1', on: { yoga: false, mob: false, run: true } },
+	'yoga-2day-v1': { on: { yoga: true, mob: false, run: false } }
 };
 
 /**
@@ -118,9 +133,22 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 		}
 		case 'EntryCorrected':
 		case 'SessionRemoved':
-		case 'PlanSelected':
+		case 'ProgrammeSelected':
+		case 'BlockToggled':
 		case 'PreferencesSet':
 			return [e as LedgerEvent];
+		case 'PlanSelected': {
+			// one-to-many: a plan chosen is a programme chosen and its blocks switched
+			const { plan, at } = (e as PlanSelectedV1).data;
+			const week = WEEK_OF_PLAN[plan] ?? { programme: plan, on: {} };
+			const out: LedgerEvent[] = [];
+			if (week.programme) out.push({ type: 'ProgrammeSelected', data: { programme: week.programme, at } });
+			for (const block of BLOCK_IDS) {
+				const on = week.on[block];
+				if (on !== undefined) out.push({ type: 'BlockToggled', data: { block, on, at } });
+			}
+			return out;
+		}
 		case 'SessionStruck':
 			return [{ type: 'SessionRemoved', data: (e as SessionStruckV1).data }];
 		case 'SetLogged': {

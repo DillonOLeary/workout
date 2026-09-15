@@ -192,11 +192,22 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 });
 
 describe('decide — idempotent removes, selects and preferences', () => {
-	it('selects a plan once', () => {
-		const first = decide({ type: 'SelectPlan', data: { plan: 'p', at: AT } }, initialState());
-		expect(first).toHaveLength(1);
+	it('selects a programme once', () => {
+		const first = decide({ type: 'SelectProgramme', data: { programme: 'p', at: AT } }, initialState());
+		expect(first).toEqual([{ type: 'ProgrammeSelected', data: { programme: 'p', at: AT } }]);
 		const state = evolve(initialState(), first[0]);
-		expect(decide({ type: 'SelectPlan', data: { plan: 'p', at: AT } }, state)).toEqual([]);
+		expect(decide({ type: 'SelectProgramme', data: { programme: 'p', at: AT } }, state)).toEqual([]);
+	});
+	it('switches a block once, refuses a block the week has not got', () => {
+		// everything is on until a switch says otherwise: switching yoga on records nothing
+		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, initialState())).toEqual([]);
+		const off = decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, initialState());
+		expect(off).toEqual([{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } }]);
+		const state = evolve(initialState(), off[0]);
+		expect(state.blocks).toEqual({ yoga: false, mob: true, run: true });
+		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, state)).toEqual([]);
+		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, state)).toHaveLength(1);
+		expect(() => decide({ type: 'ToggleBlock', data: { block: 'bw' as never, on: false, at: AT } }, initialState())).toThrow(ValidationError);
 	});
 	it('removes a known session once, refuses an unknown one', () => {
 		expect(() =>

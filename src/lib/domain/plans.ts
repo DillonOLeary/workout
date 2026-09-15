@@ -1,12 +1,14 @@
-import type { Exercise, Plan, PrepItem } from './plan';
+import { BLOCK_IDS, composePlan, type Block, type Exercise, type Plan, type PrepItem } from './plan';
 
 /**
- * The shipped plans. These are seeded into the `ledger_plans` table on every
- * boot (src/lib/server/plans.ts); custom plans are inserted alongside them
- * via the "Plans table" card on /plan/change.
+ * The shipped week: two lift PROGRAMMES and four BLOCKS. A programme is a
+ * lift-only plan — a row in the `ledger_plans` table, upserted on every boot
+ * (src/lib/server/plans.ts); new ones are added at the table, not in the
+ * app. A block is a shared cycle with its routines — yoga, the morning
+ * stretch, the run, the no-gym floor — cadence written by the block, on or
+ * off per person (a switch is an event). `composePlan` folds a programme and
+ * the blocks that are on into the one Plan the rest of the domain reads.
  *
- * A plan is a handful of CYCLES — ordered lists of routines, each turning at
- * its own weekly cadence — over a set of ROUTINES, each with a discipline.
  * Every exercise names what a set WRITES (`kind`) and what the rule MOVES
  * (`progress`) — plan.ts. Every weighted lift declares whether its number is
  * per hand (`each`) and every one-sided movement declares how it splits
@@ -280,46 +282,21 @@ const BW_COOLDOWN: PrepItem[] = [
 	{ name: 'Hamstring stretch', seconds: 45, each: true }
 ];
 
-export const DEFAULT_PLANS: Plan[] = [
+export const DEFAULT_PROGRAMMES: Plan[] = [
 	{
 		id: 'ab-fullbody-v1',
 		name: 'Open to Work',
 		description:
-			'Full-body A/B on dumbbells, kettlebells and machines, with yoga, a morning stretch and an easy run turning alongside it — and a no-equipment block for the weeks without a gym. Currently accepting all opportunities to pick things up and put them down.',
-		schedule: 'Lift Mon / Wed / Fri · Yoga twice · Run 3×/week',
+			'Full-body A/B on dumbbells, kettlebells and machines. Squat & Shove · Hinge & Haul. The calendar is empty; Mon / Wed / Fri isn’t. Currently accepting all opportunities to pick things up and put them down.',
+		schedule: 'Lift Mon / Wed / Fri',
 		// 90s between sets: these are compounds first, machines second
 		rest: 90,
 		cooldown: COOLDOWN,
-		/**
-		 * The week, stated. Each cycle turns at its own cadence and the target
-		 * is written by the plan, never the user: cadence is a training
-		 * decision, and a dial would be a second source of truth. The no-gym
-		 * block is off (target 0) until the gym is ruled out, when it takes
-		 * the lift's target.
-		 */
-		cycles: [
-			{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 },
-			{ id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
-			{ id: 'mob', title: 'Stretch', routines: ['S'], target: 3 },
-			{ id: 'run', title: 'Run', routines: ['run'], target: 3 },
-			{ id: 'bw', title: 'No gym', routines: ['bw1', 'bw2', 'hips', 'bw4', 'bw5', 'bw6', 'spine'], target: 0, standsInFor: 'lift' }
-		],
+		// three a week off two routines: A, B, A — the cadence's number, not the routines'
+		cycles: [{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 }],
 		routineInfo: {
 			A: { title: 'Squat & Shove', discipline: 'lift', desc: 'Squat · push · pull · hinge · calves · core', warmup: WARMUP },
-			B: { title: 'Hinge & Haul', discipline: 'lift', desc: 'Hinge · press · row · lunge · calves · core', warmup: WARMUP },
-			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] },
-			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN },
-			// the body you actually have: hip flexors shortened by a chair,
-			// hamstrings and calves shortened by running
-			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'Hip flexors · hamstrings · glutes · a twist', warmup: [CAT_COW, { name: 'Downward Dog', seconds: 45 }, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
-			// the other half of the desk problem: a mid-back that has forgotten
-			// how to extend and rotate, and shoulders that live rolled forward
-			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
-			bw1: { title: 'Push & Squat', discipline: 'bodyweight', desc: 'Push · split squat · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw2: { title: 'Hinge & Carry', discipline: 'bodyweight', desc: 'Hinge · lunge · crawl · side plank', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw4: { title: 'Push & Squat II', discipline: 'bodyweight', desc: 'Tempo push · squat · step-up · dead bug', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw5: { title: 'Back & Core', discipline: 'bodyweight', desc: 'Superman · reverse crunch · plank · bridge', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw6: { title: 'Legs', discipline: 'bodyweight', desc: 'Split squat · hinge · lunge · calves', warmup: BW_WARMUP, cooldown: BW_COOLDOWN }
+			B: { title: 'Hinge & Haul', discipline: 'lift', desc: 'Hinge · press · row · lunge · calves · core', warmup: WARMUP }
 		},
 		routines: {
 			A: [
@@ -354,65 +331,24 @@ export const DEFAULT_PLANS: Plan[] = [
 				// adductors, which nothing else in a front-to-back plan touches.
 				// Progress by reps, then by lever — never by seconds.
 				{ name: 'Copenhagen Plank', equip: 'Bench', tag: 'Core / adductors', kind: 'reps', sets: 2, lo: 5, hi: 15, progress: { of: 'count' }, side: 'sets', note: 'Side plank with the top knee on a bench, bottom leg lifting to meet it. One rep = lift and lower. At 15 clean, straighten the top leg.' }
-			],
-			// Not strength work — static holds at realistic doses build none
-			// (TRAINING.md [23]). This is the runner's five, held long enough to
-			// feel, on a morning that isn't a lift.
-			S: [
-				HOLD45('Calf stretch', 'Heel down, knee straight, lean into the wall.'),
-				HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
-				HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
-				HOLD45('Figure-4 stretch', 'Ankle over the knee, sit back until the glute pulls.'),
-				{ ...HOLD45('Doorway chest stretch', 'Forearms on the frame, elbows at shoulder height, step through until the chest opens.'), sets: 1, side: undefined }
-			],
-			run: [EASY_RUN],
-			hips: [
-				pose('Low Lunge', 'Hip flexor', 45, 'The front of the hip, shortened all day by a chair and all run by a stride. Back knee down, front knee over the ankle, torso tall.', true),
-				pose('Half Splits', 'Hamstrings', 45, 'Hamstring at length with the back kept flat — the safe version of a forward fold. Hips back over the rear knee, front toes up.', true),
-				strengthPose('Chair Pose', 'Squat', 20, 45, 'Quads and spinal erectors under real isometric load — a squat you hold. Knees over the ankles, arms in line with the torso.', false, 2),
-				strengthPose('Warrior II', 'Lunge', 30, 45, 'Front thigh loaded, back hip open; the only adductor length in the routine. Front knee to 90°, arms in a T.', true),
-				pose('Pigeon', 'Hip', 60, 'Glute and the deep hip rotators. Reclined figure-4 if the front knee complains.', true),
-				strengthPose('Bridge', 'Hip ext.', 20, 45, 'Hip extension against gravity, the direct antidote to sitting. Feet flat and close, hips up until hip and knee are in line.', false, 2),
-				pose('Seated Forward Fold', 'Hamstrings', 60, 'Whole posterior chain, calves included. Bend the knees; this is not a contest.'),
-				SUPINE_TWIST
-			],
-			spine: [
-				strengthPose('Downward Dog', 'Shoulders', 30, 60, 'Shoulder flexion and calf length in one shape. Held, not passed through: hips the apex, head between the arms, heels reaching.'),
-				pose('Puppy Pose', 'Thoracic', 45, 'Thoracic extension with the hips stacked over the knees — the bit of the spine a desk locks. Chest and arms down the mat.'),
-				pose('Thread the Needle', 'Thoracic', 45, 'Thoracic rotation, which nothing else in the week asks for. One shoulder to the mat, the arm threaded under.', true),
-				pose('Sphinx', 'Low back', 60, 'Gentle low-back extension. The forearms keep it out of the range that aggravates.'),
-				pose('Cow-Face Arms', 'Shoulders', 45, 'Shoulder external rotation and lats — the unloaded cousin of the face pull. One arm overhead and bent behind the head, the other behind the low back.', true),
-				strengthPose('Forearm Plank', 'Core', 20, 60, 'Anti-extension core, held against gravity with the ribs pulled down. One line from ear to heel.'),
-				SIDE_PLANK,
-				pose('Child’s Pose, side reach', 'Lats', 45, 'Lat length, one side at a time, and a breath back to neutral. Hips on the heels, both arms walked to one side.', true),
-				SUPINE_TWIST
-			],
-			bw1: [PUSHUP, SPLIT_SQUAT, SL_BRIDGE, HOLLOW],
-			bw2: [SL_RDL, REVERSE_LUNGE, BEAR_CRAWL, { ...SIDE_PLANK, equip: 'Floor', sets: 6, rest: BW_REST }],
-			bw4: [{ ...PUSHUP, note: 'Tempo: three seconds down, a pause at the bottom, up. Same ladder as Push & Squat — the tempo is this routine’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
-			bw5: [SUPERMAN, REVERSE_CRUNCH, PLANK, SL_BRIDGE],
-			bw6: [SPLIT_SQUAT, SL_RDL, REVERSE_LUNGE, SL_CALF]
+			]
 		}
 	},
 	{
 		id: 'her-12-v1',
 		name: 'Full Range of Motion',
 		description:
-			'Deep-ROM lifts at moderate reps. Strength through the full range of motion — mobility you can load, dosed for visible change at three days a week. Runs stay with Coach Bennett — log the minutes after.',
+			'Deep-ROM lifts at moderate reps — strength through the whole range, mobility you can load. Get Low · Bridge Club. Dosed for visible change at three days a week.',
 		// She asked for regimented, so the schedule names days instead of counts.
-		schedule: 'Lift Mon / Thu (+ Sat when it fits) · Run Wed / Sat with NRC',
+		schedule: 'Lift Mon / Thu (+ Sat when it fits)',
 		rest: 60,
 		cooldown: HER_COOLDOWN,
 		cue: HER_CUE,
-		cycles: [
-			// Mon and Thu are the promise; Saturday is the bonus
-			{ id: 'lift', title: 'Lift', routines: ['1', '2'], target: 2 },
-			{ id: 'run', title: 'Run', routines: ['run'], target: 2 }
-		],
+		// Mon and Thu are the promise; Saturday is the bonus
+		cycles: [{ id: 'lift', title: 'Lift', routines: ['1', '2'], target: 2 }],
 		routineInfo: {
 			'1': { title: 'Get Low', discipline: 'lift', desc: 'Deep squat · hinge · push · pull · rear delt · core', warmup: HER_WARMUP },
-			'2': { title: 'Bridge Club', discipline: 'lift', desc: 'Lunge · curl · press · row · bridge · calves · core', warmup: HER_WARMUP },
-			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN }
+			'2': { title: 'Bridge Club', discipline: 'lift', desc: 'Lunge · curl · press · row · bridge · calves · core', warmup: HER_WARMUP }
 		},
 		routines: {
 			'1': [
@@ -437,8 +373,106 @@ export const DEFAULT_PLANS: Plan[] = [
 				{ name: 'DB Glute Bridge', equip: 'One dumbbell + folded mat as a pad', tag: 'Hip ext.', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 25, inc: 5, rack: 'dumbbell' }, note: 'Bell on the pad across the hips — 25 is the load. Chin tucked, ribs down; drive to level hips, squeeze, pause, lower. Easy at 35? Shoulders up on a bench.' },
 				{ ...CALF_RAISE, progress: { of: 'size', start: 50, inc: 10 } },
 				SIDE_PLANK
-			],
-			run: [EASY_RUN]
+			]
 		}
 	}
 ];
+
+/**
+ * The blocks, in the order the week lists them. Cadence is the block's:
+ * a target is a training decision, and a dial would be a second source of
+ * truth. The no-gym block has no switch — it is in every week at target 0
+ * and takes the lift's target while the gym is ruled out (standsInFor).
+ */
+export const BLOCKS: Block[] = [
+	{
+		id: 'yoga',
+		switch: 'hand',
+		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
+		routineInfo: {
+			// the body you actually have: hip flexors shortened by a chair,
+			// hamstrings and calves shortened by running
+			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'Hip flexors · hamstrings · glutes · a twist', warmup: [CAT_COW, { name: 'Downward Dog', seconds: 45 }, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
+			// the other half of the desk problem: a mid-back that has forgotten
+			// how to extend and rotate, and shoulders that live rolled forward
+			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE }
+		},
+		routines: {
+			hips: [
+				pose('Low Lunge', 'Hip flexor', 45, 'The front of the hip, shortened all day by a chair and all run by a stride. Back knee down, front knee over the ankle, torso tall.', true),
+				pose('Half Splits', 'Hamstrings', 45, 'Hamstring at length with the back kept flat — the safe version of a forward fold. Hips back over the rear knee, front toes up.', true),
+				strengthPose('Chair Pose', 'Squat', 20, 45, 'Quads and spinal erectors under real isometric load — a squat you hold. Knees over the ankles, arms in line with the torso.', false, 2),
+				strengthPose('Warrior II', 'Lunge', 30, 45, 'Front thigh loaded, back hip open; the only adductor length in the routine. Front knee to 90°, arms in a T.', true),
+				pose('Pigeon', 'Hip', 60, 'Glute and the deep hip rotators. Reclined figure-4 if the front knee complains.', true),
+				strengthPose('Bridge', 'Hip ext.', 20, 45, 'Hip extension against gravity, the direct antidote to sitting. Feet flat and close, hips up until hip and knee are in line.', false, 2),
+				pose('Seated Forward Fold', 'Hamstrings', 60, 'Whole posterior chain, calves included. Bend the knees; this is not a contest.'),
+				SUPINE_TWIST
+			],
+			spine: [
+				strengthPose('Downward Dog', 'Shoulders', 30, 60, 'Shoulder flexion and calf length in one shape. Held, not passed through: hips the apex, head between the arms, heels reaching.'),
+				pose('Puppy Pose', 'Thoracic', 45, 'Thoracic extension with the hips stacked over the knees — the bit of the spine a desk locks. Chest and arms down the mat.'),
+				pose('Thread the Needle', 'Thoracic', 45, 'Thoracic rotation, which nothing else in the week asks for. One shoulder to the mat, the arm threaded under.', true),
+				pose('Sphinx', 'Low back', 60, 'Gentle low-back extension. The forearms keep it out of the range that aggravates.'),
+				pose('Cow-Face Arms', 'Shoulders', 45, 'Shoulder external rotation and lats — the unloaded cousin of the face pull. One arm overhead and bent behind the head, the other behind the low back.', true),
+				strengthPose('Forearm Plank', 'Core', 20, 60, 'Anti-extension core, held against gravity with the ribs pulled down. One line from ear to heel.'),
+				SIDE_PLANK,
+				pose('Child’s Pose, side reach', 'Lats', 45, 'Lat length, one side at a time, and a breath back to neutral. Hips on the heels, both arms walked to one side.', true),
+				SUPINE_TWIST
+			]
+		}
+	},
+	{
+		id: 'mob',
+		switch: 'hand',
+		cycle: { id: 'mob', title: 'Stretch', routines: ['S'], target: 3 },
+		routineInfo: {
+			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] }
+		},
+		routines: {
+			// Not strength work — static holds at realistic doses build none
+			// (TRAINING.md [23]). This is the runner's five, held long enough to
+			// feel, on a morning that isn't a lift.
+			S: [
+				HOLD45('Calf stretch', 'Heel down, knee straight, lean into the wall.'),
+				HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
+				HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
+				HOLD45('Figure-4 stretch', 'Ankle over the knee, sit back until the glute pulls.'),
+				{ ...HOLD45('Doorway chest stretch', 'Forearms on the frame, elbows at shoulder height, step through until the chest opens.'), sets: 1, side: undefined }
+			]
+		}
+	},
+	{
+		id: 'run',
+		switch: 'hand',
+		cycle: { id: 'run', title: 'Run', routines: ['run'], target: 3 },
+		routineInfo: {
+			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN }
+		},
+		routines: { run: [EASY_RUN] }
+	},
+	{
+		id: 'bw',
+		switch: 'gear',
+		cycle: { id: 'bw', title: 'No gym', routines: ['bw1', 'bw2', 'hips', 'bw4', 'bw5', 'bw6', 'spine'], target: 0, standsInFor: 'lift' },
+		routineInfo: {
+			bw1: { title: 'Push & Squat', discipline: 'bodyweight', desc: 'Push · split squat · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+			bw2: { title: 'Hinge & Carry', discipline: 'bodyweight', desc: 'Hinge · lunge · crawl · side plank', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+			bw4: { title: 'Push & Squat II', discipline: 'bodyweight', desc: 'Tempo push · squat · step-up · dead bug', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+			bw5: { title: 'Back & Core', discipline: 'bodyweight', desc: 'Superman · reverse crunch · plank · bridge', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+			bw6: { title: 'Legs', discipline: 'bodyweight', desc: 'Split squat · hinge · lunge · calves', warmup: BW_WARMUP, cooldown: BW_COOLDOWN }
+		},
+		routines: {
+			bw1: [PUSHUP, SPLIT_SQUAT, SL_BRIDGE, HOLLOW],
+			bw2: [SL_RDL, REVERSE_LUNGE, BEAR_CRAWL, { ...SIDE_PLANK, equip: 'Floor', sets: 6, rest: BW_REST }],
+			bw4: [{ ...PUSHUP, note: 'Tempo: three seconds down, a pause at the bottom, up. Same ladder as Push & Squat — the tempo is this routine’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
+			bw5: [SUPERMAN, REVERSE_CRUNCH, PLANK, SL_BRIDGE],
+			bw6: [SPLIT_SQUAT, SL_RDL, REVERSE_LUNGE, SL_CALF]
+		}
+	}
+];
+
+/** A programme with every block on — for reading what a routine IS, whatever this person has switched. */
+export const wholePlan = (programme: Plan): Plan => composePlan(programme, BLOCKS, BLOCK_IDS);
+
+/** Every programme, whole — the catalogue, for tests and for anything that needs every exercise. */
+export const SHIPPED_PLANS: Plan[] = DEFAULT_PROGRAMMES.map(wholePlan);

@@ -1,7 +1,7 @@
 import type { Command } from '@event-driven-io/emmett';
 import type { Workout } from './events';
 import type { Measure } from './measure';
-import type { Discipline } from './plan';
+import type { BlockId, Discipline } from './plan';
 import type { Equipment, Intent } from './preferences';
 
 /**
@@ -62,7 +62,10 @@ export type FinishSession = Command<'FinishSession', { at: string }>;
 
 export type RemoveSession = Command<'RemoveSession', { session: string; at: string }>;
 
-export type SelectPlan = Command<'SelectPlan', { plan: string; at: string }>;
+export type SelectProgramme = Command<'SelectProgramme', { programme: string; at: string }>;
+
+/** Switch a block of the week on or off. */
+export type ToggleBlock = Command<'ToggleBlock', { block: BlockId; on: boolean; at: string }>;
 
 /** The whole snapshot, every time: what you're after, and what you've got. */
 export type SetPreferences = Command<'SetPreferences', { at: string; intents: Intent[]; equipment: Equipment[] }>;
@@ -74,5 +77,6 @@ export type LedgerCommand =
 	| LogAfter
 	| FinishSession
 	| RemoveSession
-	| SelectPlan
+	| SelectProgramme
+	| ToggleBlock
 	| SetPreferences;

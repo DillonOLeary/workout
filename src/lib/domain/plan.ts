@@ -222,6 +222,47 @@ export function planExercises(plan: Plan): Exercise[] {
 			}
 	return out;
 }
+/* ---------- the week: one programme, and the blocks that are on ----------
+   A plan is not the unit a person chooses. The week is ONE lift programme
+   (a lift-only plan, a row in the table) plus the BLOCKS that are on —
+   shared cycles with their routines, cadence written by the block, on or
+   off per person. `composePlan` folds them into the Plan every projection,
+   step list and rule consumes, so nothing downstream knows the difference. */
+
+/** The blocks a person can switch. A closed union: a switch is an event, and the decider must know the block exists. */
+export type BlockId = 'yoga' | 'mob' | 'run';
+export const BLOCK_IDS: readonly BlockId[] = ['yoga', 'mob', 'run'];
+export const isBlockId = (v: unknown): v is BlockId => BLOCK_IDS.includes(v as BlockId);
+
+export type Block = {
+	id: BlockId | 'bw';
+	cycle: Cycle;
+	routines: Record<string, Exercise[]>;
+	routineInfo: Record<string, Routine>;
+	/** 'hand' — a switch on The Plan; 'gear' — always in the week at target 0, turned on by what you've got (standsInFor) */
+	switch: 'hand' | 'gear';
+};
+
+/**
+ * The week, as one Plan. Every block's routines are known whether or not
+ * it is on — a session of a block you switched off still has a title, and
+ * the no-gym block borrows the yoga routines — but only an on block's cycle
+ * is in the week for the queue to turn.
+ */
+export function composePlan(programme: Plan, blocks: readonly Block[], on: readonly BlockId[]): Plan {
+	const routines: Record<string, Exercise[]> = { ...programme.routines };
+	const routineInfo: Record<string, Routine> = { ...programme.routineInfo };
+	for (const b of blocks) {
+		Object.assign(routines, b.routines);
+		Object.assign(routineInfo, b.routineInfo);
+	}
+	const cycles = [
+		...programme.cycles,
+		...blocks.filter((b) => b.switch === 'gear' || on.includes(b.id as BlockId)).map((b) => b.cycle)
+	];
+	return { ...programme, cycles, routines, routineInfo };
+}
+
 /** A timed prep item's countdown, in seconds; 0 for a line you tick. */
 export const prepSeconds = (item: PrepItem): number =>
 	typeof item === 'string' || 'reps' in item ? 0 : 'seconds' in item ? item.seconds : item.minutes * 60;
@@ -413,8 +454,8 @@ function parseCycles(v: unknown, keys: string[]): Cycle[] {
  * mobility routine with a squat on it, a cycle naming a routine that isn't
  * there, a run routine with no run in it) is refused here with a sentence,
  * instead of becoming a step nobody asked for. There are no legacy readers:
- * the shipped plans are rewritten from code on every boot, and a row nobody
- * can read is logged and skipped by listPlans.
+ * the shipped programmes are rewritten from code on every boot, and a row
+ * nobody can read is logged and skipped by listProgrammes.
  */
 export function parsePlan(raw: unknown): Plan {
 	const p = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
