@@ -5,14 +5,8 @@ import { isBlockId } from '$lib/domain/plan';
 import { parsePreferences } from '$lib/domain/preferences';
 import type { Actions } from './$types';
 
-/**
- * The Plan's two acts, both on the page: a block switched on or off (one
- * BlockToggled — a fact with a date, so the Ledger can say when the week
- * changed), and what you're after (one PreferencesSet, a full snapshot).
- * The edge parses the shape; the decider judges the meaning — a block the
- * week hasn't got, a fourth intent, a switch to where it already is.
- */
 export const actions: Actions = {
+	/** a block switched on or off: one BlockToggled, a fact with a date */
 	toggle: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();
@@ -23,6 +17,7 @@ export const actions: Actions = {
 		if (err) return fail(400, { message: err });
 	},
 
+	/** what you're after: one PreferencesSet, a full snapshot */
 	save: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();

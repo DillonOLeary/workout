@@ -26,38 +26,15 @@ import {
 } from './progression';
 import { estimateMinutes, sessionSteps } from './steps';
 
-/**
- * Projections: the read side. Each is a pure fold over the event list that
- * answers exactly one question for a screen — and nothing else lives here.
- * The rule is progression.ts, the words are labels.ts; this file only says
- * what happened. None of it is stored: with a single-user ledger it is cheap
- * to re-run per request, which keeps the model honest — if it's not
- * derivable from events, it doesn't exist.
- *
- * Time is an INPUT here, never read from the clock inside a fold: every
- * fold that needs the time takes `now` — no default, so a caller cannot
- * forget — and the same events give the same answer in a test as on the
- * gym floor.
- */
-
-/**
- * One row of a session: an item and its sets, each set the Measure the entry
- * carried — the read model speaks the vocabulary, it does not translate it.
- * Load lives per set, not once per exercise: you can start a set heavy and
- * drop it, and both facts are already in the stream. A hold stays a hold
- * even after its exercise has left every plan, because the measure says so.
- */
+/** One row of a session: an item and its sets, each set the Measure the entry carried. */
 export type SessionRow = {
 	item: string;
-	/** every set, in set order — what the rule and the ledger line read */
+	/** every set, in set order */
 	sets: Measure[];
-	/**
-	 * the set number each of `sets` was logged as. Usually 1, 2, 3 — but the
-	 * floor lets you skip a set, and a correction must name the set that
-	 * exists, not the position it sits in.
-	 */
+	/** the set number each of `sets` was logged as — a correction names the set that exists, not its position */
 	indices: number[];
 };
+/** One session as a screen reads it. */
 export type SessionView = {
 	id: string;
 	/** what it was: the routine it ran */
@@ -72,9 +49,8 @@ export type SessionView = {
 	finishedAt?: string;
 	/** 'after' = written in one shot, backdated; 'live' = walked on the floor */
 	mode: 'live' | 'after';
-	/** the lifts: one row per exercise, its sets in order */
 	rows: SessionRow[];
-	/** minutes from duration entries — a run session's whole point */
+	/** minutes from duration entries */
 	minutes: number;
 	/** each duration entry, by identity — what a correction to the run names */
 	durations: { item: string; index: number; minutes: number }[];
@@ -84,17 +60,7 @@ export type SessionView = {
 	entries: number;
 };
 
-/**
- * Sessions newest-first, each with its logged rows. Removed sessions are
- * excluded HERE, and only here — every consumer (historyFor, nextInCycle, the
- * Ledger) goes through this fold, so one exclusion makes the whole app
- * behave as if the workout never happened, while the events themselves stay
- * in the stream. A correction REPLACES the entry it names, in place: the set
- * keeps its number, every reader downstream sees the corrected measure, and
- * the original stays in the stream too. Events arrive in the current
- * vocabulary: the read boundary (readLedgerEvents) upcast them once, so no
- * fold sniffs shapes.
- */
+/** Sessions newest-first with their rows; removed sessions are dropped here and only here; a correction replaces its entry in place. */
 export function projectSessions(events: LedgerEvent[]): SessionView[] {
 	const removed = new Set(events.filter((e) => e.type === 'SessionRemoved').map((e) => e.data.session));
 	type Building = { view: SessionView; entries: Map<string, EntryLogged['data']> };
@@ -121,8 +87,6 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 			});
 		} else if (e.type === 'EntryLogged') {
 			const s = map.get(e.data.session);
-			// insertion order is arrival order; a repeat of an identity can't
-			// happen (the decider refuses it), but if one did, the first wins
 			const key = entryKey(e.data.item, e.data.index);
 			if (s && !s.entries.has(key)) s.entries.set(key, e.data);
 		} else if (e.type === 'EntryCorrected') {
@@ -155,10 +119,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 						row = { item: en.item, sets: [], indices: [] };
 						rows.push(row);
 					}
-					// every set, never collapsed: a single row.weight once made the
-					// last set win, so dropping the load mid-exercise erased the
-					// heavier sets before it. Sets sit in set order, whatever order
-					// they arrived in.
+					// every set, never collapsed: sets sit in set order, whatever order they arrived in
 					const at = row.indices.findIndex((i) => i > en.index);
 					const pos = at < 0 ? row.sets.length : at;
 					row.sets.splice(pos, 0, m);
@@ -171,12 +132,7 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 		.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-/**
- * One session's entries as the floor sees them — every EntryLogged with any
- * correction applied, in arrival order. A correction changes the measure and
- * nothing else: the original `at` stays, so the rest clock that ran from it
- * doesn't restart.
- */
+/** One session's entries in arrival order, each with any correction applied to its measure. */
 export function sessionEntries(events: LedgerEvent[], session: string): EntryLogged['data'][] {
 	const out: EntryLogged['data'][] = [];
 	for (const e of events) {
@@ -190,7 +146,7 @@ export function sessionEntries(events: LedgerEvent[], session: string): EntryLog
 	return out;
 }
 
-/** The programme the week lifts on is itself a projection: the last ProgrammeSelected wins. */
+/** The programme the week lifts on: the last ProgrammeSelected wins. */
 export function activeProgramme(events: LedgerEvent[]): string | null {
 	for (let i = events.length - 1; i >= 0; i--) {
 		const e = events[i];
@@ -206,12 +162,9 @@ export function blocksOn(events: LedgerEvent[]): BlockId[] {
 	return BLOCK_IDS.filter((b) => on[b]);
 }
 
-/**
- * When the week changed, newest first — a programme switch and the block
- * switches made at the same moment read as one change (a stored plan
- * choice comes back as several events with one `at`).
- */
+/** One change to the week: a programme switch and/or block switches made at one moment. */
 export type WeekChange = { at: string; dateLabel: string; programme?: string; blocks: { block: BlockId; on: boolean }[] };
+/** When the week changed, newest first — events sharing one `at` read as one change. */
 export function weekChanges(events: LedgerEvent[]): WeekChange[] {
 	const out: WeekChange[] = [];
 	for (const e of events) {
@@ -236,12 +189,7 @@ export function preferences(events: LedgerEvent[]): Preferences {
 	return DEFAULT_PREFERENCES;
 }
 
-/**
- * Every logged entry for an exercise, newest first — the seam between the
- * read model and the rule: this is what `suggest` reads. A session in
- * progress is excluded by id so the rule never grades the set it is
- * suggesting.
- */
+/** Every logged entry for an exercise, newest first — what `suggest` reads; a session in progress is excluded by id. */
 export function historyFor(events: LedgerEvent[], exercise: string, excludeSession?: string): History {
 	const out: History = [];
 	for (const s of projectSessions(events)) {
@@ -259,15 +207,7 @@ export function lastEntryFor(events: LedgerEvent[], exercise: string, excludeSes
 
 const DAY = 86400000;
 
-/* ---------- cycles: where each one is turned to, and how far behind --------
-   Two different questions, answered by two different rules, named once:
-     a cycle COUNTS sessions by discipline, whatever plan offered them — yoga
-       is yoga (weekProgress, staleness, the queue's "days since");
-     a cycle TURNS on its own routines — only a finished session of THIS
-       plan's routine key can say where the list is (nextInCycle, the
-       re-entry warning). */
-
-/** The sessions this cycle counts: those of its disciplines, any plan, newest first. */
+/** The sessions this cycle counts: those of its disciplines, whatever plan offered them, newest first. */
 const countedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => {
 	const ds = cycleDisciplines(plan, cycle);
 	return sessions.filter((s) => ds.includes(s.discipline));
@@ -279,11 +219,7 @@ const turnedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionVie
 const lastCounted = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView | undefined =>
 	countedBy(sessions, plan, cycle).find((s) => s.finished);
 
-/**
- * The routine after the last one of this cycle you finished — position is
- * DERIVED, never stored. Do B twice and the pointer sits after B: the cycle
- * follows you, not a calendar. Nothing finished yet → the first.
- */
+/** The routine after the last one of this cycle you finished — derived, never stored; nothing finished → the first. */
 export function nextInCycle(events: LedgerEvent[], plan: Plan, cycle: Cycle): string {
 	const last = turnedBy(projectSessions(events), plan, cycle)[0];
 	if (!last) return cycle.routines[0];
@@ -310,8 +246,7 @@ export function staleness(events: LedgerEvent[], plan: Plan, now: number): { cyc
 	});
 }
 
-/* ---------- the queue: one candidate per cycle, ranked ---------------------- */
-
+/** One offer for Today: a cycle's next routine, with its reason and its rank. */
 export type Candidate = {
 	/** the cycle that offers it */
 	cycle: string;
@@ -329,7 +264,7 @@ export type Candidate = {
 	due: boolean;
 };
 
-/** How many cadences overdue a cycle is; never done counts as very. Whole tiers, so ties are common and minutes can decide. */
+/** Cadences overdue, in whole tiers; never done counts as very. */
 function staleTier(daysSince: number | null, target: number): number {
 	if (daysSince === null) return 4;
 	const cadence = target > 0 ? 7 / target : 7;
@@ -337,20 +272,9 @@ function staleTier(daysSince: number | null, target: number): number {
 }
 
 /**
- * What to offer, and in what order — one candidate per cycle, each carrying
- * its own reason line, so Today can never grow a menu it didn't ask for.
- * Score, in order of weight: owed (target > 0, or standing in for a cycle
- * that is ruled out) → shortfall (sessions under this cycle's weekly target,
- * plus one when an intent names its discipline) → staleness (whole cadences
- * since it last turned) → minutes (shorter first) → plan order. "Just show
- * up more" swaps the last two: among what you owe, the shorter session
- * outranks the staler one. No discipline is privileged: a lift you owe
- * rises because it is owed. A routine that needs what you haven't got is
- * ruled OUT, not hidden — it sits at the bottom and says so. A cycle with
- * target 0 (the no-gym block, while it is on) is always in the deck and
- * never above anything owed — one "Something else" away — unless the cycle
- * it stands in for is ruled out, when it takes that target and is owed like
- * any other.
+ * One candidate per cycle, ranked: owed → shortfall + intent → staleness → minutes → plan order;
+ * "show up more" swaps the last two. A target-0 cycle is always dealt, never above anything owed,
+ * unless it stands in for a ruled-out cycle. Ruled out is never hidden — it sits last and says so.
  */
 export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now: number): Candidate[] {
 	const sessions = projectSessions(events);
@@ -381,8 +305,7 @@ export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now
 		const workout = { routine };
 		const minutes = estimateMinutes(sessionSteps(plan, workout));
 		const why = out ? needsLine(missing) : whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, up.has(discipline));
-		// four bands that cannot touch: owed 1e8 > tier ≤ 4·1e6 > the tail — stale·1e3 + shorter ≤ 9,999,
-		// or with "show up more" shorter·1e3 + stale ≤ 999,009 — both under 1e6. Ruled out sits below all of it.
+		// bands that cannot touch: owed 1e8 > tier·1e6 > tail < 1e6 (stale·1e3 + shorter, or swapped; both ≤ 999,009); ruled out −1
 		const owed = cycle.target > 0 || standingIn;
 		const shorter = 999 - Math.min(999, minutes);
 		const score = out ? -1 : (owed ? 1e8 : 0) + tier * 1e6 + (shortFirst ? shorter * 1e3 + stale : stale * 1e3 + shorter);
@@ -391,12 +314,7 @@ export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now
 	return scored.sort((a, b) => b.c.score - a.c.score || a.order - b.order).map((s) => s.c);
 }
 
-/**
- * The one mono line under a candidate: the re-entry warning if one is due,
- * how long since this cycle last turned, then the first thing the rule is
- * about to move — or, when nothing moves, where the week stands. Every
- * candidate says its own why, or it is not a candidate.
- */
+/** The mono line under a candidate: re-entry warning, days since the cycle last turned, then what the rule moves next — or where the week stands. */
 function whyLine(
 	events: LedgerEvent[],
 	sessions: SessionView[],
@@ -410,7 +328,6 @@ function whyLine(
 	asked: boolean
 ): string {
 	const exercises: Exercise[] = plan.routines[routine];
-	// the first exercise the rule moves, so the line says something useful
 	const moved = exercises
 		.map((ex) => ({ ex, s: suggest(historyFor(events, ex.name), ex, now) }))
 		.find(({ s }) => s.kind === 'load' && (s.up || s.down));
@@ -421,7 +338,6 @@ function whyLine(
 			movedLine = `${setsPhrase(up)} ${up.length === 1 ? 'goes' : 'go'} up on the ${moved.ex.name}`;
 		} else movedLine = `${moved.ex.name} comes back a size`;
 	}
-	// the routine that is due, about to take the haircut: say so first
 	const lastOfRoutine = exercises.some((ex) => ex.kind === 'load')
 		? turnedBy(sessions, plan, cycle).find((s) => s.workout.routine === routine)
 		: undefined;
@@ -430,8 +346,6 @@ function whyLine(
 		since !== null && since >= REENTRY_WARN_DAYS && since <= REENTRY_DAYS
 			? `Re-entry haircut in ${daysUntilReentry(since)} ${daysUntilReentry(since) === 1 ? 'day' : 'days'}`
 			: null;
-	// the last session this cycle counts may be another plan's: then its own
-	// word is the only honest title for it
 	let sinceLine = 'First session';
 	if (lastIn) {
 		const title = (lastIn.plan === plan.id ? routineTitle(plan, lastIn.workout.routine) : undefined) ?? disciplineLabel(lastIn.discipline);
@@ -442,13 +356,10 @@ function whyLine(
 	return [warn, sinceLine, movedLine ?? week, asked ? 'you asked for this' : null].filter(Boolean).join(' · ');
 }
 
-/* ---------- exercises over time: the trends folds ----------------------
-   Read-side only: no new events, no stored projections. The Ledger's "Am I
-   getting stronger" list is these folds run per exercise at request time. */
-
-/** Sessions, not weeks: a week off would read as a gap, and a stall must read as a stall. */
+/** Sessions a trend strip shows — sessions, not weeks. */
 export const TREND_WINDOW = 7;
 
+/** One session on a trend strip. */
 export type TrendPoint = {
 	at: string;
 	dateLabel: string;
@@ -460,24 +371,22 @@ export type TrendPoint = {
 	/** some set fell below the bottom of the range */
 	missed: boolean;
 };
+/** Which way a trend's sentence points — what a trend row styles by. */
 export type TrendTone = 'start' | 'up' | 'down' | 'warn' | 'flat';
+/** One exercise over time: the sentence, and the strip that corroborates it. */
 export type Trend = {
 	/** the last TREND_WINDOW sessions, oldest first */
 	points: TrendPoint[];
 	/** what the rule has queued for set 1 next time (weight, or count) */
 	next: number;
-	/** the hero: one sentence about where this exercise stands */
+	/** one sentence about where this exercise stands */
 	sentence: string;
 	tone: TrendTone;
 	/** total sessions on record, so the UI can say how many the window hides */
 	sessions: number;
 };
 
-/**
- * One exercise, over time. The sentence is the point and the strip is the
- * corroboration; precedence runs from what the rule will DO next (re-entry,
- * an adjustment, an earned increase) down to how long the load has sat still.
- */
+/** One exercise over time; precedence runs from what the rule will do next down to how long the load has sat still. */
 export function trendFor(
 	events: LedgerEvent[],
 	ex: Exercise,
@@ -504,8 +413,6 @@ export function trendFor(
 
 	const days = s.daysSince ?? 0;
 	if (s.kind === 'load') {
-		// the two ways down, and the warning before one of them — loads only:
-		// a hold or a count has no size to come back lighter at
 		if (s.reason === 'reentry')
 			return {
 				...base,
@@ -551,7 +458,6 @@ export function trendFor(
 				sentence: `${capitalise(setsPhrase(missedIdx))} missed last time — miss again and it backs off a size`
 			};
 	}
-	// how long has set 1 sat at this load? (walk newest → oldest until it changes)
 	const cur = axis(last.sets[0]);
 	let streak = 0;
 	for (const h of history) {
@@ -573,8 +479,7 @@ export function trendFor(
 	};
 }
 
-/* ---------- the last month ---------- */
-
+/** One day of the month grid. */
 export type DayCell = {
 	/** local yyyymmdd */
 	key: number;
@@ -587,6 +492,7 @@ export type DayCell = {
 	today: boolean;
 	future: boolean;
 };
+/** The last few weeks as a calendar. */
 export type MonthGrid = {
 	/** column headings, Monday first */
 	weekdays: string[];
@@ -596,20 +502,13 @@ export type MonthGrid = {
 	span: string;
 };
 
-/** Five rows of seven: this week and the four before it — a month you can see at once. */
+/** Rows of the grid: this week and the four before it. */
 export const GRID_WEEKS = 5;
 
-/** Local calendar day as a sortable number — the bucket every day-shaped fold counts in. */
+/** Local calendar day as a sortable yyyymmdd number. */
 const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 
-/**
- * The last five weeks as a calendar, bucketed by LOCAL calendar day — which
- * is why this runs where `now` runs and never stores anything. A week is too
- * short a window to see a habit in: seven cells can only say "this week was
- * quiet", a month says whether that is the habit. The read side counts
- * SESSIONS, not days: a cell says what each one was, in order, and never
- * shows only the "important" one. An unfinished session today still counts.
- */
+/** The last `weeks` weeks as a calendar, bucketed by local day; a cell lists its sessions in order, an unfinished one today included. */
 export function monthGrid(events: LedgerEvent[], now: number, weeks: number = GRID_WEEKS): MonthGrid {
 	const did = new Map<number, Discipline[]>();
 	for (const s of projectSessions(events).slice().reverse()) {
@@ -644,17 +543,17 @@ export function monthGrid(events: LedgerEvent[], now: number, weeks: number = GR
 	return { weekdays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], weeks: rows, span: spanLabel(first.toISOString(), today.toISOString()) };
 }
 
-/* ---------- the pace: a running average ---------- */
-
-/** Four weeks: long enough that one quiet week doesn't decide it, short enough to still be news. */
+/** Days a pace averages over — four weeks. */
 export const PACE_DAYS = 28;
 
+/** A rate per week, and the one before it. */
 export type PaceStat = {
 	/** the trailing window as a rate per week */
 	per: number;
 	/** the window before it, same rate — so a tile can say which way it's going */
 	prev: number;
 };
+/** Sessions a week, per discipline, over a trailing window and the one before it. */
 export type Pace = {
 	/** the window each rate averages over, in days */
 	days: number;
@@ -662,14 +561,7 @@ export type Pace = {
 	by: Record<Discipline, PaceStat>;
 };
 
-/**
- * How much training a week, on average, over the trailing four weeks — and
- * over the four before that, so the answer to "am I doing less than I want?"
- * is a direction and not just a number. Rates are per week, whatever the
- * window: a fold that averages must divide by the window it was given, never
- * by the weeks it assumes. Per discipline, because that is what the session
- * says it was and what every cycle's target counts.
- */
+/** Sessions a week per discipline over the trailing `days` and the `days` before — rates divide by the window given, never by assumed weeks. */
 export function weeklyPace(events: LedgerEvent[], now: number, days: number = PACE_DAYS): Pace {
 	const sessions = projectSessions(events);
 	const window = (endsDaysAgo: number) => {

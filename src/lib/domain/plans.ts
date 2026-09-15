@@ -1,29 +1,5 @@
 import { BLOCK_IDS, composePlan, type Block, type Exercise, type Plan, type PrepItem } from './plan';
 
-/**
- * The shipped week: two lift PROGRAMMES and four BLOCKS. A programme is a
- * lift-only plan — a row in the `ledger_plans` table, upserted on every boot
- * (src/lib/server/plans.ts); new ones are added at the table, not in the
- * app. A block is a shared cycle with its routines — yoga, the morning
- * stretch, the run, the no-gym floor — cadence written by the block, on or
- * off per person (a switch is an event). `composePlan` folds a programme and
- * the blocks that are on into the one Plan the rest of the domain reads.
- *
- * Every exercise names what a set WRITES (`kind`) and what the rule MOVES
- * (`progress`) — plan.ts. Every weighted lift declares whether its number is
- * per hand (`each`) and every one-sided movement declares how it splits
- * (`side`), because "3 × 8–12" on a lunge means nothing on its own. The
- * reasoning behind the structure — patterns covered, volume, rep ranges —
- * is written up in TRAINING.md and on /plan/why.
- */
-
-/* ---------- the lifts ---------------------------------------------------- */
-
-/**
- * Shared between both Open to Work lift routines: the soleus produces the highest
- * force of any muscle in running, and it had zero sets. Slow both ways —
- * heavy-slow calf work is also how an Achilles is kept out of trouble.
- */
 const CALF_RAISE: Exercise = {
 	name: 'Standing Calf Raise',
 	equip: 'Calf raise machine',
@@ -36,11 +12,6 @@ const CALF_RAISE: Exercise = {
 	note: 'Full stretch at the bottom, pause; up on the balls of the feet, pause. Slow both ways — the tendon likes slow.'
 };
 
-/**
- * Warm-up and cooldown are STEPS: each line takes its turn on the floor
- * like a set does, and the session's length is honest about them. A warm-up
- * costs five minutes and the first set thanks you for it.
- */
 const WARMUP = [
 	'3–5 min easy — bike, row or a brisk walk',
 	'One bodyweight set of the first lift',
@@ -48,24 +19,10 @@ const WARMUP = [
 ];
 const COOLDOWN = ['Calf stretch · 45s each', 'Hip flexor stretch · 45s each', 'Doorway chest stretch · 45s'];
 
-/**
- * Full Range of Motion's warm-up carries the breathing cue too: exhale-on-
- * exertion is the pelvic-floor-safe default for a beginner — hard breath-holds
- * are a later, optional skill, not a day-one requirement.
- */
 const HER_WARMUP = ['5 min easy bike', '10 bodyweight squats', '10 hip hinges', '1 light set of the first lift'];
 const HER_COOLDOWN = ['Hip flexor stretch · 60s each', 'Hamstring stretch · 60s each', 'Doorway chest stretch · 60s'];
 const HER_CUE = 'Exhale through the hard part — never hold your breath.';
 
-/* ---------- the run ------------------------------------------------------ */
-
-/**
- * The run is a routine like any other: one exercise that measures thirty
- * minutes, in a cycle of one. The warm-up is a jog, then drills and dynamic
- * stretches — each a countdown the floor runs; the cooldown is a walk and
- * the static stretches. A run logged after the fact skips all of it: the
- * humans decided when to run, the app just keeps the minutes.
- */
 const EASY_RUN: Exercise = {
 	name: 'Easy run',
 	equip: 'Shoes',
@@ -92,15 +49,7 @@ const RUN_COOLDOWN: PrepItem[] = [
 	{ name: 'Hamstring stretch', seconds: 45, each: true }
 ];
 
-/* ---------- the stretches ------------------------------------------------ */
-
-/**
- * A stretch is a timed hold at a fixed length — lo === hi, progress none —
- * so the rule never asks for more and the floor has nothing to dial: Start
- * 45s, the bell, the other side. Ten seconds between sides is a breath and
- * a change of position. The morning stretch is a ROUTINE of these, so the
- * floor, the ⋯ sheet, the receipt and the Ledger all work unchanged.
- */
+/** A stretch: a 45 s hold at a fixed length (lo === hi, progress none), one set per side, ten seconds between sides. */
 const HOLD45 = (name: string, note?: string): Exercise => ({
 	name,
 	equip: 'Mat',
@@ -115,16 +64,8 @@ const HOLD45 = (name: string, note?: string): Exercise => ({
 	...(note ? { note } : {})
 });
 
-/* ---------- yoga --------------------------------------------------------- */
-
-/**
- * Sixteen poses, every one of them ordinary. Ten have a dose and no ambition
- * beyond it (a hold that does not progress); six are genuinely loaded
- * isometrics and climb like the planks do — to a ceiling, then harder, never
- * longer. Not strength work, and not asked to be (TRAINING.md): range of
- * motion, a back that doesn't ache, and twenty quiet minutes.
- */
 const YOGA_REST = 20; // a breath or two between holds — the flow is its own warm-up
+/** A yoga hold at a fixed length — one set, or one per side. */
 const pose = (name: string, tag: string, seconds: number, note: string, sides = false): Exercise => ({
 	name,
 	equip: 'Mat',
@@ -138,6 +79,7 @@ const pose = (name: string, tag: string, seconds: number, note: string, sides = 
 	rest: YOGA_REST,
 	note
 });
+/** A loaded yoga hold that climbs by 5 s to `hi` — then harder, never longer. */
 const strengthPose = (name: string, tag: string, lo: number, hi: number, note: string, sides = false, sets = sides ? 2 : 1): Exercise => ({
 	name,
 	equip: 'Mat',
@@ -169,17 +111,8 @@ const SIDE_PLANK: Exercise = {
 	note: 'Elbow under the shoulder; knees bent and stacked to start, feet stacked once that’s easy. Hips up in a line, breathe. At 45 s: top knee onto a bench — Copenhagen.'
 };
 
-/* ---------- bodyweight --------------------------------------------------- */
-
-/**
- * The no-gym block: push, hinge, squat and core get real progression — a
- * harder variant, then more reps — and the pull gets what a floor can offer,
- * which is not much. With no weight to add, the VARIANT is the progression:
- * every set at the top of the range and the exercise becomes a harder
- * exercise, reps back to the bottom. One figure per ladder — the dot
- * athlete does a push-up whichever version you are on.
- */
 const BW_REST = 45;
+/** A bodyweight movement that progresses by variant: every set at `hi` → the next rung, reps back to `lo`. */
 const ladder = (name: string, equip: string, tag: string, sets: number, lo: number, hi: number, rungs: string[], note: string, each = false): Exercise => ({
 	name,
 	equip,
@@ -282,6 +215,7 @@ const BW_COOLDOWN: PrepItem[] = [
 	{ name: 'Hamstring stretch', seconds: 45, each: true }
 ];
 
+/** Lift-only programmes, upserted into ledger_plans on boot; new ones are added at the table. */
 export const DEFAULT_PROGRAMMES: Plan[] = [
 	{
 		id: 'ab-fullbody-v1',
@@ -289,10 +223,8 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		description:
 			'Full-body A/B on dumbbells, kettlebells and machines. Squat & Shove · Hinge & Haul. The calendar is empty; Mon / Wed / Fri isn’t. Currently accepting all opportunities to pick things up and put them down.',
 		schedule: 'Lift Mon / Wed / Fri',
-		// 90s between sets: these are compounds first, machines second
 		rest: 90,
 		cooldown: COOLDOWN,
-		// three a week off two routines: A, B, A — the cadence's number, not the routines'
 		cycles: [{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 }],
 		routineInfo: {
 			A: { title: 'Squat & Shove', discipline: 'lift', desc: 'Squat · push · pull · hinge · calves · core', warmup: WARMUP },
@@ -300,36 +232,21 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		},
 		routines: {
 			A: [
-				// 6–12, not 8–12: the dumbbell rack steps 14–20% at these sizes, and a
-				// wider window is what lets a level-up land inside the range
 				{ name: 'Goblet Squat', equip: 'Kettlebell / Dumbbell', tag: 'Squat', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 35, inc: 5, rack: 'dumbbell' }, note: 'Bell at the sternum, elbows down. Sit between the knees, knees over toes, chest tall. As deep as the back stays flat. 35 is the whole load.' },
 				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 45, inc: 5 }, note: 'Seat so the handles meet mid-chest. Shoulder blades back on the pad; press to nearly straight, lower until the handles touch the chest.' },
-				// Nothing else here trains external rotation or the rear delt: the one
-				// shoulder-health input with trial evidence behind it. A tube band anchored
-				// at face height stands in for the cable — no rope station at this gym.
-				// Light, after the press.
 				{ name: 'Band Face Pull', equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Slight lean back, chest up. Drive the elbows down; bar to the upper chest, in front of the face. Control it back to a full stretch.' },
 				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 40, inc: 5, rack: 'dumbbell', each: true }, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
 				CALF_RAISE,
-				// A hard 10–20 s hold, not a long one: past the ceiling the plank gets
-				// harder (feet up), never longer. Replaced the med-ball plank, which no
-				// one can load alone and which had quietly become a 60-second sit.
 				{ name: 'Long-Lever Plank', equip: 'Mat', tag: 'Core', kind: 'hold', sets: 3, lo: 10, hi: 20, progress: { of: 'time', inc: 5 }, note: 'Elbows a palm past the shoulders. Glutes squeezed, ribs down, hard 10–20 s. At 20 s on all three: feet up on a bench.' }
 			],
 			B: [
 				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 53, inc: 9, rack: 'kettlebell' }, note: 'Bell under mid-foot. Hips back, chest up, shins vertical. Push the floor away; stand tall and squeeze. Steps are whole bells — 24 → 28 → 32 kg.' },
 				{ name: 'Shoulder Press', equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 30, inc: 5 }, note: 'Seat so the handles start at the shoulders. Ribs down, no arching. Elbows slightly forward; press up without shrugging.' },
 				{ name: 'Seated Row', equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Torso upright and still. Drive the elbows back along the ribs, squeeze the blades. Not the pulldown — that pulls from overhead.' },
-				// A knee-dominant compound, not the leg-extension machine it replaces:
-				// Hinge & Haul had no squat pattern, and nothing in the plan was single-leg
-				// — which matters most for someone running three times a week.
 				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell', each: true }, side: 'reps', note: 'All 8–12 on one leg, then switch; weaker leg first. Long step back, front shin vertical, drive up through the front heel.' },
 				{ name: 'Leg Curl', equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 60, inc: 10 }, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
 				CALF_RAISE,
-				// Squat & Shove resists extension; this resists the side-bend AND loads the
-				// adductors, which nothing else in a front-to-back plan touches.
-				// Progress by reps, then by lever — never by seconds.
 				{ name: 'Copenhagen Plank', equip: 'Bench', tag: 'Core / adductors', kind: 'reps', sets: 2, lo: 5, hi: 15, progress: { of: 'count' }, side: 'sets', note: 'Side plank with the top knee on a bench, bottom leg lifting to meet it. One rep = lift and lower. At 15 clean, straighten the top leg.' }
 			]
 		}
@@ -339,12 +256,10 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		name: 'Full Range of Motion',
 		description:
 			'Deep-ROM lifts at moderate reps — strength through the whole range, mobility you can load. Get Low · Bridge Club. Dosed for visible change at three days a week.',
-		// She asked for regimented, so the schedule names days instead of counts.
 		schedule: 'Lift Mon / Thu (+ Sat when it fits)',
 		rest: 60,
 		cooldown: HER_COOLDOWN,
 		cue: HER_CUE,
-		// Mon and Thu are the promise; Saturday is the bonus
 		cycles: [{ id: 'lift', title: 'Lift', routines: ['1', '2'], target: 2 }],
 		routineInfo: {
 			'1': { title: 'Get Low', discipline: 'lift', desc: 'Deep squat · hinge · push · pull · rear delt · core', warmup: HER_WARMUP },
@@ -353,13 +268,7 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		routines: {
 			'1': [
 				{ name: 'Deep Goblet Squat', equip: 'One dumbbell (plate under heels optional)', tag: 'Squat', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell' }, note: 'One bell at the chest — 20 is the whole load. Sit deep until the elbows brush the knees; stop if the heels rise or the tailbone tucks.' },
-				// Hinge while fresh, ahead of the machines. 15s to learn the pattern —
-				// the old 25/hand start was ~100% of a typical beginner max, and the
-				// ledger shows it got quietly corrected on day one.
 				{ name: 'Romanian Deadlift', equip: 'Two dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 15, inc: 5, rack: 'dumbbell', each: true }, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
-				// 6–15, not 8–15: the smallest stack step on a press is a 25–33% jump
-				// at these loads, and the wider floor is what keeps a post-jump set
-				// inside the range instead of reading as a miss.
 				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 6, hi: 15, progress: { of: 'size', start: 20, inc: 5 }, note: 'Seat so the handles meet mid-chest; feet flat, on a step if they don’t reach. Shoulder blades back; press to nearly straight, lower to the chest.' },
 				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Thigh pad snug so the hips can’t lift. Slight lean back, chest up; bar to the upper chest, in front of the face. Control back to a full stretch.' },
 				{ name: 'Band Face Pull', equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
@@ -378,22 +287,12 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 	}
 ];
 
-/**
- * The blocks, in the order the week lists them. Cadence is the block's:
- * a target is a training decision, and a dial would be a second source of
- * truth. The no-gym block is a switch like the others, on by default: at
- * target 0 it is dealt after everything owed, and takes the lift's target
- * while the gym is ruled out (standsInFor).
- */
+/** Shared cycles with their routines, on or off per person; the no-gym block at target 0 stands in for the lift. */
 export const BLOCKS: Block[] = [
 	{
 		id: 'yoga',		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
 		routineInfo: {
-			// the body you actually have: hip flexors shortened by a chair,
-			// hamstrings and calves shortened by running
 			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'Hip flexors · hamstrings · glutes · a twist', warmup: [CAT_COW, { name: 'Downward Dog', seconds: 45 }, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
-			// the other half of the desk problem: a mid-back that has forgotten
-			// how to extend and rotate, and shoulders that live rolled forward
 			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE }
 		},
 		routines: {
@@ -426,9 +325,6 @@ export const BLOCKS: Block[] = [
 			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] }
 		},
 		routines: {
-			// Not strength work — static holds at realistic doses build none
-			// (TRAINING.md [23]). This is the runner's five, held long enough to
-			// feel, on a morning that isn't a lift.
 			S: [
 				HOLD45('Calf stretch', 'Heel down, knee straight, lean into the wall.'),
 				HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),

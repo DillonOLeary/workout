@@ -7,17 +7,8 @@ import { disciplineOf } from '$lib/domain/plan';
 import { wholePlan } from '$lib/domain/plans';
 import type { Actions } from './$types';
 
-/**
- * Every mutation in the app is a command → the decider → appended events.
- * Note what's generated HERE at the edge: ids, timestamps — and the
- * discipline, read off the plan the routine belongs to, so the session
- * carries its own copy forever. The decider stays deterministic; the impure
- * bits are inputs.
- *
- * Logging something after the fact lives on /log/after — one sheet for a
- * run or a whole routine, same session shape, backdated.
- */
 export const actions: Actions = {
+	/** start a live session: the id, the timestamp and the discipline are stamped here at the edge, then the floor */
 	start: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();
@@ -36,6 +27,7 @@ export const actions: Actions = {
 		redirect(303, '/floor');
 	},
 
+	/** close the open session from Today */
 	finish: async ({ locals }) => {
 		const err = await tryCommand(requireUid(locals), {
 			type: 'FinishSession',

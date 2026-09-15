@@ -95,7 +95,6 @@ describe('rates — the running average in words', () => {
 		expect(paceLabel(2.3, 1.5)).toBe('↑ from 1.5');
 		expect(paceLabel(1, 3)).toBe('↓ from 3');
 		expect(paceLabel(2, 2)).toBe('same as before');
-		// a rounding-level difference is not a direction
 		expect(paceLabel(2.01, 2)).toBe('same as before');
 		expect(paceLabel(1.5, 0)).toBe('nothing before that');
 		expect(paceLabel(0, 0)).toBe('nothing logged');
@@ -107,15 +106,12 @@ describe('rates — the running average in words', () => {
 		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 1.5, target: 3 }, { discipline: 'yoga', per: 1, target: 2 }, { discipline: 'mobility', per: 2, target: 3 }, { discipline: 'run', per: 2, target: 3 }] })).toBe(
 			'Showing up 6.5 times a week of the 11 the plan asks — lifts are the gap.'
 		);
-		// yoga is a mass noun
 		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 3, target: 3 }, { discipline: 'yoga', per: 0.5, target: 2 }] })).toBe(
 			'Showing up 3.5 times a week of the 5 the plan asks — yoga is the gap.'
 		);
-		// at or over the ask there is no gap to name
 		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 3, target: 3 }, { discipline: 'run', per: 3.2, target: 3 }] })).toBe(
 			'Showing up 6.2 times a week of the 6 the plan asks.'
 		);
-		// a small shortfall is not a gap
 		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 2.8, target: 3 }] })).toBe('Showing up 2.8 times a week of the 3 the plan asks.');
 		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 0, target: 3 }, { discipline: 'run', per: 0, target: 3 }] })).toBe('Nothing logged in the last 4 weeks');
 		expect(paceSentence({ weeks: 4, rates: [] })).toBe('Nothing logged in the last 4 weeks');

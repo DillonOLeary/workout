@@ -1,8 +1,4 @@
-/* LEDGER — one ink per discipline, everywhere a day, a legend or a week
-   names one: the calendar's stripes, the Ledger's legend, The Plan's week.
-   volt = a lift, ink = a run, white = a stretch, grey = yoga, hatched volt =
-   the floor standing in for the gym. A new discipline is added here and in
-   MonthGrid's INK map (which ink the number prints in on it). */
+/* one ink per discipline, shared by the calendar's stripes, the Ledger's legend and The Plan's swatches */
 .ink-lift { background: var(--volt); }
 .ink-run { background: var(--ink); }
 .ink-mobility { background: var(--white); }

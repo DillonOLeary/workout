@@ -30,7 +30,6 @@
 		align-items: flex-start;
 		justify-content: center;
 		padding: var(--page-pad);
-		/* top-weighted, not dead-centered — the wordmark shouldn't float mid-screen */
 		padding-top: clamp(48px, 14vh, 140px);
 	}
 	.stack { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 32px; }

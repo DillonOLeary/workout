@@ -1,17 +1,14 @@
-// Cloudflare Workers config. Committing this stops `wrangler deploy` from
-// auto-configuring (and rewriting build scripts) in CI.
-// Runtime env vars (DB, LEDGER_PEPPER) are set in the Cloudflare dashboard.
+// Committed so `wrangler deploy` cannot auto-configure and rewrite the build scripts in CI.
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "ledger",
 	"compatibility_date": "2026-07-12",
-	// Don't wipe dashboard-set vars (DB, LEDGER_PEPPER) on config-based deploys
+	// keeps the dashboard-set vars (DB, LEDGER_PEPPER) on config-based deploys
 	"keep_vars": true,
 	// pg (TCP sockets) and node:crypto need Node compatibility
 	"compatibility_flags": ["nodejs_compat"],
 	"main": ".svelte-kit/cloudflare/_worker.js",
-	// ledger.* is the real address; workout.* stays attached so old links
-	// still resolve — hooks.server.ts 301s them across, path intact.
+	// workout.* stays attached so hooks.server.ts can 301 old links across
 	"routes": [
 		{ "pattern": "ledger.dillonoleary.com", "custom_domain": true },
 		{ "pattern": "workout.dillonoleary.com", "custom_domain": true }
@@ -23,15 +20,12 @@
 	"observability": {
 		"enabled": true
 	},
-	// Edge connection pooler: per-request pg connects hit Hyperdrive (~ms)
-	// instead of a fresh TLS handshake to Neon. See src/hooks.server.ts.
 	"hyperdrive": [
 		{
 			"binding": "HYPERDRIVE",
 			"id": "7d60b374c6434905a51c6ed070b9d3f8"
 		}
 	],
-	// `npx wrangler deploy` runs this before uploading
 	"build": {
 		"command": "pnpm run build"
 	}

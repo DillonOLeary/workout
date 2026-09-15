@@ -8,6 +8,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
+	/** sign out: clear the cookie, then the login page */
 	default: async ({ cookies }) => {
 		clearAuthCookie(cookies);
 		redirect(303, '/login');

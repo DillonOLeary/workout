@@ -22,52 +22,23 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
-	// one clock reading per visit: every fold below takes it as an input
 	const now = Date.now();
 
-	/**
-	 * Tab 2 is everything that already happened, as three questions in the
-	 * order you ask them — did I show up (the month, and what it averages to
-	 * a week), am I getting stronger (each exercise), and what did I actually
-	 * do (the sessions). One scroll: each section leads with its answer in a
-	 * sentence and puts the picture underneath as corroboration, and each
-	 * names the window it speaks for, because "6.5 times a week" means
-	 * nothing without "over the last four weeks".
-	 *
-	 * The sessions are the event stream made human-readable, FOLDED — one
-	 * shell per session, runs included — because a page that prints every
-	 * set of every session is a page nobody reaches the bottom of. A session
-	 * opens on a tap; the latest one starts open, since it is the only one
-	 * still correctable: on it a row opens inline and Save writes a
-	 * correction, and Remove sits in its footer. Older cards are read-only,
-	 * because the rule has already read them. When the week changed — a
-	 * programme switched, a block turned on or off — is a divider between
-	 * the sessions it fell between, not a footnote.
-	 */
-
-	/* ---------- the long view: a month of days, a running average, the trends ---- */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let grid = $derived(monthGrid(data.events, now));
 	let pace = $derived(weeklyPace(data.events, now));
 	let weeks = $derived(Math.round(pace.days / 7));
-	// the disciplines this ledger speaks of: the week's, plus anything actually done in the window
 	let disciplines = $derived.by(() => {
 		const out = disciplinesOf(plan);
 		for (const d of Object.keys(pace.by) as Discipline[]) if (!out.includes(d) && (pace.by[d].per > 0 || pace.by[d].prev > 0)) out.push(d);
 		return out;
 	});
-	// what the week asks of each discipline: its cycles' targets, summed
 	const targetFor = (d: Discipline) => plan.cycles.filter((c) => cycleDisciplines(plan, c).includes(d)).reduce((n, c) => n + c.target, 0);
-	// the section's answer: the total against what the week asks, and where the gap is
 	let paceLine = $derived(
 		paceSentence({ weeks, rates: disciplines.map((d) => ({ discipline: d, per: pace.by[d].per, target: targetFor(d) })) })
 	);
-	// the legend carries the numbers: one row per discipline, its rate, what the week asks, where it came from
 	let legend = $derived(disciplines.map((d) => ({ d, per: pace.by[d].per, sub: paceSub(targetFor(d), pace.by[d].per, pace.by[d].prev) })));
 
-	// every exercise that progresses, in plan order, once — from the cycles the
-	// week asks for, plus anything else with history. The session in
-	// progress is excluded: the rule never grades the set it is suggesting
 	let askedRoutines = $derived(new Set(plan.cycles.filter((c) => c.target > 0).flatMap((c) => c.routines)));
 	let trends = $derived(
 		planExercises(plan)
@@ -82,20 +53,16 @@
 	let openTrend = $state<string | null>(null);
 	let trendLine = $derived(trendTally(trends.map((t) => t.trend.tone)));
 
-	// two-tap arm before removing — the red waits for stated intent, and
-	// stays until you tap anywhere else (no silent timeout)
 	let removing = $state<string | null>(null);
 	function onWindowClick(e: MouseEvent) {
 		if (removing && !(e.target as HTMLElement | null)?.closest('.remove')) removing = null;
 	}
 
-	/* ---------- the sessions, and the week's changes between them ---------- */
 	let entries = $derived(projectSessions(data.events));
 	let changes = $derived(weekChanges(data.events));
 	const PAGE = 20;
 	let shown = $state(PAGE);
 	let visible = $derived(entries.slice(0, shown));
-	// one list, newest first: a change to the week sits between the sessions it fell between
 	type Item = { kind: 'session'; s: SessionView } | { kind: 'change'; c: WeekChange };
 	let items = $derived.by((): Item[] => {
 		const oldest = visible.length ? visible[visible.length - 1].at : '';
@@ -107,15 +74,12 @@
 		const at = (i: Item) => (i.kind === 'session' ? i.s.at : i.c.at);
 		return out.sort((a, b) => at(b).localeCompare(at(a)));
 	});
-	// how long this ledger has been kept — the list's own window
 	let sinceLine = $derived(
 		entries.length
 			? `${entries.length} ${entries.length === 1 ? 'session' : 'sessions'} since ${fmtShort(entries[entries.length - 1].at)}`
 			: ''
 	);
 
-	// The latest session starts open — it is the one a correction can still
-	// reach, so the tap count for "fix what I just did" does not go up.
 	let opened = $state<string | null | undefined>(undefined);
 	const isOpen = (id: string) => (opened === undefined ? id === data.latestSession : opened === id);
 	function toggleSession(id: string) {
@@ -123,7 +87,6 @@
 		opened = shut ? null : id;
 		if (shut) editingRow = null;
 	}
-	// "20 sets · 48 min" — the sets, and how long the floor took (a run's minutes are its entry)
 	const summaryOf = (s: SessionView) => {
 		const sets = s.rows.reduce((n, r) => n + r.sets.length, 0);
 		const holds = sets > 0 && s.rows.every((r) => r.sets.every((m) => m.of === 'hold'));
@@ -135,20 +98,12 @@
 		data.plans.flatMap((p) => Object.values(p.routines).flat()).find((e) => e.name === name);
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
-	// a session of a routine that is gone has no title to look up; it has its own discipline
 	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
-	// "yoga, stretch, run on" — the block half of a change, after the programme half
 	const blocksText = (c: WeekChange) => {
 		const t = weekChangeLine({ blocks: c.blocks }, planName);
 		return t ? `${c.programme ? ' · ' : ''}${t}` : '';
 	};
 
-	/* ---------- inline edit, the latest session only ----------
-	   A row opens as one line per set. A loaded lift with every set at one
-	   weight gets a single WEIGHT · ALL SETS stepper; sets at different loads
-	   keep a stepper each. Save posts one correction per changed set; the
-	   decider is what refuses anything older — this screen only hides the
-	   gesture there. */
 	type EditSet = { item: string; index: number; ex?: Exercise; of: Measure['of']; weight: number; count: number; target?: number };
 	let editingRow = $state<string | null>(null);
 	let edit = $state<EditSet[]>([]);
@@ -171,13 +126,11 @@
 	function openRun(s: SessionView) {
 		const key = `${s.id}:run`;
 		if (editingRow === key) return (editingRow = null);
-		// the duration entries, by identity — a correction names the entry it fixes
 		original = s.durations.map((d) => ({ of: 'duration', minutes: d.minutes }));
 		uniform = false;
 		edit = s.durations.map((d) => ({ item: d.item, index: d.index, of: 'duration', weight: 0, count: d.minutes }));
 		editingRow = key;
 	}
-	// the same ± as the floor where the exercise is known; a plain step where it isn't
 	const stepWeight = (e: EditSet, dir: 1 | -1) => (e.ex?.kind === 'load' ? bumpLoad(e.ex, e.weight, dir) : Math.max(0, e.weight + dir * 5));
 	const bumpWeight = (e: EditSet, dir: 1 | -1) => (e.weight = stepWeight(e, dir));
 	const bumpAll = (dir: 1 | -1) => {
@@ -190,7 +143,6 @@
 		else if (e.ex && e.ex.kind !== 'hold') e.count = bumpCount(e.ex, e.count, dir);
 		else e.count = Math.max(1, Math.min(100, e.count + dir));
 	};
-	/** the measure a line writes — rebuilt by variant, so a stray field never rides along */
 	const measureOf = (e: EditSet): Measure => {
 		switch (e.of) {
 			case 'load': return { of: 'load', load: e.weight, reps: e.count };
@@ -220,7 +172,6 @@
 		<p class="err">{form.message}</p>
 	{/if}
 
-	<!-- did I show up: the answer, the month, and the legend with its numbers -->
 	<section class="sect">
 		<div class="sechead">
 			<span class="caps">Did I show up</span>
@@ -242,7 +193,6 @@
 		</Card>
 	</section>
 
-	<!-- am I getting stronger: the tally, then one row per exercise -->
 	{#if trends.length}
 		<section class="sect">
 			<div class="sechead">
@@ -319,7 +269,6 @@
 		<div class="list">
 			{#each items as it (it.kind === 'session' ? it.s.id : it.c.at)}
 				{#if it.kind === 'change'}
-					<!-- the week changed here: a divider, not a footnote -->
 					<div class="wchange">
 						<span class="wrule"></span>
 						<span class="wtext">{it.c.dateLabel} · {#if it.c.programme}switched to <b>{planName(it.c.programme)}</b>{/if}{blocksText(it.c)}</span>
@@ -330,7 +279,6 @@
 					{@const latest = s.id === data.latestSession}
 					{@const open = isOpen(s.id)}
 					<Card pad={false} interactive={latest}>
-						<!-- the whole head is the tap: the date, what it came to, what it was -->
 						<button type="button" class="shead" class:open={open && latest} onclick={() => toggleSession(s.id)} aria-expanded={open}>
 							<span class="date">{s.dateLabel}</span>
 							<span class="sum">{summaryOf(s)}</span>
@@ -345,7 +293,6 @@
 								{@const lvl = ex ? anySetEarned(row.sets, ex) : false}
 								{@const key = `${s.id}:${row.item}`}
 								{#if latest}
-									<!-- the latest session: every row is one tap from its numbers -->
 									<button type="button" class="srow tap" class:opened={editingRow === key} onclick={() => openRow(s, row)} aria-expanded={editingRow === key}>
 										<span class="exname">{row.item}{#if lvl}<span class="uppill">↑</span>{/if}</span>
 										<span class="val">{setsLine(row.sets, ex)}</span>
@@ -373,7 +320,6 @@
 							{/each}
 							{#if latest && editingRow === `${s.id}:run`}{@render editor(s)}{/if}
 							{#if latest}
-								<!-- the footer only the latest session has: prep is present, not itemised, and Remove waits for intent -->
 								<div class="cfoot">
 									<span class="prepline">{s.prep ? `+ ${s.prep} prep ${s.prep === 1 ? 'step' : 'steps'} · ` : ''}tap a line to fix it</span>
 									<form method="POST" action="?/remove" use:enhance>
@@ -415,15 +361,12 @@
 		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
 		text-transform: uppercase; color: var(--ink-3);
 	}
-	/* three sections, one shape: what it is on the left, the window it speaks
-	   for on the right, then the card */
 	.sect { display: flex; flex-direction: column; gap: 10px; }
 	.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 	.meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
 	.empty { font-size: 16px; color: var(--ink-2); }
 
-	/* did I show up: the answer, the calendar, the legend that carries the numbers */
 	.showup { display: flex; flex-direction: column; gap: 14px; }
 	.answer { margin: 0; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
 	.legend {
@@ -436,10 +379,8 @@
 	.lrate i { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 1px; }
 	.lsub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: right; white-space: nowrap; }
 
-	/* am I getting stronger: the tally is the first row, plain */
 	.tally { margin: 0; padding: 12px 16px; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
 
-	/* what I did: one shell per session, the week's changes between them */
 	.list { display: flex; flex-direction: column; gap: 8px; }
 	.wchange { display: flex; align-items: center; gap: 10px; padding: 6px 4px; }
 	.wrule { flex: 1; border-top: 1px dashed var(--ink-3); }
@@ -455,14 +396,11 @@
 		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.shead:hover { background: var(--volt-tint); }
-	/* open, the latest session's head is the header of the rows under it */
 	.shead.open { background: var(--paper-2); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-	/* never break a date mid-word */
 	.date { grid-area: date; font-family: var(--font-mono); font-weight: var(--weight-bold); font-size: 15px; white-space: nowrap; }
 	.sum { grid-area: sum; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: right; white-space: nowrap; }
 	.ttl { grid-area: ttl; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: var(--weight-bold); font-size: 15px; }
 	.after { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--ink-3); }
-	/* two columns: the exercise, and what happened */
 	.srow {
 		display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
 		width: 100%; min-height: 44px; padding: 10px 16px; border-top: 1px solid var(--border-soft);
@@ -488,7 +426,6 @@
 		padding: 8px 8px 8px 16px; background: var(--paper-2); border-top: 1px solid var(--border-soft);
 		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 	}
-	/* the event-sourced delete: the word is plain, the red waits for intent */
 	.remove {
 		min-height: 40px; padding: 0 14px;
 		background: transparent; border: 1px solid var(--border-soft); border-radius: var(--radius-pill);
@@ -499,7 +436,6 @@
 	.remove:hover { color: var(--danger); border-color: var(--danger); }
 	.remove.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
 
-	/* the inline editor: label / stepper, the steppers on the right so every number lines up */
 	.editor {
 		display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 2px; align-items: center;
 		padding: 0 16px 12px; background: var(--paper-2);

@@ -1,50 +1,11 @@
 import { RACKS, type Rack } from './racks';
 
-/**
- * The plan model — reference data, NOT events. Plans are rows in the
- * `ledger_plans` table (src/lib/server/plans.ts): upserted, no history.
- * Event sourcing does not mean "everything is an event"; slow-changing
- * reference data lives happily in a plain table, and events point at it by
- * id (SessionStarted.plan) and by name (EntryLogged.item).
- *
- * Four words, kept apart:
- *   routine — a thing the plan offers, with a discipline. "Squat & Shove".
- *   cycle   — an ordered list of routine keys with a weekly target in
- *             sessions. Its position is derived from the last one finished.
- *   session — one time a routine was done. The event (events.ts).
- *   day     — a calendar bucket the Ledger draws. No opinion.
- *
- * Yoga at 7am and a lift at 6pm is one day, two sessions, two disciplines,
- * and no type below needs a special case for that sentence.
- *
- * A plan row is data from outside, exactly like an event row — so it has a
- * read boundary too. `parsePlan`, at the bottom of this file, is the only
- * way a plan enters the domain, and it refuses what the fields cannot say
- * about each other.
- */
-
 /** What a routine IS. Required on every routine — never inferred. */
 export type Discipline = 'lift' | 'yoga' | 'bodyweight' | 'mobility' | 'run';
 export const DISCIPLINES: readonly Discipline[] = ['lift', 'yoga', 'bodyweight', 'mobility', 'run'];
 export const isDiscipline = (v: unknown): v is Discipline => DISCIPLINES.includes(v as Discipline);
 
-/**
- * An exercise measures one thing and progresses another. What a set WRITES
- * is its `kind` (measure.ts decides the variant); what the RULE moves is its
- * `progress`, named per exercise:
- *
- *   size    — a loaded set: top of the range → the next size up for THAT
- *             set. `start` is the first-ever load, `inc` the machine's step
- *             (ignored when a `rack` says what sizes exist), `each` says the
- *             number is per hand.
- *   time    — a strength hold: ring the bell → +inc seconds, capped at `hi`.
- *             Past the ceiling, make it harder, never longer.
- *   count   — carry last time's reps, capped at `hi`.
- *   variant — every set at `hi` → the next rung of the ladder, reps back to
- *             `lo`. The rung is derived from the stream, like a rack walk.
- *   none    — it does not progress. A stretch, a yoga hold, the run. The
- *             dose is the dose, and suggest() returns early.
- */
+/** What the rule moves, per exercise: `kind` says which measure a set writes, `progress` what moves — size, time, count, variant, or none; legal pairings are enforced in parsePlan. */
 export type Progress =
 	| { of: 'size'; start: number; inc: number; rack?: Rack; each?: boolean }
 	| { of: 'time'; inc: number }
@@ -60,14 +21,7 @@ type ExerciseBase = {
 	/** the range: reps — seconds for a hold, minutes for a run */
 	lo: number;
 	hi: number;
-	/**
-	 * How a movement splits across sides. Left unsaid, "3 × 8–12" on a lunge
-	 * is genuinely ambiguous — per leg, or between them?
-	 *   absent  — bilateral, nothing to split
-	 *   'reps'  — lo/hi are PER SIDE; one set covers both (lunges, dead bugs)
-	 *   'sets'  — each set is ONE side, so `sets` already counts both (yoga
-	 *             holds, side plank): sets: 2 means one left, one right
-	 */
+	/** absent = bilateral; 'reps' = lo/hi are per side, one set covers both; 'sets' = each set is one side, so `sets` counts both */
 	side?: 'reps' | 'sets';
 	/** short clarifier shown under the name — for what the fields can't say */
 	note?: string;
@@ -75,11 +29,7 @@ type ExerciseBase = {
 	rest?: number;
 };
 
-/**
- * The legal pairings, and only these — anything else fails parsePlan:
- *   load + size · hold + time · hold + none · reps + count · reps + variant ·
- *   reps + none · run + none
- */
+/** The legal kind/progress pairings, and only these — anything else fails parsePlan. */
 export type Loaded = ExerciseBase & { kind: 'load'; progress: Extract<Progress, { of: 'size' }> };
 export type Held = ExerciseBase & { kind: 'hold'; progress: Extract<Progress, { of: 'time' | 'none' }> };
 export type Counted = ExerciseBase & { kind: 'reps'; progress: Extract<Progress, { of: 'count' | 'variant' | 'none' }> };
@@ -88,13 +38,7 @@ export type RunEx = ExerciseBase & { kind: 'run'; progress: Extract<Progress, { 
 export type Exercise = Loaded | Held | Counted | RunEx;
 export type Kind = Exercise['kind'];
 
-/**
- * One line of a warm-up or cooldown. A plain string is an instruction you
- * tick off ("One bodyweight set of the first lift"); a timed item is a
- * countdown the floor runs for you — a jog by the minute, a drill or a
- * stretch by the second, `each` when it is once per side; a counted item is
- * a line you tick after N of something ("Sun Salutation A × 3").
- */
+/** One line of a warm-up or cooldown: an instruction you tick, a countdown by the second (`each` = once per side) or by the minute, or a line you tick after N reps. */
 export type PrepItem =
 	| string
 	| { name: string; seconds: number; each?: boolean }
@@ -113,12 +57,7 @@ export type Routine = {
 	cue?: string;
 };
 
-/**
- * Routines you work THROUGH, in order, at a cadence. Two long (A/B), seven
- * long (the no-gym block), one long (a routine you simply repeat) — or
- * mixed, since discipline lives on the routine. Position is never stored:
- * it is the routine after the last one of this cycle you finished.
- */
+/** Routines you work through, in order, at a cadence; position is never stored — it is the routine after the last one of this cycle you finished. */
 export type Cycle = {
 	id: string;
 	title: string;
@@ -130,6 +69,7 @@ export type Cycle = {
 	standsInFor?: string;
 };
 
+/** A plan: the cycles the week is made of, the routines they turn through, and the defaults. */
 export type Plan = {
 	id: string;
 	name: string;
@@ -149,10 +89,7 @@ export type Plan = {
 	cue?: string;
 };
 
-/* ---------- reading a plan ---------------------------------------------
-   The defaults live here, once. A screen that wants "the rest" asks the
-   plan — it never writes `?? 60` itself. */
-
+/** Seconds between sets when nothing says otherwise — asked for via restFor, never written as `?? 60` elsewhere. */
 export const DEFAULT_REST = 60;
 
 export const warmupFor = (plan: Plan | undefined, routine: string): PrepItem[] =>
@@ -163,11 +100,7 @@ export const cooldownFor = (plan: Plan | undefined, routine: string): PrepItem[]
 export const cueFor = (plan: Plan | undefined, routine: string): string | undefined =>
 	plan?.routineInfo[routine]?.cue ?? plan?.cue;
 export const restFor = (plan: Plan | undefined, ex: Exercise): number => ex.rest ?? plan?.rest ?? DEFAULT_REST;
-/**
- * Display title for a routine — undefined for a key the plan doesn't have.
- * A session of a retired plan has no title to look up; it has its own
- * discipline, and that is the honest word for it (labels.disciplineLabel).
- */
+/** Display title for a routine — undefined for a key the plan doesn't have. */
 export const routineTitle = (plan: Plan | undefined, routine: string): string | undefined =>
 	plan?.routineInfo[routine]?.title;
 /** An exercise the rule moves — as opposed to a stretch, a yoga hold or the run, whose dose is the dose. */
@@ -222,12 +155,6 @@ export function planExercises(plan: Plan): Exercise[] {
 			}
 	return out;
 }
-/* ---------- the week: one programme, and the blocks that are on ----------
-   A plan is not the unit a person chooses. The week is ONE lift programme
-   (a lift-only plan, a row in the table) plus the BLOCKS that are on —
-   shared cycles with their routines, cadence written by the block, on or
-   off per person. `composePlan` folds them into the Plan every projection,
-   step list and rule consumes, so nothing downstream knows the difference. */
 
 /** The blocks a person can switch. A closed union: a switch is an event, and the decider must know the block exists. */
 export type BlockId = 'yoga' | 'mob' | 'run' | 'bw';
@@ -237,6 +164,7 @@ export const isBlockId = (v: unknown): v is BlockId => BLOCK_IDS.includes(v as B
 export const allBlocksOn = (): Record<BlockId, boolean> =>
 	Object.fromEntries(BLOCK_IDS.map((b) => [b, true])) as Record<BlockId, boolean>;
 
+/** A shared cycle with its routines — on or off per person. */
 export type Block = {
 	id: BlockId;
 	cycle: Cycle;
@@ -244,12 +172,7 @@ export type Block = {
 	routineInfo: Record<string, Routine>;
 };
 
-/**
- * The week, as one Plan. Every block's routines are known whether or not
- * it is on — a session of a block you switched off still has a title, and
- * the no-gym block borrows the yoga routines — but only an on block's cycle
- * is in the week for the queue to turn.
- */
+/** The week as one Plan: every block's routines are known whether or not it is on, but only an on block's cycle is in the week. */
 export function composePlan(programme: Plan, blocks: readonly Block[], on: readonly BlockId[]): Plan {
 	const routines: Record<string, Exercise[]> = { ...programme.routines };
 	const routineInfo: Record<string, Routine> = { ...programme.routineInfo };
@@ -265,14 +188,11 @@ export function composePlan(programme: Plan, blocks: readonly Block[], on: reado
 export const prepSeconds = (item: PrepItem): number =>
 	typeof item === 'string' || 'reps' in item ? 0 : 'seconds' in item ? item.seconds : item.minutes * 60;
 
-/* ---------- accepting a plan --------------------------------------------- */
-
 type Raw = Record<string, unknown>;
 const isObj = (v: unknown): v is Raw => !!v && typeof v === 'object' && !Array.isArray(v);
 const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
 const count = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
 
-/** One prep item: a string, or a named item with seconds, minutes or reps. */
 function parsePrepItem(v: unknown, where: string): PrepItem {
 	if (typeof v === 'string') return v;
 	if (isObj(v) && typeof v.name === 'string' && v.name) {
@@ -288,7 +208,6 @@ function parsePrepItem(v: unknown, where: string): PrepItem {
 	throw new Error(`${where} must be a string or a list of strings and timed or counted items`);
 }
 
-/** A step list: one item per line, each a string or a timed item. */
 function stepList(v: unknown, where: string): PrepItem[] | undefined {
 	if (v === undefined) return undefined;
 	if (Array.isArray(v)) return v.map((x) => parsePrepItem(x, where));
@@ -344,8 +263,6 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 		if (typeof e[k] !== 'number' || !Number.isFinite(e[k])) throw new Error(`"${name}" needs numeric ${k}`);
 		return e[k] as number;
 	};
-	// the per-hand / per-side fields exist to kill an ambiguity; a typo in
-	// them would quietly reintroduce it, so they are checked, not coerced
 	if (e.side !== undefined && e.side !== 'reps' && e.side !== 'sets')
 		throw new Error(`"${name}" side must be "reps" (per side) or "sets" (one per side)`);
 	if (e.note !== undefined && typeof e.note !== 'string') throw new Error(`"${name}" note must be a string`);
@@ -361,7 +278,6 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 		...(e.note !== undefined ? { note: e.note as string } : {}),
 		...(e.rest !== undefined ? { rest: e.rest as number } : {})
 	};
-	// the numbers must agree with each other, not just be numbers
 	if (base.lo > base.hi) throw new Error(`"${name}" lo must not exceed hi`);
 	if (base.side === 'sets' && base.sets % 2 !== 0)
 		throw new Error(`"${name}" side "sets" needs an even number of sets — one per side`);
@@ -373,8 +289,6 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 			return { ...base, kind: 'load', progress };
 		case 'hold':
 			if (progress.of === 'time') {
-				// a hold with a range climbs by inc; a fixed hold (a stretch) has
-				// nowhere to climb, and says so — the two must agree
 				if (base.lo === base.hi) throw new Error(`"${name}" is a fixed hold: its progress is none`);
 				return { ...base, kind: 'hold', progress };
 			}
@@ -445,16 +359,7 @@ function parseCycles(v: unknown, keys: string[]): Cycle[] {
 	return out;
 }
 
-/**
- * A plan from the outside — a pasted JSON row, or a row read back from the
- * table. Parse, don't validate: the result is rebuilt field by field, and
- * anything the fields can't say about each other (a range upside down, a
- * mobility routine with a squat on it, a cycle naming a routine that isn't
- * there, a run routine with no run in it) is refused here with a sentence,
- * instead of becoming a step nobody asked for. There are no legacy readers:
- * the shipped programmes are rewritten from code on every boot, and a row
- * nobody can read is logged and skipped by listProgrammes.
- */
+/** The only way a plan enters the domain — parse, don't validate: rebuilt field by field, and anything the fields can't say about each other is refused with a sentence. No legacy readers: shipped programmes are rewritten on boot. */
 export function parsePlan(raw: unknown): Plan {
 	const p = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
 	if (!isObj(p)) throw new Error('a plan is an object with id, name, routines, routineInfo and cycles');
@@ -475,11 +380,8 @@ export function parsePlan(raw: unknown): Plan {
 		if (!Array.isArray(list) || !list.length) throw new Error(`routine "${r}" needs a non-empty exercise list`);
 		routines[r] = list.map((e) => parseExercise(e, r));
 		const discipline = routineInfo[r].discipline;
-		// a stretch routine is a routine of holds — that is what makes it one
 		if (discipline === 'mobility' && routines[r].some((ex) => ex.kind !== 'hold'))
 			throw new Error(`routine "${r}" is mobility: every exercise must be a hold`);
-		// the run is a routine with one exercise that measures minutes — and
-		// nothing else has one
 		const runs = routines[r].filter((ex) => ex.kind === 'run').length;
 		if (discipline === 'run' && runs !== 1) throw new Error(`routine "${r}" is a run: it needs exactly one run exercise`);
 		if (discipline !== 'run' && runs) throw new Error(`routine "${r}" has a run in it but is not a run`);

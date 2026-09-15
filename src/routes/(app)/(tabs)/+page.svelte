@@ -12,23 +12,8 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
-	// one clock reading per visit: every fold below takes it as an input
 	const now = Date.now();
 
-	/**
-	 * Tab 1 is one question: what do I do now. One session, one reason, one
-	 * button — and a queue behind it. The read side ranks every cycle of the
-	 * plan (projections.queue) and Today shows the first; "Something else"
-	 * deals the next card, and the dots say where you are. Nothing is hidden
-	 * that matters: the queue is every cycle of the week — the floor last,
-	 * unless it is standing in for the gym — and a routine you can't do with
-	 * what you've got is struck through, not gone.
-	 *
-	 * The card is fixed weight — it holds the decision. The space below is
-	 * the slack, and it goes to "What's in it": the figures of the session
-	 * you're being offered. Under 150px the strip folds to one mono line;
-	 * under 60px it's gone. Nothing ever half-shows, and nothing scrolls.
-	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
 	let deck = $derived(queue(data.events, plan, data.preferences, now));
@@ -41,9 +26,6 @@
 		i = (i + 1) % deck.length;
 	}
 
-	// what's in it: the session's figures, four at most, then the rest by name.
-	// A routine with no sets to show (the run) shows the drills around it
-	// instead, and its description where the rest would be
 	let exercises = $derived(card ? routineExercises(plan, card.workout).filter((e) => e.kind !== 'run') : []);
 	let drills = $derived(
 		card
@@ -56,12 +38,10 @@
 	let rest = $derived(exercises.map((e) => e.name).filter((n) => !peek.includes(n)));
 	let oneline = $derived(card ? (plan.routineInfo[card.workout.routine].desc ?? `${exercises.length} exercises`) : '');
 	let more = $derived(rest.length ? `+ ${rest.length} more · ${rest.join(', ')}` : exercises.length ? '' : oneline);
-	// the slack region is flex: 1 with a zero basis — its height IS the space
-	// the page has left over, measured rather than assumed
+	// the slack region is flex: 1 with a zero basis — its height IS the space the page has left over, measured rather than assumed
 	let slack = $state(0);
 	let mode = $derived(!card || card.out ? 'none' : slack >= 150 && peek.length ? 'strip' : slack >= 60 ? 'line' : 'none');
 
-	// the session is a list of steps: Today says how far in, and how long is left
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
 	let liveEntries = $derived(session ? sessionEntries(data.events, session.id) : []);
 	let liveSteps = $derived(
@@ -108,18 +88,14 @@
 		<Card interactive>
 			<div class="caps">{caps}</div>
 			<div class="title" class:out={card.out}>{card.title}</div>
-			<!-- the why: one mono line — how long since, and what the rule is about to move -->
 			<div class="mono-sub">{card.why}</div>
 
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="routine" value={card.workout.routine} />
 				<input type="hidden" name="plan" value={plan.id} />
-				<!-- ruled out: still startable, but never loud about it -->
 				<button type="submit" class="startbtn" class:quiet={card.out}>Start <span class="startmin">~{card.minutes} min</span></button>
 			</form>
 
-			<!-- the queue behind it: the dots say where you are, and dealing the
-			     next card is a small pill at the far right — findable, never loud -->
 			<div class="links">
 				<span class="dots" aria-label="{i + 1} of {deck.length}">
 					{#each deck as c, k (c.cycle)}<span class="dot" class:on={k === i}></span>{/each}
@@ -131,8 +107,6 @@
 			</div>
 		</Card>
 
-		<!-- the slack under the card, measured: the figures if they fit, one
-		     line if they don't, nothing if that doesn't either -->
 		<div class="slack" bind:clientHeight={slack}>
 			{#if mode === 'strip'}
 				<div class="strip">
@@ -155,7 +129,6 @@
 </div>
 
 <style>
-	/* the column fills the tab, so the slack under the card is real space */
 	.col { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 16px; }
 	.head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 	h1 {
@@ -178,7 +151,6 @@
 		font-size: var(--text-title);
 		margin: 4px 0 0;
 	}
-	/* ruled out by what you've got: still here, struck through, never hidden */
 	.title.out { text-decoration: line-through; text-decoration-thickness: 3px; color: var(--ink-3); }
 	.mono-sub { font-family: var(--font-mono); font-size: 14px; line-height: 1.45; color: var(--ink-2); margin: 4px 0 14px; }
 	.row { display: flex; align-items: center; }
@@ -187,7 +159,6 @@
 	.grow { flex: 1; }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); }
 
-	/* the one thing this screen exists for — 76px of it, the length inside it */
 	.startbtn {
 		width: 100%;
 		min-height: 76px;
@@ -223,8 +194,6 @@
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 	.textlink:hover { color: var(--ink); background: none; }
-	/* the second verb, said quietly: a small pill with a thin ink line and no
-	   shadow, at the far right — a control you can find, not one that asks */
 	.elsebtn {
 		display: inline-flex; align-items: center; justify-content: center; flex: none; margin-left: auto;
 		min-height: 40px; padding: 0 14px;
@@ -236,7 +205,6 @@
 	}
 	.elsebtn:hover { background: var(--volt-tint); }
 
-	/* the slack: bottom-anchored, so the strip grows apart from the card */
 	.slack { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
 	.strip { display: flex; flex-direction: column; gap: 8px; padding: 0 4px 4px; }
 	.peek { display: flex; justify-content: space-between; gap: 8px; }
@@ -245,7 +213,6 @@
 	.peekname { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 	.more, .oneline { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); padding: 0 4px 4px; }
 
-	/* Resume is a link (no state change) dressed as the accent button */
 	.resume {
 		flex: 1;
 		display: inline-flex;
@@ -271,7 +238,6 @@
 		.title { font-size: 22px; margin: 2px 0; }
 		.mono-sub { margin-bottom: 12px; }
 	}
-	/* a short phone: Start is the last thing to shrink and never leaves the first screen */
 	@media (max-height: 700px) {
 		.startbtn { min-height: 64px; font-size: 20px; }
 		.peekone :global(canvas) { width: 56px; height: 56px; }

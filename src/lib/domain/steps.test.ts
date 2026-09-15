@@ -69,9 +69,8 @@ describe('sessionSteps', () => {
 		expect(steps.map((s) => s.section)[2]).toBe('Goblet Squat');
 		expect(steps[0].key).toBe(entryKey('Warm-up', 1));
 		expect(steps[steps.length - 1].key).toBe(entryKey('Cooldown', 2));
-		// the rest before a set is in that set's estimate; set 1 has none
 		expect(steps.slice(2, 5).map((s) => s.estimate)).toEqual([45, 105, 105]);
-		expect(steps.slice(5, 7).map((s) => s.estimate)).toEqual([20, 50]); // a hold costs its ceiling, plus its own rest
+		expect(steps.slice(5, 7).map((s) => s.estimate)).toEqual([20, 50]);
 	});
 	it('makes the run routine warm-up · run · cooldown, timed items counting down once per side', () => {
 		const steps = sessionSteps(plan, RUN);
@@ -81,7 +80,6 @@ describe('sessionSteps', () => {
 		expect(steps[0]).toMatchObject({ text: 'Easy jog · 3 min', name: 'Easy jog', seconds: 180, estimate: 180 });
 		expect(steps[1]).toMatchObject({ text: 'Carioca · 30s', seconds: 30, key: entryKey('Warm-up', 2) });
 		expect(steps[3]).toMatchObject({ kind: 'run', minutes: 30, item: 'Easy run', index: 1, estimate: 1800 });
-		// a bare run routine is just the run
 		const bare: Plan = { ...plan, routineInfo: { ...plan.routineInfo, run: { title: 'Run', discipline: 'run' } }, cooldown: undefined };
 		expect(sessionSteps(bare, RUN).map((s) => s.label)).toEqual(['RUN']);
 	});
@@ -160,7 +158,7 @@ describe('restUntil — the clock under the next set', () => {
 	it('counts from the previous set’s own timestamp, local or not', () => {
 		const set1 = [entry('Goblet Squat', 1, iso(10000), { of: 'load', load: 35, reps: 10 })];
 		expect(restUntil(steps[3], set1, plan)).toBe(NOW - 10000 + 60000); // SET 2: 60s from set 1
-		expect(restUntil(steps[6], [entry('Plank', 1, iso(0), { of: 'hold', seconds: 10 })], plan)).toBe(NOW + 30000); // the exercise's own rest
+		expect(restUntil(steps[6], [entry('Plank', 1, iso(0), { of: 'hold', seconds: 10 })], plan)).toBe(NOW + 30000);
 	});
 	it('has nothing to wait for on set 1, or when the set before never landed', () => {
 		expect(restUntil(steps[2], [], plan)).toBeNull();

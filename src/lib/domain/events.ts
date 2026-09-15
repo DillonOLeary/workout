@@ -3,33 +3,7 @@ import type { Measure } from './measure';
 import type { BlockId, Discipline } from './plan';
 import type { Equipment, Intent } from './preferences';
 
-/**
- * The eight facts this app can record — the vocabulary. Note the tense: every
- * name is past tense because an event is something that already happened —
- * it can be appended, never edited. (A correction is itself a new event —
- * EntryCorrected — not an UPDATE of the one it corrects.)
- *
- * A workout is a SESSION: an ordered list of ENTRIES, each carrying one
- * MEASURE (measure.ts). A lift is a session of sets; a run is a session with
- * one duration entry; a warm-up step is an entry too. Guided or logged after
- * the fact is only WHEN the events are written — the shapes are the same.
- *
- * Two rules keep this file honest:
- *   - it describes the CURRENT shape only. Whatever older shapes the stream
- *     still holds are translated on the way in (upcast.ts), so no field here
- *     is optional merely because old rows lack it.
- *   - an event carries what a reader needs and nothing a reader never uses.
- *     `plan`, the routine and the discipline live on SessionStarted alone; an
- *     entry and the finish name their session, and the session says the rest.
- *
- * Each event carries its own `at` timestamp in `data` so projections never
- * depend on store-specific metadata.
- */
-
-/**
- * What a session IS: the routine it ran. That is the whole address — the run
- * is a routine like any other, so there is no second arm and no sentinel.
- */
+/** What a session is: the routine it ran — the whole address. */
 export type Workout = { routine: string };
 /** Just the workout, from anything that carries one (an event's data, a command's). */
 export const workoutOf = (w: Workout): Workout => ({ routine: w.routine });
@@ -46,11 +20,7 @@ export type SessionStarted = Event<
 		at: string;
 		/** 'live' = the floor walked it; 'after' = written in one shot, backdated */
 		mode: 'live' | 'after';
-		/**
-		 * What this was, forever. Stamped when the session starts, never looked
-		 * up later from the plan: plan rows are upserted with no history, so a
-		 * routine retired in March must not quietly rewrite what January was.
-		 */
+		/** stamped when the session starts, never looked up from the plan later */
 		discipline: Discipline;
 	} & Workout
 >;
@@ -68,12 +38,7 @@ export type EntryLogged = Event<
 	}
 >;
 
-/**
- * A set you fixed: the same identity as the entry it corrects, and the
- * measure it should have carried. The original stays in the stream; every
- * reader takes the last word. The decider allows this on the latest session
- * only — older sets have already been read by the rule.
- */
+/** A set you fixed: the same identity as the entry it corrects, and the measure it should have carried. */
 export type EntryCorrected = Event<
 	'EntryCorrected',
 	{ session: string; item: string; index: number; at: string; measure: Measure }
@@ -81,11 +46,7 @@ export type EntryCorrected = Event<
 
 export type SessionFinished = Event<'SessionFinished', { session: string; at: string }>;
 
-/**
- * The event-sourced "delete": nothing leaves the stream — removal is itself
- * a fact, appended like any other. Projections exclude removed items; the
- * raw history keeps them forever.
- */
+/** Removal is itself a fact: nothing leaves the stream; projections exclude the session. */
 export type SessionRemoved = Event<'SessionRemoved', { session: string; at: string }>;
 
 /** You switched the lifting to another programme. The blocks stay as they were. */
@@ -94,15 +55,7 @@ export type ProgrammeSelected = Event<'ProgrammeSelected', { programme: string; 
 /** You switched a block of the week on or off — a fact with a date, so the Ledger can say when the week changed. */
 export type BlockToggled = Event<'BlockToggled', { block: BlockId; on: boolean; at: string }>;
 
-/**
- * What you told the app about yourself — an event, not a settings row,
- * because "you said you wanted to run better six weeks ago and have run
- * twice" is only sayable if the statement has a date. A full snapshot each
- * time; the last one wins. Two fields, because each has one exact effect on
- * the queue: intents weight a cycle up (one, show-up-more, instead puts the
- * shorter owed session first), equipment rules one out. It never writes an
- * exercise.
- */
+/** What you told the app about yourself — a full snapshot each time; the last one wins. */
 export type PreferencesSet = Event<
 	'PreferencesSet',
 	{ at: string; intents: Intent[]; equipment: Equipment[] }
@@ -118,10 +71,7 @@ export type LedgerEvent =
 	| BlockToggled
 	| PreferencesSet;
 
-/**
- * A row as the store hands it back: any name, any shape. The upcaster's
- * input — nothing else in the domain should have to touch one.
- */
+/** A row as the store hands it back: any name, any shape — the upcaster's input. */
 export type StoredEvent = { type: string; data: unknown };
 
 /** Prep items — steps that are tracked, but never a ledger line. */

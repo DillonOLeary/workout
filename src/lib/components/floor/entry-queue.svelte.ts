@@ -3,24 +3,6 @@ import { invalidateAll } from '$app/navigation';
 import type { Measure } from '$lib/domain/measure';
 import type { Entry } from '$lib/domain/steps';
 
-/**
- * The floor's optimistic queue — the "optimistic UI over an event store"
- * lesson, in one place.
- *
- * Pressing the primary pushes an entry here and the screen updates in the
- * same frame; a single-flight pump POSTs queued entries to the server
- * strictly in order in the background. The page never refreshes its data
- * mid-session, so confirmed entries stay here and `overlay()` — the queue
- * laid over the server's entries — is the one source of truth for what the
- * floor shows. An entry the server rejects goes to 'failed': it keeps its
- * row and its numbers with a Retry in place, and nothing disappears
- * silently. A correction rides the same queue — same identity, a new
- * measure, a different action.
- *
- * The safety net is in the DOMAIN, not here: the decider treats a repeated
- * identity as a no-op and a repeated correction as itself, so an ambiguous
- * network failure is safe to retry.
- */
 export type QueueOp = 'log' | 'correct';
 export type QueuedEntry = {
 	key: string;
@@ -31,6 +13,7 @@ export type QueuedEntry = {
 type Identity = { item: string; index: number };
 const same = (a: Identity, b: Identity) => a.item === b.item && a.index === b.index;
 
+/** optimistic: the row shows at once and the POST follows, in order — safe to retry, because the decider no-ops a repeated identity */
 export class EntryQueue {
 	items = $state<QueuedEntry[]>([]);
 	/** the last rejection's sentence, for the screen; cleared by the next push */
@@ -49,12 +32,7 @@ export class EntryQueue {
 		return this.items.some((p) => p.status === 'queued' || p.status === 'inflight');
 	}
 
-	/**
-	 * The entries that COUNT: the server's, with the queue laid over them — a
-	 * log adds a row, a correction replaces its measure, a failed one does
-	 * neither. The rest clock reads these, so a set that hasn't reached the
-	 * server yet still starts it.
-	 */
+	/** the entries that count: the server's with the queue laid over — a log adds a row, a correction replaces its measure, a failed one does neither */
 	overlay(server: Entry[]): Entry[] {
 		const out = server.map((e) => ({ ...e }));
 		for (const p of this.items) {
@@ -140,7 +118,6 @@ export class EntryQueue {
 		}
 	}
 
-	/** a failed entry keeps its row, its numbers and a Retry — never removed */
 	async #failed(p: QueuedEntry, message: string): Promise<void> {
 		if (message.includes('No session in progress')) {
 			// finished on another device — resync; the floor's load guard redirects

@@ -1,25 +1,18 @@
 import type { Discipline } from './plan';
 
 /**
- * What a person can tell the app about themselves — two menus, nothing
- * free-text, because the app cannot act on a sentence. Each pick has one
- * exact effect on the queue (projections.queue):
- *
- *   an intent    weights a discipline UP — one more session of shortfall
- *   equipment    rules a discipline OUT — a lift with no gym is not offered
- *
- * One intent names no discipline: "just show up more" puts the SHORTER owed
- * session ahead of the staler one — the easiest thing to say yes to, first.
- *
- * Anything that cannot name its effect does not belong here. The picks are
- * recorded as a PreferencesSet event (events.ts) and folded by
- * `preferences(events)`; untouched, the app behaves exactly as it did.
+ * What a person can tell the app, from two menus: an intent weights a discipline up, equipment rules one out,
+ * and "just show up more" puts the shorter owed session first. Recorded as PreferencesSet, folded by `preferences(events)`.
  */
+
+/** What you're after, from the menu. */
 export type Intent = 'get-stronger' | 'move-better' | 'run-better' | 'show-up-more' | 'calm-down';
+/** What you have, from the menu. */
 export type Equipment = 'gym' | 'mat' | 'shoes' | 'bands';
+/** One snapshot of both picks. */
 export type Preferences = { intents: Intent[]; equipment: Equipment[] };
 
-/** The whole mapping, no inference. show-up-more raises no cycle: it reorders what you owe (`shorterFirst`). */
+/** The intents menu and what each weights up; show-up-more raises nothing, it reorders (`shorterFirst`). */
 export const INTENTS: readonly { id: Intent; label: string; up: Discipline[] }[] = [
 	{ id: 'get-stronger', label: 'Get stronger', up: ['lift', 'bodyweight'] },
 	{ id: 'move-better', label: 'Move better', up: ['yoga', 'mobility'] },
@@ -27,13 +20,14 @@ export const INTENTS: readonly { id: Intent; label: string; up: Discipline[] }[]
 	{ id: 'calm-down', label: 'Calm down', up: ['yoga'] },
 	{ id: 'show-up-more', label: 'Just show up more', up: [] }
 ];
+/** The equipment menu, with the words a "needs …" line uses. */
 export const EQUIPMENT: readonly { id: Equipment; label: string; needed: string }[] = [
 	{ id: 'gym', label: 'A gym', needed: 'a gym' },
 	{ id: 'mat', label: 'A mat', needed: 'a mat' },
 	{ id: 'shoes', label: 'Running shoes', needed: 'running shoes' },
 	{ id: 'bands', label: 'Bands', needed: 'bands' }
 ];
-/** Pick up to three: the fourth tap is refused. Three is already a lot to weight. */
+/** The fourth intent is refused. */
 export const MAX_INTENTS = 3;
 
 /** What each discipline needs before it can be offered. A floor needs nothing. */
@@ -48,16 +42,12 @@ export const NEEDS: Record<Discipline, Equipment[]> = {
 /** Untouched: nothing weighted, everything available. */
 export const DEFAULT_PREFERENCES: Preferences = { intents: [], equipment: ['gym', 'mat', 'shoes', 'bands'] };
 
+/** On the intents menu. */
 export const isIntent = (v: unknown): v is Intent => INTENTS.some((i) => i.id === v);
+/** On the equipment menu. */
 export const isEquipment = (v: unknown): v is Equipment => EQUIPMENT.some((e) => e.id === v);
 
-/**
- * Picks from the outside — a form's JSON. Parse, don't validate: the edge
- * checks the shape (two lists of names from the menus), the decider judges
- * the meaning (one to three intents, each once). A name that is not on the
- * menu fails the whole snapshot rather than being dropped — a tampered form
- * is refused, never quietly narrowed.
- */
+/** Picks from the outside — a form's JSON: shape only; a name not on a menu fails the whole snapshot. */
 export function parsePreferences(intents: unknown, equipment: unknown): Preferences | null {
 	if (!Array.isArray(intents) || !Array.isArray(equipment)) return null;
 	if (!intents.every(isIntent) || !equipment.every(isEquipment)) return null;

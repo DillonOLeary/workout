@@ -5,13 +5,6 @@
 	import type { Trend } from '$lib/domain/projections';
 	import type { Exercise } from '$lib/domain/plan';
 
-	/**
-	 * One exercise over time, in one line: a mark for what the rule is about
-	 * to do (↑ up a size, ↓ back one, — nothing), the name, the load strip,
-	 * and what it has queued next. The sentence and this exercise's own
-	 * session list are one tap in — the trust surface stays in the table,
-	 * and a closed row stays one line tall.
-	 */
 	let {
 		ex,
 		trend,
@@ -21,8 +14,6 @@
 
 	const unit = $derived(unitOf(ex));
 	const mark = $derived(trend.tone === 'up' ? '↑' : trend.tone === 'down' ? '↓' : '—');
-	// plain divs, not SVG: one bar per session, normalised to this exercise's
-	// own min/max over the window, plus the load the rule has queued next
 	const bars = $derived.by(() => {
 		const loads = [...trend.points.map((p) => p.load), trend.next];
 		const min = Math.min(...loads);
@@ -74,7 +65,6 @@
 	}
 	.hit:hover { background: var(--volt-tint); }
 	.row.open .hit { background: var(--paper-2); }
-	/* the mark: a pill only when the rule is about to move something */
 	.mark {
 		display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 22px;
 		font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--ink-3); border-radius: var(--radius-pill);
@@ -90,7 +80,6 @@
 	.now { font-family: var(--font-mono); font-size: 15px; font-weight: 800; min-width: 44px; text-align: right; }
 	.now i { font-style: normal; font-size: 11px; color: var(--ink-3); margin-left: 2px; }
 
-	/* open: the sentence, then this exercise's own sessions, indented under the name */
 	.hist { display: flex; flex-direction: column; padding: 2px 16px 12px 54px; background: var(--paper-2); }
 	.sentence { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); line-height: 1.4; margin-bottom: 6px; }
 	.sentence.flat { color: var(--ink-3); }

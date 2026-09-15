@@ -7,16 +7,12 @@
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	let mainEl = $state<HTMLElement>();
-	// the document doesn't scroll (locked shell) — reset the inner scroller
 	afterNavigate(() => mainEl?.scrollTo({ top: 0 }));
 </script>
 
 <div class="app-frame">
 	<div class="tabwrap">
 		<div class="tabwrap-inner">
-			<!-- three tabs, three questions: what do I do now, what have I done,
-			     what is the programme. "Log it after" is a child of Today, so it
-			     keeps that tab lit. -->
 			<TabBar
 				tabs={[
 					{ label: 'Today', href: '/', also: ['/log/after'] },
@@ -34,10 +30,7 @@
 </div>
 
 <style>
-	/* The cabin recipe: LOCK the document and scroll only .app-main. A
-	   fixed/sticky bar in a scrolling document slides around when mobile
-	   browsers collapse their toolbars (the visual viewport re-anchors it a
-	   frame late) — an in-flow bar at the edge of a locked frame cannot move. */
+	/* the cabin recipe: lock the document and scroll only .app-main */
 	:global(html:has(.app-frame)),
 	:global(body:has(.app-frame)) {
 		height: 100%;
@@ -45,14 +38,12 @@
 		overflow: hidden;
 	}
 	.app-frame {
-		/* same reason as the gym floor: 100% of html resolves to the layout
-		   viewport, so the tab bar hides behind Safari's toolbar */
+		/* same as the floor: mobile Safari */
 		height: 100vh;
 		height: 100svh;
 		display: flex;
 		flex-direction: column;
 	}
-	/* wide screens: bar at the top, in flow */
 	.tabwrap {
 		order: 0;
 		flex-shrink: 0;
@@ -69,8 +60,6 @@
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
 		overscroll-behavior-y: contain;
-		/* a column, so the shell can fill the height it has: Today measures
-		   the room under its card and a short page must not leave it guessing */
 		display: flex;
 		flex-direction: column;
 	}
@@ -85,7 +74,6 @@
 		flex-direction: column;
 		gap: 24px;
 	}
-	/* touch layouts: same bar, last flex child — pinned to the real bottom */
 	@media (max-width: 900px) {
 		.shell { padding: 12px; padding-bottom: 16px; gap: 16px; }
 		.tabwrap { padding-top: 8px; }

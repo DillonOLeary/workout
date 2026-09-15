@@ -8,14 +8,8 @@ import { disciplineOf } from '$lib/domain/plan';
 import { wholePlan } from '$lib/domain/plans';
 import type { Actions } from './$types';
 
-/**
- * "Log it after": a run you did without the phone, or a whole routine. The
- * page composes the entries; this turns them into ONE command that writes
- * start · entries · finish backdated, so the ledger holds the same session
- * shape whether it was walked live or written afterwards. The discipline
- * is read off the plan here, once, and stamped on the session.
- */
 export const actions: Actions = {
+	/** one LogAfter command: start · entries · finish, backdated, the discipline stamped from the plan */
 	log: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();

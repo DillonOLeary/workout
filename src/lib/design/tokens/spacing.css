@@ -1,9 +1,8 @@
-/* LEDGER — size tokens */
 :root {
-  /* Ergonomic hit targets — nothing interactive below 56px */
+  /* hit targets */
   --hit-min: 56px;
   --hit-lg: 72px;
 
-  --content-max: 720px;  /* single-column app */
+  --content-max: 720px;
   --page-pad: 20px;
 }

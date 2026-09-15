@@ -5,18 +5,7 @@ import type { LedgerCommand } from '$lib/domain/commands';
 import type { LedgerEvent } from '$lib/domain/events';
 import { upcastAll } from '$lib/domain/upcast';
 
-/**
- * DeciderCommandHandler is the whole event-sourcing write loop in one call:
- *   1. read every event in the stream
- *   2. fold them with evolve() into current state
- *   3. run decide(command, state) — your business rules
- *   4. append the returned events, expecting the stream version it read
- *      (optimistic concurrency: a concurrent write makes the append fail
- *      instead of silently clobbering)
- */
-// retry.onVersionConflict: a concurrent append (second device) makes Emmett
-// re-read the stream and re-run decide up to 3 times. Safe because decide is
-// idempotent — a duplicate LogEntry folds to zero events on the re-decide.
+// retry.onVersionConflict: a concurrent append makes Emmett re-read the stream and re-run decide, up to 3 times — safe because decide is idempotent.
 const handle = DeciderCommandHandler({
 	decide,
 	evolve,
@@ -27,28 +16,18 @@ const handle = DeciderCommandHandler({
 /** One stream per user — the whole training history is one ledger. */
 export const streamName = (uid: string) => `ledger-${uid}`;
 
+/** Runs one command through the decider against the user's stream. */
 export const executeCommand = (uid: string, command: LedgerCommand) =>
 	withEventStore((store) => handle(store, streamName(uid), command));
 
-/**
- * Read the full history for projections, stripped to plain `{type, data}` so
- * it serializes cleanly to the client (store metadata like bigint stream
- * positions stays server-side) — and upcast at the read boundary, so
- * projections and the UI only ever see the current event vocabulary,
- * whatever names the stream stores (one stored RunLogged comes back as the
- * three events of a run session).
- */
+/** The whole history as plain `{type, data}`, upcast to the current vocabulary at the read boundary. */
 export const readLedgerEvents = (uid: string): Promise<LedgerEvent[]> =>
 	withEventStore(async (store) => {
 		const { events } = await store.readStream<LedgerEvent>(streamName(uid));
 		return upcastAll(events.map((e) => ({ type: e.type, data: e.data })));
 	});
 
-/**
- * Run a command, translating domain rejections (IllegalStateError,
- * ValidationError — both EmmettErrors) into a message the form can show.
- * Infrastructure failures still throw and become a 500, as they should.
- */
+/** Runs a command; a domain rejection (an EmmettError) comes back as a message for the form, anything else throws. */
 export const tryCommand = async (uid: string, command: LedgerCommand): Promise<string | null> => {
 	try {
 		await executeCommand(uid, command);

@@ -3,26 +3,11 @@
 	import type { Discipline } from '$lib/domain/plan';
 	import type { DayCell, MonthGrid } from '$lib/domain/projections';
 
-	/**
-	 * The last five weeks as a calendar, one ink per discipline (the shared
-	 * `.ink-*` rules in design/disciplines.css); dashed = today and only today
-	 * — never a state. A day with two sessions SPLITS — one stripe each, in
-	 * the order they happened — it never invents a colour and never shows
-	 * only the "important" one. No legend of its own: the Ledger's legend
-	 * under it carries the numbers too.
-	 *
-	 * Thirty-five boxes have to fit across a phone without a scroll, so the
-	 * boxes are tight (a 3px gutter, ~44px at the widest) and the day number
-	 * lives INSIDE the box instead of above it — one row of glyphs per week,
-	 * nothing stacked.
-	 */
 	let { grid }: { grid: MonthGrid } = $props();
 
 	const describe = (c: DayCell) =>
 		[...c.did.map((d) => disciplineLabel(d).toLowerCase()), c.today ? 'today' : ''].filter(Boolean).join(', ') || 'nothing';
-	// the number sits on the last stripe: dark ink on a light one, paper on a
-	// dark one. Every discipline says which — a new one is a type error here,
-	// and its colour goes in design/disciplines.css
+	// dark ink on a light stripe, paper on a dark one — a new discipline is a type error here; its colour lives in design/disciplines.css
 	const INK: Record<Discipline, 'light' | 'dark'> = { lift: 'light', yoga: 'dark', bodyweight: 'light', mobility: 'light', run: 'dark' };
 	const dark = (d: Discipline | undefined) => d !== undefined && INK[d] === 'dark';
 </script>
@@ -52,9 +37,7 @@
 </div>
 
 <style>
-	/* seven 44px boxes and six 4px gutters: past that the calendar spreads out
-	   into a sparse field, so it stops growing and the phone case decides the
-	   shape — below 332px the boxes shrink to fit instead */
+	/* 332px = seven 44px boxes and six 4px gutters */
 	.cal { display: flex; flex-direction: column; gap: 4px; max-width: 332px; }
 	.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 	.grid { row-gap: 4px; }
@@ -70,8 +53,6 @@
 		background: var(--surface-sunken); border: 1px solid var(--border-soft);
 	}
 	.cell.did { border-color: var(--ink); }
-	/* one stripe per session, left to right in the order they happened; its
-	   colour is the discipline's shared ink (a global rule, so no :global here) */
 	.stripe { flex: 1 1 0; min-width: 0; }
 	.stripe + .stripe { border-left: 1px solid var(--ink); }
 	.n {

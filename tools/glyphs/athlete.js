@@ -1,16 +1,7 @@
-/* The dot athlete: one body of tapered masses (deltoid, chest, glute, quad, calf; curved spine; wedge feet), posed by
-   ABSOLUTE joints — hip position + ankles ON THE FLOOR, knees solved by IK, so feet never slide or float — and shaded as
-   lit mass on a 31×31 grid. Every pose names its MOTION: a rep (12 stamps out and back along d), a breath (four stamps,
-   the hold rising and falling) or a still (one stamp at d = 1).
-
-   Seeded from two Claude Design projects — "Workout app design review" (the rig, the shader and the 27 lifting, stretch
-   and drill figures, 2026-09-08) and "Yoga and Bodyweight Workouts" (the 15 yoga poses, 2026-09-14) — and the repo's own
-   since: the bodyweight figures were authored here, and the angle-based rig, the alternative builds and the shaders the
-   bake never used are gone. bake.mjs is the only consumer; it attaches to `window` because the design's files did. */
+/* The dot athlete — seeded from two Claude Design projects, the bodyweight figures authored here; bake.mjs is the only consumer, and it attaches to `window` because the design's files did. */
 (function () {
-  /* the grid: 31 dots a side, one dot = GRID_STEP in body units. A rep stamps SEQ at FRAME_MS — both go into the JSON verbatim */
   const GRID_STEP = 0.042;
-  const SEQ = [0, 0.16, 0.34, 0.55, 0.76, 0.92, 1, 0.9, 0.72, 0.5, 0.28, 0.1]; // 12 stamps: out over 7, back over 5
+  const SEQ = [0, 0.16, 0.34, 0.55, 0.76, 0.92, 1, 0.9, 0.72, 0.5, 0.28, 0.1];
   const FRAME_MS = 130;
   const U = GRID_STEP, FLOOR = 0.021;
   const rad = (a) => (a * Math.PI) / 180;
@@ -30,7 +21,6 @@
     return (side > 0 ? (k1[0] >= k2[0] ? k1 : k2) : (k1[0] < k2[0] ? k1 : k2));
   }
 
-  /* the build: tapered muscle masses, chest up, ~1.3× real mass so the grid has something to shade */
   const K = { chest: 0.88, pelvis: 0.88, glute: 0.88, quad: 0.86, shin: 0.88, calf: 0.88, delt: 0.88, uarm: 0.86, farm: 0.86, neck: 0.9 };
   const SPINE = { lumbar: -6, thoracic: 5 };
   const kk = (n) => K[n] || 1;
@@ -60,7 +50,7 @@
       M.push(_cap([hip[0] + (i === 0 ? -1 : 1) * hipHalf, hip[1]], knee, 0.105, 0.068, 'thigh' + L, 'quad'));
       M.push(_cap(knee, ank, 0.06, 0.038, 'shin' + L, 'shin'));
       const sd = [ank[0] - knee[0], ank[1] - knee[1]], sl = Math.hypot(sd[0], sd[1]) || 1, su = [sd[0] / sl, sd[1] / sl], back = front ? [0, 0] : [-su[1], su[0]];
-      const bk = back[0] > 0 ? [-back[0], -back[1]] : back; // calf bulges away from +x (the facing direction)
+      const bk = back[0] > 0 ? [-back[0], -back[1]] : back;
       M.push(_cap(dot(dot(knee, su, 1.4 * U), bk, 0.012), dot(dot(knee, su, 3.6 * U), bk, 0.014), 0.068, 0.045, 'shin' + L, 'calf'));
       const fa = -rad(l.foot || 0);
       const heel = front ? [ank[0] - 1.2 * U, ank[1] - 0.9 * U] : dot(ank, rot([-1.1 * U, -0.9 * U], fa), 1), toe = front ? [ank[0] + 1.2 * U, ank[1] - 0.9 * U] : dot(ank, rot([3.4 * U, -1.05 * U], fa), 1);
@@ -89,7 +79,7 @@
     return buildMasses({ view: P.view, hip: P.hip, t: P.t || 0, legs, arms: P.arms || [], world: P.world || [], headFwd: P.headFwd || 0 });
   }
 
-  /* ---- the ten exercises. d = drive 0→1. Feet are given as ankle positions on the floor and never move unless the exercise moves them. ---- */
+  /* lifts */
   const L = (d) => (a, b) => a + (b - a) * d;
   const EXERCISES = [
     { id: 'goblet', name: 'Goblet Squat', aliases: ['Bodyweight Squat'], cue: 'hips drop between the heels, knees forward, torso tips just enough to keep the bell over mid-foot', actor: ['thighL', 'thighR'],
@@ -115,7 +105,6 @@
     { id: 'calf', name: 'Standing Calf Raise', aliases: ['Single-leg Calf Raise'], cue: 'hand on the wall; the whole body rises on the toes — the heel lifts, the toe never does', actor: ['shinL', 'shinR'],
       pose: (d) => { const l = L(d), rise = l(0, 0.06); return { hip: [0, 0.6 + rise], t: 1, legs: [{ ank: [0.0, ANK + rise], foot: l(0, 25) }, { ank: [0.04, ANK + rise], foot: l(0, 25) }], arms: [{ hand: [0.4, 0.86 + rise], bend: -1 }], world: [[0.42, FLOOR, 0.42, 1.24, 0.013]] }; } }
   ];
-  /* ---- the rest of the lifts ---- */
   EXERCISES.push(
     { id: 'gobletdeep', name: 'Deep Goblet Squat', cue: 'same squat, hips all the way down to the calves, torso tips a little more', actor: ['thighL', 'thighR'],
       pose: (d) => { const l = L(d); return { hip: [l(0, -0.09), l(0.6, 0.26)], t: l(2, 34), legs: [{ ank: [0.0, ANK] }, { ank: [0.07, ANK] }], arms: [{ hand: [l(0.1, 0.0), l(0.82, 0.56)], bend: -1 }], world: [[l(0.1, 0.0), l(0.82, 0.56), l(0.1, 0.0), l(0.86, 0.6), 0.03]] }; } },
@@ -129,7 +118,7 @@
       pose: (d) => { const l = L(d); return { hip: [0.05, 0.12], t: -90, legs: [{ knee: [0.1, 0.4], ank: [0.37, 0.4], foot: -90 }, { knee: [l(0.1, 0.32), l(0.4, 0.27)], ank: [l(0.37, 0.58), l(0.4, 0.14)], foot: l(-90, -20) }], arms: [{ el: [-0.28, 0.33], hd: [-0.28, 0.54] }, { el: [l(-0.28, -0.48), l(0.33, 0.22)], hd: [l(-0.28, -0.6), l(0.54, 0.08)] }] }; } },
     { id: 'sideplank', name: 'Side Plank', motion: 'breath', cue: 'a hold on the forearm, one straight line from shoulder to heel, top arm to the ceiling. A breath, no pulse', actor: ['torso'],
       pose: (d) => { const l = L(d); return { hip: [0.05, l(0.25, 0.23)], t: -100, legs: [{ ank: [0.5, 0.09], bend: 0, foot: 75 }], arms: [{ el: [-0.34, 0.055], hd: [-0.18, 0.055] }, { el: [-0.28, 0.5], hd: [-0.29, 0.7] }] }; } },
-    /* ---- stretches: stills. d leans into the hold, and the bake takes d = 1 — the stretch, not the standing-up-straight it leans in from ---- */
+    /* stretches */
     { id: 'calfstretch', name: 'Calf stretch', motion: 'still', cue: 'hands on the wall, rear leg straight with the heel down; the hips move toward the wall', actor: ['shinR'],
       pose: (d) => { const l = L(d); return { hip: [l(-0.08, 0.0), 0.58], t: l(8, 14), legs: [{ ank: [0.12, ANK], bend: 1 }, { ank: [-0.3, ANK], bend: 0 }], arms: [{ hand: [0.4, 0.86], bend: -1 }], world: [[0.42, FLOOR, 0.42, 1.24, 0.013]] }; } },
     { id: 'hipflexor', name: 'Hip flexor stretch', motion: 'still', cue: 'half-kneeling, hand on the front knee; the hips glide forward while the torso stays tall', actor: ['thighR'],
@@ -140,7 +129,7 @@
       pose: (d) => { const l = L(d); return { hip: [-0.08, 0.32], t: l(4, 30), legs: [{ ank: [0.2, ANK], bend: 1 }, { knee: [0.14, 0.42], ank: [0.24, 0.35], foot: 0 }], arms: [{ hand: [0.16, 0.42], bend: 1 }], world: [[-0.3, 0.29, 0.1, 0.29, 0.013], [-0.24, FLOOR, -0.24, 0.28, 0.013], [0.04, FLOOR, 0.04, 0.28, 0.013]] }; } },
     { id: 'doorway', name: 'Doorway chest stretch', motion: 'still', cue: 'forearm on the frame behind you; step through and let the chest lead', actor: ['torso'],
       pose: (d) => { const l = L(d); return { hip: [l(0, 0.05), 0.6], t: l(2, 10), legs: [{ ank: [0.2, ANK], bend: 1 }, { ank: [-0.16, ANK], bend: 0 }], arms: [{ el: [-0.14, 0.92], hd: [-0.17, 1.1] }], world: [[-0.19, FLOOR, -0.19, 1.24, 0.013], [-0.19, 1.24, 0.4, 1.24, 0.013]] }; } },
-    /* ---- run drills: d is the drive ---- */
+    /* run drills */
     { id: 'highknees', name: 'High knees', cue: 'on the toes; the knee drives to hip height while the arms run', actor: ['thighR', 'shinR'],
       pose: (d) => { const l = L(d); return { hip: [0, l(0.6, 0.63)], t: 6, legs: [{ ank: [0.0, l(ANK, ANK + 0.03)], bend: 1, foot: l(0, 25) }, { knee: [l(0.02, 0.26), l(0.31, 0.5)], ank: [l(0.03, 0.16), l(ANK, 0.25)], foot: l(0, 40) }], arms: [{ hand: [l(0.2, -0.12), l(0.7, 0.68)], bend: -1 }, { hand: [l(-0.12, 0.22), l(0.68, 0.76)], bend: 1 }] }; } },
     { id: 'carioca', name: 'Carioca', cue: 'front view, moving sideways; the trailing leg crosses in front, arms out for balance', actor: ['thighR', 'shinR'],
@@ -153,7 +142,7 @@
       pose: (d) => { const l = L(d), hip = [l(0.0, 0.04), l(0.6, 0.37)]; return { hip, t: l(2, 5), legs: [{ ank: [0.22, ANK], bend: 1 }, { knee: [l(-0.02, -0.08), l(0.32, 0.1)], ank: [l(-0.02, -0.34), l(ANK, 0.12)], foot: l(0, 80) }], arms: [{ hand: [hip[0] + 0.05, hip[1] + 0.02], bend: -1 }], world: [[hip[0] + 0.01, hip[1], hip[0] + 0.09, hip[1], 0.026]] }; } }
   );
 
-  /* ---- yoga: fifteen poses in the same vocabulary, from the design's yoga-poses.js. A still bakes one stamp at d = 1; a breath rises and falls along [0, .5, 1, .5] ---- */
+  /* yoga */
   EXERCISES.push(
     { id: 'lowlunge', name: 'Low Lunge', motion: 'still', cue: 'back knee down, shin along the mat; front knee over the ankle; torso tall, hands on the front thigh', actor: ['thighR'],
       pose: () => ({ hip: [0, 0.33], t: 2, legs: [{ ank: [0.27, ANK], bend: 1 }, { knee: [-0.2, 0.09], ank: [-0.46, 0.1], foot: 170 }], arms: [{ hand: [0.2, 0.42], bend: -1 }] }) },
@@ -186,7 +175,7 @@
     { id: 'savasana', name: 'Savasana', motion: 'breath', cue: 'flat on the back, toes up, arms by the sides. Breath: the chest, one dot', actor: ['torso'],
       pose: (d) => { const l = L(d); return { hip: [-0.04, 0.1], t: l(-90, -88), legs: [{ ank: [0.46, 0.09], bend: 0, foot: -70 }, { ank: [0.5, 0.09], bend: 0, foot: -70 }], arms: [{ el: [-0.2, 0.06], hd: [0.0, 0.06] }] }; } }
   );
-  /* ---- bodyweight: the floor's lifts. d is the drive; the two holds breathe ---- */
+  /* bodyweight */
   EXERCISES.push(
     { id: 'pushup', name: 'Push-up', cue: 'hands under the shoulders, one line from ear to heel; the chest drops to a fist off the floor and presses back', actor: ['uarmL', 'farmL'],
       pose: (d) => { const l = L(d); return { hip: [0.08, l(0.36, 0.17)], t: -95, legs: [{ ank: [0.54, 0.08], bend: 0, foot: 75 }], arms: [{ hand: [-0.3, 0.03], bend: 1 }] }; } },
@@ -216,7 +205,7 @@
     { title: 'Bodyweight', ids: ['pushup', 'splitsquat', 'steplunge', 'slrdl', 'hipbridge', 'bearcrawl', 'supermanhold', 'hollow', 'reversecrunch'] }
   ];
 
-  /* ---- rendering: one signed-distance field over the masses, lit from the upper-left, dithered ---- */
+  /* rendering */
   function sdf(M, x, y) {
     let best = { d: Infinity, m: null };
     for (const m of M) {
@@ -239,7 +228,7 @@
     return dither(0.62 - 0.4 * l + 0.25 * s.d, i, j);
   }
 
-  /* the masses of an exercise at depth d, and whether the dot at grid (i, j) prints — j counted from the ground up */
+  /* whether the dot at grid (i, j) prints — j is counted from the ground up */
   function massesForExercise(ex, d) { return figureAbs(ex.pose(d)); }
   function litAt(M, i, j) { return shadedLit(M, (i - 15) * U, 0.65 + (j - 15) * U, i, j); }
 

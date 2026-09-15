@@ -26,12 +26,9 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 		expect(was('ab-fullbody-v1', 'S')).toBe('mobility');
 		expect(was('ab-fullbody-v1', 'B')).toBe('lift');
 		expect(was('her-12-v1', '1')).toBe('lift');
-		// Hold Steady is gone from the table; its sessions still say yoga
 		expect(was('yoga-2day-v1', '2')).toBe('yoga');
-		// a kind: 'lift' row on a plan the table doesn't know is a lift — no row needs this today
 		const [l] = upcast(row('SessionStarted', { session: 's1', plan: 'p', kind: 'lift', day: 'A', at: AT, mode: 'live' }));
 		expect(l.type === 'SessionStarted' && l.data).toMatchObject({ discipline: 'lift', routine: 'A' });
-		// a row that already says what it was is believed over the table
 		const [k] = upcast(row('SessionStarted', { session: 's1', plan: 'ab-fullbody-v1', routine: 'S', discipline: 'yoga', at: AT, mode: 'live' }));
 		expect(k.type === 'SessionStarted' && k.data.discipline).toBe('yoga');
 	});
@@ -72,7 +69,6 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 			{ type: 'BlockToggled', data: { block: 'run', on: false, at: AT } },
 			{ type: 'BlockToggled', data: { block: 'bw', on: false, at: AT } }
 		]);
-		// a plan the table never knew reads as a programme, its blocks unsaid — no row needs this
 		expect(upcast(row('PlanSelected', { plan: 'p', at: AT }))).toEqual([{ type: 'ProgrammeSelected', data: { programme: 'p', at: AT } }]);
 	});
 

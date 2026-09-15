@@ -1,17 +1,16 @@
-/* LEDGER — typography tokens */
 :root {
   --font-display: 'Archivo', 'Archivo Black', sans-serif;
   --font-body: 'Archivo', sans-serif;
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
 
-  /* Scale — deliberately large: ergonomic, readable from a bench */
-  --text-hero: 64px;      /* big numbers, screen titles */
-  --text-display: 40px;   /* section heads */
-  --text-title: 28px;     /* card titles, exercise names */
-  --text-lg: 20px;        /* buttons, primary body */
-  --text-md: 17px;        /* body */
-  --text-sm: 14px;        /* labels, captions */
-  --text-data: 22px;      /* inline data */
+  /* type scale */
+  --text-hero: 64px;
+  --text-display: 40px;
+  --text-title: 28px;
+  --text-lg: 20px;
+  --text-md: 17px;
+  --text-sm: 14px;
+  --text-data: 22px;
 
   --weight-black: 900;
   --weight-bold: 700;
@@ -20,6 +19,6 @@
   --leading-snug: 1.25;
   --leading-body: 1.5;
 
-  --tracking-caps: 0.08em; /* all-caps labels */
+  --tracking-caps: 0.08em;
   --tracking-tightish: -0.01em;
 }

@@ -1,21 +1,6 @@
-/**
- * Dot-matrix exercise glyphs — the baked frames and the clock.
- *
- * Every figure is one athlete on one fixed 31 × 31 dot grid, drawn by Claude
- * Design's generator (tools/glyphs/) and baked into glyph-frames.json, each
- * frame 31 strings of 31 characters, top row first, '#' lit. The app runs no
- * geometry — it looks a name up and stamps a frame. `node tools/glyphs/bake.mjs`
- * rewrites the JSON; `--check` proves the JSON is what the generator makes.
- *
- * Motion is baked into the figure: a hold is not a rep with the ends chopped
- * off, it is a body that stays where it is and breathes. Three gears, chosen
- * per glyph at bake time, and the JSON carries the timing for each — so the
- * clock here takes the gear instead of assuming one:
- *   rep    — twelve stamps at 130 ms (out over frames 0–6, back over 7–11),
- *            then frame 0 held 900 ms: a 2.46 s cycle, never tweened
- *   breath — four stamps at 800 ms, rising and falling, no rest: 3.2 s
- *   still  — one frame. There is nothing to play.
- */
+// Dot-matrix exercise glyphs: a name is looked up and a frame stamped — no geometry at runtime.
+// `node tools/glyphs/bake.mjs` rewrites glyph-frames.json; `--check` proves the JSON matches the generator.
+// Three gears — rep · breath · still — chosen per glyph at bake time; the JSON carries each one's timing.
 import data from './glyph-frames.json';
 
 /** 31 rows of 31 characters, top row first; '#' prints */

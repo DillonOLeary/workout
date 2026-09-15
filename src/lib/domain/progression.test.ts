@@ -21,7 +21,6 @@ const load = (w: number, r: number): Measure => ({ of: 'load', load: w, reps: r 
 const hold = (s: number, target?: number): Measure => ({ of: 'hold', seconds: s, ...(target !== undefined ? { target } : {}) });
 const reps = (r: number): Measure => ({ of: 'reps', reps: r });
 
-/** A history, newest first — exactly what historyFor hands the rule. No events needed. */
 const hist = (entries: { daysAgo: number; sets: Measure[] }[]): History =>
 	entries.map((e) => {
 		const at = new Date(NOW - e.daysAgo * DAY).toISOString();
@@ -158,7 +157,6 @@ describe('suggest — re-entry', () => {
 		const s1 = loaded(goblet, one(20, load(35, 10), load(35, 10), load(35, 10)));
 		expect(s1.sets.map((x) => x.weight)).toEqual([35, 35, 35]);
 		expect(s1.reason).toBe('hold');
-		// already under the plan's guess: re-entry neither pushes up to it nor digs further down
 		const below = loaded(press, one(20, load(30, 10), load(30, 10), load(30, 10)));
 		expect(below.sets.map((x) => x.weight)).toEqual([30, 30, 30]);
 		expect(below.reason).toBe('hold');

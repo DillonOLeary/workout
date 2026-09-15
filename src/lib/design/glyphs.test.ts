@@ -16,7 +16,7 @@ describe('exercise glyphs', () => {
 	it('every exercise of every shipped plan has a figure — the run included', () => {
 		for (const plan of SHIPPED_PLANS)
 			for (const ex of planExercises(plan)) {
-				if (ex.kind === 'run') continue; // the run is a clock, not a figure
+				if (ex.kind === 'run') continue;
 				expect(framesFor(ex.name), ex.name).not.toBeNull();
 			}
 	});
@@ -37,7 +37,6 @@ describe('exercise glyphs', () => {
 		expect(MOTIONS.rep.seq).toHaveLength(12);
 		expect(MOTIONS.breath).toEqual({ seq: [0, 0.5, 1, 0.5], frameMs: 800, holdMs: 0 });
 		expect(MOTIONS.still).toEqual({ seq: [1], frameMs: 0, holdMs: 0 });
-		// the rep's drive: out over frames 0–6 to depth 1, back over 7–11
 		expect(workFrame('rep')).toBe(6);
 		for (let k = 1; k <= 6; k++) expect(MOTIONS.rep.seq[k], `seq[${k}]`).toBeGreaterThan(MOTIONS.rep.seq[k - 1]);
 		for (let k = 7; k < 12; k++) expect(MOTIONS.rep.seq[k], `seq[${k}]`).toBeLessThan(MOTIONS.rep.seq[k - 1]);
@@ -75,7 +74,7 @@ describe('exercise glyphs', () => {
 		expect(['Pigeon', 'Sphinx', 'Supine Twist'].map(motionOf)).toEqual(['still', 'still', 'still']);
 		expect(['Chair Pose', 'Warrior II', 'Downward Dog', 'Savasana', 'Hollow Hold', 'Superman Hold'].map(motionOf)).toEqual(['breath', 'breath', 'breath', 'breath', 'breath', 'breath']);
 		expect(['Push-up', 'Bear Crawl', 'Bodyweight Squat', 'Reverse Lunge', 'Single-leg Calf Raise'].map(motionOf)).toEqual(['rep', 'rep', 'rep', 'rep', 'rep']);
-		expect(glyphFor('Bodyweight Squat')?.name).toBe('Goblet Squat'); // one figure per ladder
+		expect(glyphFor('Bodyweight Squat')?.name).toBe('Goblet Squat');
 		expect(Object.keys(glyphs)).toHaveLength(51);
 	});
 
@@ -89,9 +88,7 @@ describe('exercise glyphs', () => {
 		expect(frameAt(2459, 'rep')).toBe(0);
 		expect(frameAt(2460, 'rep')).toBe(0);
 		expect(frameAt(2460 + 130, 'rep')).toBe(1);
-		// a breath has no rest: four frames, round and round
 		expect([0, 799, 800, 1600, 2400, 3199, 3200].map((t) => frameAt(t, 'breath'))).toEqual([0, 0, 1, 2, 3, 3, 0]);
-		// a still has nowhere to go; a clock before its start reads as its start
 		expect(frameAt(12345, 'still')).toBe(0);
 		expect(frameAt(-50, 'rep')).toBe(0);
 	});

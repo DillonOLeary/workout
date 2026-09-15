@@ -15,17 +15,9 @@
 	let { data, form }: PageProps = $props();
 	const opened = Date.now();
 
-	/**
-	 * "Log it after": a session done without the phone, usually as planned,
-	 * written in seconds. The same session shape the floor writes live, in
-	 * one shot and backdated — a run is one entry; a lift is its sets. The
-	 * rule's numbers are the lines; a tap opens the one that went
-	 * differently. What it was and when are one card; the sets are another;
-	 * the button says what it will write.
-	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let keys = $derived(routineKeys(plan));
-	// Today says what it sent you for: ?what=<routine>; else the run, the thing most often done without the phone
+	// seeded from the query string: ?what=<routine>, else the run
 	// svelte-ignore state_referenced_locally
 	const asked = page.url.searchParams.get('what');
 	let picked = $state<string | null>(null);
@@ -34,8 +26,6 @@
 	let cycle = $derived(cycleOf(plan, routine));
 	let title = $derived(plan.routineInfo[routine].title);
 
-	// something else: every routine, grouped by cycle in the plan's order — a
-	// routine two cycles share is listed under the first
 	let pickerOpen = $state(false);
 	let groups = $derived.by(() => {
 		const seen = new Set<string>();
@@ -55,8 +45,6 @@
 		pickerOpen = false;
 	}
 
-	// when: the last seven days, ending today. A backdated session needs a
-	// day, not a minute — it gets noon; today gets now
 	const days = (() => {
 		const now = new Date(opened);
 		const out: { key: number; wd: string; n: number; at: Date; today: boolean }[] = [];
@@ -71,10 +59,6 @@
 	let dateLabel = $derived(endAt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
 	let stamp = $derived(`${dateLabel} · ${days[when].today ? 'now' : 'noon'}`);
 
-	/* one line per exercise, every set the same numbers. The rule's
-	   suggestion for set 1 is the line — a session you did without the phone
-	   was most likely the one the plan asked for — and it is kept beside your
-	   numbers, so a changed line can say what the rule asked, and go back. */
 	type Numbers = { sets: number; weight: number; count: number };
 	type Line = Numbers & { ex: Exercise; asked: Numbers };
 	let lines = $state<Line[]>([]);
@@ -94,14 +78,12 @@
 		l.weight = l.asked.weight;
 		l.count = l.asked.count;
 	};
-	// the same ± as the floor: the rule's own one-size step
 	const bumpWeight = (l: Line, dir: 1 | -1) => {
 		if (l.ex.kind === 'load') l.weight = bumpLoad(l.ex, l.weight, dir);
 	};
 	const bumpReps = (l: Line, dir: 1 | -1) => (l.count = bumpCount(l.ex, l.count, dir));
 	const bumpSets = (l: Line, dir: 1 | -1) => (l.sets = Math.max(0, Math.min(8, l.sets + dir)));
 	const countCaps = (ex: Exercise) => (ex.kind === 'hold' ? 'Seconds' : ex.kind === 'run' ? 'Minutes' : 'Reps');
-	// skipping is a set count of zero: the line stays, and writes nothing
 	function skip() {
 		const l = lines.find((x) => x.ex.name === openLine);
 		if (l) l.sets = 0;
@@ -119,7 +101,6 @@
 				});
 		return out;
 	});
-	// a run done without the phone was the run, not the drills around it
 	let runMinutes = $derived(lines.find((l) => l.ex.kind === 'run')?.count ?? 0);
 	let durationMin = $derived(isRun ? runMinutes : estimateMinutes(sessionSteps(plan, { routine })));
 	let startAt = $derived(new Date(endAt.getTime() - durationMin * 60000));
@@ -141,7 +122,6 @@
 	</div>
 
 	<form method="POST" action="?/log" use:enhance class="col">
-		<!-- what, and when: one card -->
 		<Card interactive>
 			{#if pickerOpen}
 				<div class="sechead">
@@ -189,7 +169,6 @@
 			{/if}
 		</Card>
 
-		<!-- the sets: the rule's numbers, one line each; a tap opens the one that went differently -->
 		<Card pad={false}>
 			<div class="sechead setshead">
 				<span class="caps">{isRun ? 'The run' : 'The sets'}</span>
@@ -281,7 +260,6 @@
 	.meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 	.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 
-	/* what: the routine Today sent you for, and the way out of it */
 	.what { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 	.whatmain { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 	.title { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 26px; line-height: 1.1; }
@@ -303,7 +281,6 @@
 	.chip:hover { background: var(--volt-tint); color: var(--ink); }
 	.chip.on { background: var(--volt); border-color: var(--ink); color: var(--ink); }
 
-	/* when: seven days, the picked one volt, today dashed — the calendar's convention */
 	.whenhead { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 	.strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 8px; }
 	.day {
@@ -318,7 +295,6 @@
 	.wd { font-size: 10px; font-weight: 700; color: var(--ink-3); }
 	.n { font-size: 15px; font-weight: 800; }
 
-	/* the sets: two columns, the exercise and its line */
 	.setshead { padding: 12px 16px 8px; }
 	.row {
 		display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
@@ -335,7 +311,6 @@
 	}
 	.val { font-family: var(--font-mono); font-size: 14px; color: var(--ink-2); text-align: right; white-space: nowrap; }
 	.row.open .val { color: var(--ink); font-weight: 800; }
-	/* the open line: label / stepper, the steppers right-aligned so the numbers line up */
 	.steppers {
 		display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 2px; align-items: center;
 		padding: 0 16px 10px; background: var(--paper-2);

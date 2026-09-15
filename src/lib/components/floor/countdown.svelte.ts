@@ -1,18 +1,9 @@
 import type { Exercise } from '$lib/domain/plan';
 
-/**
- * A countdown on the floor: a hold (the bell writes that exercise's full
- * target) or a timed drill (the bell writes "it happened"). Start it, and
- * the stage counts down; let it ring, or drop early and log what was
- * actually done. One at a time, and any navigation cancels it.
- *
- * Only the clock lives here. What the bell WRITES is the page's business —
- * it hands in `onBell`, and the exercise rides along on a hold so the
- * callback has what it needs without reaching back into the page.
- */
 export type Countdown = { target: number } & ({ kind: 'hold'; ex: Exercise } | { kind: 'timed' });
 export type Running = Countdown & { end: number };
 
+/** the floor's one countdown — a hold or a timed drill; what the bell writes is the caller's `onBell` */
 export class CountdownClock {
 	running = $state<Running | null>(null);
 	/** whole seconds left, for the stage; null when nothing is running */

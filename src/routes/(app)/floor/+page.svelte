@@ -43,48 +43,26 @@
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
-	const opened = Date.now(); // one clock reading for the folds that need one at load
+	const opened = Date.now();
 
-	// Snapshots, not $derived — deliberately. id/plan/day cannot change while
-	// this screen is open (the load() guard guarantees a session exists), and
-	// a session belongs to the plan it was started under.
 	// svelte-ignore state_referenced_locally
 	const session = data.activeSession!;
 	// svelte-ignore state_referenced_locally
 	const plan = data.plans.find((p) => p.id === session.plan) ?? data.plans[0];
-	/* The session is a LIST OF STEPS — warm-up lines, every set, the cooldown;
-	   or the run with its own. The plan owns the order; this screen shows
-	   exactly one step at a time with one big button. Rests are not steps: a
-	   rest is a clock that runs under the next set. */
 	const workout = session.workout;
-	// what the session says it is — the run has no sets to count on the receipt
 	const isRun = session.discipline === 'run';
-	// a session of a plan this one no longer knows is titled by its own word
 	const title = routineTitle(plan, workout.routine) ?? disciplineLabel(session.discipline);
 	const cue = cueFor(plan, workout.routine);
 	const sessionAt = session.at;
-	/** the stretches the ⋯ sheet can add: every hold on the plan's stretch routines */
 	const stretchPool: Exercise[] = routinesOf(plan, 'mobility').flatMap((r) => plan.routines[r]);
-	/** the week this routine's cycle is having — the run's meta line says where it stands */
 	const cycle = cycleOf(plan, workout.routine);
 
-	/* ---------- the optimistic queue (entry-queue.svelte.ts) ----------
-	   The screen updates the frame you press; the server catches up in the
-	   background. data.events is never refreshed mid-session, so the queue
-	   laid over the server's entries is the one source of truth here. */
 	const queue = new EntryQueue(session.id);
-	let lastPress = 0; // double-tap cooldown; not reactive on purpose
+	let lastPress = 0;
 
-	// the server's entries, corrections already applied (one fold, projections.ts)
 	let serverEntries = $derived(sessionEntries(data.events, session.id));
-	// the entries that COUNT — and what `restUntil` reads, so a set that
-	// hasn't reached the server yet still starts the rest clock (that was 1j)
 	let entries = $derived(queue.overlay(serverEntries));
 
-	/* ---------- the steps ----------
-	   Derived, not a snapshot: a stretch added from the ⋯ sheet appends a
-	   section. The URL remembers what was added, and anything already logged
-	   outside the plan's steps comes back on its own — steps.ts decides. */
 	// svelte-ignore state_referenced_locally
 	const initialAdd = (page.url.searchParams.get('add') ?? '').split(',').filter(Boolean);
 	let added = $state<string[]>(initialAdd);
@@ -98,7 +76,6 @@
 	});
 	let totalSets = $derived(steps.filter((s) => s.kind === 'set').length);
 
-	// the rule's answer per exercise, once each: data.events never refreshes mid-session
 	const loads = new Map<string, Suggestion>();
 	function suggestionFor(ex: Exercise): Suggestion {
 		let s = loads.get(ex.name);
@@ -108,23 +85,15 @@
 		}
 		return s;
 	}
-	/** the rule's weight for set k of a loaded exercise; 0 where there is no load */
 	const plannedWeight = (x: Exercise, k: number) => {
 		const s = suggestionFor(x);
 		return s.kind === 'load' ? s.sets[Math.min(k, x.sets - 1)].weight : 0;
 	};
 
-	/* ---------- the clock ----------
-	   Time is an input to the fold: the rest and the run count from the
-	   previous entry's timestamp, so a reload lands back on the same countdown. */
 	let now = $state(Date.now());
 	let progress = $derived(sessionProgress(steps, entries));
 	let allDone = $derived(progress.current >= steps.length);
 
-	/* ---------- screen state ---------- */
-	// where a reload lands: the URL's step if it has one, else the first step
-	// the ledger doesn't already show as done — set 2 with its rest running,
-	// never the top of the bike
 	const initialStep = (() => {
 		// svelte-ignore state_referenced_locally
 		const known = sessionEntries(data.events, session.id);
@@ -138,16 +107,13 @@
 	})();
 	let stepI = $state(initialStep);
 	let weight = $state(0);
-	let reps = $state(0); // reps — or seconds, for a hold
+	let reps = $state(0);
 	let sheetOpen = $state(false);
-	/** a done set's key while its numbers are on the tiles and the primary reads Save */
 	let editing = $state<string | null>(null);
 
 	let st = $derived<Step | undefined>(steps[stepI]);
-	// the step's kind says what it carries: only a set has an exercise
 	let ex = $derived<Exercise | undefined>(st?.kind === 'set' ? st.ex : undefined);
 	let atSet = $derived(st?.kind === 'set');
-	/** a stretch: a hold that does not progress, nothing to dial — Start 45s, the bell, the other side */
 	let fixed = $derived(!!ex && !progresses(ex));
 	let stepDone = $derived(!!st && progress.done.has(st.key));
 	let entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
@@ -155,33 +121,23 @@
 	let setsDoneFor = (name: string) => entries.filter((e) => e.item === name && isSet(e.measure)).length;
 	let editStep = $derived(editing ? steps.find((s) => s.key === editing) : undefined);
 	let editEx = $derived(editStep?.kind === 'set' ? editStep.ex : undefined);
-	/** what the tiles are dialling: the set being fixed, else the current one */
 	let dialEx = $derived(editEx ?? ex);
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileBW = $derived(!!dialEx && dialEx.kind !== 'load');
 
-	/* ---------- a countdown: a hold, or a timed prep step (countdown.svelte.ts) ----------
-	   Dial the target (a hold) or take the plan's (a drill), start — the
-	   stage counts DOWN and the bell logs it: the full target for a hold,
-	   "it happened" for a drill. Drop early and the primary logs what was
-	   actually done. The clock is the module's; what the bell writes is ours. */
-	let live = $state(''); // the screen reader hears ten, and the bell — nothing else
+	let live = $state('');
 	const clock = new CountdownClock((done) => {
 		ringBell();
 		live = 'Done';
 		enqueue(done.kind === 'hold' ? holdMeasure(done.ex, done.target, done.target) : { of: 'step' });
 	});
 
-	/* ---------- the rest: a clock under the next set ----------
-	   From the previous set's LOCAL timestamp (restUntil); the row's note says
-	   "rest 62s", the ink line under it drains, the stage shows the number.
-	   Zero rings the bell and the row says "now" — nothing moves by itself. */
 	let restEnd = $derived(st?.kind === 'set' && !stepDone ? restUntil(st, entries, plan) : null);
 	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
 	let resting = $derived(restEnd !== null && restLeft > 0);
 	let restTotal = $derived(st?.kind === 'set' ? restFor(plan, st.ex) : 0);
 	let restFrac = $derived(resting && restTotal ? restLeft / restTotal : 0);
-	let counting: number | null = null; // the rest whose bell is still owed
+	let counting: number | null = null;
 	$effect(() => {
 		if (resting) counting = restEnd;
 		else if (counting !== null && restEnd === counting) {
@@ -194,7 +150,6 @@
 		if ((resting && restLeft === 10) || clock.remaining === 10) live = '10 seconds';
 	});
 
-	// only tick while something on screen is counting
 	let ticking = $derived(resting || clock.active || st?.kind === 'run');
 	$effect(() => {
 		if (!ticking) return;
@@ -202,7 +157,6 @@
 		return () => clearInterval(t);
 	});
 
-	/* ---------- the run: the clock is the number ---------- */
 	let runFrom = $derived(st?.kind === 'run' ? runStart(steps, stepI, entries, sessionAt) : null);
 	let runElapsed = $derived(runFrom !== null ? Math.max(0, now - runFrom) : 0);
 	const mmss = (ms: number) => {
@@ -210,10 +164,6 @@
 		return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 	};
 
-	/* ± is never a fixed nudge: it is the rule's own one-size step (D3). A
-	   hold stops at the top of its range — past it the answer is a harder
-	   variation (the exercise note says which), never a longer hold. Fixing a
-	   hold you dropped early is the one time the count goes under the floor. */
 	const bumpReps = (dir: 1 | -1) => {
 		if (!dialEx || clock.active) return;
 		if (editing && dialEx.kind === 'hold') reps = Math.max(1, Math.min(dialEx.hi, reps + dir * (dialEx.progress.of === 'time' ? dialEx.progress.inc : 5)));
@@ -223,7 +173,6 @@
 		if (dialEx?.kind === 'load') weight = bumpLoad(dialEx, weight, dir);
 	};
 
-	/** What the tiles show for the set about to be logged: the rule's nextSet, from this session's own entries. */
 	function preload(i: number) {
 		const s = steps[i];
 		if (!s || s.kind !== 'set') return;
@@ -240,8 +189,6 @@
 	preload(initialStep);
 
 	function syncUrl() {
-		// shallow routing: URL tracks the step (and what was added), no loads
-		// run, no history spam
 		const q = new URLSearchParams();
 		q.set('step', String(stepI));
 		if (added.length) q.set('add', added.join(','));
@@ -257,11 +204,6 @@
 		syncUrl();
 	}
 
-	/* ---------- fixing a set: tap its row ----------
-	   Any done set in the section is one tap from its numbers being on the
-	   tiles; the primary reads "Save set N" and writes a CorrectEntry. The
-	   row again, or the current row, cancels. The decider allows this on the
-	   latest session only — which this one is, being open. */
 	function tapRow(key: string) {
 		if (editing === key || (st && key === st.key)) return cancelEdit();
 		const s = steps.find((x) => x.key === key);
@@ -286,7 +228,6 @@
 		cancelEdit();
 	}
 
-	/* ---------- the step table: the current section ---------- */
 	function rowFor(s: Step, i: number): Row {
 		const cur = i === stepI;
 		const e = entryFor(s);
@@ -309,10 +250,7 @@
 			}
 			case 'set': {
 				const x = s.ex;
-				// last time's count for THIS set, muted after the value — the one
-				// place the ledger speaks on the floor
 				const was = last?.sets[s.index - 1];
-				// a stretch has no number to beat, so it gets no number to look at
 				const lastN = was && progresses(x) ? countLabel(was) : undefined;
 				if (editing === s.key)
 					return { key: s.key, label: s.label, value: setValue(x, weight, reps), note: 'editing', state: 'editing', tappable: true };
@@ -324,8 +262,6 @@
 				if (cur && clock.running) return { key: s.key, label: s.label, value: `${clock.running.target}s`, note: 'now', state: 'running' };
 				if (cur && resting)
 					return { key: s.key, label: s.label, value: setValue(x, weight, reps), last: lastN, note: `rest ${restLeft}s`, state: 'resting', bar: restFrac };
-				// "now", not "logging": the write is what saving… means — this row is
-				// simply the one you're on, same word the prep steps use
 				if (cur) return { key: s.key, label: s.label, value: setValue(x, weight, reps), last: lastN, note: 'now', state: state(false) };
 				return { key: s.key, label: s.label, value: plannedValue(x, plannedWeight(x, s.index - 1)), last: lastN, state: 'upcoming' };
 			}
@@ -340,10 +276,7 @@
 		return out;
 	});
 
-	/* ---------- the lines above the table ---------- */
 	let heading = $derived(!st ? 'Done' : st.kind === 'set' ? st.ex.name : st.section);
-	// this session counts: an unfinished one today is still one. A snapshot on
-	// purpose — data.events never refreshes mid-session
 	// svelte-ignore state_referenced_locally
 	const week = cycle ? weekProgress(data.events, plan, cycle, opened) : null;
 	let meta = $derived.by(() => {
@@ -354,16 +287,11 @@
 		}
 		if (st.kind === 'run') return `TARGET ${st.minutes} MIN${week && week.target ? ` · ${week.done} OF ${week.target} THIS WEEK` : ''}`;
 		const x = st.ex;
-		// a stretch has no target to state — it says how long, and which side
 		if (!progresses(x) && x.kind === 'hold') return holdLine(x, st.index);
-		// a ladder says which rung, where a lift would say the weight
 		const v = suggestionFor(x);
 		const rung = v.kind === 'count' && v.variant ? ` · ${v.variant.name.toUpperCase()}` : '';
 		return `TARGET ${rangeLabel(x).toUpperCase()}${x.kind === 'load' && x.progress.each ? ' · PER HAND' : ''}${rung}${x.kind === 'reps' && !rung ? ` · ${x.equip.toUpperCase()}` : ''}`;
 	});
-	// the reasoning behind the preloaded weight, so a drop is never silent —
-	// only before the first set: after that the table carries the session's
-	// own numbers and the suggestion no longer describes what's on screen
 	let hint = $derived.by(() => {
 		if (!st || editing) return null;
 		if (st.kind === 'prep' || st.kind === 'timed') return cue ?? null;
@@ -373,11 +301,6 @@
 		return loadHint(suggestionFor(x), x);
 	});
 
-	/* ---------- the stage: the one flexible element on the floor ----------
-	   Between the table and the tiles. The rep while you log; the big
-	   number, its note and a draining bar while you rest, hold or run — the
-	   figure beside it, still for a rest, working through the hold. It grows
-	   on a tall phone and gives first on a short one; nothing else moves. */
 	type Stage = { value: string; note: string; frac: number };
 	let stage = $derived.by((): Stage | null => {
 		if (!st || allDone) return null;
@@ -401,14 +324,10 @@
 	let glyphName = $derived(editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : undefined) ?? '');
 	let holdRunning = $derived(clock.active);
 
-	/* ---------- the write path ---------- */
-	// the exercise decides which variant a set writes — never the screen
 	const holdMeasure = (x: Exercise, seconds: number, target: number): Measure => measureFor(x, { load: 0, count: seconds, target });
 
 	function push(op: QueueOp, s: Step, measure: Measure) {
 		queue.push(op, s, measure);
-		// instant feedback: the row fills in, the phone taps back. No flash —
-		// the table changing IS the confirmation.
 		navigator.vibrate?.(12);
 	}
 
@@ -417,20 +336,16 @@
 		const s = st;
 		push('log', s, measure);
 		const next = stepI + 1;
-		if (next >= steps.length) return; // the receipt takes over
-		// within a section the next step just arrives (set 2, its rest
-		// running under it). A new section WAITS: the primary reads "Next:
-		// Chest Press" and nothing flips under a finger.
+		if (next >= steps.length) return;
 		if (steps[next].section === s.section) goTo(next);
 	}
 
 	function logSetNow(x: Exercise) {
-		if (performance.now() - lastPress < 350) return; // accidental double-tap
+		if (performance.now() - lastPress < 350) return;
 		lastPress = performance.now();
 		enqueue(measureFor(x, { load: weight, count: reps }));
 	}
 
-	/** timed: one button — start the countdown, or log the early drop */
 	function startOrDone(next: Countdown) {
 		if (performance.now() - lastPress < 350) return;
 		lastPress = performance.now();
@@ -444,13 +359,12 @@
 		if (s) queue.retry(s);
 	}
 
-	/* ---------- finish / exit ---------- */
 	let finishFormEl = $state<HTMLFormElement>();
 	let finishing = $state(false);
 
 	async function finishNow() {
 		finishing = true;
-		await queue.drain(); // queued entries must append before SessionFinished
+		await queue.drain();
 		if (queue.anyFailed) {
 			queue.error = 'An entry didn’t save — Retry it, or finish from the ⋯ menu.';
 			finishing = false;
@@ -459,7 +373,6 @@
 		finishFormEl?.requestSubmit();
 	}
 
-	// the sheet's confirm already stated the cost — this path never blocks
 	async function finishEarly() {
 		sheetOpen = false;
 		finishing = true;
@@ -469,11 +382,9 @@
 
 	async function exitToToday() {
 		await queue.drain();
-		// we skipped all invalidation during the session, so Today must reload
 		await goto('/', { invalidateAll: true });
 	}
 
-	/** a one-off from the ⋯ sheet: the stretch becomes a section of this session, and the floor goes there */
 	function addStretch(name: string) {
 		sheetOpen = false;
 		if (!added.includes(name)) added = [...added, name];
@@ -495,7 +406,6 @@
 		logSetNow(st.ex);
 	}
 
-	/* ---------- the one big button ---------- */
 	let nextLabel = $derived.by(() => {
 		const n = steps[stepI + 1];
 		if (!n) return 'Finish workout';
@@ -533,13 +443,8 @@
 											: 'Log set'
 	);
 	let primaryVariant = $derived((!editing && (allDone || !st || stepDone) ? 'advance' : 'commit') as 'advance' | 'commit');
-	/** tiles: while a set is being dialled or fixed — never for a stretch (nothing to dial), never for prep */
 	let showTiles = $derived(!!editing || (atSet && !stepDone && !fixed));
 
-	/* ---------- the ⋯ sheet: the session, by section ----------
-	   One row per section — never the sets: the sheet is for finding your
-	   place, the floor is for the set. A row says "done" when the whole
-	   section is, else how far in. */
 	let sections = $derived.by((): SheetSection[] => {
 		const order: string[] = [];
 		const by = new Map<string, { s: Step; i: number }[]>();
@@ -560,7 +465,6 @@
 	});
 	let addable = $derived(stretchPool.filter((x) => !steps.some((s) => s.section === x.name)));
 
-	/** the receipt: what this session actually wrote, in ledger shape */
 	function receiptSets(name: string): Measure[] {
 		return entries
 			.filter((e) => e.item === name && isSet(e.measure))
@@ -568,7 +472,6 @@
 			.map((e) => e.measure);
 	}
 	let runMinutes = $derived(entries.filter((e) => e.measure.of === 'duration').reduce((n, e) => n + (e.measure.of === 'duration' ? e.measure.minutes : 0), 0));
-	// one line for what never reached the ledger: how long it took, and that the bookends happened
 	let sessionMinutes = $derived.by(() => {
 		const end = entries.reduce((m, e) => Math.max(m, Date.parse(e.at)), 0) || now;
 		return Math.max(1, Math.round((end - Date.parse(sessionAt)) / 60000));
@@ -580,10 +483,8 @@
 	let position = $derived(positionLabel(Math.min(stepI, steps.length), steps));
 
 	function onKey(ev: KeyboardEvent) {
-		// typed entry belongs to the tile inputs — never fight the keypad
 		if ((ev.target as HTMLElement | null)?.tagName === 'INPUT') return;
 		if (ev.key === 'Escape') {
-			// Esc closes the sheet, or backs out of a fix — leaving is a sheet action
 			if (sheetOpen) sheetOpen = false;
 			else if (editing) cancelEdit();
 			ev.preventDefault();
@@ -620,8 +521,6 @@
 
 <div class="fl">
 	<div class="fl-inner">
-		<!-- a session owns the screen: no tab bar, no × — pausing and finishing
-		     both live in the ⋯ sheet -->
 		<header class="fl-top">
 			<span class="fl-crumb">
 				{title} · {position}{allDone ? '' : ` · ~${minutesLeft} min`}
@@ -649,10 +548,6 @@
 					<p class="fl-hint">{hint}</p>
 				{/if}
 
-				<!-- the stage: the figure while you log (one rep on arrival, press
-				     for another); the clock, its bar and the figure beside it while
-				     you rest, hold or run. Keyed on the name, so a new exercise
-				     replays and a rest on the same one does not. -->
 				<div class="fl-stage" class:clock={!!stage}>
 					<div class="fl-stagerow">
 						{#key glyphName}
@@ -705,9 +600,6 @@
 				<FloorPrimary variant={primaryVariant} label={primaryLabel} disabled={finishing} onclick={primaryAction} />
 			</div>
 		{:else}
-			<!-- workout complete: no adjuster on screen — the table becomes a
-			     receipt in the same two-column shape as the Ledger tab (D6);
-			     only what reached the ledger, with the rest on one line -->
 			<main class="fl-main">
 				<h1 class="fl-name">Done</h1>
 				<p class="fl-meta">
@@ -774,8 +666,7 @@
 	onClose={() => (sheetOpen = false)}
 />
 
-<!-- finish still goes through a real form action; its 303 redirect makes
-     use:enhance run invalidateAll, so Today reloads fresh events -->
+<!-- finish still goes through a real form action; its 303 redirect makes use:enhance run invalidateAll, so Today reloads fresh events -->
 <form bind:this={finishFormEl} method="POST" action="?/finish" use:enhance hidden></form>
 
 <style>
@@ -784,10 +675,7 @@
 		top: 0;
 		left: 0;
 		right: 0;
-		/* NOT inset:0 — in mobile Safari that resolves to the layout viewport,
-		   which extends behind the URL bar and toolbar, so the primary ends
-		   up underneath the browser. This shell never scrolls the page, so the
-		   bars stay expanded and svh is the honest number. */
+		/* not inset:0 — mobile Safari resolves that to the layout viewport, which extends behind the URL bar and toolbar */
 		height: 100vh;
 		height: 100svh;
 		z-index: 50;
@@ -847,8 +735,6 @@
 		text-overflow: ellipsis;
 	}
 
-	/* the floor never scrolls: everything above the stage is fixed height,
-	   the stage takes what is left, and the tiles and the button sit below */
 	.fl-main {
 		flex: 1;
 		min-height: 0;
@@ -888,7 +774,6 @@
 		border-radius: 4px;
 	}
 
-	/* the stage */
 	.fl-stage {
 		flex: 1 1 0;
 		min-height: 0;
@@ -917,17 +802,9 @@
 		justify-content: center;
 	}
 	.fl-glyph :global(canvas) { width: auto; height: 100%; max-height: 240px; aspect-ratio: 1; }
-	/* a step with no figure (a jog, a walk) leaves the clock the whole row */
 	.fl-glyph:empty { display: none; }
-	/* the clock keeps its room — never shorter than its content. The figure
-	   alone may collapse; a long section's table gives way and scrolls
-	   instead of being painted over. The row's basis must be its content
-	   here: with a zero basis the stage's content minimum counts only the
-	   bar, and the clock is painted over the table (seen on the run's
-	   eight-step warm-up) */
 	.fl-stage.clock { min-height: auto; }
 	.fl-stage.clock .fl-stagerow { flex-basis: auto; }
-	/* the clock: the figure steps aside, at rest, 88px */
 	.fl-stage.clock .fl-glyph { flex: none; height: 88px; }
 	.fl-stage.clock .fl-glyph :global(canvas) { width: 88px; height: 88px; }
 	.fl-clock { display: flex; flex-direction: column; align-items: flex-start; }
@@ -948,7 +825,6 @@
 		text-transform: uppercase;
 		color: var(--ink-3);
 	}
-	/* an ink bar draining: the same mark as the line under the row */
 	.fl-bar { flex: none; width: 100%; height: 6px; background: var(--paper-2); border-radius: var(--radius-pill); overflow: hidden; }
 	.fl-barfill { height: 100%; background: var(--ink); transition: width 200ms linear; }
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -987,7 +863,6 @@
 		cursor: pointer;
 	}
 
-	/* the receipt — two columns, like the Ledger tab */
 	.fl-receipt {
 		flex: none;
 		margin-top: 12px;
@@ -1022,8 +897,6 @@
 		.fl :global(*) { transition: none !important; animation: none !important; }
 	}
 
-	/* Short screens: the floor must not scroll mid-set. The stage gives first,
-	   then the hint; nothing interactive goes below 44px, ever. */
 	@media (max-height: 740px) {
 		.fl-name { font-size: clamp(24px, 6vw, 30px); }
 		.fl-bottom { padding-top: 6px; }

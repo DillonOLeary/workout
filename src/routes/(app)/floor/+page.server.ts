@@ -10,11 +10,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!activeSession) redirect(303, '/');
 };
 
-/** The identity and measure every entry-shaped action reads from its form. */
 async function entryFields(request: Request) {
 	const form = await request.formData();
-	// the measure travels as JSON; parseMeasure rebuilds it from the fields
-	// its variant owns, and the decider then judges the numbers
 	const measure = parseMeasure(form.get('measure'));
 	return {
 		measure,
@@ -43,6 +40,7 @@ export const actions: Actions = {
 		if (err) return fail(400, { message: err });
 	},
 
+	/** close the session; the 303 sends the browser home */
 	finish: async ({ locals }) => {
 		const err = await tryCommand(requireUid(locals), {
 			type: 'FinishSession',

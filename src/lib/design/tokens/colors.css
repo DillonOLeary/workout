@@ -1,6 +1,5 @@
-/* LEDGER — color tokens */
 :root {
-  /* Base palette */
+  /* palette */
   --ink: #1A1915;
   --ink-2: #4A4840;
   --ink-3: #7A776B;
@@ -13,10 +12,10 @@
   --volt-deep: #A8D32A;
   --volt-tint: #EAF9C4;
 
-  /* the one signal: red, and only ever after intent. No amber, no green. */
+  /* signal */
   --signal-red: #C43D2B;
 
-  /* Semantic aliases — only the ones a screen reaches for */
+  /* semantic aliases */
   --text-body: var(--ink);
 
   --surface-page: var(--paper);

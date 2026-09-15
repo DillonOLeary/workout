@@ -22,11 +22,7 @@ type Entry = {
 	day?: string;
 };
 
-/**
- * A stream with one exercise logged across several sessions — written in the
- * RETIRED SetLogged shape on purpose and upcast on the way out, so every fold
- * below also proves the read boundary. An unknown plan's day reads as a lift.
- */
+/** Written in the retired SetLogged shape on purpose, so every fold below also proves the read boundary. */
 function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
 	const out: StoredEvent[] = [];
 	entries.forEach((e, i) => {
@@ -45,7 +41,6 @@ function ledger(name: string, entries: Entry[], now = NOW): LedgerEvent[] {
 	return upcastAll(out);
 }
 const raw = (type: string, data: unknown): LedgerEvent[] => upcastAll([{ type, data }]);
-/** A finished session in the current shape — a stretch, a yoga flow, whatever it says it was. */
 const did = (session: string, routine: string, discipline: Discipline, daysAgo: number, plan = 'p'): LedgerEvent[] => {
 	const at = new Date(NOW - daysAgo * DAY).toISOString();
 	return [
@@ -61,7 +56,6 @@ const stretch: Exercise = { name: 'Calf stretch', equip: 'Mat', tag: '', kind: '
 const runEx: Exercise = { name: 'Easy run', equip: 'Shoes', tag: '', kind: 'run', sets: 1, lo: 30, hi: 30, progress: { of: 'none' } };
 const pushup: Exercise = { name: 'Push-up', equip: '', tag: '', kind: 'reps', sets: 2, lo: 8, hi: 15, progress: { of: 'variant', ladder: ['Incline push-up', 'Push-up'] } };
 
-/** Open to Work, in miniature: three cycles that turn on their own, and a no-gym block that stands in for the lift. */
 const plan: Plan = {
 	id: 'p', name: 'P', schedule: '',
 	cycles: [
@@ -93,7 +87,6 @@ describe('historyFor — the seam between the read model and the rule', () => {
 		expect(h[0].sets[0]).toEqual({ of: 'load', load: 35, reps: 8 });
 		expect(historyFor(ev, 'Goblet Squat')).toHaveLength(3);
 		expect(historyFor(ev, 'Chest Press')).toEqual([]);
-		// the rule reads it straight: excluded → hold, included → increase
 		expect(suggest(h, goblet, NOW)).toMatchObject({ reason: 'hold' });
 		expect(suggest(historyFor(ev, 'Goblet Squat'), goblet, NOW)).toMatchObject({ reason: 'increase' });
 	});
@@ -150,7 +143,6 @@ describe('trendFor — the status sentence', () => {
 		expect(t.sentence).toBe('Re-entry haircut in 2 days');
 		expect(t.tone).toBe('warn');
 		expect(REENTRY_WARN_DAYS).toBe(11);
-		// a hold has no size to come back lighter at, so no warning either: it reads as what it is
 		const held = ledger('Long-Lever Plank', [{ daysAgo: 12, unit: 's', sets: [[0, 20, 20], [0, 20, 20], [0, 20, 20]] }]);
 		expect(trendFor(held, plank, undefined, NOW).sentence).toBe('At the ceiling (20s) — make it harder, not longer');
 	});
@@ -212,7 +204,6 @@ describe('corrections — the last word on an entry', () => {
 	it('keeps sets in set order whatever order they arrived, and says which set each was', () => {
 		const swapped = [base[0], base[2], base[1]];
 		expect(projectSessions(swapped)[0].rows[0].sets.map((m) => countOf(m))).toEqual([10, 9]);
-		// set 1 skipped: the row still knows the one set it has is set 2
 		const skipped = [base[0], base[2]];
 		expect(projectSessions(skipped)[0].rows[0]).toEqual({ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 9 }], indices: [2] });
 	});
@@ -233,12 +224,10 @@ describe('cycles — where each one is turned to, and how far behind', () => {
 		expect(nextInCycle([], plan, LIFT)).toBe('A');
 		expect(nextInCycle(ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]] }]), plan, LIFT)).toBe('B');
 		expect(nextInCycle(ledger('Chest Press', [{ daysAgo: 2, sets: [[45, 10]], day: 'B' }]), plan, LIFT)).toBe('A');
-		// B twice: the pointer sits after B — the cycle follows you, not a calendar
 		expect(nextInCycle(ledger('Chest Press', [{ daysAgo: 4, sets: [[45, 10]], day: 'B' }, { daysAgo: 2, sets: [[45, 10]], day: 'B' }]), plan, LIFT)).toBe('A');
 		expect(nextInCycle(ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]], removed: true }]), plan, LIFT)).toBe('A');
 		expect(nextInCycle(did('o', 'A', 'lift', 2, 'other'), plan, LIFT)).toBe('A');
-		expect(nextInCycle([...did('h', 'S', 'mobility', 2)], plan, BW)).toBe('bw1'); // the mixed cycle turns on the shared routine
-		// a session still open has not turned the cycle
+		expect(nextInCycle([...did('h', 'S', 'mobility', 2)], plan, BW)).toBe('bw1');
 		const open: LedgerEvent = { type: 'SessionStarted', data: { session: 'o', plan: 'p', discipline: 'lift', routine: 'A', at: new Date(NOW).toISOString(), mode: 'live' } };
 		expect(nextInCycle([open], plan, LIFT)).toBe('A');
 	});
@@ -252,7 +241,6 @@ describe('cycles — where each one is turned to, and how far behind', () => {
 		expect(weekProgress(ev, plan, LIFT, NOW)).toEqual({ done: 2, target: 3 });
 		expect(weekProgress(ev, plan, MOB, NOW)).toEqual({ done: 1, target: 3 });
 		expect(weekProgress(ev, plan, RUN, NOW)).toEqual({ done: 1, target: 3 });
-		// the no-gym block is lifts and stretches: it counts both, and asks for nothing
 		expect(weekProgress(ev, plan, BW, NOW)).toEqual({ done: 1, target: 0 });
 		expect(staleness(ev, plan, NOW).map((s) => [s.cycle, s.daysSince === null ? null : Math.round(s.daysSince)])).toEqual([
 			['lift', 1], ['mob', 3], ['run', 2], ['bw', 3]
@@ -301,18 +289,15 @@ describe('preferences — the last snapshot wins', () => {
 
 describe('queue — one candidate per cycle, ranked', () => {
 	const first = (ev: LedgerEvent[], prefs: Preferences = DEFAULT_PREFERENCES) => queue(ev, plan, prefs, NOW)[0];
-	// everything done twice this week: all one short, the run a whole cadence staler
 	const even = [
 		...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10]] }, { daysAgo: 3, sets: [[35, 10]], day: 'B', session: 'b' }]),
 		...raw('RunLogged', { minutes: 30, at: new Date(NOW - 3 * DAY).toISOString() }),
 		...raw('RunLogged', { minutes: 30, at: new Date(NOW - 5 * DAY).toISOString() }),
 		...did('s1', 'S', 'mobility', 1), ...did('s2', 'S', 'mobility', 2)
 	];
-	// three lifts this week: the lift is caught up, the rest is behind
 	const busy = [...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10]] }, { daysAgo: 2, sets: [[35, 10]], day: 'B', session: 'b' }, { daysAgo: 3, sets: [[35, 10]], session: 'c' }])];
 	it('offers every cycle once and says why in one line', () => {
 		const q = queue([], plan, DEFAULT_PREFERENCES, NOW);
-		// the no-gym block is not asked for — it is dealt, last
 		expect(q.map((c) => c.cycle)).toEqual(['mob', 'lift', 'run', 'bw']);
 		expect(q.map((c) => c.workout.routine)).toEqual(['S', 'A', 'run', 'bw1']);
 		expect(q.map((c) => c.discipline)).toEqual(['mobility', 'lift', 'run', 'bodyweight']);
@@ -320,22 +305,18 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(q.every((c) => c.why.length > 0 && c.minutes > 0)).toBe(true);
 	});
 	it('leads with what is owed, then what is stalest, then what is shortest', () => {
-		// lifted yesterday and today, ran once, never stretched → the stretch is furthest behind
 		const ev = [
 			...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10]] }]),
 			...ledger('Chest Press', [{ daysAgo: 0, sets: [[45, 10]], day: 'B', session: 'b' }]),
 			...raw('RunLogged', { minutes: 30, at: new Date(NOW - 3 * DAY).toISOString() })
 		];
 		expect(queue(ev, plan, DEFAULT_PREFERENCES, NOW).map((c) => c.cycle)).toEqual(['mob', 'run', 'lift', 'bw']);
-		// all one short: the staler run leads, and the other two fall to minutes, shortest first
 		expect(queue(even, plan, DEFAULT_PREFERENCES, NOW).map((c) => c.cycle)).toEqual(['run', 'mob', 'lift', 'bw']);
 	});
 	it('keeps the floor in the deck, last — never above anything owed, even when an intent names it', () => {
-		// the lift is caught up and get-stronger names the floor: the intent bump must not lift it past what is owed
 		const q = queue(busy, plan, { intents: ['get-stronger'], equipment: DEFAULT_PREFERENCES.equipment }, NOW);
 		expect(q.map((c) => c.cycle)).toEqual(['mob', 'run', 'lift', 'bw']);
 		expect(q[3]).toMatchObject({ due: false, out: false });
-		// switched off, the block is not in the week — and nothing stands in for a lift with no gym
 		const noFloor: Plan = { ...plan, cycles: plan.cycles.filter((c) => c.id !== 'bw') };
 		const noGym = queue([], noFloor, { intents: [], equipment: ['mat', 'shoes'] }, NOW);
 		expect(noGym.map((c) => c.cycle)).toEqual(['mob', 'run', 'lift']);
@@ -343,9 +324,7 @@ describe('queue — one candidate per cycle, ranked', () => {
 	});
 	it('"just show up more" puts the shorter owed session ahead of the staler one, and the floor stays last', () => {
 		const showUp: Preferences = { intents: ['show-up-more'], equipment: DEFAULT_PREFERENCES.equipment };
-		// all one short: minutes (3 / 4 / 30) decide before the run's staleness does
 		expect(queue(even, plan, showUp, NOW).map((c) => c.cycle)).toEqual(['mob', 'lift', 'run', 'bw']);
-		// what is owed still comes first: two short beats a shorter one short, however long
 		const short = [
 			...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10]] }]),
 			...did('s1', 'S', 'mobility', 1), ...did('s2', 'S', 'mobility', 3),
@@ -366,7 +345,6 @@ describe('queue — one candidate per cycle, ranked', () => {
 			...ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 10]], session: 'a' }])
 		];
 		expect(queue(gone, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'lift')!.why).toBe('2 days since Squat & Shove · Chest Press comes back a size');
-		// B twelve days ago and A yesterday → B is due, and about to take the haircut
 		const warn = [
 			...ledger('Chest Press', [{ daysAgo: 12, sets: [[45, 10], [45, 10], [45, 10]], day: 'B', session: 'b' }]),
 			...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10], [35, 10], [35, 10]], session: 'a' }])
@@ -374,7 +352,6 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(queue(warn, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Re-entry haircut in 2 days · 1 day since Squat & Shove · 1 of 3 this week');
 		const today = ledger('Goblet Squat', [{ daysAgo: 0, sets: [[35, 10]] }]);
 		expect(queue(today, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Squat & Shove today · 1 of 3 this week');
-		// a cycle counts another plan's session but cannot title it by a key it doesn't have: the session's own word, then
 		const elsewhere = did('o', 'X', 'mobility', 2, 'other');
 		expect(queue(elsewhere, plan, DEFAULT_PREFERENCES, NOW).find((c) => c.cycle === 'mob')!.why).toBe('2 days since Stretch · 1 of 3 this week');
 	});
@@ -386,9 +363,7 @@ describe('queue — one candidate per cycle, ranked', () => {
 		const bw = noGym.find((c) => c.cycle === 'bw')!;
 		expect(bw.out).toBe(false);
 		expect(bw.why).toBe('First session · 0 of 3 this week'); // the lift's target, inherited
-		// take the gym back and the floor drops to the bottom — still dealt, never first
 		expect(queue(busy, plan, DEFAULT_PREFERENCES, NOW).map((c) => c.cycle)).toEqual(['mob', 'run', 'lift', 'bw']);
-		// no shoes: the run drops to the bottom, and says so
 		const noShoes = queue([], plan, { intents: [], equipment: ['gym', 'mat'] }, NOW);
 		expect(noShoes.find((c) => c.cycle === 'run')).toMatchObject({ out: true, why: 'needs running shoes' });
 	});
@@ -399,13 +374,10 @@ describe('queue — one candidate per cycle, ranked', () => {
 			...raw('RunLogged', { minutes: 30, at: new Date(NOW - 2 * DAY).toISOString() }),
 			...raw('RunLogged', { minutes: 30, at: new Date(NOW - 4 * DAY).toISOString() })
 		];
-		// the lift is two sessions short, the others one: the lift leads
 		expect(first(ev).cycle).toBe('lift');
-		// "move better" is one more stretch owed — a tie with the lift, and the shorter one wins it
 		const asked = first(ev, { intents: ['move-better'], equipment: DEFAULT_PREFERENCES.equipment });
 		expect(asked.cycle).toBe('mob');
 		expect(asked.why).toMatch(/you asked for this$/);
-		// everything at 1 of 3 and nothing stale: the shortest routine is the ask
 		const flat = [
 			...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10]] }]),
 			...did('s1', 'S', 'mobility', 1),
@@ -440,13 +412,11 @@ describe('monthGrid', () => {
 		expect(grid.weeks.every((w) => w.length === 7)).toBe(true);
 		const cells = grid.weeks.flat();
 		expect(cells).toHaveLength(35);
-		// the last cell is today, and nothing in the window is in the future
 		expect(cells[34]).toMatchObject({ today: true, date: new Date(NOW).getDate() });
 		expect(cells.filter((c) => c.today)).toHaveLength(1);
 		expect(cells.every((c) => !c.future)).toBe(true);
 		expect(cells[32].did).toEqual(['lift']);
 		expect(cells[29].did).toEqual(['run']);
-		// a session three weeks back is inside the month, where a week strip would have lost it
 		expect(cells.filter((c) => c.did.includes('lift'))).toHaveLength(2);
 		expect(cells[14].did).toEqual(['lift']);
 		expect(cells[0].label).toBe('Mon, Jul 20');
@@ -481,7 +451,6 @@ describe('weeklyPace — the running average', () => {
 		];
 		const pace = weeklyPace(ev, NOW);
 		expect(pace.days).toBe(28);
-		// a stretch is not a lift, and the rate is per week, not per window
 		expect(pace.by.lift).toEqual({ per: 1, prev: 0.5 });
 		expect(pace.by.mobility.per).toBe(0.25);
 		expect(pace.by.run.per).toBe(0.75);

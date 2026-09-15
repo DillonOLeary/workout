@@ -2,49 +2,21 @@ import { countOf, loadOf, type Measure } from './measure';
 import type { Counted, Exercise, Loaded } from './plan';
 import { nextRung, prevRung, snapToRack } from './racks';
 
-/**
- * The rule — policy, not projection. Everything here is a pure function of
- * (what happened for this exercise, the exercise, the time): it knows
- * nothing about events, sessions or screens. The read model hands it a
- * History (projections.historyFor); the floor and Today read the answer.
- *
- * Five axes, chosen by the exercise's `progress` (plan.ts) — what the rule
- * MOVES, as distinct from what a set writes:
- *   size    — each set climbs on its own: top of the range → the next size
- *             up for THAT set; the same set missed twice inside a fortnight
- *             → one size down; more than a fortnight away → every set down
- *   time    — ring the bell → +inc seconds next time, capped at the ceiling
- *   count   — carry last time's count, capped at the ceiling
- *   variant — every set at the top → the next rung of the ladder, reps back
- *             to the bottom; the rung is counted from the stream
- *   none    — it does not progress; the dose is the dose, and this returns
- *             early
- *
- * The ± on the tiles is the same function as the rule's one-size step
- * (bumpLoad / bumpCount), so a hand-dialled number and a suggested one
- * always land on a size that exists.
- */
-
-/** One session's sets for one exercise, newest first — what the rule reads. */
+/** One session's sets for one exercise — what the rule reads. */
 export type HistoryEntry = { at: string; dateLabel: string; sets: Measure[] };
+/** Every entry for one exercise, newest first. */
 export type History = HistoryEntry[];
 
-/**
- * The window that turns two misses into an adjustment, and an absence into a
- * re-entry. Fourteen days: long enough that a once-a-week lifter is never
- * "away", short enough that a fortnight off is treated as what it is.
- */
+/** Days inside which two misses count as two, and beyond which an absence is a re-entry. */
 export const REENTRY_DAYS = 14;
-/** Warn from day 11 — three days of runway before the re-entry rule fires. */
+/** Days since the last entry at which the nudge starts, before the re-entry rule fires. */
 export const REENTRY_WARN_DAYS = 11;
 const DAY = 86400000;
 
-/** Days of runway before the re-entry haircut — the nudge's number, never below 1. */
+/** Days of runway before the re-entry haircut — never below 1. */
 export const daysUntilReentry = (daysSince: number): number => Math.max(1, Math.ceil(REENTRY_DAYS - daysSince));
 
-/* ---------- one size, up or down ---------------------------------------- */
-
-/** One level-up: the next size on the rack, or +inc where a rack can't say. */
+/** One size up: the next rung on the rack, or +inc where there is no rack. */
 export function increasedWeight(weight: number, ex: Loaded): number {
 	return ex.progress.rack ? nextRung(weight, ex.progress.rack) : weight + ex.progress.inc;
 }
@@ -54,17 +26,12 @@ export function decreasedWeight(weight: number, ex: Loaded): number {
 	return ex.progress.rack ? prevRung(weight, ex.progress.rack) : Math.max(0, weight - ex.progress.inc);
 }
 
-/** The ± tile on a load: anything you pick up walks the rack's ladder; a machine steps its inc. */
+/** The ± tile on a load: one size along the exercise's own ladder. */
 export function bumpLoad(ex: Loaded, weight: number, dir: 1 | -1): number {
 	return dir > 0 ? increasedWeight(weight, ex) : decreasedWeight(weight, ex);
 }
 
-/**
- * The ± tile on a count. A hold moves by its inc and stops at the range —
- * the ceiling is the top of the range, past it the answer is a harder
- * variation, never a longer hold. A run moves by five minutes. Reps move by
- * one inside the decider's bounds.
- */
+/** The ± tile on a count: a hold by its inc inside the range, a run by five minutes, reps by one. */
 export function bumpCount(ex: Exercise, count: number, dir: 1 | -1): number {
 	if (ex.kind === 'hold') {
 		const inc = ex.progress.of === 'time' ? ex.progress.inc : 5;
@@ -74,38 +41,38 @@ export function bumpCount(ex: Exercise, count: number, dir: 1 | -1): number {
 	return Math.min(100, Math.max(1, count + dir));
 }
 
-/* ---------- reading a set against its range ----------------------------- */
-
-/** A set that reached the top of the range — the thing the rule acts on. */
+/** A set that reached the top of the range. */
 export function setEarned(m: Measure, ex: Exercise): boolean {
 	return countOf(m) >= ex.hi;
 }
 
-/** Some set of this entry earned its increase — the ledger's ↑ pill. */
+/** Some set of this entry reached the top of the range — the ledger's ↑ pill. */
 export function anySetEarned(sets: Measure[], ex: Exercise): boolean {
 	return sets.some((m) => setEarned(m, ex));
 }
 
-/** Every set at the ceiling, on a full entry: make it harder, not longer. */
+/** Every set of a full entry at the top of the range. */
 export function atCeiling(entry: { sets: Measure[] } | null, ex: Exercise): boolean {
 	if (!entry || entry.sets.length < ex.sets) return false;
 	return entry.sets.every((m) => countOf(m) >= ex.hi);
 }
 
-/* ---------- the suggestion ----------------------------------------------- */
-
+/** Why a load set is what it is. */
 export type Reason = 'start' | 'increase' | 'hold' | 'adjust' | 'reentry';
+/** What one load set should be next time. */
 export type LoadSet = {
 	weight: number;
 	reason: Reason;
-	/** the count to preload: the bottom of the range after any move, else last time's */
+	/** the count to preload: the bottom of the range after a move, else last time's */
 	reps: number;
-	/** last time this set fell below the range (only meaningful on a hold) */
+	/** last time this set fell below the range */
 	missed: boolean;
 };
+/** Why a count set is what it is. */
 export type CountReason = 'start' | 'increase' | 'hold' | 'ceiling';
+/** What one count set should be next time. */
 export type CountSet = { count: number; reason: CountReason };
-/** Where a ladder exercise stands: which rung, and whether the last session moved it. */
+/** Where a ladder exercise stands. */
 export type Variant = {
 	name: string;
 	rung: number;
@@ -115,12 +82,7 @@ export type Variant = {
 	top: boolean;
 };
 
-/**
- * What every set should be next time, in the exercise's own axis. The shape
- * follows the progress, so a screen switches once and never reads a weight
- * of 0 as "bodyweight": a load is weights-and-reps; everything else is
- * counts-and-a-ceiling, with the rung alongside when a ladder is climbing.
- */
+/** What every set should be next time, shaped by what the rule moves: weights-and-reps for a load, counts-and-a-ceiling for the rest. */
 export type Suggestion =
 	| {
 			kind: 'load';
@@ -128,11 +90,11 @@ export type Suggestion =
 			sets: LoadSet[];
 			/** the headline: start > reentry > adjust > increase > hold */
 			reason: Reason;
-			/** some set goes up — Today's ↑ */
+			/** some set goes up */
 			up: boolean;
-			/** something comes down (re-entry or an adjustment) — Today's ↓ */
+			/** some set comes down (re-entry or an adjustment) */
 			down: boolean;
-			/** set 1's weight, for the callers that only need one number */
+			/** set 1's weight */
 			weight: number;
 			/** whole days since the last entry, or null when there is none */
 			daysSince: number | null;
@@ -140,7 +102,7 @@ export type Suggestion =
 	| {
 			kind: 'count';
 			sets: CountSet[];
-			/** every set of the last full entry was at the top of the range, with nowhere higher to go */
+			/** every set of the last full entry at the top of the range, with nowhere higher to go */
 			ceiling: boolean;
 			daysSince: number | null;
 			/** a ladder exercise: the rung to do it at */
@@ -169,25 +131,6 @@ function summarise(sets: LoadSet[], daysSince: number | null): Suggestion {
 	};
 }
 
-/**
- * The progression decision, SET BY SET — "dynamic double progression".
- *
- * Each set climbs on its own: hit the top of the range on set k → set k takes
- * the next size up next time, while the others keep climbing where they are.
- * Two things follow. A 20% rack jump (25 → 30 lb dumbbells, 24 → 28 kg
- * bells) gets absorbed one set at a time instead of all at once, and the
- * strongest set never waits for the weakest — which is what the old
- * "every set at the top, at one load" rule quietly did for weeks.
- *
- * Down has two paths, both one size at a time. Miss the bottom of the range
- * on the SAME set at the SAME weight twice within a fortnight → that set backs
- * off a size ('adjust': two misses are evidence, so this can go below `start`,
- * which was only ever a guess). Come back after more than a fortnight away →
- * every set comes back a size lighter ('reentry'), never below start — a
- * haircut, not a verdict. There is no "stall three sessions, drop 10%" any
- * more: at one session a week that rule punished absence as if it were
- * fatigue.
- */
 function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 	const startWeight = ex.progress.rack ? snapToRack(ex.progress.start, ex.progress.rack) : ex.progress.start;
 	const last = history[0];
@@ -204,8 +147,6 @@ function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 		let base = loadOf(last.sets[0]);
 		for (let k = 0; k < ex.sets; k++) {
 			base = last.sets[k] ? loadOf(last.sets[k]) : base;
-			// never below start — but never UP to it either, for someone who was
-			// honestly lifting less than the plan's guess
 			const floor = Math.min(startWeight, base);
 			const w = Math.max(floor, decreasedWeight(base, ex));
 			sets.push({ weight: w, reason: w < base ? 'reentry' : 'hold', reps: ex.lo, missed: false });
@@ -217,8 +158,7 @@ function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 	for (let k = 0; k < ex.sets; k++) {
 		const m = last.sets[k];
 		if (!m) {
-			// fewer sets logged than the plan asks: the missing set follows the one
-			// before it (k = 0 always exists — historyFor drops empty rows)
+			// k = 0 always exists: historyFor drops empty rows
 			sets.push({ ...sets[k - 1] });
 			continue;
 		}
@@ -247,13 +187,6 @@ function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 	return summarise(sets, daysSince);
 }
 
-/**
- * The count is the axis, per set. A hold that rang its bell asks for +inc
- * next time; one dropped early asks for what was actually held. A rep-based
- * bodyweight movement simply carries last time's number. Both are CAPPED at
- * the top of the range — past that the instruction is "make it harder",
- * carried by the exercise note, never "make it longer".
- */
 function suggestCount(history: History, ex: Exercise, now: number): Suggestion {
 	const last = history[0];
 	const sets: CountSet[] = [];
@@ -265,8 +198,7 @@ function suggestCount(history: History, ex: Exercise, now: number): Suggestion {
 	for (let k = 0; k < ex.sets; k++) {
 		const m = last.sets[Math.min(k, last.sets.length - 1)];
 		const held = countOf(m);
-		// holds logged before the timer existed carry no target: you counted
-		// the seconds yourself, so what you logged is what you held
+		// holds logged before the timer existed carry no target: what you logged is what you held
 		const target = m.of === 'hold' ? m.target : undefined;
 		const rang = ex.progress.of === 'time' && held >= (target ?? held);
 		const next = Math.min(ex.hi, Math.max(ex.lo, rang ? held + inc : held));
@@ -275,14 +207,6 @@ function suggestCount(history: History, ex: Exercise, now: number): Suggestion {
 	return { kind: 'count', sets, ceiling: atCeiling(last, ex), daysSince: (now - Date.parse(last.at)) / DAY };
 }
 
-/**
- * The rung is DERIVED, never stored — like a rack walk: count the sessions
- * that earned a promotion (every set at the top of the range), oldest
- * first, and that is where you stand. The session that earned it starts the
- * next rung at the bottom of the range; a session that didn't carries its
- * counts, capped at the top. At the last rung, the top of the range is the
- * ceiling — the exercise note says what harder looks like.
- */
 function suggestVariant(history: History, ex: Counted & { progress: { of: 'variant'; ladder: string[] } }, now: number): Suggestion {
 	const ladder = ex.progress.ladder;
 	const top = ladder.length - 1;
@@ -317,7 +241,6 @@ function suggestVariant(history: History, ex: Counted & { progress: { of: 'varia
 	};
 }
 
-/** The dose is the dose: every set at the bottom (which is the top), nothing to move. */
 function suggestFixed(history: History, ex: Exercise, now: number): Suggestion {
 	const last = history[0];
 	const sets: CountSet[] = [];
@@ -325,7 +248,10 @@ function suggestFixed(history: History, ex: Exercise, now: number): Suggestion {
 	return { kind: 'count', sets, ceiling: false, daysSince: last ? (now - Date.parse(last.at)) / DAY : null };
 }
 
-/** What every set of this exercise should be next time — by what the rule MOVES. */
+/**
+ * What every set of this exercise should be next time, set by set, in the axis the rule moves.
+ * `adjust` (the same set missed twice inside REENTRY_DAYS) may go below `start`; `reentry` floors at `start` and never rises to it.
+ */
 export function suggest(history: History, ex: Exercise, now: number): Suggestion {
 	switch (ex.progress.of) {
 		case 'size':
@@ -340,20 +266,10 @@ export function suggest(history: History, ex: Exercise, now: number): Suggestion
 	}
 }
 
-/* ---------- inside a session --------------------------------------------- */
-
 /** A set this session already logged for the exercise: which one, and what it measured. */
 export type PriorSet = { index: number; measure: Measure };
 
-/**
- * What the tiles show for set k, given what this session has already done on
- * the exercise. The suggestion is per set — set 2 can legitimately ask for
- * LESS than set 1 — unless you overrode the ledger on the previous set (a
- * different machine, a sore shoulder). Then the override sticks for the rest
- * of the exercise, because "the ledger is wrong today" is true of every
- * remaining set. A hold's target follows this session's last TARGET, not the
- * seconds held: a dropped hold must not lower the next bell.
- */
+/** The tiles for set k: the per-set suggestion, unless an earlier set this session overrode it — then the override sticks; a hold follows the last target, not the seconds held. */
 export function nextSet(s: Suggestion, ex: Exercise, prior: PriorSet[], k: number): { weight: number; count: number } {
 	const at = Math.min(k, ex.sets - 1);
 	const last = prior[prior.length - 1];

@@ -1,9 +1,4 @@
-/**
- * The bell: a rest ran out, a hold rang, a drill ended. Two short tones and
- * a short buzz — nothing else on the floor makes a sound. Browsers only let a
- * page play audio after a gesture, so the primary arms the bell on every
- * press and the clock rings it later; a phone that refuses still buzzes.
- */
+// browsers only play audio after a gesture, so the primary arms the bell on every press and the clock rings it later
 let ctx: AudioContext | null = null;
 
 /** Call from a tap handler: opens (or wakes) the audio context while the gesture is live. */

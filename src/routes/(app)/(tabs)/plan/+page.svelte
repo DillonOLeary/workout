@@ -15,34 +15,20 @@
 	let { data, form }: PageProps = $props();
 	const now = Date.now();
 
-	/**
-	 * Tab 3 is the week: one lift programme, and the blocks that are on. The
-	 * programme is the one real choice (a page of its own, /plan/programme);
-	 * a block is a switch, right here, and a switch is an event. Cadence is
-	 * the plan's — there is no dial, because a target is a training decision
-	 * and a dial would be a second source of truth. What you're after tilts
-	 * the order Today deals in; it lives on this page too, since it is the
-	 * only other thing you ever tell the app about yourself.
-	 */
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let lift = $derived(plan.cycles.find((c) => c.id === 'lift') ?? plan.cycles[0]);
 	let liftWeek = $derived(weekProgress(data.events, plan, lift, now));
 	let nextLift = $derived(nextInCycle(data.events, plan, lift));
 
-	// every block has a switch; the on ones first
 	const isOn = (b: Block) => data.blocksOn.includes(b.id);
 	let onBlocks = $derived(BLOCKS.filter(isOn));
 	let offBlocks = $derived(BLOCKS.filter((b) => !isOn(b)));
-	// the floor: the block that stands in for the lift when the gym is ruled out
 	let floor = $derived(BLOCKS.find((b) => b.cycle.standsInFor === lift.id));
 
-	// what a routine takes, and what a cycle averages
 	const minutesOf = (r: string) => estimateMinutes(sessionSteps(plan, { routine: r }));
 	const cycleMinutes = (c: Cycle) => Math.round(c.routines.reduce((n, r) => n + minutesOf(r), 0) / c.routines.length);
-	// the head: what the week comes to — every on cycle's target, at its routines' average length
 	let weekSessions = $derived(plan.cycles.reduce((n, c) => n + c.target, 0));
 	let weekMinutes = $derived(plan.cycles.reduce((n, c) => n + c.target * cycleMinutes(c), 0));
-	// this week, Monday to Sunday, as the section head says it
 	let weekSpan = $derived.by(() => {
 		const d = new Date(now);
 		const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
@@ -51,7 +37,6 @@
 		return `${f(mon)} – ${f(sun)}`;
 	});
 
-	// Which routine's exercises are shown under the week — client state,
 	// seeded from ?routine= so Today can link straight to the one that is due
 	let picked = $state(page.url.searchParams.get('routine') ?? '');
 	let shown = $derived(plan.routines[picked] ? picked : '');
@@ -67,7 +52,6 @@
 	);
 	const show = (r: string) => (picked = picked === r ? '' : r);
 
-	/* ---------- what I'm after: two menus, saved as one snapshot ---------- */
 	// svelte-ignore state_referenced_locally
 	let intents = $state<Intent[]>([...data.preferences.intents]);
 	// svelte-ignore state_referenced_locally
@@ -75,14 +59,13 @@
 	let full = $derived(intents.length >= MAX_INTENTS);
 	function toggleIntent(id: Intent) {
 		if (intents.includes(id)) intents = intents.filter((x) => x !== id);
-		else if (!full) intents = [...intents, id]; // the fourth tap is refused
+		else if (!full) intents = [...intents, id];
 	}
 	function toggleGear(id: Equipment) {
 		equipment = equipment.includes(id) ? equipment.filter((x) => x !== id) : [...equipment, id];
 	}
 	let draft = $derived<Preferences>({ intents, equipment });
 	let changed = $derived(!samePreferences(draft, data.preferences));
-	// what Today would lead with, from the same fold Today runs
 	let first = $derived(queue(data.events, plan, draft, now)[0]);
 	let preview = $derived(
 		!first ? '' : first.out ? 'Nothing you can do with what you have — check the gear.' : `Today leads with ${first.title} · ${first.why}`
@@ -97,11 +80,9 @@
 
 	{#if form?.message}<p class="err">{form.message}</p>{/if}
 
-	<!-- a block: what it is, what it holds, and its switch -->
 		{#snippet blockRow(b: Block, on: boolean)}
 			{@const c = b.cycle}
 			{@const done = weekProgress(data.events, plan, c, now).done}
-			<!-- the routines the block owns; a borrowed one (the floor's yoga) is a count -->
 			{@const own = c.routines.filter((r) => b.routines[r])}
 			{@const standIn = c.standsInFor ? plan.cycles.find((x) => x.id === c.standsInFor) : undefined}
 			<div class="blockrow" class:off={!on}>
@@ -125,7 +106,6 @@
 			</div>
 		{/snippet}
 
-	<!-- the week: the lift row, then a row per block with its switch -->
 	<section class="sect">
 		<div class="sechead">
 			<span class="caps">The week</span>
@@ -166,7 +146,6 @@
 		</Card>
 	</section>
 
-	<!-- a routine, opened from a chip: its steps, and the rule that governs them -->
 	{#if shown && info}
 		<Card pad={false}>
 			<div class="dayhead">
@@ -182,8 +161,6 @@
 			{/if}
 			{#each plan.routines[shown] as ex, i (ex.name)}
 				<div class="exrow" class:first={i === 0 && !warm.length}>
-					<!-- still (frame 0): a list must never animate itself. Press one
-					     to see the rep; a hold breathes only on the floor. -->
 					<ExerciseGlyph name={ex.name} size={48} play={false} />
 					<div class="exmain">
 						<div class="exname">{ex.name}</div>
@@ -201,8 +178,6 @@
 				</div>
 			{/if}
 			{#if info.discipline === 'lift'}
-				<!-- The rule belongs INSIDE the routine, under the exercises it governs:
-				     the one sentence. The rest of it is on /plan/why. -->
 				<div class="rulebox">
 					<div class="caps mb8">How it progresses</div>
 					<div class="rule">
@@ -213,7 +188,6 @@
 		</Card>
 	{/if}
 
-	<!-- what you're after: the only place you tell the app about yourself -->
 	<section class="sect">
 		<div class="sechead">
 			<span class="caps">What I'm after</span>
@@ -249,7 +223,6 @@
 		</Card>
 	</section>
 
-	<!-- the case for the plan, and the two rarest acts -->
 	<div class="rare">
 		<a class="disclosure" href="/plan/why"><span class="tri">▸</span> Why this works</a>
 		<span class="rarelinks">
@@ -281,13 +254,11 @@
 	.sechead.inner { margin-top: 14px; }
 	.meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 
-	/* one ink per discipline: the swatch is the calendar's stripe, 12px */
 	.sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ink); display: inline-block; margin-top: 4px; }
 	.rowcaps { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
 	.rowtitle { font-size: 16px; font-weight: var(--weight-bold); }
 	.rowmeta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 
-	/* the lift row: the programme is the name, the routines are chips */
 	.liftrow {
 		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'sw caps dots' '. name change' '. sub sub';
 		column-gap: 10px; row-gap: 6px; align-items: center; padding: 14px 16px;
@@ -313,11 +284,9 @@
 		touch-action: manipulation;
 	}
 	.rchip:hover { background: var(--volt-tint); color: var(--ink); }
-	/* the one Today deals next wears volt; the one open under the card wears the ink border */
 	.rchip.next { background: var(--volt); border-color: var(--ink); color: var(--ink); }
 	.rchip.shown { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 
-	/* a block: what it is, what it holds, and its switch */
 	.blockrow {
 		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'sw title tog' '. sub tog';
 		column-gap: 10px; row-gap: 2px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border-soft);
@@ -333,7 +302,6 @@
 	}
 	.rlink:hover { color: var(--ink); text-decoration-color: var(--ink); }
 	.togform { grid-area: tog; align-self: center; }
-	/* the switch: 48×28, a knob that slides 20px — on is volt, off is white */
 	.tog {
 		position: relative; width: 48px; height: 28px; padding: 0;
 		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-pill);
@@ -357,7 +325,6 @@
 		font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
 	}
 
-	/* the routine, opened: the same list the floor walks */
 	.dayhead { padding: 16px 24px 4px; }
 	.daytitle { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 22px; line-height: 1.1; }
 	.daydesc { font-size: var(--text-sm); color: var(--ink-3); padding: 8px 2px 0; }
@@ -388,7 +355,6 @@
 	.rule { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 24px; line-height: var(--leading-snug); }
 	.hl { background: var(--volt); padding: 0 6px; }
 
-	/* what I'm after: pills, ink when on */
 	.prefs { display: flex; flex-direction: column; gap: 8px; }
 	.pills { display: flex; gap: 8px; flex-wrap: wrap; }
 	.pick {

@@ -94,7 +94,6 @@ describe('decide — the measure validates on its own branch', () => {
 });
 
 describe('decide — LogAfter writes a closed session in one shot', () => {
-	// the overridable part: everything but the workout, which is the run throughout
 	type AfterData = Omit<Extract<LedgerCommand, { type: 'LogAfter' }>['data'], 'routine' | 'discipline'>;
 	const after = (over: Partial<AfterData> = {}): LedgerCommand => ({
 		type: 'LogAfter',
@@ -149,7 +148,6 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 		type: 'CorrectEntry',
 		data: { session, item: 'Goblet Squat', index, at: AT, measure }
 	});
-	// s1 open with one set, then finished; s2 started and finished after it
 	const finish = (id: string): LedgerEvent => ({ type: 'SessionFinished', data: { session: id, at: AT } });
 	const start = (id: string): LedgerEvent => ({ type: 'SessionStarted', data: { session: id, plan: 'p', discipline: 'lift', routine: 'B', at: AT, mode: 'live' } });
 	const withSet = evolve(open(), decide(set(), open())[0]);
@@ -157,7 +155,6 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 	it('corrects a set in the session in progress', () => {
 		const [e] = decide(correct('s1'), withSet);
 		expect(e).toEqual({ type: 'EntryCorrected', data: { session: 's1', item: 'Goblet Squat', index: 1, at: AT, measure: { of: 'load', load: 40, reps: 8 } } });
-		// a correction changes what a reader sees, never what a rule needs
 		expect(evolve(withSet, e)).toEqual(withSet);
 	});
 	it('corrects a set in the latest finished session, and no older one', () => {
@@ -199,7 +196,6 @@ describe('decide — idempotent removes, selects and preferences', () => {
 		expect(decide({ type: 'SelectProgramme', data: { programme: 'p', at: AT } }, state)).toEqual([]);
 	});
 	it('switches a block once, refuses a block the week has not got', () => {
-		// everything is on until a switch says otherwise: switching yoga on records nothing
 		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, initialState())).toEqual([]);
 		const off = decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, initialState());
 		expect(off).toEqual([{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } }]);
@@ -207,7 +203,6 @@ describe('decide — idempotent removes, selects and preferences', () => {
 		expect(state.blocks).toEqual({ yoga: false, mob: true, run: true, bw: true });
 		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, state)).toEqual([]);
 		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, state)).toHaveLength(1);
-		// the floor is a block like the others: on until switched, switched once
 		expect(decide({ type: 'ToggleBlock', data: { block: 'bw', on: true, at: AT } }, initialState())).toEqual([]);
 		const floorOff = decide({ type: 'ToggleBlock', data: { block: 'bw', on: false, at: AT } }, initialState());
 		expect(floorOff).toEqual([{ type: 'BlockToggled', data: { block: 'bw', on: false, at: AT } }]);
@@ -233,8 +228,7 @@ describe('decide — idempotent removes, selects and preferences', () => {
 		expect(e).toEqual({ type: 'PreferencesSet', data: { at: AT, intents: ['move-better', 'calm-down'], equipment: ['gym', 'mat'] } });
 		const state = evolve(initialState(), e);
 		expect(state.preferences).toEqual({ intents: ['move-better', 'calm-down'], equipment: ['gym', 'mat'] });
-		// the same snapshot, in any order, is nothing new
-		expect(decide(prefs(['calm-down', 'move-better'], ['mat', 'gym']), state)).toEqual([]);
+		expect(decide(prefs(['calm-down', 'move-better'], ['mat', 'gym']), state)).toEqual([]); // same snapshot, any order
 		expect(decide(prefs(['calm-down']), state)).toHaveLength(1);
 		expect(() => decide(prefs([]), state)).toThrow(ValidationError);
 		expect(() => decide(prefs(['move-better', 'calm-down', 'run-better', 'get-stronger']), state)).toThrow(ValidationError);

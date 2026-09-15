@@ -1,10 +1,5 @@
 <script module lang="ts">
-	/**
-	 * The session by section: what the ⋯ shows. One row per section — the
-	 * warm-up, each exercise, the cooldown, or the run — never the sets: the
-	 * sheet is for finding your place, the floor is for the set. A row says
-	 * "done" when the whole section is, else how far in; tapping jumps there.
-	 */
+	/** one row of the ⋯ sheet: a section, never a set; `jump` is the step index a tap lands on */
 	export type SheetSection = { title: string; status: string; active: boolean; done: boolean; jump: number };
 </script>
 
@@ -14,13 +9,6 @@
 	import { holdDose } from '$lib/domain/labels';
 	import type { Exercise } from '$lib/domain/plan';
 
-	/**
-	 * The ⋯ sheet: the list is where you look, the floor is where you are.
-	 * Reference material (the technique note), the session as a short list
-	 * of sections, the stretches you can add to it, keyboard hints, and the
-	 * rare acts — finishing early, leaving. None of it competes with the
-	 * primary on the floor itself.
-	 */
 	let {
 		open,
 		title,
@@ -61,8 +49,6 @@
 	$effect(() => {
 		if (!open) confirming = false;
 	});
-	// the sheet slides (a reveal), the scrim fades (a hover's beat) — the
-	// tokens say how long, and reduced motion says not at all
 	const SLIDE = durationMs('--dur-slow', 320);
 	const FADE = durationMs('--dur-med', 180);
 </script>
@@ -100,8 +86,6 @@
 			</div>
 		</section>
 		{#if stretches.length && onAdd}
-			<!-- a one-off: the stretch routine's holds, appended as a section of THIS
-			     session — nothing new in the ledger, just entries under it -->
 			<section>
 				<div class="caps">Add a stretch</div>
 				<div class="list">
@@ -129,7 +113,6 @@
 						</div>
 					</div>
 				{:else}
-					<!-- a run has no sets to count -->
 					<button type="button" class="arow" onclick={() => (confirming = true)}>
 						Finish early{total ? ` — ${logged} / ${total} sets logged` : ''}
 					</button>
@@ -176,8 +159,6 @@
 	.note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 	.note.mono { font-family: var(--font-mono); font-size: 12px; }
 
-	/* the section list: one row each, the exercises you already know about plus
-	   warm-up and cooldown — never the sets. "done" is the only tick there is. */
 	.list {
 		display: flex; flex-direction: column; margin-top: 4px;
 		background: var(--white); border: 1px solid var(--border-soft); border-radius: var(--radius-lg); overflow: hidden;
@@ -227,7 +208,6 @@
 		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 15px;
 		cursor: pointer;
 	}
-	/* the way back: ink with volt text — an advance, never a second volt fill */
 	.backrow { position: sticky; bottom: 0; padding-top: 4px; background: var(--paper); }
 	.back {
 		width: 100%; min-height: 64px;

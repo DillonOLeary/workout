@@ -13,22 +13,7 @@ import {
 	type RunEx
 } from './plan';
 
-/**
- * A session, as a list of STEPS the floor walks one at a time: warm-up lines,
- * every set, the cooldown — or, for a run, its warm-up, the run, its
- * cooldown. The plan owns the order; you own the numbers. Every routine is
- * built the same way: the run is a routine whose one exercise measures
- * minutes, so it gets a run step where a lift gets its sets.
- *
- * Steps are derived from the plan, never stored. Which ones are DONE is read
- * from the session's entries. A rest is not a step: it is a clock that runs
- * under the next set, from the previous set's timestamp (restUntil), and it
- * is never written to the ledger. This file is the only place that knows
- * what a session IS; the floor renders steps, it never invents one.
- */
-
-/* what each step costs the clock, seconds — the honest "about N min" is the
-   sum of these, rests included, not a guess per session */
+// seconds each step costs the clock; "about N min" is their sum, rests included
 const PREP_SECONDS = 75;
 const SET_SECONDS = 45;
 const COOLDOWN_SECONDS = 60;
@@ -44,16 +29,11 @@ type StepBase = {
 	index: number;
 	/** 'STEP 1' · 'STEP 2 · L' · 'SET 2' · 'HOLD 2 · R' · 'RUN' */
 	label: string;
-	/** what this step costs the clock, seconds — for "about N min" */
+	/** what this step costs the clock, seconds */
 	estimate: number;
 };
 
-/**
- * Four kinds of step, and each carries only what its kind needs: a prep
- * line has its text, a timed one its name and countdown, a set its
- * exercise, the run its target. A consumer switches on `kind` and the
- * compiler narrows — there is no set without an exercise to reach for.
- */
+/** One step the floor walks; each kind carries only what it needs, so switch on `kind`. */
 export type Step = StepBase &
 	(
 		| { kind: 'prep'; text: string }
@@ -67,7 +47,6 @@ export function routineExercises(plan: Plan | undefined, w: Workout): Exercise[]
 	return plan?.routines[w.routine] ?? [];
 }
 
-/** Prep items as steps: a string or a count is a line you tick, a timed item counts down — twice when it is per side. */
 function prepSteps(items: PrepItem[], section: string, item: string, proseSeconds: number): Step[] {
 	const out: Step[] = [];
 	let n = 0;
@@ -94,7 +73,6 @@ function prepSteps(items: PrepItem[], section: string, item: string, proseSecond
 	return out;
 }
 
-/** One exercise's sets, with the rest before each set folded into its estimate — or the run, as one step. */
 function exerciseSteps(plan: Plan, ex: Exercise): Step[] {
 	if (ex.kind === 'run')
 		return [{
@@ -113,12 +91,7 @@ function exerciseSteps(plan: Plan, ex: Exercise): Step[] {
 	return out;
 }
 
-/**
- * The whole workout, in order: the routine's warm-up, its exercises, its
- * cooldown. A routine the plan doesn't have → no steps. `extra` is exercises
- * added on the floor, by name — each becomes a section after the plan's own,
- * once.
- */
+/** The whole workout in order — warm-up, exercises, cooldown; `extra` is exercises added on the floor by name, each a section after the plan's own, once. */
 export function sessionSteps(plan: Plan | undefined, w: Workout, extra: string[] = []): Step[] {
 	if (!plan || !plan.routines[w.routine]) return [];
 	const out: Step[] = prepSteps(warmupFor(plan, w.routine), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
@@ -141,12 +114,10 @@ export function estimateMinutes(steps: Step[], from = 0): number {
 	return Math.round(t / 60);
 }
 
+/** One logged entry's data. */
 export type Entry = EntryLogged['data'];
 
-/**
- * Exercises this session logged that its routine doesn't cover — a stretch
- * added from the ⋯ sheet, say. Handed back as `extra` so a reload keeps the section.
- */
+/** Exercises this session logged that its routine doesn't cover — handed back as `extra` so a reload keeps the section. */
 export function loggedOutside(plan: Plan | undefined, w: Workout, entries: Entry[]): string[] {
 	const planned = new Set(routineExercises(plan, w).map((ex) => ex.name));
 	const out: string[] = [];
@@ -157,24 +128,14 @@ export function loggedOutside(plan: Plan | undefined, w: Workout, entries: Entry
 	return out;
 }
 
-/**
- * Where a session stands, from its entries.
- *   done     — step keys that are behind you
- *   current  — the first step that isn't
- *   sets     — how many sets have landed, for the crumb and the sheet
- */
+/** Where a session stands: the step keys behind you, the index of the first step that isn't, and how many sets have landed. */
 export type Progress = {
 	done: Set<string>;
 	current: number;
 	sets: number;
 };
 
-/**
- * When the rest before this set ends — from the previous set's LOCAL
- * timestamp, so a set that hasn't reached the server yet still starts the
- * clock. Set 1 has no rest before it; a set whose predecessor was never
- * logged has nothing to wait for.
- */
+/** When the rest before this set ends, from the previous set's local timestamp; null for set 1 or when the set before was never logged. */
 export function restUntil(step: Step, entries: Entry[], plan: Plan | undefined): number | null {
 	if (step.kind !== 'set' || step.index === 1) return null;
 	const prev = entries.find((e) => e.item === step.item && e.index === step.index - 1);
@@ -191,6 +152,7 @@ export function runStart(steps: Step[], i: number, entries: Entry[], sessionAt: 
 	return Date.parse(sessionAt);
 }
 
+/** Where a session stands, from its entries. */
 export function sessionProgress(steps: Step[], entries: Entry[]): Progress {
 	const logged = new Set(entries.map((e) => entryKey(e.item, e.index)));
 	const done = new Set<string>();
@@ -200,11 +162,7 @@ export function sessionProgress(steps: Step[], entries: Entry[]): Progress {
 	return { done, current, sets: entries.filter((e) => isSet(e.measure)).length };
 }
 
-/**
- * "Set 4/20" · "Hold 3/9" · "Warm-up 2/3" · "Run" · "Done" — where you are,
- * the way the crumb and Today both say it. Sets count across the whole
- * session; a prep step counts within its section.
- */
+/** "Set 4/20" · "Hold 3/9" · "Warm-up 2/3" · "Run" · "Done" — sets count across the session, a prep step within its section. */
 export function positionLabel(i: number, steps: Step[]): string {
 	const s = steps[i];
 	if (!s) return 'Done';

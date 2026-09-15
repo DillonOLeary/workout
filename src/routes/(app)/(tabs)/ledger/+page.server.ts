@@ -5,11 +5,7 @@ import { parseMeasure } from '$lib/domain/measure';
 import type { Actions } from './$types';
 
 export const actions: Actions = {
-	/**
-	 * The event-sourced "delete": appends SessionRemoved rather than deleting
-	 * anything. The decider refuses unknown ids and no-ops repeats. Runs are
-	 * sessions too, so this is the only removal there is.
-	 */
+	/** the event-sourced delete: appends SessionRemoved; the decider refuses unknown ids and no-ops repeats */
 	remove: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();
@@ -22,11 +18,7 @@ export const actions: Actions = {
 		if (err) return fail(400, { message: err });
 	},
 
-	/**
-	 * Inline edits on the latest session: one CorrectEntry per set that
-	 * changed, in order, stopping at the first the decider refuses. The
-	 * decider — not this action — is what keeps older sessions immutable.
-	 */
+	/** one CorrectEntry per changed set, in order, stopping at the first the decider refuses */
 	correct: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();

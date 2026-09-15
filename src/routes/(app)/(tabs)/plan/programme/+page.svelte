@@ -6,16 +6,9 @@
 	import type { Plan } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
-	/**
-	 * The one real choice: which programme the week lifts on. Yoga, the
-	 * stretch and the run are blocks — they stay as they are whichever way
-	 * this goes. Switching is history (a ProgrammeSelected event), so it is
-	 * deliberate: a tap opens the question, a second tap answers it.
-	 */
 	let { data, form }: PageProps = $props();
 
 	let current = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
-	// the programme's own line: its lift cycle, its routines' average length, the reps its loaded lifts ask, its rest
 	const liftLine = (p: Plan) => {
 		const lift = p.cycles.find((c) => c.id === 'lift') ?? p.cycles[0];
 		const minutes = Math.round(lift.routines.reduce((n, r) => n + estimateMinutes(sessionSteps(p, { routine: r })), 0) / lift.routines.length);

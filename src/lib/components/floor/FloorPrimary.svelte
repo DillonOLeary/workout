@@ -1,11 +1,4 @@
 <script lang="ts">
-	/**
-	 * The one big button. Colour law: volt fill = commit this set (Log set,
-	 * Start hold, Done early, Save set); ink fill with volt text = move on
-	 * (Next: Chest Press, Finish workout). Never two volt fills on screen at
-	 * once. It never acts by itself: a section ends, the label says what's
-	 * next, and it waits for the tap.
-	 */
 	let {
 		variant,
 		label,
@@ -31,7 +24,6 @@
 		font-family: var(--font-display); font-weight: var(--weight-black);
 		font-size: 28px; letter-spacing: 0.02em; text-transform: uppercase;
 		cursor: pointer; touch-action: manipulation;
-		/* press = physical: the button drops onto its shadow, and eases there */
 		transition:
 			transform var(--dur-fast) var(--ease-snap),
 			box-shadow var(--dur-fast) var(--ease-snap),

@@ -3,12 +3,8 @@ import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
 import type { Actions } from './$types';
 
-/**
- * The one real choice: which programme the week lifts on. It goes into the
- * ledger as a ProgrammeSelected event (that IS history); the programmes
- * themselves are reference data, added at the table, never here.
- */
 export const actions: Actions = {
+	/** the one real choice: a ProgrammeSelected event — that IS history */
 	select: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();

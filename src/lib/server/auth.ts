@@ -2,16 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { redirect, type Cookies } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
-/**
- * Stay-signed-in auth. The login action sets a signed, HttpOnly cookie and
- * hooks.server.ts re-issues it on every request (sliding expiration), so a
- * device that keeps visiting never logs out. The uid no longer appears in
- * any URL — sharing a link shares nothing.
- *
- * The cookie value is `uid.hmac(uid)`: unforgeable without the server's
- * pepper, and HttpOnly means scripts can't read it. Browsers cap cookie
- * lifetimes at 400 days, hence the sliding renewal.
- */
+// Browsers cap a cookie's lifetime at 400 days, hence the sliding renewal in hooks.server.ts.
 const COOKIE = 'ledger_uid';
 const MAX_AGE = 400 * 86400;
 
@@ -24,6 +15,7 @@ function pepper(): string {
 const sign = (uid: string) =>
 	createHmac('sha256', pepper()).update(`cookie:${uid}`).digest('hex').slice(0, 32);
 
+/** Sets the signed, HttpOnly stay-signed-in cookie: `uid.hmac(uid)`, unforgeable without the pepper. */
 export function setAuthCookie(cookies: Cookies, uid: string) {
 	cookies.set(COOKIE, `${uid}.${sign(uid)}`, {
 		path: '/',

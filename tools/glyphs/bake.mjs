@@ -1,42 +1,23 @@
 #!/usr/bin/env node
-/**
- * Bake the exercise glyphs: src/lib/design/glyph-frames.json from the generator.
- *
- *   node tools/glyphs/bake.mjs          # rewrite the JSON
- *   node tools/glyphs/bake.mjs --check  # exit 1 unless the JSON is what the generator makes
- *
- * athlete.js is the generator — the rig, the shader and every pose — seeded
- * from Claude Design's "Workout app design review" and "Yoga and Bodyweight
- * Workouts" projects and the repo's own since. It attaches to `window`, so
- * this script lends it one. To change a figure, edit a pose there and bake;
- * the app runs none of this geometry, it only stamps the frames.
- *
- * Every pose names its MOTION, and the JSON carries the timing for each gear
- * so the app's clock takes the gear instead of assuming one:
- *   rep    — twelve stamps out and back along d, then a 900 ms hold on frame 0
- *   breath — four stamps along [0, .5, 1, .5] at 800 ms: the hold, breathing
- *   still  — one stamp at d = 1: the pose, not the standing-up it leans in from
- *
- * A frame is 31 rows of 31 characters, top row first, '#' lit. The generator
- * counts rows from the ground up (j), so grid row r is j = 30 − r.
- */
+// Bakes src/lib/design/glyph-frames.json from athlete.js — the repo's own generator, seeded from two Claude Design projects; `--check` exits 1 unless the JSON matches.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const OUT = fileURLToPath(new URL('../../src/lib/design/glyph-frames.json', import.meta.url));
 const GRID = 31;
 
+// athlete.js attaches to `window`, so this script lends it one.
 globalThis.window = globalThis;
 await import('./athlete.js');
 const A = window.AthleteRig;
 
-/** the three gears: which depths to stamp, and how the clock runs them */
 const MOTIONS = {
 	rep: { seq: A.SEQ, frameMs: A.FRAME_MS, holdMs: 900 },
 	breath: { seq: [0, 0.5, 1, 0.5], frameMs: 800, holdMs: 0 },
 	still: { seq: [1], frameMs: 0, holdMs: 0 }
 };
 
+// A frame is 31 rows of 31 characters, '#' lit; the generator counts rows from the ground up, so grid row r is j = 30 − r.
 function frame(masses) {
 	const rows = [];
 	for (let r = 0; r < GRID; r++) {

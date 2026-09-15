@@ -1,12 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	/**
-	 * One vocabulary: paper-2 with an ink outline = where you are now (a
-	 * session still open); paper-2 alone = a plain fact. The ↑ pill that
-	 * marks an earned set is its own span where it appears — never a badge.
-	 * No amber anywhere — nothing in the app is a warning.
-	 */
+	/** `open` = where you are now (a session still open); `neutral` = a plain fact */
 	let { tone = 'neutral', children }: { tone?: 'neutral' | 'open'; children: Snippet } = $props();
 </script>
 

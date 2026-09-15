@@ -1,17 +1,5 @@
 <script module lang="ts">
-	/**
-	 * The step table IS the progress rail — the current section, one line per
-	 * step: sets, warm-up lines, the run. "Where am I" is answered by the rows,
-	 * and the optimistic queue draws itself into them. Rows are one height,
-	 * always: the countdown lives on the stage, never in a row, so the table
-	 * never reflows under a finger. A long section (the run's eight warm-up
-	 * drills) scrolls INSIDE the table — it gives way to the stage rather
-	 * than crowding it — and the row that is "now" is brought into view.
-	 * Presentation only: every row is computed by the page; nothing here
-	 * touches domain state.
-	 */
 	export type RowState = 'done' | 'saving' | 'failed' | 'current' | 'resting' | 'editing' | 'upcoming' | 'running';
-	/** the row that is "now" — the one a long table keeps in view */
 	const NOW: ReadonlySet<RowState> = new Set(['current', 'resting', 'running']);
 	export type Row = {
 		/** the step key — Retry and a tap hand it back */
@@ -47,14 +35,11 @@
 		table?.querySelector('.row.current, .row.resting, .row.running')?.scrollIntoView({ block: 'nearest' });
 	}
 
-	// when "now" moves — keyed on the row, not the rows: a rest note ticking
-	// every 200 ms must never pull the table out from under a finger
+	// keyed on the row, not the rows: a rest note ticking every 200 ms must never pull the table out from under a finger
 	$effect(() => {
 		if (nowKey) keepNowInView();
 	});
 
-	// and when the table's own height changes: the clock appearing on the
-	// stage below shrinks it, and the row that was in view may not be
 	$effect(() => {
 		const el = table;
 		if (!el) return;
@@ -96,8 +81,6 @@
 		border: var(--border-w) solid var(--ink);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
-		/* a flex item on the floor: shrinks to no fewer than three rows and
-		   scrolls the rest, so the stage below always gets its room */
 		min-height: calc(3 * var(--row) + 2 * var(--border-w));
 		overflow: hidden auto;
 		overscroll-behavior: contain;
@@ -112,7 +95,6 @@
 		min-height: var(--row);
 		padding: 0 16px;
 		border-top: 1px solid var(--border-soft);
-		/* a state change is a colour change, and it eases — the numbers never animate */
 		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.row:first-child { border-top: none; }
@@ -131,7 +113,6 @@
 
 	.row.upcoming .val { font-weight: 400; font-size: 18px; color: var(--ink-3); }
 	.row.done .val { color: var(--ink-3); }
-	/* the tick lands after the row has settled, not with it */
 	.row.done .note { animation: tick var(--dur-med) var(--ease-out) var(--dur-med) both; }
 	@keyframes tick { from { opacity: 0; } to { opacity: 1; } }
 	.row.current, .row.resting { background: var(--surface-sunken); }
@@ -144,7 +125,6 @@
 	.row.running .lbl, .row.running .note { color: var(--ink); }
 	.row.failed { border-left: 4px solid var(--danger); padding-left: 12px; }
 	.row.failed .val { color: var(--danger); }
-	/* the rest: an ink line draining along the foot of the set it runs before */
 	.bar {
 		position: absolute; left: 0; bottom: 0; height: 3px; background: var(--ink);
 		transition: width 200ms linear;
@@ -156,7 +136,6 @@
 		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--danger);
 		cursor: pointer; touch-action: manipulation;
 	}
-	/* prep lines are sentences, not numbers — they wrap, at a reading size */
 	.val.prose, .row.current .val.prose { font-size: 16px; font-weight: 700; line-height: 1.3; }
 	.row.upcoming .val.prose { font-weight: 400; }
 	@media (max-height: 700px) { .table { --row: 48px; } }

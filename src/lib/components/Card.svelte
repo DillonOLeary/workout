@@ -17,7 +17,6 @@
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
 	}
-	/* Cards that matter get the full ink treatment */
 	.card.interactive { border-color: var(--ink); box-shadow: var(--shadow-raised); }
 	.card.pad { padding: 24px; }
 	@media (max-width: 900px) {

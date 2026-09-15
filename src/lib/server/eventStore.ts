@@ -6,25 +6,9 @@ import {
 import { dev } from '$app/environment';
 import { currentConnectionString } from './db';
 
-/**
- * The event store IS the database of record: `emt_messages` (every event ever
- * appended, globally ordered) and `emt_streams` (one row per stream with its
- * current version, used for optimistic concurrency). Peek any time:
- *
- *   select stream_id, stream_position, message_type, message_data
- *   from emt_messages order by global_position;
- */
 const g = globalThis as typeof globalThis & { __ledgerEventStore?: PostgresEventStore };
 
-/**
- * Run one unit of event-store work. Same Cloudflare Workers rule as
- * withClient in db.ts: sockets can't cross requests. In prod we open ONE
- * pg.Client for the unit of work, hand it to Emmett (`connectionOptions:
- * { client }` — no internal pool), and close it before returning, so every
- * request's socket lifecycle is fully deterministic. Schema migrations are
- * skipped in prod; dev's singleton store runs them on first use, which is
- * also how a brand-new database gets its schema (run the app once in dev).
- */
+// Schema migrations run only in dev (`autoMigration: 'None'` in prod): a new database gets its schema by running the app once in dev.
 export async function withEventStore<T>(
 	fn: (store: PostgresEventStore) => Promise<T>
 ): Promise<T> {

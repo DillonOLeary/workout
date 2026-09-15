@@ -9,10 +9,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
+	/** the phone number is the key: set the signed stay-signed-in cookie, then home */
 	default: async ({ request, cookies }) => {
 		const form = await request.formData();
 		const uid = uidFromPhone(String(form.get('phone') ?? ''));
-		// the real login: a signed stay-signed-in cookie (see lib/server/auth.ts)
 		setAuthCookie(cookies, uid);
 		redirect(303, '/');
 	}

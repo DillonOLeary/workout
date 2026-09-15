@@ -1,12 +1,4 @@
 <script lang="ts">
-	/**
-	 * One adjuster: label, − value +. The value is a real number input so every
-	 * number is reachable by keypad; ± semantics live with the caller (a racked
-	 * lift walks the rack, a machine steps its inc, reps step 1) — the tile
-	 * prints its own step in the label so the gesture is never a mystery.
-	 * Quiet on purpose: 1px soft border, no shadow — commit is the only loud
-	 * thing on the floor.
-	 */
 	let {
 		label,
 		value = $bindable(0),
@@ -27,8 +19,7 @@
 
 	const fmt = $derived(Number.isInteger(value) ? String(value) : value.toFixed(1));
 
-	// clamp, then write the clean value back — a rejected keystroke never
-	// leaves the field showing a value we didn't store
+	// clamp, then write the clean value back — a rejected keystroke never leaves the field showing a value we didn't store
 	function commit(el: HTMLInputElement) {
 		const n = Number(el.value);
 		if (Number.isFinite(n)) {
@@ -70,8 +61,6 @@
 		text-transform: uppercase; color: var(--ink-3); white-space: nowrap;
 		max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 8px;
 	}
-	/* the tile must shrink with its grid column — buttons are fixed, the
-	   input gives; without min-width: 0 the column overflows the screen */
 	.ctl { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; padding: 0 2px; }
 	.ctl button {
 		flex: none; width: 44px; min-height: 44px; background: transparent; border: none;

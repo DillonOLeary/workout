@@ -1,31 +1,12 @@
 import { ValidationError } from '@event-driven-io/emmett';
 
-/**
- * What an entry measured — a closed set, so every reader switches on `of`
- * exhaustively instead of guessing from optional fields.
- *
- *   load     — a weighted set: the load and the reps
- *   reps     — a bodyweight set: just the count (a dead bug, a sun salutation)
- *   hold     — a timed hold: seconds held, the bell aimed for, any load carried
- *   duration — minutes (the run)
- *   step     — it happened (a warm-up line, a cooldown stretch, a walk)
- *
- * The measure is the heart of the vocabulary: a command carries one in, an
- * event carries one out, and the read side never has to consult the plan to
- * know what a number meant. That is why `reps` is its own variant rather
- * than "a load of 0" — a convention is exactly what a union exists to remove.
- */
+/** What an entry measured — a closed set: load (weight and reps), reps (a bodyweight count), hold (seconds, the bell aimed for, any load carried), duration (minutes), step (it happened). */
 export type Measure =
 	| { of: 'load'; load: number; reps: number }
 	| { of: 'reps'; reps: number }
 	| { of: 'hold'; seconds: number; target?: number; load?: number }
 	| { of: 'duration'; minutes: number }
 	| { of: 'step' };
-
-/* ---------- reading a measure --------------------------------------------
-   Three questions every screen asks. Each is an exhaustive switch, so adding
-   a variant fails to compile here — in one place — instead of miscounting
-   somewhere in a route. */
 
 /** A set — the entries the progression rule, the receipt and "N sets logged" count. */
 export function isSet(m: Measure): boolean {
@@ -74,13 +55,7 @@ export function uniformLoad(sets: Measure[]): boolean {
 	return sets.every((m) => loadOf(m) === loadOf(sets[0]));
 }
 
-/* ---------- writing a measure -------------------------------------------- */
-
-/**
- * The measure a set of this exercise writes — the ONE place "kind → variant"
- * is decided. The floor and the after-the-fact sheet both dial a load and a
- * count; which variant that becomes is the exercise's business, not theirs.
- */
+/** The measure a set of this exercise writes — the one place kind → variant is decided. */
 export function measureFor(
 	ex: { kind: 'load' | 'hold' | 'reps' | 'run' },
 	v: { load: number; count: number; target?: number }
@@ -97,15 +72,9 @@ export function measureFor(
 	}
 }
 
-/* ---------- accepting a measure ------------------------------------------ */
-
 const isInt = (n: unknown): n is number => Number.isInteger(n);
 
-/**
- * The bounds a measure must sit inside to be recorded at all — the decider's
- * rule, kept next to the type it governs. Each variant validates on its own
- * branch; the union keeps this exhaustive.
- */
+/** The bounds a measure must sit inside to be recorded at all — the decider's rule. */
 export function validateMeasure(m: Measure): void {
 	switch (m.of) {
 		case 'load':
@@ -140,12 +109,7 @@ export function validateMeasure(m: Measure): void {
 export const normaliseMeasure = (m: Measure): Measure =>
 	m.of === 'duration' ? { of: 'duration', minutes: Math.round(m.minutes) } : m;
 
-/**
- * A measure from the outside — a form field, a JSON body. Parse, don't
- * validate: the result is rebuilt from the fields each variant owns, so a
- * stray or missing field can't ride through on a cast. Shape only — the
- * bounds are validateMeasure's job, inside the decider.
- */
+/** A measure from the outside (a form field, a JSON body), rebuilt from the fields each variant owns — shape only; the bounds are validateMeasure's. */
 export function parseMeasure(raw: unknown): Measure | null {
 	let v = raw;
 	if (typeof v === 'string') {
