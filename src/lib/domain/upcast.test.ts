@@ -54,19 +54,23 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 			{ type: 'ProgrammeSelected', data: { programme: 'ab-fullbody-v1', at: AT } },
 			{ type: 'BlockToggled', data: { block: 'yoga', on: true, at: AT } },
 			{ type: 'BlockToggled', data: { block: 'mob', on: true, at: AT } },
-			{ type: 'BlockToggled', data: { block: 'run', on: true, at: AT } }
+			{ type: 'BlockToggled', data: { block: 'run', on: true, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'bw', on: true, at: AT } }
 		]);
+		// Full Range of Motion never carried the floor: choosing it reads the no-gym block off
 		expect(upcast(row('PlanSelected', { plan: 'her-12-v1', at: AT }))).toEqual([
 			{ type: 'ProgrammeSelected', data: { programme: 'her-12-v1', at: AT } },
 			{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } },
 			{ type: 'BlockToggled', data: { block: 'mob', on: false, at: AT } },
-			{ type: 'BlockToggled', data: { block: 'run', on: true, at: AT } }
+			{ type: 'BlockToggled', data: { block: 'run', on: true, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'bw', on: false, at: AT } }
 		]);
 		// Hold Steady had no lifting: choosing it switched the blocks and left the programme alone
 		expect(upcast(row('PlanSelected', { plan: 'yoga-2day-v1', at: AT }))).toEqual([
 			{ type: 'BlockToggled', data: { block: 'yoga', on: true, at: AT } },
 			{ type: 'BlockToggled', data: { block: 'mob', on: false, at: AT } },
-			{ type: 'BlockToggled', data: { block: 'run', on: false, at: AT } }
+			{ type: 'BlockToggled', data: { block: 'run', on: false, at: AT } },
+			{ type: 'BlockToggled', data: { block: 'bw', on: false, at: AT } }
 		]);
 		// a plan the table never knew reads as a programme, its blocks unsaid — no row needs this
 		expect(upcast(row('PlanSelected', { plan: 'p', at: AT }))).toEqual([{ type: 'ProgrammeSelected', data: { programme: 'p', at: AT } }]);

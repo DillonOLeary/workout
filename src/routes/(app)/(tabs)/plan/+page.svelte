@@ -4,8 +4,8 @@
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
-	import { doseLabel, prepLabel, turnLabel, weekHead, weekMeta } from '$lib/domain/labels';
-	import { cooldownFor, cycleOf, restFor, routineTitle, warmupFor, type Block, type BlockId, type Cycle } from '$lib/domain/plan';
+	import { doseLabel, prepLabel, standInMeta, turnLabel, weekHead, weekMeta } from '$lib/domain/labels';
+	import { cooldownFor, cycleOf, restFor, routineTitle, warmupFor, type Block, type Cycle } from '$lib/domain/plan';
 	import { BLOCKS } from '$lib/domain/plans';
 	import { EQUIPMENT, INTENTS, MAX_INTENTS, samePreferences, type Equipment, type Intent, type Preferences } from '$lib/domain/preferences';
 	import { nextInCycle, queue, weekProgress } from '$lib/domain/projections';
@@ -29,12 +29,12 @@
 	let liftWeek = $derived(weekProgress(data.events, plan, lift, now));
 	let nextLift = $derived(nextInCycle(data.events, plan, lift));
 
-	// the blocks with a switch, on ones first; the no-gym block has no switch
-	let switchable = $derived(BLOCKS.filter((b) => b.switch === 'hand'));
-	const isOn = (b: Block) => data.blocksOn.includes(b.id as BlockId);
-	let onBlocks = $derived(switchable.filter(isOn));
-	let offBlocks = $derived(switchable.filter((b) => !isOn(b)));
-	let noGym = $derived(BLOCKS.find((b) => b.switch === 'gear'));
+	// every block has a switch; the on ones first
+	const isOn = (b: Block) => data.blocksOn.includes(b.id);
+	let onBlocks = $derived(BLOCKS.filter(isOn));
+	let offBlocks = $derived(BLOCKS.filter((b) => !isOn(b)));
+	// the floor: the block that stands in for the lift when the gym is ruled out
+	let floor = $derived(BLOCKS.find((b) => b.cycle.standsInFor === lift.id));
 
 	// what a routine takes, and what a cycle averages
 	const minutesOf = (r: string) => estimateMinutes(sessionSteps(plan, { routine: r }));
@@ -99,16 +99,21 @@
 
 	<!-- a block: what it is, what it holds, and its switch -->
 		{#snippet blockRow(b: Block, on: boolean)}
-			{@const done = weekProgress(data.events, plan, b.cycle, now).done}
+			{@const c = b.cycle}
+			{@const done = weekProgress(data.events, plan, c, now).done}
+			<!-- the routines the block owns; a borrowed one (the floor's yoga) is a count -->
+			{@const own = c.routines.filter((r) => b.routines[r])}
+			{@const standIn = c.standsInFor ? plan.cycles.find((x) => x.id === c.standsInFor) : undefined}
 			<div class="blockrow" class:off={!on}>
-				<span class="sw ink-{b.routineInfo[b.cycle.routines[0]].discipline}"></span>
+				<span class="sw ink-{b.routineInfo[own[0]].discipline}"></span>
 				<div class="rowcaps">
-					<span class="rowtitle">{b.cycle.title}</span>
-					<span class="rowmeta">{weekMeta(b.cycle.target, done)}</span>
+					<span class="rowtitle">{c.title}</span>
+					<span class="rowmeta">{c.target > 0 ? weekMeta(c.target, done) : standInMeta(standIn?.title ?? lift.title, standIn?.target ?? lift.target)}</span>
 				</div>
 				<span class="sub">
-					{#each b.cycle.routines as r, k (r)}{#if k}<span class="dotsep"> · </span>{/if}<button type="button" class="rlink" onclick={() => show(r)}>{routineTitle(plan, r)}</button>{/each}
-					<span class="dotsep"> · ~{cycleMinutes(b.cycle)} min</span>
+					{#each own as r, k (r)}{#if k}<span class="dotsep"> · </span>{/if}<button type="button" class="rlink" onclick={() => show(r)}>{routineTitle(plan, r)}</button>{/each}
+					{#if c.routines.length > own.length}<span class="dotsep"> · +{c.routines.length - own.length}</span>{/if}
+					<span class="dotsep"> · ~{cycleMinutes(c)} min</span>
 				</span>
 				<form method="POST" action="?/toggle" use:enhance class="togform">
 					<input type="hidden" name="block" value={b.id} />
@@ -150,26 +155,12 @@
 
 			{#each onBlocks as b (b.id)}{@render blockRow(b, true)}{/each}
 
-			<div class="divider">
-				<span class="caps">Not in your week</span>
-				<span class="meta">switch one on and Today deals it</span>
-			</div>
-			{#each offBlocks as b (b.id)}{@render blockRow(b, false)}{/each}
-
-			{#if noGym}
-				{@const c = noGym.cycle}
-				<div class="blockrow off">
-					<span class="sw ink-bodyweight"></span>
-					<div class="rowcaps">
-						<span class="rowtitle">{c.title}</span>
-						<span class="rowmeta">takes {lift.title}'s {lift.target} when there's no gym</span>
-					</div>
-					<span class="sub">
-						{#each c.routines.filter((r) => noGym.routines[r]) as r, k (r)}{#if k}<span class="dotsep"> · </span>{/if}<button type="button" class="rlink" onclick={() => show(r)}>{routineTitle(plan, r)}</button>{/each}
-						<span class="dotsep"> · +{c.routines.length - Object.keys(noGym.routines).length}</span>
-					</span>
-					<span class="auto">auto ·<br />from gear</span>
+			{#if offBlocks.length}
+				<div class="divider">
+					<span class="caps">Not in your week</span>
+					<span class="meta">switch one on and Today deals it</span>
 				</div>
+				{#each offBlocks as b (b.id)}{@render blockRow(b, false)}{/each}
 			{/if}
 			<div class="foot">a switch is an event · the ledger shows when the week changed</div>
 		</Card>
@@ -238,7 +229,7 @@
 				</div>
 				<div class="sechead inner">
 					<span class="caps">I've got</span>
-					<span class="meta">no gym → the {noGym?.cycle.title ?? 'No gym'} block deals</span>
+					<span class="meta">{floor && isOn(floor) ? `no gym → the ${floor.cycle.title} block deals` : `no gym → nothing stands in for the lift · switch ${floor?.cycle.title ?? 'No gym'} on`}</span>
 				</div>
 				<div class="pills">
 					{#each EQUIPMENT as g (g.id)}
@@ -356,7 +347,6 @@
 		transition: left var(--dur-med) var(--ease-snap);
 	}
 	.tog[aria-checked='true'] .knob { left: 22px; }
-	.auto { grid-area: tog; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: right; line-height: 1.3; }
 	.divider {
 		display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;
 		padding: 10px 16px 6px; border-top: 1px solid var(--border-soft);

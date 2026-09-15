@@ -381,14 +381,13 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 /**
  * The blocks, in the order the week lists them. Cadence is the block's:
  * a target is a training decision, and a dial would be a second source of
- * truth. The no-gym block has no switch — it is in every week at target 0
- * and takes the lift's target while the gym is ruled out (standsInFor).
+ * truth. The no-gym block is a switch like the others, on by default: at
+ * target 0 it is dealt after everything owed, and takes the lift's target
+ * while the gym is ruled out (standsInFor).
  */
 export const BLOCKS: Block[] = [
 	{
-		id: 'yoga',
-		switch: 'hand',
-		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
+		id: 'yoga',		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
 		routineInfo: {
 			// the body you actually have: hip flexors shortened by a chair,
 			// hamstrings and calves shortened by running
@@ -422,9 +421,7 @@ export const BLOCKS: Block[] = [
 		}
 	},
 	{
-		id: 'mob',
-		switch: 'hand',
-		cycle: { id: 'mob', title: 'Stretch', routines: ['S'], target: 3 },
+		id: 'mob',		cycle: { id: 'mob', title: 'Stretch', routines: ['S'], target: 3 },
 		routineInfo: {
 			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] }
 		},
@@ -442,18 +439,14 @@ export const BLOCKS: Block[] = [
 		}
 	},
 	{
-		id: 'run',
-		switch: 'hand',
-		cycle: { id: 'run', title: 'Run', routines: ['run'], target: 3 },
+		id: 'run',		cycle: { id: 'run', title: 'Run', routines: ['run'], target: 3 },
 		routineInfo: {
 			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN }
 		},
 		routines: { run: [EASY_RUN] }
 	},
 	{
-		id: 'bw',
-		switch: 'gear',
-		cycle: { id: 'bw', title: 'No gym', routines: ['bw1', 'bw2', 'hips', 'bw4', 'bw5', 'bw6', 'spine'], target: 0, standsInFor: 'lift' },
+		id: 'bw',		cycle: { id: 'bw', title: 'No gym', routines: ['bw1', 'bw2', 'hips', 'bw4', 'bw5', 'bw6', 'spine'], target: 0, standsInFor: 'lift' },
 		routineInfo: {
 			bw1: { title: 'Push & Squat', discipline: 'bodyweight', desc: 'Push · split squat · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
 			bw2: { title: 'Hinge & Carry', discipline: 'bodyweight', desc: 'Hinge · lunge · crawl · side plank', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },

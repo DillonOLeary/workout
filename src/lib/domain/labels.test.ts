@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	ceilingHint, countLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, lineValue, listJoin,
 	loadHint, loadLabel, loadShort, needsLine, paceLabel, paceSentence, paceSub, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine,
-	scheduleLine, setValue, setsLine, sessionSummary, spanLabel, stepLabel, trendTally, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta
+	scheduleLine, setValue, setsLine, sessionSummary, spanLabel, standInMeta, stepLabel, trendTally, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta
 } from './labels';
 import type { Measure } from './measure';
 import type { Exercise, Plan } from './plan';
@@ -148,6 +148,9 @@ describe('rates — the running average in words', () => {
 			'switched to Open to Work · yoga, stretch, run on'
 		);
 		expect(weekChangeLine({ blocks: [{ block: 'run', on: false }] }, name)).toBe('run off');
+		expect(weekChangeLine({ blocks: [{ block: 'bw', on: false }] }, name)).toBe('no gym off');
+		expect(weekChangeLine({ blocks: [{ block: 'run', on: true }, { block: 'bw', on: true }] }, name)).toBe('run, no gym on');
+		expect(standInMeta('Lift', 3)).toBe("takes Lift's 3 when there's no gym · dealt as Instead");
 		expect(weekChangeLine({ programme: 'her-12-v1', blocks: [{ block: 'yoga', on: false }, { block: 'run', on: true }] }, name)).toBe('switched to her-12-v1 · run on · yoga off');
 		expect(weekMeta(3, 1)).toBe('3 a week · 1 done');
 		expect(weekHead(11, 340)).toBe('11 sessions a week · about 5.5 h');

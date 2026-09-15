@@ -204,10 +204,15 @@ describe('decide — idempotent removes, selects and preferences', () => {
 		const off = decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, initialState());
 		expect(off).toEqual([{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } }]);
 		const state = evolve(initialState(), off[0]);
-		expect(state.blocks).toEqual({ yoga: false, mob: true, run: true });
+		expect(state.blocks).toEqual({ yoga: false, mob: true, run: true, bw: true });
 		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, state)).toEqual([]);
 		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, state)).toHaveLength(1);
-		expect(() => decide({ type: 'ToggleBlock', data: { block: 'bw' as never, on: false, at: AT } }, initialState())).toThrow(ValidationError);
+		// the floor is a block like the others: on until switched, switched once
+		expect(decide({ type: 'ToggleBlock', data: { block: 'bw', on: true, at: AT } }, initialState())).toEqual([]);
+		const floorOff = decide({ type: 'ToggleBlock', data: { block: 'bw', on: false, at: AT } }, initialState());
+		expect(floorOff).toEqual([{ type: 'BlockToggled', data: { block: 'bw', on: false, at: AT } }]);
+		expect(decide({ type: 'ToggleBlock', data: { block: 'bw', on: false, at: AT } }, evolve(initialState(), floorOff[0]))).toEqual([]);
+		expect(() => decide({ type: 'ToggleBlock', data: { block: 'swim' as never, on: false, at: AT } }, initialState())).toThrow(ValidationError);
 	});
 	it('removes a known session once, refuses an unknown one', () => {
 		expect(() =>

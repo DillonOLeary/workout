@@ -124,7 +124,7 @@ export type Cycle = {
 	title: string;
 	/** ordered routine keys */
 	routines: string[];
-	/** sessions a week. Always sessions. 0 = never offered on its own */
+	/** sessions a week. Always sessions. 0 = never owed on its own: dealt after everything owed, or at the target of the cycle it stands in for */
 	target: number;
 	/** takes that cycle's target while it is ruled out (the floor stands in for the gym) */
 	standsInFor?: string;
@@ -230,17 +230,18 @@ export function planExercises(plan: Plan): Exercise[] {
    step list and rule consumes, so nothing downstream knows the difference. */
 
 /** The blocks a person can switch. A closed union: a switch is an event, and the decider must know the block exists. */
-export type BlockId = 'yoga' | 'mob' | 'run';
-export const BLOCK_IDS: readonly BlockId[] = ['yoga', 'mob', 'run'];
+export type BlockId = 'yoga' | 'mob' | 'run' | 'bw';
+export const BLOCK_IDS: readonly BlockId[] = ['yoga', 'mob', 'run', 'bw'];
 export const isBlockId = (v: unknown): v is BlockId => BLOCK_IDS.includes(v as BlockId);
+/** Every block on — the week before a switch says otherwise. */
+export const allBlocksOn = (): Record<BlockId, boolean> =>
+	Object.fromEntries(BLOCK_IDS.map((b) => [b, true])) as Record<BlockId, boolean>;
 
 export type Block = {
-	id: BlockId | 'bw';
+	id: BlockId;
 	cycle: Cycle;
 	routines: Record<string, Exercise[]>;
 	routineInfo: Record<string, Routine>;
-	/** 'hand' — a switch on The Plan; 'gear' — always in the week at target 0, turned on by what you've got (standsInFor) */
-	switch: 'hand' | 'gear';
 };
 
 /**
@@ -256,10 +257,7 @@ export function composePlan(programme: Plan, blocks: readonly Block[], on: reado
 		Object.assign(routines, b.routines);
 		Object.assign(routineInfo, b.routineInfo);
 	}
-	const cycles = [
-		...programme.cycles,
-		...blocks.filter((b) => b.switch === 'gear' || on.includes(b.id as BlockId)).map((b) => b.cycle)
-	];
+	const cycles = [...programme.cycles, ...blocks.filter((b) => on.includes(b.id)).map((b) => b.cycle)];
 	return { ...programme, cycles, routines, routineInfo };
 }
 

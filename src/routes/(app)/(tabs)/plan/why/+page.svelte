@@ -362,9 +362,9 @@
 
 		<h2>No gym</h2>
 		<p>
-			A cycle of seven floor routines that is off until the gym is ruled out — travel, a
-			closed week, a move — and turns on by itself when you say you haven’t got one. It
-			keeps the habit, not the numbers: bodyweight work builds strength for a beginner and
+			A block of seven floor routines that is never owed: Today deals it after everything
+			you owe, and it takes the lift’s target when you say you haven’t got a gym — travel, a
+			closed week, a move. It keeps the habit, not the numbers: bodyweight work builds strength for a beginner and
 			maintains it for anyone else, and against loaded training at matched effort it comes
 			up short on the legs and the pull, where you cannot add weight
 			<a href="#ref-32" class="cite" onclick={(e) => goRef(e, 32)}>[32]</a>. So the cycle is honest about its job. Push,

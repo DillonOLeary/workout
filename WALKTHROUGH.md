@@ -111,7 +111,7 @@ bodyweight": a convention is exactly what a union exists to remove.
 | `SessionFinished` | the workout ended |
 | `SessionRemoved` | the event-sourced delete — a fact about a fact |
 | `ProgrammeSelected` | you switched the lifting to another programme — the blocks stay as they were |
-| `BlockToggled` | you switched a block of the week (yoga · stretch · run) on or off — a fact with a date, so the Ledger can say when the week changed |
+| `BlockToggled` | you switched a block of the week (yoga · stretch · run · no gym) on or off — a fact with a date, so the Ledger can say when the week changed |
 | `PreferencesSet` | what you told the app you're after and what you've got — a full snapshot with a date, so "you said you wanted to run better six weeks ago" is sayable |
 
 A **workout is a session: an ordered list of entries, each with one
@@ -273,13 +273,16 @@ else lives there:
   (`countedBy` — yoga is yoga), and TURNS only on its own routines
   (`turnedBy` — a finished session of this plan's key)
 - `queue` → the one piece of genuinely new logic: ONE candidate per cycle,
-  ranked — shortfall (sessions under target, plus one when an intent names
-  the discipline) → staleness (whole cadences overdue) → minutes (shorter
-  first) → plan order. No discipline is privileged: a lift you owe rises
-  because it is owed. A routine that needs what you haven't got is ruled
-  out, not hidden; a cycle with `target: 0` (the no-gym block) is offered
-  only when the cycle it stands in for is ruled out, or when everything
-  else is behind — and then never first. Every candidate carries its own
+  ranked — owed (target > 0, or standing in for a cycle that is ruled out)
+  → shortfall (sessions under target, plus one when an intent names the
+  discipline) → staleness (whole cadences overdue) → minutes (shorter first)
+  → plan order; "Just show up more" puts minutes ahead of staleness among
+  what you owe. No discipline is privileged: a lift you owe rises because
+  it is owed. A routine that needs what you haven't got is ruled out, not
+  hidden; a cycle with `target: 0` (the no-gym block, while it is on) is
+  always in the deck and never above anything owed — one "Something else"
+  away — unless the cycle it stands in for is ruled out, when it takes that
+  target and is owed like any other. Every candidate carries its own
   `why`, one mono line in the grammar Today already spoke ("60 days since
   Hinge & Haul · Chest Press comes back a size")
 - `preferences` → the last `PreferencesSet` over the defaults
@@ -403,7 +406,8 @@ of routines — but a plan is not the unit a person chooses. The **week** is
 one lift **programme** (a lift-only plan, a table row: Open to Work, Full
 Range of Motion) plus the **blocks** that are on (`BLOCKS` in
 [plans.ts](src/lib/domain/plans.ts): yoga 2 · stretch 3 · run 3 a week, and
-a no-gym block at `target: 0` that `standsInFor: 'lift'` and has no switch).
+a no-gym block at `target: 0` that `standsInFor: 'lift'` — a switch like the
+others, on by default, dealt after everything owed).
 `composePlan` folds them into the one `Plan` every projection, step list and
 rule consumes — once, in the layout load — so nothing downstream knows the
 difference; every block's routines are known whether or not the block is on,

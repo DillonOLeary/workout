@@ -88,14 +88,16 @@ const DISCIPLINE_BEFORE_2026_09_14: Record<string, Record<string, Discipline>> =
 /**
  * What choosing a plan MEANT, now that the week is one lift programme plus
  * the blocks that are on: the programme it was, and its blocks switched on
- * (and the ones it lacked, off). Hold Steady had no lifting of its own —
- * choosing it was its blocks only; the programme stays whatever it was. An
- * unknown id (no row needs this) reads as a programme with no blocks said.
+ * (and the ones it lacked, off). Open to Work carried the floor inside it;
+ * Full Range of Motion and Hold Steady did not, so only the first reads the
+ * no-gym block on. Hold Steady had no lifting of its own — choosing it was
+ * its blocks only; the programme stays whatever it was. An unknown id (no
+ * row needs this) reads as a programme with no blocks said.
  */
 const WEEK_OF_PLAN: Record<string, { programme?: string; on: Partial<Record<BlockId, boolean>> }> = {
-	'ab-fullbody-v1': { programme: 'ab-fullbody-v1', on: { yoga: true, mob: true, run: true } },
-	'her-12-v1': { programme: 'her-12-v1', on: { yoga: false, mob: false, run: true } },
-	'yoga-2day-v1': { on: { yoga: true, mob: false, run: false } }
+	'ab-fullbody-v1': { programme: 'ab-fullbody-v1', on: { yoga: true, mob: true, run: true, bw: true } },
+	'her-12-v1': { programme: 'her-12-v1', on: { yoga: false, mob: false, run: true, bw: false } },
+	'yoga-2day-v1': { on: { yoga: true, mob: false, run: false, bw: false } }
 };
 
 /**

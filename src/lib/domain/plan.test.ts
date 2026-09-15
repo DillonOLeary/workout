@@ -161,14 +161,16 @@ describe('plan accessors — the defaults live in one place', () => {
 
 describe('composePlan — the week is one programme plus the blocks that are on', () => {
 	const programme = DEFAULT_PROGRAMMES[0];
-	it('adds only the on blocks’ cycles, and the no-gym block whatever is on', () => {
-		expect(composePlan(programme, BLOCKS, ['run']).cycles.map((c) => c.id)).toEqual(['lift', 'run', 'bw']);
-		expect(composePlan(programme, BLOCKS, []).cycles.map((c) => c.id)).toEqual(['lift', 'bw']);
-		expect(composePlan(programme, BLOCKS, ['yoga', 'mob', 'run']).cycles.map((c) => c.id)).toEqual(['lift', 'yoga', 'mob', 'run', 'bw']);
+	it('adds only the on blocks’ cycles — the floor included', () => {
+		expect(composePlan(programme, BLOCKS, ['run']).cycles.map((c) => c.id)).toEqual(['lift', 'run']);
+		expect(composePlan(programme, BLOCKS, []).cycles.map((c) => c.id)).toEqual(['lift']);
+		expect(composePlan(programme, BLOCKS, ['bw']).cycles.map((c) => c.id)).toEqual(['lift', 'bw']);
+		expect(composePlan(programme, BLOCKS, ['yoga', 'mob', 'run', 'bw']).cycles.map((c) => c.id)).toEqual(['lift', 'yoga', 'mob', 'run', 'bw']);
 	});
 	it('knows every block’s routines whether or not the block is on — a session of an off block still has a title', () => {
 		const off = composePlan(programme, BLOCKS, []);
 		expect(routineTitle(off, 'hips')).toBe('Hips & Hamstrings');
+		expect(routineTitle(off, 'bw1')).toBe('Push & Squat');
 		expect(disciplineOf(off, 'run')).toBe('run');
 		expect(parsePlan(JSON.stringify(off))).toEqual(off);
 	});

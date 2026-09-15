@@ -99,8 +99,9 @@ export type BlockToggled = Event<'BlockToggled', { block: BlockId; on: boolean; 
  * because "you said you wanted to run better six weeks ago and have run
  * twice" is only sayable if the statement has a date. A full snapshot each
  * time; the last one wins. Two fields, because each has one exact effect on
- * the queue: intents weight a cycle up, equipment rules one out. It never
- * writes an exercise.
+ * the queue: intents weight a cycle up (one, show-up-more, instead puts the
+ * shorter owed session first), equipment rules one out. It never writes an
+ * exercise.
  */
 export type PreferencesSet = Event<
 	'PreferencesSet',

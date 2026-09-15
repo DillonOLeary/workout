@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PREFERENCES, missingFor, parsePreferences, samePreferences, weightedUp } from './preferences';
+import { DEFAULT_PREFERENCES, missingFor, parsePreferences, samePreferences, shorterFirst, weightedUp } from './preferences';
 
 describe('preferences — two menus, one exact effect each', () => {
 	it('parses picks from the menus, and refuses a snapshot with a name that is not on them', () => {
@@ -12,7 +12,9 @@ describe('preferences — two menus, one exact effect each', () => {
 	});
 	it('says what an intent weights up and what a discipline is missing', () => {
 		expect([...weightedUp({ intents: ['run-better'], equipment: [] })]).toEqual(['run', 'lift']);
-		expect([...weightedUp({ intents: ['show-up-more'], equipment: [] })]).toEqual([]); // a mood, not a discipline
+		expect([...weightedUp({ intents: ['show-up-more'], equipment: [] })]).toEqual([]); // names no discipline —
+		expect(shorterFirst({ intents: ['show-up-more'], equipment: [] })).toBe(true); // it reorders what you owe
+		expect(shorterFirst(DEFAULT_PREFERENCES)).toBe(false);
 		expect(missingFor('lift', DEFAULT_PREFERENCES)).toEqual([]);
 		expect(missingFor('lift', { intents: [], equipment: ['mat'] })).toEqual(['gym']);
 		expect(missingFor('bodyweight', { intents: [], equipment: [] })).toEqual([]); // a floor needs nothing

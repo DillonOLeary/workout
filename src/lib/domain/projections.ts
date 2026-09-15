@@ -4,6 +4,7 @@ import { countOf, isSet, loadOf, type Measure } from './measure';
 import {
 	BLOCK_IDS,
 	DISCIPLINES,
+	allBlocksOn,
 	cycleDisciplines,
 	routineTitle,
 	type BlockId,
@@ -12,7 +13,7 @@ import {
 	type Exercise,
 	type Plan
 } from './plan';
-import { DEFAULT_PREFERENCES, missingFor, weightedUp, type Preferences } from './preferences';
+import { DEFAULT_PREFERENCES, missingFor, shorterFirst, weightedUp, type Preferences } from './preferences';
 import {
 	REENTRY_DAYS,
 	REENTRY_WARN_DAYS,
@@ -200,7 +201,7 @@ export function activeProgramme(events: LedgerEvent[]): string | null {
 
 /** Which blocks of the week are on: everything, until a switch says otherwise. */
 export function blocksOn(events: LedgerEvent[]): BlockId[] {
-	const on: Record<BlockId, boolean> = { yoga: true, mob: true, run: true };
+	const on = allBlocksOn();
 	for (const e of events) if (e.type === 'BlockToggled') on[e.data.block] = e.data.on;
 	return BLOCK_IDS.filter((b) => on[b]);
 }
@@ -338,19 +339,24 @@ function staleTier(daysSince: number | null, target: number): number {
 /**
  * What to offer, and in what order — one candidate per cycle, each carrying
  * its own reason line, so Today can never grow a menu it didn't ask for.
- * Score, in order of weight: shortfall (sessions under this cycle's weekly
- * target, plus one when an intent names its discipline) → staleness (whole
- * cadences since it last turned) → minutes (shorter first) → plan order.
- * No discipline is privileged: a lift you owe rises because it is owed. A
- * routine that needs what you haven't got is ruled OUT, not hidden — it
- * sits at the bottom and says so. A cycle with target 0 is offered only
- * when the cycle it stands in for is ruled out (it takes that target), or
- * when everything else is behind — and then never first.
+ * Score, in order of weight: owed (target > 0, or standing in for a cycle
+ * that is ruled out) → shortfall (sessions under this cycle's weekly target,
+ * plus one when an intent names its discipline) → staleness (whole cadences
+ * since it last turned) → minutes (shorter first) → plan order. "Just show
+ * up more" swaps the last two: among what you owe, the shorter session
+ * outranks the staler one. No discipline is privileged: a lift you owe
+ * rises because it is owed. A routine that needs what you haven't got is
+ * ruled OUT, not hidden — it sits at the bottom and says so. A cycle with
+ * target 0 (the no-gym block, while it is on) is always in the deck and
+ * never above anything owed — one "Something else" away — unless the cycle
+ * it stands in for is ruled out, when it takes that target and is owed like
+ * any other.
  */
 export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now: number): Candidate[] {
 	const sessions = projectSessions(events);
 	const up = weightedUp(prefs);
-	type Scored = { c: Candidate; shortfall: number; owed: boolean; order: number };
+	const shortFirst = shorterFirst(prefs);
+	type Scored = { c: Candidate; order: number };
 	const scored: Scored[] = [];
 	for (const [order, cycle] of plan.cycles.entries()) {
 		const routine = nextInCycle(events, plan, cycle);
@@ -375,21 +381,14 @@ export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now
 		const workout = { routine };
 		const minutes = estimateMinutes(sessionSteps(plan, workout));
 		const why = out ? needsLine(missing) : whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, up.has(discipline));
-		const score = out ? -1 : tier * 1e6 + stale * 1e3 + (999 - Math.min(999, minutes));
-		scored.push({
-			c: { cycle: cycle.id, workout, discipline, title, why, minutes, score, out, due: shortfall > 0 },
-			shortfall: cycle.target === 0 && !standingIn ? 0 : shortfall,
-			owed: cycle.target > 0 || standingIn,
-			order
-		});
+		// four bands that cannot touch: owed 1e8 > tier ≤ 4·1e6 > the tail — stale·1e3 + shorter ≤ 9,999,
+		// or with "show up more" shorter·1e3 + stale ≤ 999,009 — both under 1e6. Ruled out sits below all of it.
+		const owed = cycle.target > 0 || standingIn;
+		const shorter = 999 - Math.min(999, minutes);
+		const score = out ? -1 : (owed ? 1e8 : 0) + tier * 1e6 + (shortFirst ? shorter * 1e3 + stale : stale * 1e3 + shorter);
+		scored.push({ c: { cycle: cycle.id, workout, discipline, title, why, minutes, score, out, due: shortfall > 0 }, order });
 	}
-	// a cycle nobody asked for this week appears only when everything that
-	// was asked for is behind — as "something else", never first
-	const allBehind = scored.filter((s) => s.owed && !s.c.out).every((s) => s.shortfall > 0);
-	return scored
-		.filter((s) => s.owed || allBehind)
-		.sort((a, b) => b.c.score - a.c.score || a.order - b.order)
-		.map((s) => s.c);
+	return scored.sort((a, b) => b.c.score - a.c.score || a.order - b.order).map((s) => s.c);
 }
 
 /**

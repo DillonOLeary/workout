@@ -2,7 +2,7 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
-import { BLOCK_IDS, isBlockId, isDiscipline, type BlockId } from './plan';
+import { BLOCK_IDS, allBlocksOn, isBlockId, isDiscipline, type BlockId } from './plan';
 import { MAX_INTENTS, isEquipment, isIntent, samePreferences, type Preferences } from './preferences';
 import { upcast } from './upcast';
 
@@ -59,7 +59,7 @@ export type LedgerState = {
 export const initialState = (): LedgerState => ({
 	activeSession: null,
 	activeProgramme: null,
-	blocks: { yoga: true, mob: true, run: true },
+	blocks: allBlocksOn(),
 	started: [],
 	removedSessions: {},
 	logged: {},

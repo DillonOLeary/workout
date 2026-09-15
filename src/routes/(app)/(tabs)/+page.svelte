@@ -20,8 +20,9 @@
 	 * button — and a queue behind it. The read side ranks every cycle of the
 	 * plan (projections.queue) and Today shows the first; "Something else"
 	 * deals the next card, and the dots say where you are. Nothing is hidden
-	 * that matters: the queue is as deep as the plan has cycles, and a routine
-	 * you can't do with what you've got is struck through, not gone.
+	 * that matters: the queue is every cycle of the week — the floor last,
+	 * unless it is standing in for the gym — and a routine you can't do with
+	 * what you've got is struck through, not gone.
 	 *
 	 * The card is fixed weight — it holds the decision. The space below is
 	 * the slack, and it goes to "What's in it": the figures of the session

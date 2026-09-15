@@ -170,7 +170,10 @@ export function paceSentence(p: { weeks: number; rates: { discipline: Discipline
 /** "3 a week · 1 done" — a cycle's cadence, and the week so far. */
 export const weekMeta = (target: number, done: number): string => `${target} a week · ${done} done`;
 
-/** "yoga" · "stretch" · "run" — a block, in a sentence. */
+/** "takes Lift's 3 when there's no gym · dealt as Instead" — a target-0 block's line on The Plan. */
+export const standInMeta = (title: string, target: number): string => `takes ${title}'s ${target} when there's no gym · dealt as Instead`;
+
+/** "yoga" · "stretch" · "run" · "no gym" — a block, in a sentence. */
 export function blockLabel(b: BlockId): string {
 	switch (b) {
 		case 'yoga':
@@ -179,6 +182,8 @@ export function blockLabel(b: BlockId): string {
 			return 'stretch';
 		case 'run':
 			return 'run';
+		case 'bw':
+			return 'no gym';
 	}
 }
 

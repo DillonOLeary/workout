@@ -319,14 +319,16 @@ live); breathwork counts; flow beyond the sun salutations in the warm-up;
 difficulty levels — where a pose has an easier version, it is one sentence in
 the pose note.
 
-### No gym — a bodyweight cycle, seven long, off by default
+### No gym — a bodyweight cycle, seven long, on by default, never owed
 
-A cycle of seven floor routines inside Open to Work that needs a floor and
-nothing else. It is off (target 0) until the gym is ruled out on the What I'm
-after sheet — travel, a closed week, a move — when it takes the lift cycle's
-target; take the gym back and it goes quiet again. Seven, because a week is
-seven and the block is meant to be done daily while it is on; two of the seven
-are the yoga routines, so a week without a gym still bends.
+A block of seven floor routines that needs a floor and nothing else. At
+target 0 it is never owed: Today deals it after everything you owe, one
+"Something else" away, for the day you don't want to go down to the gym.
+Rule the gym out under What I'm after — travel, a closed week, a move — and
+it takes the lift cycle's target; take the gym back and it drops to the bottom
+again. Switch it off on The Plan and it leaves the week. Seven, because a
+week is seven and the block is meant to be done daily while it stands in;
+two of the seven are the yoga routines, so a week without a gym still bends.
 
 It keeps the habit, not the numbers. Bodyweight work builds strength for a
 beginner and maintains it for anyone else; against loaded training at matched
