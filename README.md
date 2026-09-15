@@ -1,31 +1,20 @@
-# LEDGER — Training Ledger
+# LEDGER
 
-Dillon's single-user workout tracker. Ergonomics-first (56px+ hit targets,
-full keyboard control, big mono numbers), event-sourced, paper-and-volt.
+A single-user, event-sourced workout tracker. Track the work; the rule does the
+rest, one set at a time: hit the top of the range on a set and that set takes
+the next size up next time; miss the bottom twice in a row and it backs off one
+size; two weeks away and everything comes back one size lighter. Every move
+lands on a real rack size, so it never asks you for a 37.5 lb kettlebell.
 
-Track the work. The rule does the rest, one set at a time: hit the top of the
-range on a set → that set takes the next size up next time. Miss the bottom of
-the range on the same set twice in a row → it backs off one size; two weeks
-away → everything comes back one size lighter. Every move lands on a real
-rack size, so it never asks you for a 37.5 lb kettlebell.
-
-One plan holds every discipline you train — lifting, yoga, a morning
-stretch, an easy run, a no-gym block — as cycles that turn at their own
-cadence. Hands-off by default, control on demand: Today ranks the cycles and
-answers "what should I do?" with one button; something else, a set you want
-to fix, and what you're after are each one deliberate tap deeper. Anything in
-the latest session can be changed; older history is immutable, and the
-decider enforces it.
+The week is one lift programme plus the blocks you have on — yoga, a morning
+stretch, an easy run, a no-gym floor. Today ranks them and answers "what should
+I do?" with one button; the latest session can be corrected, older history is
+immutable.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)
-PostgreSQL event store · Neon · TypeScript.
+PostgreSQL event store · Neon · Cloudflare Workers · TypeScript.
 
-New here? Read [WALKTHROUGH.md](WALKTHROUGH.md) — a guided tour of the code as
-a Svelte + event-sourcing course.
-
-Wondering whether the plans are any good? [TRAINING.md](TRAINING.md) is the
-sourced case for them, plus the training fundamentals behind the one rule.
-The same thing lives in the app at `/plan/why`.
+New here? [WALKTHROUGH.md](WALKTHROUGH.md) is the tour.
 
 ## Run it
 
@@ -34,36 +23,17 @@ pnpm install
 pnpm dev
 ```
 
-Needs `.env.local` (git-ignored):
-
-```
-DB=postgres://…            # Neon connection string
-LEDGER_PEPPER=…            # any random secret; HMACs phone numbers into account ids and signs the cookie
-```
-
-Dev talks to Neon directly: [vite.config.ts](vite.config.ts) hands `DB` to
-wrangler's local Hyperdrive emulation, which otherwise refuses to start.
-
-Log in with a phone number — no password; a signed cookie keeps the device
-signed in, and the same number reaches the same ledger from any device.
-Empty phone → the shared demo sandbox.
-
-## Layout
-
-```
-src/lib/design/       design tokens (colors, type, spacing, effects, motion) + glyph-frames.json (the dot-matrix figures, baked) and glyphs.ts (their clock)
-src/lib/components/   Button, Card, TabBar, Chip, ExerciseGlyph, MonthGrid, TrendRow, floor/{StepTable,AdjustTile,FloorPrimary,FloorSheet,bell,entry-queue,countdown}
-src/lib/domain/       measure · events · commands · preferences · upcast · decider │ projections · progression · labels │ plan · plans · racks · steps — pure, no I/O
-src/lib/server/       Emmett event store, plans table, HMAC login (server-only)
-src/routes/           login · Today (+ Log it after) / Ledger (did I show up · am I getting stronger · what I did) / The Plan (the week: one lift programme + the blocks that are on, What I'm after; + Lift programme, Why) · /floor the gym floor
-tools/glyphs/         the dot-athlete generator (51 poses in three gears: rep, breath, still) + bake.mjs — rewrites glyph-frames.json (--check proves it matches)
-tools/stream/         forensics.sql — read-only queries over the event store: streams, counts by event name, what the upcaster's header counts
-```
+Needs `.env.local` (git-ignored): `DB` (a Neon connection string) and
+`LEDGER_PEPPER` (any random secret — it HMACs phone numbers into account ids and
+signs the cookie). Dev talks to Neon directly. Log in with a phone number — no
+password; an empty phone is the shared demo sandbox.
 
 ## Checks
 
 ```sh
-pnpm test     # vitest — one suite per domain layer: decider, upcaster, progression, labels, projections, plan, steps, racks, preferences, glyph frames (179 tests)
+pnpm test     # vitest, one suite per domain layer
 pnpm check    # svelte-check
 pnpm build    # production build
 ```
+
+Deploy: push to `main` — Cloudflare Workers Builds does the rest.

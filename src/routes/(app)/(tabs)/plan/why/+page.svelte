@@ -2,13 +2,7 @@
 	import { tick } from 'svelte';
 	import Card from '$lib/components/Card.svelte';
 
-	/**
-	 * The case for the plans, on the same screen as the plans — written as an
-	 * essay, not a card deck, because it IS an argument. Static on purpose: no
-	 * load(), nothing derived from events. Every claim carries a numbered
-	 * reference; the list at the bottom is the point of the page, not
-	 * decoration. Reference numbering matches TRAINING.md exactly.
-	 */
+	/** The case for the plans, static: every claim cites one of these. */
 	const refs = [
 		{
 			n: 1,
@@ -358,6 +352,14 @@
 			And whether it calms you down is soft evidence about a subjective outcome, so the app
 			makes no claim and logs no number — two minutes of savasana close each routine
 			because that is the traditional close and it costs nothing.
+		</p>
+		<p>
+			The morning stretch is the other mat block: the runner’s five holds — calves, hip
+			flexors, hamstrings, glutes, chest — at 45 seconds each, on a morning that isn’t a
+			lift. It is not strength work and is not asked to be: static holds at realistic doses
+			build essentially none <a href="#ref-23" class="cite" onclick={(e) => goRef(e, 23)}>[23]</a>,
+			so it earns no set in the volume count and never replaces a lift. It is there for
+			range of motion and a back that doesn’t ache, three mornings a week, seven minutes.
 		</p>
 
 		<h2>No gym</h2>
