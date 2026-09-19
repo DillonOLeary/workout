@@ -1,7 +1,62 @@
 import { BLOCK_IDS, composePlan, type Block, type Exercise, type Plan, type PrepItem } from './plan';
 
+/** One sentence per exercise on why it is in the plan — the floor-level cousin of The Plan › why; shown on the About sheet. */
+const WHY: Record<string, string> = {
+	'Goblet Squat': 'The squat pattern with the load held in front, which keeps the torso honest and the knees free — the one lower-body lift every week needs.',
+	'Romanian Deadlift': 'The hinge: hamstrings and glutes at length, the pattern a run leans on and a squat doesn\'t train.',
+	'KB Deadlift': 'The hinge learned from the floor, the bell between the feet — the same pattern as the RDL, easier to feel.',
+	'Shoulder Press': 'The vertical push: shoulders and triceps, the one press the chest press doesn\'t cover.',
+	'Seated Row': 'The horizontal pull that balances the press — upper back and biceps, the posture muscles.',
+	'Long-Lever Plank': 'Core as a hold against extension; the long lever roughly doubles the abdominal work of a plank at the same length.',
+	'DB Reverse Lunge': 'The squat on one leg at a time — balance and the front leg\'s glute, without the knee stress of stepping forward.',
+	'Chest Press': 'The horizontal push: chest, shoulders and triceps, at the plan\'s maintenance dose.',
+	'Lat Pulldown': 'The vertical pull that pairs with the press overhead; lats and grip.',
+	'DB Glute Bridge': 'Hip extension with the knees bent, which isolates the glutes the way a hinge can\'t.',
+	'Standing Calf Raise': 'Calves absorb more force in running than any other muscle, and calf strength tracks running economy in trials.',
+	'Deep Goblet Squat': 'The squat through its whole range — loaded full-range work improves how far a joint moves about as much as stretching does.',
+	'Band Face Pull': 'The one shoulder-health input with a trial behind it: rear delts and the external rotators, the muscles pressing forgets.',
+	'Leg Curl': 'Hamstrings at length, seated — trained long they grew about half again more in a direct trial.',
+	'Copenhagen Plank': 'The adductor exercise with an injury-prevention trial behind it; the top of the side plank\'s ladder.',
+	'Dead Bug': 'Core against extension while the limbs move — the low back learns to stay down while the legs work.',
+	'Side Plank': 'The core from the side, one side at a time; its ladder ends at the Copenhagen plank.',
+	'Push-up': 'The floor\'s horizontal push — at matched effort it builds the same upper body as a bench press.',
+	'Split Squat': 'The floor\'s squat, made hard by putting it on one leg — with no weight to add, the variant is the progression.',
+	'Bodyweight Squat': 'The squat pattern, kept in the week when there is no gym; reps and tempo do the work of load.',
+	'Reverse Lunge': 'The lunge without the bell — the same front-leg work, kept in the week.',
+	'Step-up': 'Single-leg drive through the whole foot — the closest a floor gets to loaded hip extension.',
+	'Single-leg RDL Reach': 'The hinge on one leg: hamstrings, balance and the foot\'s small muscles at once.',
+	'Single-leg Hip Bridge': 'Glutes one side at a time; the floor\'s version of the dumbbell bridge.',
+	'Single-leg Calf Raise': 'The calf raise without the machine — one leg is the load.',
+	'Bear Crawl': 'Shoulders and core under movement — the closest thing a floor has to a carry.',
+	'Superman Hold': 'The only pull for the back of the body a floor allows; honest about being weak.',
+	'Hollow Hold': 'Core against extension with the legs long — the position every other hold borrows.',
+	'Reverse Crunch': 'The lower abdominals curling the pelvis, not the neck.',
+	'Plank': 'The core hold everything else is a version of; it gets harder, never longer.',
+	'Calf stretch': 'The run and the calf raise both shorten the calves; this is the length back.',
+	'Hip flexor stretch': 'Sitting and running both keep the hip flexors short; a long one is what lets the glute finish a stride.',
+	'Hamstring stretch': 'The hinge and the run both load the hamstrings; the stretch keeps the bottom of the hinge honest.',
+	'Figure-4 stretch': 'The deep hip rotators tighten under running and sitting alike; this is the stretch that reaches them.',
+	'Doorway chest stretch': 'Pressing and a desk both round the shoulders forward; the doorway opens the chest so the pull has somewhere to go.',
+	'Low Lunge': 'Hip flexors at length with the back knee down — the reach the run and the chair both take away.',
+	'Half Splits': 'Hamstrings at length from the kneel, one leg at a time.',
+	'Chair Pose': 'A squat you hold: quads and glutes under time, the strength pose of the hips routine.',
+	'Warrior II': 'Hips open, the front knee working, the arms held — strength and balance in one shape.',
+	'Pigeon': 'The deep hip rotators — the one shape that reaches under the glute.',
+	'Bridge': 'Hip extension with the spine long: the glutes and the front of the hip both.',
+	'Seated Forward Fold': 'Hamstrings and the whole back line, breathed.',
+	'Supine Twist': 'Rotation, and a quiet finish before the two minutes of savasana.',
+	'Downward Dog': 'Shoulders loaded overhead, hamstrings and calves long — the whole back line at once.',
+	'Puppy Pose': 'The mid-back in extension and the lats at length — the desk\'s opposite.',
+	'Thread the Needle': 'Rotation through the mid-back, one side at a time — where a stiff neck and a stiff low back both start.',
+	'Sphinx': 'Gentle extension for the low back, which a day of sitting never asks of it.',
+	'Cow-Face Arms': 'Shoulder rotation both ways at once — one arm reaching over, the other behind.',
+	'Child’s Pose, side reach': 'The lats and the side body at length; a rest that still stretches.'
+};
+const why = (name: string): { why?: string } => (WHY[name] ? { why: WHY[name] } : {});
+
 const CALF_RAISE: Exercise = {
 	name: 'Standing Calf Raise',
+	...why('Standing Calf Raise'),
 	equip: 'Calf raise machine',
 	tag: 'Calves',
 	kind: 'load',
@@ -17,10 +72,8 @@ const WARMUP = [
 	'One bodyweight set of the first lift',
 	'One half-weight set of the first lift'
 ];
-const COOLDOWN = ['Calf stretch · 45s each', 'Hip flexor stretch · 45s each', 'Doorway chest stretch · 45s'];
 
 const HER_WARMUP = ['5 min easy bike', '10 bodyweight squats', '10 hip hinges', '1 light set of the first lift'];
-const HER_COOLDOWN = ['Hip flexor stretch · 60s each', 'Hamstring stretch · 60s each', 'Doorway chest stretch · 60s'];
 const HER_CUE = 'Exhale through the hard part — never hold your breath.';
 
 const EASY_RUN: Exercise = {
@@ -42,32 +95,47 @@ const RUN_WARMUP: PrepItem[] = [
 	{ name: 'Leg swings', seconds: 30, each: true },
 	{ name: 'A-skips', seconds: 30 }
 ];
-const RUN_COOLDOWN: PrepItem[] = [
-	{ name: 'Walk', minutes: 3 },
-	{ name: 'Calf stretch', seconds: 45, each: true },
-	{ name: 'Hip flexor stretch', seconds: 45, each: true },
-	{ name: 'Hamstring stretch', seconds: 45, each: true }
-];
 
-/** A stretch: a 45 s hold at a fixed length (lo === hi, progress none), one set per side, ten seconds between sides. */
-const HOLD45 = (name: string, note?: string): Exercise => ({
+/** A stretch: a 45 s hold at a fixed length (lo === hi, progress none), one set per side with ten seconds between — or one set, both sides at once. */
+const HOLD45 = (name: string, note?: string, sides = true): Exercise => ({
 	name,
+	...why(name),
 	equip: 'Mat',
 	tag: 'Stretch',
 	kind: 'hold',
-	sets: 2,
+	sets: sides ? 2 : 1,
 	lo: 45,
 	hi: 45,
 	progress: { of: 'none' },
-	side: 'sets',
+	...(sides ? { side: 'sets' as const } : {}),
 	rest: 10,
 	...(note ? { note } : {})
 });
+
+/** The stretch catalogue: every stretch declared once, and referenced by name from the morning stretch and every cooldown. */
+export const STRETCHES: Record<string, Exercise> = {
+	'Calf stretch': HOLD45('Calf stretch', 'Heel down, knee straight, lean into the wall.'),
+	'Hip flexor stretch': HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
+	'Hamstring stretch': HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
+	'Figure-4 stretch': HOLD45('Figure-4 stretch', 'Ankle over the knee, sit back until the glute pulls.'),
+	'Doorway chest stretch': HOLD45('Doorway chest stretch', 'Forearms on the frame, elbows at shoulder height, step through until the chest opens.', false)
+};
+/** a stretch as a cooldown line: the catalogue's entry, held this long — it walks as holds and logs like one */
+const stretch = (name: string, seconds = 45): Exercise => {
+	const s = STRETCHES[name];
+	if (!s) throw new Error(`no stretch called "${name}" in the catalogue`);
+	return seconds === s.lo ? s : { ...s, lo: seconds, hi: seconds };
+};
+const COOLDOWN: PrepItem[] = [stretch('Calf stretch'), stretch('Hip flexor stretch'), stretch('Doorway chest stretch')];
+const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Hamstring stretch', 60), stretch('Doorway chest stretch', 60)];
+const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Calf stretch'), stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
+const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
 const YOGA_REST = 20; // a breath or two between holds — the flow is its own warm-up
 /** A yoga hold at a fixed length — one set, or one per side. */
 const pose = (name: string, tag: string, seconds: number, note: string, sides = false): Exercise => ({
 	name,
+	...why(name),
 	equip: 'Mat',
 	tag,
 	kind: 'hold',
@@ -82,6 +150,7 @@ const pose = (name: string, tag: string, seconds: number, note: string, sides = 
 /** A loaded yoga hold that climbs by 5 s to `hi` — then harder, never longer. */
 const strengthPose = (name: string, tag: string, lo: number, hi: number, note: string, sides = false, sets = sides ? 2 : 1): Exercise => ({
 	name,
+	...why(name),
 	equip: 'Mat',
 	tag,
 	kind: 'hold',
@@ -100,6 +169,7 @@ const SAVASANA: PrepItem[] = [{ name: 'Savasana', minutes: 2 }];
 const SUPINE_TWIST = pose('Supine Twist', 'Spine', 45, 'Rotation and a down-regulating finish before the two quiet minutes. Knees across, shoulders stay down.', true);
 const SIDE_PLANK: Exercise = {
 	name: 'Side Plank',
+	...why('Side Plank'),
 	equip: 'Mat',
 	tag: 'Core',
 	kind: 'hold',
@@ -115,6 +185,7 @@ const BW_REST = 45;
 /** A bodyweight movement that progresses by variant: every set at `hi` → the next rung, reps back to `lo`. */
 const ladder = (name: string, equip: string, tag: string, sets: number, lo: number, hi: number, rungs: string[], note: string, each = false): Exercise => ({
 	name,
+	...why(name),
 	equip,
 	tag,
 	kind: 'reps',
@@ -144,6 +215,7 @@ const SL_CALF = ladder('Single-leg Calf Raise', 'A stair', 'Calves', 3, 12, 20, 
 	'Ball of the foot on the edge, heel below the step at the bottom; up, pause, slow down. Same movement as the gym.', true);
 const BEAR_CRAWL: Exercise = {
 	name: 'Bear Crawl',
+	...why('Bear Crawl'),
 	equip: 'Floor',
 	tag: 'Carry',
 	kind: 'hold',
@@ -156,6 +228,7 @@ const BEAR_CRAWL: Exercise = {
 };
 const SUPERMAN: Exercise = {
 	name: 'Superman Hold',
+	...why('Superman Hold'),
 	equip: 'Floor',
 	tag: 'Back',
 	kind: 'hold',
@@ -168,6 +241,7 @@ const SUPERMAN: Exercise = {
 };
 const HOLLOW: Exercise = {
 	name: 'Hollow Hold',
+	...why('Hollow Hold'),
 	equip: 'Floor',
 	tag: 'Core',
 	kind: 'hold',
@@ -182,6 +256,7 @@ const REVERSE_CRUNCH = ladder('Reverse Crunch', 'Floor', 'Core', 3, 10, 15, ['Re
 	'Knees at 90°, hips curl up off the floor, low back kept down. Lower slowly.');
 const PLANK: Exercise = {
 	name: 'Plank',
+	...why('Plank'),
 	equip: 'Floor',
 	tag: 'Core',
 	kind: 'hold',
@@ -194,6 +269,7 @@ const PLANK: Exercise = {
 };
 const DEAD_BUG: Exercise = {
 	name: 'Dead Bug',
+	...why('Dead Bug'),
 	equip: 'Mat',
 	tag: 'Core',
 	kind: 'reps',
@@ -209,10 +285,6 @@ const BW_WARMUP: PrepItem[] = [
 	{ name: 'Leg swings', reps: 10, each: true },
 	{ name: 'Arm circles', reps: 10, each: true },
 	{ name: 'Bodyweight squats', reps: 10 }
-];
-const BW_COOLDOWN: PrepItem[] = [
-	{ name: 'Hip flexor stretch', seconds: 45, each: true },
-	{ name: 'Hamstring stretch', seconds: 45, each: true }
 ];
 
 /** Lift-only programmes, upserted into ledger_plans on boot; new ones are added at the table. */
@@ -232,22 +304,22 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		},
 		routines: {
 			A: [
-				{ name: 'Goblet Squat', equip: 'Kettlebell / Dumbbell', tag: 'Squat', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 35, inc: 5, rack: 'dumbbell' }, note: 'Bell at the sternum, elbows down. Sit between the knees, knees over toes, chest tall. As deep as the back stays flat. 35 is the whole load.' },
-				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 45, inc: 5 }, note: 'Seat so the handles meet mid-chest. Shoulder blades back on the pad; press to nearly straight, lower until the handles touch the chest.' },
-				{ name: 'Band Face Pull', equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
-				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Slight lean back, chest up. Drive the elbows down; bar to the upper chest, in front of the face. Control it back to a full stretch.' },
-				{ name: 'Romanian Deadlift', equip: 'Dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 40, inc: 5, rack: 'dumbbell', each: true }, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
+				{ name: 'Goblet Squat', ...why('Goblet Squat'), equip: 'Kettlebell / Dumbbell', tag: 'Squat', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 35, inc: 5, rack: 'dumbbell' }, note: 'Bell at the sternum, elbows down. Sit between the knees, knees over toes, chest tall. As deep as the back stays flat. 35 is the whole load.' },
+				{ name: 'Chest Press', ...why('Chest Press'), equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 45, inc: 5 }, note: 'Seat so the handles meet mid-chest. Shoulder blades back on the pad; press to nearly straight, lower until the handles touch the chest.' },
+				{ name: 'Band Face Pull', ...why('Band Face Pull'), equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
+				{ name: 'Lat Pulldown', ...why('Lat Pulldown'), equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Slight lean back, chest up. Drive the elbows down; bar to the upper chest, in front of the face. Control it back to a full stretch.' },
+				{ name: 'Romanian Deadlift', ...why('Romanian Deadlift'), equip: 'Dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 40, inc: 5, rack: 'dumbbell', each: true }, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
 				CALF_RAISE,
-				{ name: 'Long-Lever Plank', equip: 'Mat', tag: 'Core', kind: 'hold', sets: 3, lo: 10, hi: 20, progress: { of: 'time', inc: 5 }, note: 'Elbows a palm past the shoulders. Glutes squeezed, ribs down, hard 10–20 s. At 20 s on all three: feet up on a bench.' }
+				{ name: 'Long-Lever Plank', ...why('Long-Lever Plank'), equip: 'Mat', tag: 'Core', kind: 'hold', sets: 3, lo: 10, hi: 20, progress: { of: 'time', inc: 5 }, note: 'Elbows a palm past the shoulders. Glutes squeezed, ribs down, hard 10–20 s. At 20 s on all three: feet up on a bench.' }
 			],
 			B: [
-				{ name: 'KB Deadlift', equip: 'Kettlebell', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 53, inc: 9, rack: 'kettlebell' }, note: 'Bell under mid-foot. Hips back, chest up, shins vertical. Push the floor away; stand tall and squeeze. Steps are whole bells — 24 → 28 → 32 kg.' },
-				{ name: 'Shoulder Press', equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 30, inc: 5 }, note: 'Seat so the handles start at the shoulders. Ribs down, no arching. Elbows slightly forward; press up without shrugging.' },
-				{ name: 'Seated Row', equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Torso upright and still. Drive the elbows back along the ribs, squeeze the blades. Not the pulldown — that pulls from overhead.' },
-				{ name: 'DB Reverse Lunge', equip: 'Dumbbells', tag: 'Lunge', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell', each: true }, side: 'reps', note: 'All 8–12 on one leg, then switch; weaker leg first. Long step back, front shin vertical, drive up through the front heel.' },
-				{ name: 'Leg Curl', equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 60, inc: 10 }, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
+				{ name: 'KB Deadlift', ...why('KB Deadlift'), equip: 'Kettlebell', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 53, inc: 9, rack: 'kettlebell' }, note: 'Bell under mid-foot. Hips back, chest up, shins vertical. Push the floor away; stand tall and squeeze. Steps are whole bells — 24 → 28 → 32 kg.' },
+				{ name: 'Shoulder Press', ...why('Shoulder Press'), equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 30, inc: 5 }, note: 'Seat so the handles start at the shoulders. Ribs down, no arching. Elbows slightly forward; press up without shrugging.' },
+				{ name: 'Seated Row', ...why('Seated Row'), equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Torso upright and still. Drive the elbows back along the ribs, squeeze the blades. Not the pulldown — that pulls from overhead.' },
+				{ name: 'DB Reverse Lunge', ...why('DB Reverse Lunge'), equip: 'Dumbbells', tag: 'Lunge', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell', each: true }, side: 'reps', note: 'All 8–12 on one leg, then switch; weaker leg first. Long step back, front shin vertical, drive up through the front heel.' },
+				{ name: 'Leg Curl', ...why('Leg Curl'), equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 60, inc: 10 }, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
 				CALF_RAISE,
-				{ name: 'Copenhagen Plank', equip: 'Bench', tag: 'Core / adductors', kind: 'reps', sets: 2, lo: 5, hi: 15, progress: { of: 'count' }, side: 'sets', note: 'Side plank with the top knee on a bench, bottom leg lifting to meet it. One rep = lift and lower. At 15 clean, straighten the top leg.' }
+				{ name: 'Copenhagen Plank', ...why('Copenhagen Plank'), equip: 'Bench', tag: 'Core / adductors', kind: 'reps', sets: 2, lo: 5, hi: 15, progress: { of: 'count' }, side: 'sets', note: 'Side plank with the top knee on a bench, bottom leg lifting to meet it. One rep = lift and lower. At 15 clean, straighten the top leg.' }
 			]
 		}
 	},
@@ -267,19 +339,19 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		},
 		routines: {
 			'1': [
-				{ name: 'Deep Goblet Squat', equip: 'One dumbbell (plate under heels optional)', tag: 'Squat', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell' }, note: 'One bell at the chest — 20 is the whole load. Sit deep until the elbows brush the knees; stop if the heels rise or the tailbone tucks.' },
-				{ name: 'Romanian Deadlift', equip: 'Two dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 15, inc: 5, rack: 'dumbbell', each: true }, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
-				{ name: 'Chest Press', equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 6, hi: 15, progress: { of: 'size', start: 20, inc: 5 }, note: 'Seat so the handles meet mid-chest; feet flat, on a step if they don’t reach. Shoulder blades back; press to nearly straight, lower to the chest.' },
-				{ name: 'Lat Pulldown', equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Thigh pad snug so the hips can’t lift. Slight lean back, chest up; bar to the upper chest, in front of the face. Control back to a full stretch.' },
-				{ name: 'Band Face Pull', equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
+				{ name: 'Deep Goblet Squat', ...why('Deep Goblet Squat'), equip: 'One dumbbell (plate under heels optional)', tag: 'Squat', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 20, inc: 5, rack: 'dumbbell' }, note: 'One bell at the chest — 20 is the whole load. Sit deep until the elbows brush the knees; stop if the heels rise or the tailbone tucks.' },
+				{ name: 'Romanian Deadlift', ...why('Romanian Deadlift'), equip: 'Two dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 15, inc: 5, rack: 'dumbbell', each: true }, note: 'Soft knees, set once. Push the hips back; bells slide down the thighs, touching. Stop when the hamstrings pull or the back would round.' },
+				{ name: 'Chest Press', ...why('Chest Press'), equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 6, hi: 15, progress: { of: 'size', start: 20, inc: 5 }, note: 'Seat so the handles meet mid-chest; feet flat, on a step if they don’t reach. Shoulder blades back; press to nearly straight, lower to the chest.' },
+				{ name: 'Lat Pulldown', ...why('Lat Pulldown'), equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Thigh pad snug so the hips can’t lift. Slight lean back, chest up; bar to the upper chest, in front of the face. Control back to a full stretch.' },
+				{ name: 'Band Face Pull', ...why('Band Face Pull'), equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Anchor the tube at face height (a post, or the door anchor); step back till it’s taut with arms straight. Pull to the ears, elbows high and wide, thumbs back. At 20 clean: a step back, or a heavier tube.' },
 				DEAD_BUG
 			],
 			'2': [
-				{ name: 'DB Reverse Lunge', equip: 'Two dumbbells (bodyweight first session)', tag: 'Lunge', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 10, inc: 5, rack: 'dumbbell', each: true }, side: 'reps', note: 'First session: no bells. All reps on one leg, weaker leg first. Long step back, front shin upright, drive up through the front heel.' },
-				{ name: 'Leg Curl', equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
-				{ name: 'Shoulder Press', equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', kind: 'load', sets: 3, lo: 6, hi: 15, progress: { of: 'size', start: 15, inc: 5 }, note: 'Handles start at shoulder height — if you must shrug to reach them, raise the seat. Ribs down, no arching; press up without shrugging.' },
-				{ name: 'Seated Row', equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Feet on the plates, torso upright and still. Drive the elbows back along the ribs, squeeze the blades, then let the arms straighten fully.' },
-				{ name: 'DB Glute Bridge', equip: 'One dumbbell + folded mat as a pad', tag: 'Hip ext.', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 25, inc: 5, rack: 'dumbbell' }, note: 'Bell on the pad across the hips — 25 is the load. Chin tucked, ribs down; drive to level hips, squeeze, pause, lower. Easy at 35? Shoulders up on a bench.' },
+				{ name: 'DB Reverse Lunge', ...why('DB Reverse Lunge'), equip: 'Two dumbbells (bodyweight first session)', tag: 'Lunge', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 10, inc: 5, rack: 'dumbbell', each: true }, side: 'reps', note: 'First session: no bells. All reps on one leg, weaker leg first. Long step back, front shin upright, drive up through the front heel.' },
+				{ name: 'Leg Curl', ...why('Leg Curl'), equip: 'Seated leg curl (lying is fine)', tag: 'Hamstrings', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Seated if you can — hamstrings grow more at length. Knee in line with the pivot, pad above the ankle, hips pinned. Full curl, pause, slow back.' },
+				{ name: 'Shoulder Press', ...why('Shoulder Press'), equip: 'Shoulder press machine (on a multi-press: arm overhead)', tag: 'Vert. push', kind: 'load', sets: 3, lo: 6, hi: 15, progress: { of: 'size', start: 15, inc: 5 }, note: 'Handles start at shoulder height — if you must shrug to reach them, raise the seat. Ribs down, no arching; press up without shrugging.' },
+				{ name: 'Seated Row', ...why('Seated Row'), equip: 'Seated cable row, V-handle', tag: 'Horiz. pull', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Feet on the plates, torso upright and still. Drive the elbows back along the ribs, squeeze the blades, then let the arms straighten fully.' },
+				{ name: 'DB Glute Bridge', ...why('DB Glute Bridge'), equip: 'One dumbbell + folded mat as a pad', tag: 'Hip ext.', kind: 'load', sets: 3, lo: 10, hi: 15, progress: { of: 'size', start: 25, inc: 5, rack: 'dumbbell' }, note: 'Bell on the pad across the hips — 25 is the load. Chin tucked, ribs down; drive to level hips, squeeze, pause, lower. Easy at 35? Shoulders up on a bench.' },
 				{ ...CALF_RAISE, progress: { of: 'size', start: 50, inc: 10 } },
 				SIDE_PLANK
 			]
@@ -325,13 +397,7 @@ export const BLOCKS: Block[] = [
 			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] }
 		},
 		routines: {
-			S: [
-				HOLD45('Calf stretch', 'Heel down, knee straight, lean into the wall.'),
-				HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
-				HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
-				HOLD45('Figure-4 stretch', 'Ankle over the knee, sit back until the glute pulls.'),
-				{ ...HOLD45('Doorway chest stretch', 'Forearms on the frame, elbows at shoulder height, step through until the chest opens.'), sets: 1, side: undefined }
-			]
+			S: Object.values(STRETCHES)
 		}
 	},
 	{

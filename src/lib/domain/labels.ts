@@ -263,6 +263,46 @@ export function doseLabel(ex: Exercise): string {
 	);
 }
 
+/** "45 seconds a side, 10 between" · "3 sets of 6–12 reps, 90 s between" · "2 holds of 20–45 seconds, 30 between" · "30 minutes" — the dose as a sentence */
+export function doseSentence(ex: Exercise, rest: number): string {
+	if (ex.kind === 'run') return `${range(ex)} minutes`;
+	const between = ex.sets > 1 ? `, ${rest} between` : '';
+	if (ex.kind === 'hold') {
+		const sets = ex.side === 'sets' ? ' a side' : ex.sets > 1 ? ` × ${ex.sets}` : '';
+		return `${range(ex)} seconds${sets}${between}`;
+	}
+	const per = ex.side === 'reps' ? ' per side' : '';
+	return `${ex.sets} ${ex.sets === 1 ? 'set' : 'sets'} of ${range(ex)} reps${per}${between}`;
+}
+
+/** "Fixed at 45 s — a stretch doesn't progress." · "+5 s at the top of the range, to 45 s — then harder, never longer." · "Top of 6–12 on a set → that set takes the next dumbbell up." · "+1 rep at the top of the range." · "Every set at 15 → the next rung: Incline push-up → Push-up → …" */
+export function ruleLine(ex: Exercise): string {
+	switch (ex.progress.of) {
+		case 'none':
+			return ex.kind === 'hold' ? `Fixed at ${ex.lo} s — a stretch doesn't progress.` : ex.kind === 'run' ? 'A time, not a target — the run doesn\'t progress.' : 'Fixed — it doesn\'t progress.';
+		case 'time':
+			return `+${ex.progress.inc} s at the top of the range, to ${ex.hi} s — then harder, never longer.`;
+		case 'size':
+			return `Top of ${range(ex)} on a set → that set takes ${stepLabel(ex) === `+${ex.progress.inc} lb` ? `+${ex.progress.inc} lb` : `the ${stepLabel(ex)}`} next time; the others keep climbing where they are.`;
+		case 'count':
+			return `+1 rep at the top of the range, ${range(ex)}.`;
+		case 'variant':
+			return `Every set at ${ex.hi} → the next rung: ${ex.progress.ladder.join(' → ')}.`;
+	}
+}
+
+/** "Mat · no load" · "Dumbbells · per hand" · "Cable machine · loaded" */
+export function loadLine(ex: Exercise): string {
+	const equip = ex.equip || 'No kit';
+	return ex.kind === 'load' ? `${equip} · ${ex.progress.each ? 'per hand' : 'loaded'}` : `${equip} · no load`;
+}
+
+/** the first sentence of a note — what fits on the floor */
+export function firstSentence(text: string): string {
+	const m = /^(.+?[.!?])(\s|$)/.exec(text.trim());
+	return m ? m[1] : text.trim();
+}
+
 /** "45s each side" · "45s" */
 export function holdDose(ex: Exercise): string {
 	return `${ex.lo}s${ex.side === 'sets' ? ' each side' : ''}`;
@@ -276,6 +316,7 @@ export function holdLine(ex: Exercise, index: number): string {
 /** "Easy jog · 3 min" · "Carioca · 30s each" · "Sun Salutation A × 3" · "One light set of the first lift" */
 export function prepLabel(item: PrepItem): string {
 	if (typeof item === 'string') return item;
+	if ('kind' in item) return item.kind === 'hold' ? `${item.name} · ${item.lo}s${item.side === 'sets' ? ' each' : ''}` : `${item.name} · ${doseLabel(item)}`;
 	if ('minutes' in item) return `${item.name} · ${item.minutes} min`;
 	if ('reps' in item) return `${item.name} × ${item.reps}${item.each ? ' each' : ''}`;
 	return `${item.name} · ${item.seconds}s${item.each ? ' each' : ''}`;

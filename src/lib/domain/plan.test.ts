@@ -68,6 +68,11 @@ describe('parsePlan — the plan’s read boundary', () => {
 		});
 		expect(p.warmup).toEqual(['Bike', { name: 'Carioca', seconds: 30, each: true }, { name: 'Easy jog', minutes: 3 }, { name: 'Sun Salutation A', reps: 3 }]);
 		expect(p.warmup!.map(prepSeconds)).toEqual([0, 30, 180, 0]);
+		const calf = { name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, progress: { of: 'none' }, side: 'sets', rest: 10 };
+		const q = parsePlan({ ...liftPlan(goblet), cooldown: [calf, { name: 'Walk', minutes: 3 }] });
+		expect(q.cooldown, 'a stretch from the catalogue is a cooldown line, parsed as the exercise it is').toEqual([calf, { name: 'Walk', minutes: 3 }]);
+		expect(q.cooldown!.map(prepSeconds)).toEqual([45, 180]);
+		expect(() => parsePlan({ ...liftPlan(goblet), cooldown: [{ ...calf, lo: 30 }] })).toThrow(/one length/);
 		expect(() => parsePlan({ ...liftPlan(goblet), warmup: 5 })).toThrow('warmup must be a list of strings and timed items');
 		expect(() => parsePlan({ ...liftPlan(goblet), warmup: 'Easy 5 min' })).toThrow(/warmup must be a list/);
 		expect(() => parsePlan({ ...liftPlan(goblet), warmup: [{ name: 'Jog' }] })).toThrow(/warmup must be/);

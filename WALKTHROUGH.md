@@ -507,10 +507,19 @@ you tick, or a `timed` one the floor counts down for you (a three-minute
 jog, thirty seconds of carioca per side); both *are* written, as `step`
 entries, so "Set 4 of 20" is honest after a reload — but the Ledger folds
 them to one quiet line ("+ 6 prep steps"), and the progression rule never
-sees them. An `extra` list appends exercises added on the floor (a stretch
-from the ⋯ sheet) as sections after the plan's own (`loggedOutside` finds
-the ones a reload must re-add). `estimateMinutes` prices the list — it is
-where the queue's "minutes" and Today's "~48 min" come from.
+sees them. A cooldown *stretch* is the exception: it is not prose but an
+entry from the **stretch catalogue** (`STRETCHES` in
+[plans.ts](src/lib/domain/plans.ts) — each stretch declared once, with its
+note and its `why`, and referenced by name from the morning stretch and every
+cooldown as `stretch('Calf stretch', 60)`), so it walks as holds in its own
+section, logs as holds, lands in the receipt and the Ledger with its figure,
+and never earns an arrow (a fixed hold has no top to reach). Before the
+catalogue "Calf stretch" existed three ways — an exercise, a prose string, a
+timed line — and only the first had a note or a glyph. An `extra` list
+appends exercises added on the floor (a stretch or a pose from the session
+sheet) as sections after the plan's own (`loggedOutside` finds the ones a
+reload must re-add, the cooldown's holds excepted). `estimateMinutes` prices
+the list — it is where the queue's "minutes" and Today's "~48 min" come from.
 
 `Step` is a discriminated union on `kind`, and each kind carries only what it
 needs — a `prep` step its text, a `timed` one its name and countdown, a `set`
@@ -639,7 +648,7 @@ src/lib/
 ├─ domain/        the layers of §2 — pure, no I/O
 ├─ server/        db.ts (a pg client per request), eventStore.ts, ledger.ts, plans.ts, preferences.ts, auth.ts, uid.ts
 ├─ components/    Button, Card, Chip, Badge, TabBar, PhoneInput, Picks, ExerciseGlyph, Athlete, MonthGrid, TrendRow,
-│                 floor/{StepTable, AdjustTile, FloorPrimary, FloorSheet, bell, entry-queue, countdown}
+│                 floor/{StepTable, AdjustTile, FloorPrimary, Sheet, AboutSheet, SessionSheet, bell, wake-lock, entry-queue, countdown}
 └─ design/        tokens/*.css, disciplines.css (one ink per discipline), rig.ts (the athlete) + glyphs.ts + stamp.ts
 
 tools/glyphs/     bake.mjs snapshots the rig to glyph-frames.json; --check proves the snapshot is what the rig draws
@@ -692,7 +701,7 @@ Things to notice:
 | `Snippet` / `{@render children()}` | `Button`, `Card` — Svelte's children |
 | page-local `{#snippet name(args)}` | the Ledger's `stepper` and `editor`, the blocks page's `blockRow` — a snippet with parameters is a local component without a file, rendered with `{@render blockRow(b, on)}`. Declare it at the top level of the markup, not inside a component's children |
 | `{@const}` | inside an `{#each}`: `{@const done = weekProgress(…)}` on The Plan, `{@const latest = s.id === data.latestSession}` on the Ledger — a value computed once per item |
-| `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ reps on a hold or bodyweight tile, otherwise weight; 1–9 reps and 0 = 10; Enter is the primary action; ← → step; Esc closes the sheet. The Ledger's `<svelte:window onclick>` disarms the two-tap Remove |
+| `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ reps on a hold or bodyweight tile, otherwise weight; 1–9 reps and 0 = 10; Enter is the primary action; ← → step; Esc closes whichever sheet is open. The Ledger's `<svelte:window onclick>` disarms the two-tap Remove |
 | `class:` directive | `class:out={card.out}` on Today's card, `class:did` · `class:today` · `class:future` · `class:dark` on a MonthGrid cell, `class:single={tileBW}` on the floor's tile row; StepTable interpolates instead — `class="row {r.state}"` |
 | `bind:this` | the floor's hidden Finish form (`finishFormEl`, submitted from a keyboard shortcut), the tab layout's inner scroller, the glyph's canvas |
 | scoped `<style>` | every component — the design system's tokens are global (`disciplines.css` too: `.ink-lift` is one rule shared by the calendar, the legend and The Plan), layout is local |
@@ -701,11 +710,13 @@ Things to notice:
 | `bind:clientHeight` | Today measures the room under its card (`slack`) instead of guessing the device: ≥ 150px → the figure strip, ≥ 60px → one mono line, else nothing. Nothing ever half-shows, and nothing scrolls |
 | a component that persists | the gym floor used to wrap its glyph in `{#key glyphName}` so each exercise remounted a fresh figure. Now one `<Athlete pose phase>` lives on the floor for the whole session and is never remounted: `pose` and `phase` are a `$derived` of what the floor already knows (`resting · clock.active · stepDone · allDone`), and the figure works out its own path — exit the pose to its waypoint and up to a stand, turn if the view changes, enter the next. The floor never says "animate"; it says where the body is |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
-| `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
+| `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the session sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
 | transitions timed from a token | `TrendRow` opens with `transition:slide={{ duration: OPEN }}` where `OPEN = durationMs('--dur-med', 180)` — the CSS token is the one place the tempo lives |
 | `bind:open` | the Why page's `<details bind:open={refsOpen}>`: a cite opens the references before the browser scrolls to the target |
 | `afterNavigate` | the tab layout resets its inner scroller on every navigation — the document never scrolls, so the browser can't do it for you |
-| `<script module>` | `StepTable` and `FloorSheet` export their row and prop types from a module script, so the page can type what it hands them |
+| `<script module>` | `StepTable`, `SessionSheet` and `Athlete` export their row, section and phase types from a module script, so the page can type what it hands them |
+| a shell with a snippet | `floor/Sheet.svelte` is one shape — header, a body that scrolls, a footer that doesn't — and `AboutSheet` and `SessionSheet` fill its `children`. The fixed footer is also the fix for a bug: a `position: sticky` button inside the scroller rode the home bar and the last rows slid under it |
+| `$effect` that returns a release | the floor's `$effect(() => (lit ? holdScreen() : undefined))` — `holdScreen` requests a screen wake lock and returns its release, so the effect's cleanup is the release; `lit` is false on the run, which is long enough to let the screen sleep and trust the bell |
 | callback props | `ontoggle`, `onStep`, `onTap`, `onRetry` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
 | runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/components/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/components/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
 
@@ -812,7 +823,7 @@ another; the patterns worth studying:
   phrasing "3 × 8–12" for itself.
 - **Shallow routing** (`replaceState` from `$app/navigation`): the current
   step lives in the URL (`/floor?step=6`, plus `&add=` for stretches added
-  from the sheet) so refresh keeps your place, but no server load runs and
+  from the session sheet) so refresh keeps your place, but no server load runs and
   no history entries pile up.
 - **The locked app shell**
   ([(tabs)/+layout.svelte](src/routes/(app)/(tabs)/+layout.svelte)), stolen
@@ -820,6 +831,37 @@ another; the patterns worth studying:
   `overflow: hidden`), only an inner `<main>` does, and the tab bar is a plain
   flex child at the bottom — `position: fixed` bars slide when mobile browsers
   collapse their toolbars; an in-flow bar in a locked frame cannot.
+
+### The floor without a ⋯
+
+The floor used to keep everything that wasn't the next set behind one ⋯
+button: what the exercise is, where you are in the session, and how to leave,
+in one scroll. Nobody looks for technique under a kebab. Now each question has
+its own literal handle. **The exercise name** is underlined the way every link
+in LEDGER is and opens *About* — the note, the dose as a sentence
+(`doseSentence`), the figure to scrub, *Why it's here* (`ex.why`, the
+floor-level cousin of The Plan › why, plus the routines it is part of), *The
+rule* (`ruleLine` — "Fixed at 45 s — a stretch doesn't progress", "+5 s at the
+top of the range, then harder, never longer") and last time. **The crumb**
+("Hold 3/9 · ~6 min ▾") opens the *Session* sheet — the map, *Add a stretch*
+as the last row of the map (every stretch and pose the plan knows, where one
+would land), and, because leaving is a session question, *Finish stretch
+early* and *Pause*. The note's first sentence sits on the floor itself under
+the name (`firstSentence`), because for a stretch the note *is* the
+instruction; a lift shows its load hint there instead. Finish takes the
+discipline's noun (`sessionNoun`: a workout, a practice, a stretch, a run).
+
+Three smaller lessons from the same batch of notes. **Undo where the mistake
+happens**: Remove lived in the Ledger, inside the latest card, once expanded;
+the moment you need it is the moment after Finish, so Today now shows
+"Logged · Squat & Shove · 20 sets · 48 min — Undo" for the latest session
+until the next one starts, posting the same `RemoveSession`. **A month is the
+fold**: What I did is one line per month (`monthLine`: "SEPTEMBER · 11
+sessions · 5 lift · 3 run · 3 stretch"), the newest open, and the line *is*
+the monthly view. **Rest is a clock, not a state**: the rest bell rang under a
+hold you'd started early because `resting` was derived from the previous
+entry's timestamp alone; it now excludes `clock.active`, and starting a clock
+clears the pending "rest over".
 
 ## 5. Exercises
 

@@ -83,6 +83,22 @@ describe('sessionSteps', () => {
 		const bare: Plan = { ...plan, routineInfo: { ...plan.routineInfo, run: { title: 'Run', discipline: 'run' } }, cooldown: undefined };
 		expect(sessionSteps(bare, RUN).map((s) => s.label)).toEqual(['RUN']);
 	});
+	it('walks a stretch in the cooldown as holds in its own section, logged like one — and never as "outside" the routine', () => {
+		const calf = plan.routines.S[0];
+		const p: Plan = { ...plan, cooldown: [calf, 'Walk it off'] };
+		const steps = sessionSteps(p, A);
+		const tail = steps.slice(-3);
+		expect(tail.map((s) => [s.kind, s.section, s.item, s.index, s.label])).toEqual([
+			['set', 'Calf stretch', 'Calf stretch', 1, 'HOLD 1 · L'],
+			['set', 'Calf stretch', 'Calf stretch', 2, 'HOLD 2 · R'],
+			['prep', 'Cooldown', 'Cooldown', 1, 'STEP 1']
+		]);
+		expect(tail[0].kind === 'set' && tail[0].ex).toEqual(calf);
+		const logged = [entry('Calf stretch', 1, iso(0), { of: 'hold', seconds: 45, target: 45 })];
+		expect(loggedOutside(p, A, logged)).toEqual([]);
+		expect(loggedOutside(plan, A, logged), 'the same hold on a plan whose cooldown is prose is an extra').toEqual(['Calf stretch']);
+	});
+
 	it('ticks a counted warm-up line like a sentence', () => {
 		const p: Plan = { ...plan, routineInfo: { ...plan.routineInfo, A: { title: 'A', discipline: 'lift', warmup: [{ name: 'Sun Salutation A', reps: 3 }] } } };
 		expect(sessionSteps(p, A)[0]).toMatchObject({ kind: 'prep', text: 'Sun Salutation A × 3', estimate: 75 });

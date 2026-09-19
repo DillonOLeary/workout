@@ -25,6 +25,8 @@ type ExerciseBase = {
 	side?: 'reps' | 'sets';
 	/** short clarifier shown under the name — for what the fields can't say */
 	note?: string;
+	/** one sentence on why it is in the plan — the floor-level cousin of The Plan › why */
+	why?: string;
 	/** seconds between this exercise's sets; absent = the plan's `rest` */
 	rest?: number;
 };
@@ -38,12 +40,18 @@ export type RunEx = ExerciseBase & { kind: 'run'; progress: Extract<Progress, { 
 export type Exercise = Loaded | Held | Counted | RunEx;
 export type Kind = Exercise['kind'];
 
-/** One line of a warm-up or cooldown: an instruction you tick, a countdown by the second (`each` = once per side) or by the minute, or a line you tick after N reps. */
+/**
+ * One line of a warm-up or cooldown: an instruction you tick, a countdown by the second (`each` = once per side) or by the minute,
+ * a line you tick after N reps — or a stretch from the catalogue, which walks as holds and logs like one.
+ */
 export type PrepItem =
 	| string
 	| { name: string; seconds: number; each?: boolean }
 	| { name: string; minutes: number }
-	| { name: string; reps: number; each?: boolean };
+	| { name: string; reps: number; each?: boolean }
+	| Exercise;
+/** the cooldown lines that are stretches: they log as holds, land in the receipt, and are found by name */
+export const isStretchLine = (item: PrepItem): item is Exercise => typeof item !== 'string' && 'kind' in item;
 
 /** A thing the plan offers. Reference data; the session carries its own copy of `discipline`. */
 export type Routine = {
@@ -184,9 +192,9 @@ export function composePlan(programme: Plan, blocks: readonly Block[], on: reado
 	return { ...programme, cycles, routines, routineInfo };
 }
 
-/** A timed prep item's countdown, in seconds; 0 for a line you tick. */
+/** A timed prep item's countdown, in seconds; 0 for a line you tick; a stretch's is one hold. */
 export const prepSeconds = (item: PrepItem): number =>
-	typeof item === 'string' || 'reps' in item ? 0 : 'seconds' in item ? item.seconds : item.minutes * 60;
+	typeof item === 'string' || 'reps' in item ? 0 : 'kind' in item ? item.hi : 'seconds' in item ? item.seconds : item.minutes * 60;
 
 type Raw = Record<string, unknown>;
 const isObj = (v: unknown): v is Raw => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -195,6 +203,7 @@ const count = (v: unknown): v is number => Number.isInteger(v) && (v as number) 
 
 function parsePrepItem(v: unknown, where: string): PrepItem {
 	if (typeof v === 'string') return v;
+	if (isObj(v) && v.kind !== undefined) return parseExercise(v, where);
 	if (isObj(v) && typeof v.name === 'string' && v.name) {
 		const keys = ['seconds', 'minutes', 'reps'].filter((k) => v[k] !== undefined);
 		if (v.each !== undefined && typeof v.each !== 'boolean') throw new Error(`${where} "${v.name}" each must be a boolean`);
@@ -266,6 +275,7 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 	if (e.side !== undefined && e.side !== 'reps' && e.side !== 'sets')
 		throw new Error(`"${name}" side must be "reps" (per side) or "sets" (one per side)`);
 	if (e.note !== undefined && typeof e.note !== 'string') throw new Error(`"${name}" note must be a string`);
+	if (e.why !== undefined && typeof e.why !== 'string') throw new Error(`"${name}" why must be a string`);
 	if (e.rest !== undefined && !positive(e.rest)) throw new Error(`"${name}" rest must be a positive number of seconds`);
 	const base: ExerciseBase = {
 		name,
@@ -276,6 +286,7 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 		hi: num('hi'),
 		...(e.side !== undefined ? { side: e.side as 'reps' | 'sets' } : {}),
 		...(e.note !== undefined ? { note: e.note as string } : {}),
+		...(e.why !== undefined ? { why: e.why as string } : {}),
 		...(e.rest !== undefined ? { rest: e.rest as number } : {})
 	};
 	if (base.lo > base.hi) throw new Error(`"${name}" lo must not exceed hi`);

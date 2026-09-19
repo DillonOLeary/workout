@@ -5,8 +5,9 @@
 	import Athlete, { type Phase } from '$lib/components/Athlete.svelte';
 	import AdjustTile from '$lib/components/floor/AdjustTile.svelte';
 	import FloorPrimary from '$lib/components/floor/FloorPrimary.svelte';
-	import FloorSheet from '$lib/components/floor/FloorSheet.svelte';
-	import type { SheetSection } from '$lib/components/floor/FloorSheet.svelte';
+	import AboutSheet from '$lib/components/floor/AboutSheet.svelte';
+	import SessionSheet from '$lib/components/floor/SessionSheet.svelte';
+	import type { SheetSection } from '$lib/components/floor/SessionSheet.svelte';
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
 	import { armBell, ringBell } from '$lib/components/floor/bell';
@@ -22,6 +23,7 @@
 		countLabel,
 		disciplineLabel,
 		durationLabel,
+		firstSentence,
 		holdLine,
 		loadHint,
 		plannedValue,
@@ -42,7 +44,7 @@
 		sessionSteps,
 		type Step
 	} from '$lib/domain/steps';
-	import { cueFor, cycleOf, progresses, restFor, routineTitle, routinesOf, type Exercise } from '$lib/domain/plan';
+	import { cooldownFor, cueFor, cycleOf, isStretchLine, progresses, restFor, routineTitle, routinesOf, type Exercise } from '$lib/domain/plan';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -58,7 +60,11 @@
 	const cue = cueFor(plan, workout.routine);
 	const noun = sessionNoun(session.discipline);
 	const sessionAt = session.at;
-	const stretchPool: Exercise[] = routinesOf(plan, 'mobility').flatMap((r) => plan.routines[r]);
+	// every stretch and yoga pose the plan knows, once each — what "add a stretch" can offer
+	const stretchPool: Exercise[] = [...routinesOf(plan, 'mobility'), ...routinesOf(plan, 'yoga')]
+		.flatMap((r) => plan.routines[r])
+		.filter((x, i, all) => x.kind === 'hold' && all.findIndex((y) => y.name === x.name) === i);
+	const coolStretches = cooldownFor(plan, workout.routine).flatMap((it) => (isStretchLine(it) ? [it.name] : []));
 	const cycle = cycleOf(plan, workout.routine);
 
 	const queue = new EntryQueue(session.id);
@@ -112,7 +118,8 @@
 	let stepI = $state(initialStep);
 	let weight = $state(0);
 	let reps = $state(0);
-	let sheetOpen = $state(false);
+	/** two questions, two handles: the name opens About, the crumb opens the session */
+	let sheet = $state<'about' | 'session' | null>(null);
 	let editing = $state<string | null>(null);
 
 	let st = $derived<Step | undefined>(steps[stepI]);
@@ -310,6 +317,14 @@
 		if (setsDoneFor(x.name) > 0) return null;
 		return loadHint(suggestionFor(x), x);
 	});
+	// for a stretch the note is the instruction, so its first sentence sits where the meta was; a lift's line is the load hint
+	let line = $derived(hint ?? (ex?.note ? firstSentence(ex.note) : null));
+	let aboutEx = $derived(editEx ?? ex);
+	let aboutText = $derived(st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? st.ex.note : undefined);
+	let partOf = $derived(
+		aboutEx ? Object.keys(plan.routines).filter((r) => plan.routines[r].some((e) => e.name === aboutEx.name)).flatMap((r) => routineTitle(plan, r) ?? []) : []
+	);
+
 
 	type Stage = { value: string; note: string; frac: number };
 	let stage = $derived.by((): Stage | null => {
@@ -396,7 +411,7 @@
 	}
 
 	async function finishEarly() {
-		sheetOpen = false;
+		sheet = null;
 		finishing = true;
 		await queue.drain();
 		finishFormEl?.requestSubmit();
@@ -408,7 +423,7 @@
 	}
 
 	function addStretch(name: string) {
-		sheetOpen = false;
+		sheet = null;
 		if (!added.includes(name)) added = [...added, name];
 		const i = steps.findIndex((s) => s.section === name);
 		if (i >= 0) goTo(i);
@@ -499,20 +514,21 @@
 		return Math.max(1, Math.round((end - Date.parse(sessionAt)) / 60000));
 	});
 	let prepLine = $derived(
-		receiptLine(sessionMinutes, entries.some((e) => e.item === WARMUP_ITEM), entries.some((e) => e.item === COOLDOWN_ITEM))
+		receiptLine(sessionMinutes, entries.some((e) => e.item === WARMUP_ITEM), entries.some((e) => e.item === COOLDOWN_ITEM || coolStretches.includes(e.item)))
 	);
 	let minutesLeft = $derived(estimateMinutes(steps, progress.current));
 	let position = $derived(positionLabel(Math.min(stepI, steps.length), steps));
+	let sessionSub = $derived(`${progress.sets} of ${totalSets} ${steps.every((s) => s.kind !== 'set' || s.ex.kind === 'hold') ? 'holds' : 'sets'} · ~${minutesLeft} min left`);
 
 	function onKey(ev: KeyboardEvent) {
 		if ((ev.target as HTMLElement | null)?.tagName === 'INPUT') return;
 		if (ev.key === 'Escape') {
-			if (sheetOpen) sheetOpen = false;
+			if (sheet) sheet = null;
 			else if (editing) cancelEdit();
 			ev.preventDefault();
 			return;
 		}
-		if (sheetOpen) return;
+		if (sheet) return;
 		if (ev.key === 'Enter') {
 			primaryAction();
 			ev.preventDefault();
@@ -544,31 +560,24 @@
 <div class="fl">
 	<div class="fl-inner">
 		<header class="fl-top">
-			<span class="fl-crumb">
-				{title} · {position}{allDone ? '' : ` · ~${minutesLeft} min`}
-			</span>
-			<button
-				type="button"
-				class="fl-ghost"
-				onclick={() => (sheetOpen = true)}
-				aria-label="More — the whole session, technique, finish"
-			>
-				⋯
+			<button type="button" class="fl-crumb" onclick={() => (sheet = 'session')} aria-label="The session — where you are, add a stretch, finish or pause">
+				<span class="fl-crumbtext">{position}{allDone ? '' : ` · ~${minutesLeft} min`}</span>
+				<span class="fl-tri">▾</span>
 			</button>
 		</header>
 
 		{#if st && !allDone}
 			<main class="fl-main">
 				<div class="fl-titleblock">
-					<h1 class="fl-name">{heading}</h1>
+					<button type="button" class="fl-namebtn" onclick={() => (sheet = 'about')} aria-label="About {heading}">
+						<h1 class="fl-name">{heading}</h1>
+						<span class="fl-about">About ›</span>
+					</button>
+					{#if line}<p class="fl-line">{line}</p>{/if}
 					<p class="fl-meta">{meta}</p>
 				</div>
 
 				<StepTable {rows} onRetry={retryEntry} onTap={tapRow} />
-
-				{#if hint}
-					<p class="fl-hint">{hint}</p>
-				{/if}
 
 				<div class="fl-stage" class:clock={!!stage}>
 					<div class="fl-stagerow">
@@ -665,30 +674,40 @@
 	</div>
 </div>
 
-<FloorSheet
-	open={sheetOpen}
-	title={heading === 'Done' ? title : heading}
-	ex={atSet ? ex : undefined}
-	figure={allDone ? undefined : (editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : st?.kind === 'run' ? st.ex.name : undefined))}
-	cue={st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? st.ex.note : undefined}
-	{noun}
+<AboutSheet
+	open={sheet === 'about'}
+	name={heading}
+	ex={aboutEx}
+	text={aboutText}
+	rest={aboutEx ? restFor(plan, aboutEx) : 0}
+	{partOf}
+	{last}
+	backLabel={position}
+	onClose={() => (sheet = null)}
+/>
+
+<SessionSheet
+	open={sheet === 'session'}
+	{title}
+	sub={sessionSub}
 	{sections}
 	stretches={addable}
 	backLabel={position}
+	{noun}
 	logged={progress.sets}
 	total={totalSets}
 	{allDone}
 	onJump={(i) => {
-		sheetOpen = false;
+		sheet = null;
 		goTo(i);
 	}}
 	onAdd={addStretch}
 	onFinishEarly={() => void finishEarly()}
 	onExit={() => {
-		sheetOpen = false;
+		sheet = null;
 		void exitToToday();
 	}}
-	onClose={() => (sheetOpen = false)}
+	onClose={() => (sheet = null)}
 />
 
 <!-- finish still goes through a real form action; its 303 redirect makes use:enhance run invalidateAll, so Today reloads fresh events -->
@@ -726,39 +745,19 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 8px;
-		padding: 8px 12px 4px 16px;
+		padding: 8px 16px 4px;
 	}
-	.fl-ghost {
-		width: 48px;
-		height: 48px;
-		flex: none;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-md);
-		font-family: var(--font-display);
-		font-weight: 700;
-		font-size: 26px;
-		line-height: 1;
-		color: var(--ink-2);
-		cursor: pointer;
-		touch-action: manipulation;
+	.fl-crumb {
+		display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+		min-height: 40px; padding: 0 12px;
+		background: var(--white); border: 1px solid var(--ink); border-radius: var(--radius-pill);
+		font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink); cursor: pointer; touch-action: manipulation;
 		transition: background var(--dur-med) var(--ease-snap);
 	}
-	.fl-ghost:hover { background: var(--volt-tint); color: var(--ink); }
-	.fl-crumb {
-		font-family: var(--font-mono);
-		font-size: 12px;
-		font-weight: 700;
-		letter-spacing: var(--tracking-caps);
-		text-transform: uppercase;
-		color: var(--ink-3);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
+	.fl-crumb:hover { background: var(--volt-tint); }
+	.fl-crumbtext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.fl-tri { font-size: 11px; color: var(--ink-3); }
 
 	.fl-main {
 		flex: 1;
@@ -769,6 +768,18 @@
 		padding: 4px 16px 0;
 	}
 	.fl-titleblock { flex: none; margin-bottom: 12px; }
+	.fl-namebtn {
+		display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+		background: none; border: none; padding: 0; text-align: left; cursor: pointer; touch-action: manipulation;
+		font: inherit; color: inherit; border-radius: var(--radius-sm);
+	}
+	.fl-namebtn .fl-name { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 5px; text-decoration-color: var(--volt-deep); }
+	.fl-namebtn:hover .fl-name { text-decoration-color: var(--ink); }
+	.fl-about {
+		font-family: var(--font-body); font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink-3); white-space: nowrap;
+	}
+	.fl-line { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--ink-2); }
 	.fl-name {
 		margin: 0;
 		font-family: var(--font-display);
@@ -793,10 +804,6 @@
 		line-height: 1.45;
 		color: var(--ink-2);
 		margin: 10px 0 0;
-		background: var(--volt-tint);
-		display: inline-block;
-		padding: 4px 8px;
-		border-radius: 4px;
 	}
 
 	.fl-stage {
@@ -929,14 +936,14 @@
 		.fl-clocknum { font-size: 72px; }
 	}
 	@media (max-height: 640px) {
-		.fl-hint { margin-top: 6px; }
+		.fl-line { margin-top: 4px; font-size: 14px; }
 		.fl-stage { padding: 8px 0 2px; }
 		.fl-clocknum { font-size: 56px; }
 		.fl-stage.clock .fl-glyph { height: 64px; }
 		.fl-stage.clock .fl-glyph :global(canvas) { width: 64px; height: 64px; }
 	}
 	@media (max-height: 560px) {
-		.fl-hint { display: none; }
+		.fl-line { display: none; }
 		.fl-stage:not(.clock) { display: none; }
 		.fl-stage.clock .fl-glyph { display: none; }
 		.fl-clocknum { font-size: 44px; }

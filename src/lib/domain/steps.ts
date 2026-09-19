@@ -4,6 +4,7 @@ import { isSet } from './measure';
 import {
 	cooldownFor,
 	exerciseNamed,
+	isStretchLine,
 	prepSeconds,
 	restFor,
 	warmupFor,
@@ -47,10 +48,14 @@ export function routineExercises(plan: Plan | undefined, w: Workout): Exercise[]
 	return plan?.routines[w.routine] ?? [];
 }
 
-function prepSteps(items: PrepItem[], section: string, item: string, proseSeconds: number): Step[] {
+function prepSteps(plan: Plan, items: PrepItem[], section: string, item: string, proseSeconds: number): Step[] {
 	const out: Step[] = [];
 	let n = 0;
 	for (const it of items) {
+		if (isStretchLine(it)) {
+			out.push(...exerciseSteps(plan, it));
+			continue;
+		}
 		if (typeof it === 'string' || 'reps' in it) {
 			n++;
 			out.push({
@@ -94,9 +99,9 @@ function exerciseSteps(plan: Plan, ex: Exercise): Step[] {
 /** The whole workout in order — warm-up, exercises, cooldown; `extra` is exercises added on the floor by name, each a section after the plan's own, once. */
 export function sessionSteps(plan: Plan | undefined, w: Workout, extra: string[] = []): Step[] {
 	if (!plan || !plan.routines[w.routine]) return [];
-	const out: Step[] = prepSteps(warmupFor(plan, w.routine), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
+	const out: Step[] = prepSteps(plan, warmupFor(plan, w.routine), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
 	for (const ex of plan.routines[w.routine]) out.push(...exerciseSteps(plan, ex));
-	out.push(...prepSteps(cooldownFor(plan, w.routine), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
+	out.push(...prepSteps(plan, cooldownFor(plan, w.routine), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
 	const have = new Set(out.map((s) => s.section));
 	for (const name of extra) {
 		const ex = exerciseNamed(plan, name);
@@ -117,9 +122,9 @@ export function estimateMinutes(steps: Step[], from = 0): number {
 /** One logged entry's data. */
 export type Entry = EntryLogged['data'];
 
-/** Exercises this session logged that its routine doesn't cover — handed back as `extra` so a reload keeps the section. */
+/** Exercises this session logged that its routine and cooldown don't cover — handed back as `extra` so a reload keeps the section. */
 export function loggedOutside(plan: Plan | undefined, w: Workout, entries: Entry[]): string[] {
-	const planned = new Set(routineExercises(plan, w).map((ex) => ex.name));
+	const planned = new Set(sessionSteps(plan, w).flatMap((s) => (s.kind === 'set' ? [s.ex.name] : [])));
 	const out: string[] = [];
 	for (const e of entries) {
 		if (!isSet(e.measure) || planned.has(e.item) || out.includes(e.item)) continue;

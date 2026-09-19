@@ -181,6 +181,8 @@ describe('the plan’s numbers', () => {
 		expect(holdDose({ ...stretch, sets: 1, side: undefined })).toBe('45s');
 		expect(prepLabel('5 min easy bike')).toBe('5 min easy bike');
 		expect(prepLabel({ name: 'Easy jog', minutes: 3 })).toBe('Easy jog · 3 min');
+		expect(prepLabel({ name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, progress: { of: 'none' }, side: 'sets' })).toBe('Calf stretch · 45s each');
+		expect(prepLabel({ name: 'Doorway chest stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 1, lo: 60, hi: 60, progress: { of: 'none' } })).toBe('Doorway chest stretch · 60s');
 		expect(prepLabel({ name: 'Carioca', seconds: 30, each: true })).toBe('Carioca · 30s each');
 		expect(prepLabel({ name: 'A-skips', seconds: 30 })).toBe('A-skips · 30s');
 		expect(prepLabel({ name: 'Sun Salutation A', reps: 3 })).toBe('Sun Salutation A × 3');
