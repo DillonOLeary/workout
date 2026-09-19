@@ -77,6 +77,21 @@ export function disciplineLabel(d: Discipline): string {
 	}
 }
 
+/** "workout" · "practice" · "stretch" · "run" — what Finish finishes */
+export function sessionNoun(d: Discipline): string {
+	switch (d) {
+		case 'lift':
+		case 'bodyweight':
+			return 'workout';
+		case 'yoga':
+			return 'practice';
+		case 'mobility':
+			return 'stretch';
+		case 'run':
+			return 'run';
+	}
+}
+
 /** "lifts" · "yoga" · "floor sessions" · "stretches" · "runs" — counted */
 export function disciplineNoun(d: Discipline, n: number): string {
 	const one = Math.round(n * 10) === 10;

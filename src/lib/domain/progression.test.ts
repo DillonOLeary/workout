@@ -248,6 +248,8 @@ describe('a set against its range', () => {
 	it('lights the ledger pill when some set reached the top', () => {
 		expect(anySetEarned([load(35, 12), load(35, 8)], goblet)).toBe(true);
 		expect(anySetEarned([load(35, 11), load(35, 11)], goblet)).toBe(false);
+		const stretch: Exercise = { name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, progress: { of: 'none' }, side: 'sets' };
+		expect(anySetEarned([{ of: 'hold', seconds: 45, target: 45 }], stretch), 'a fixed hold has no top to reach').toBe(false);
 	});
 });
 

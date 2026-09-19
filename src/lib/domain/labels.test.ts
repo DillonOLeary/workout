@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ceilingHint, countLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, lineValue, listJoin,
-	loadHint, loadLabel, loadShort, needsLine, paceLabel, paceSentence, paceSub, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine,
+	loadHint, loadLabel, loadShort, needsLine, paceLabel, paceSentence, paceSub, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, sessionNoun,
 	scheduleLine, setValue, setsLine, sessionSummary, spanLabel, standInMeta, stepLabel, trendTally, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta
 } from './labels';
 import type { Measure } from './measure';
@@ -272,5 +272,11 @@ describe('the rule, explained', () => {
 		expect(at(hist([{ daysAgo: 2, sets: [reps(15), reps(15)] }]), pushup)).toBe('Up a rung — Push-up from here, reps from 8.');
 		expect(at(hist([{ daysAgo: 2, sets: [reps(15), reps(15)] }, { daysAgo: 6, sets: [reps(15), reps(15)] }]), pushup)).toBe('Top of the ladder (Push-up) — make it harder.');
 		expect(at(hist([{ daysAgo: 2, sets: [reps(12), reps(12)] }]), pushup)).toBeNull();
+	});
+});
+
+describe('sessionNoun — what Finish finishes', () => {
+	it('is a workout for the lifts and the floor, a practice, a stretch, a run', () => {
+		expect((['lift', 'bodyweight', 'yoga', 'mobility', 'run'] as const).map(sessionNoun)).toEqual(['workout', 'workout', 'practice', 'stretch', 'run']);
 	});
 });

@@ -62,7 +62,7 @@
 	{/if}
 {/snippet}
 
-<div class="table" bind:this={table}>
+<div class="table" style="--rows: {rows.length}" bind:this={table}>
 	{#each rows as r (r.key)}
 		{#if r.tappable && onTap}
 			<button type="button" class="row tap {r.state}" onclick={() => onTap(r.key)} aria-label="{r.label} — {r.value}. Tap to fix it">
@@ -81,7 +81,8 @@
 		border: var(--border-w) solid var(--ink);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
-		min-height: calc(3 * var(--row) + 2 * var(--border-w));
+		/* a floor of three rows so a lift's table doesn't jump — but never taller than the rows it has */
+		min-height: calc(min(var(--rows), 3) * var(--row) + 2 * var(--border-w));
 		overflow: hidden auto;
 		overscroll-behavior: contain;
 	}

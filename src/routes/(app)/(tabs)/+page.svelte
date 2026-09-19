@@ -5,7 +5,7 @@
 	import Card from '$lib/components/Card.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { glyphFor } from '$lib/design/glyphs';
-	import { disciplineLabel } from '$lib/domain/labels';
+	import { disciplineLabel, sessionNoun } from '$lib/domain/labels';
 	import { cooldownFor, routineTitle, warmupFor } from '$lib/domain/plan';
 	import { queue, sessionEntries } from '$lib/domain/projections';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps } from '$lib/domain/steps';
@@ -80,7 +80,7 @@
 			<div class="row gap12 wrap">
 				<a class="resume" href="/floor">Resume</a>
 				<form method="POST" action="?/finish" use:enhance class="grow">
-					<Button variant="secondary" size="lg" type="submit" style="width: 100%">Finish now</Button>
+					<Button variant="secondary" size="lg" type="submit" style="width: 100%">Finish {sessionNoun(session.discipline)}</Button>
 				</form>
 			</div>
 		</Card>

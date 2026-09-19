@@ -10,8 +10,12 @@ const lit = (f: Frame) => f.join('').split('#').length - 1;
 const fig = (name: string) => figureFor(name)!;
 
 describe('the rig', () => {
-	it('every exercise of every shipped plan has a figure — the run included', () => {
-		for (const plan of SHIPPED_PLANS) for (const ex of planExercises(plan)) expect(figureFor(ex.name), ex.name).not.toBeNull();
+	it('every exercise and every named warm-up or cooldown line of every shipped plan has a figure — the run included', () => {
+		for (const plan of SHIPPED_PLANS) {
+			for (const ex of planExercises(plan)) expect(figureFor(ex.name), ex.name).not.toBeNull();
+			const lines = [...(plan.warmup ?? []), ...(plan.cooldown ?? []), ...Object.values(plan.routineInfo).flatMap((r) => [...(r.warmup ?? []), ...(r.cooldown ?? [])])];
+			for (const it of lines) if (typeof it !== 'string') expect(figureFor(it.name), it.name).not.toBeNull();
+		}
 	});
 
 	it('normalize fills both legs and both arms and places every joint, so any two poses lerp', () => {

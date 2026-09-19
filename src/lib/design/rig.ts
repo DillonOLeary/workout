@@ -229,7 +229,7 @@ const STANDING: Figure = { id: 'stand', name: STAND, motion: 'breath', cue: 'sta
 
 export const EXERCISES: Figure[] = [
 	/* lifts */
-	{ id: 'goblet', name: 'Goblet Squat', aliases: ['Bodyweight Squat'], cue: 'hips drop between the heels, knees forward, torso tips just enough to keep the bell over mid-foot',
+	{ id: 'goblet', name: 'Goblet Squat', aliases: ['Bodyweight Squat', 'Bodyweight squats'], cue: 'hips drop between the heels, knees forward, torso tips just enough to keep the bell over mid-foot',
 		pose: (d) => { const l = L(d); return { hip: [l(0, -0.07), l(0.6, 0.34)], t: l(2, 28), legs: [{ ank: [0.0, ANK] }, { ank: [0.06, ANK] }], arms: [{ hand: [l(0.1, 0.02), l(0.82, 0.62)], bend: -1 }], world: [[l(0.1, 0.02), l(0.82, 0.62), l(0.1, 0.02), l(0.86, 0.66), 0.03]] }; } },
 	{ id: 'rdl', name: 'Romanian Deadlift', cue: 'hips travel back, knees stay soft, back flat; the bar slides down the thighs',
 		pose: (d) => { const l = L(d), hip: Pt = [l(0, -0.11), l(0.6, 0.55)], hand: Pt = [l(0.05, 0.1), l(0.5, 0.26)]; return { hip, t: l(2, 82), legs: [{ ank: [0.0, ANK] }, { ank: [0.05, ANK] }], arms: [{ hand, bend: 1 }], world: [[hand[0] - 0.05, hand[1] - 0.02, hand[0] + 0.05, hand[1] - 0.02, 0.03]] }; } },
@@ -274,6 +274,17 @@ export const EXERCISES: Figure[] = [
 		pose: (d) => { const l = L(d); return { hip: [-0.08, 0.32], t: l(4, 30), legs: [{ ank: [0.2, ANK], bend: 1 }, { knee: [0.14, 0.42], ank: [0.24, 0.35], foot: 0 }], arms: [{ hand: [0.16, 0.42], bend: 1 }], world: [[-0.3, 0.29, 0.1, 0.29, 0.013], [-0.24, FLOOR, -0.24, 0.28, 0.013], [0.04, FLOOR, 0.04, 0.28, 0.013]] }; } },
 	{ id: 'doorway', name: 'Doorway chest stretch', motion: 'still', cue: 'forearm on the frame behind you; step through and let the chest lead',
 		pose: (d) => { const l = L(d); return { hip: [l(0, 0.05), 0.6], t: l(2, 10), legs: [{ ank: [0.2, ANK], bend: 1 }, { ank: [-0.16, ANK], bend: 0 }], arms: [{ el: [-0.14, 0.92], hd: [-0.17, 1.1] }], world: [[-0.19, FLOOR, -0.19, 1.24, 0.013], [-0.19, 1.24, 0.4, 1.24, 0.013]] }; } },
+	/* warm-up lines */
+	{ id: 'catcow', name: 'Cat–Cow', waypoint: 'kneel', cue: 'on all fours: the spine rounds to the ceiling with the chin tucked, then dips with the chest forward and the eyes up',
+		pose: (d) => { const l = L(d); return { hip: [0.06, l(0.34, 0.32)], t: l(-98, -82), headFwd: l(-3, 3), legs: [{ knee: [0.08, 0.09], ank: [-0.18, 0.1], foot: 170 }], arms: [{ el: [-0.29, 0.18], hd: [-0.31, 0.05] }] }; } },
+	{ id: 'sunsal', name: 'Sun Salutation A', cue: 'reach up, fold forward, halfway lift, step back and through — one round is one rep, breathed',
+		pose: (d) => { const l = L(d); return { hip: [l(0, -0.06), l(0.6, 0.58)], t: l(-4, 84), legs: [{ ank: [-0.02, ANK], bend: 1 }, { ank: [0.04, ANK], bend: 1 }], arms: [{ hand: [l(0.06, 0.2), l(1.14, 0.12)], bend: d < 0.5 ? -1 : 1 }] }; } },
+	{ id: 'walk', name: 'Walk', cue: 'a walk, nothing more: heel to toe, arms easy, the heart rate coming down',
+		pose: (d) => { const l = L(d); return { hip: [0, 0.6], t: 3, legs: [{ ank: [l(0.1, -0.12), ANK], bend: 1, foot: l(0, 25) }, { ank: [l(-0.12, 0.1), ANK + 0.03 * Math.sin(Math.PI * d)], bend: 1, foot: l(25, 0) }], arms: [{ hand: [l(0.1, -0.06), 0.5], bend: -1 }, { hand: [l(-0.06, 0.1), 0.5], bend: -1 }] }; } },
+	{ id: 'march', name: 'March in place', cue: 'knees to hip height, one at a time, the opposite arm swinging — a jog that goes nowhere',
+		pose: (d) => { const l = L(d); return { hip: [0, 0.6], t: 2, legs: [{ ank: [-0.02, ANK], bend: 1 }, { knee: [l(0.04, 0.22), l(0.32, 0.46)], ank: [l(0.04, 0.2), l(ANK, 0.2)], foot: l(0, 30) }], arms: [{ hand: [l(0.12, -0.08), l(0.6, 0.62)], bend: -1 }, { hand: [l(-0.08, 0.14), l(0.62, 0.66)], bend: -1 }] }; } },
+	{ id: 'armcircles', name: 'Arm circles', cue: 'front view: straight arms sweep from the sides to overhead and back, small circles growing to big ones',
+		pose: (d) => { const a = Math.PI * d, hand: Pt = [0.06 + 0.42 * Math.sin(a), 0.86 - 0.42 * Math.cos(a)]; return { view: 'front', hip: [0, 0.6], t: 0, legs: [{ ank: [-0.1, ANK], bend: 0 }, { ank: [0.1, ANK], bend: 0 }], arms: [{ hand: [-hand[0], hand[1]], bend: -1 }, { hand, bend: 1 }] }; } },
 	/* run drills, and the run itself */
 	{ id: 'jog', name: 'Easy jog', aliases: ['Easy run'], cue: 'a conversational pace: light on the feet, elbows at ninety, the shoulders quiet — one rep is one stride',
 		pose: (d) => { const l = L(d), lift = 0.09 * Math.sin(Math.PI * d); return { hip: [0, 0.6 + 0.012 * Math.sin(Math.PI * d)], t: 8, legs: [{ ank: [l(0.14, -0.18), ANK], bend: 1, foot: l(0, 45) }, { ank: [l(-0.18, 0.14), ANK + lift], bend: 1, foot: l(45, 0) }], arms: [{ hand: [l(0.16, -0.06), l(0.64, 0.58)], bend: -1 }, { hand: [l(-0.06, 0.16), l(0.58, 0.64)], bend: -1 }] }; } },

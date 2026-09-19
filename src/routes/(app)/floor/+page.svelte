@@ -10,6 +10,7 @@
 	import StepTable from '$lib/components/floor/StepTable.svelte';
 	import type { Row } from '$lib/components/floor/StepTable.svelte';
 	import { armBell, ringBell } from '$lib/components/floor/bell';
+	import { holdScreen } from '$lib/components/floor/wake-lock';
 	import { CountdownClock, type Countdown } from '$lib/components/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/components/floor/entry-queue.svelte';
 	import { STAND } from '$lib/design/rig';
@@ -26,6 +27,7 @@
 		plannedValue,
 		rangeLabel,
 		receiptLine,
+		sessionNoun,
 		setValue,
 		setsLine,
 		stepLabel
@@ -54,6 +56,7 @@
 	const isRun = session.discipline === 'run';
 	const title = routineTitle(plan, workout.routine) ?? disciplineLabel(session.discipline);
 	const cue = cueFor(plan, workout.routine);
+	const noun = sessionNoun(session.discipline);
 	const sessionAt = session.at;
 	const stretchPool: Exercise[] = routinesOf(plan, 'mobility').flatMap((r) => plan.routines[r]);
 	const cycle = cycleOf(plan, workout.routine);
@@ -135,12 +138,14 @@
 
 	let restEnd = $derived(st?.kind === 'set' && !stepDone ? restUntil(st, entries, plan) : null);
 	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
-	let resting = $derived(restEnd !== null && restLeft > 0);
+	// a hold started early ends the rest: the bell must not ring under a running clock
+	let resting = $derived(restEnd !== null && restLeft > 0 && !clock.active);
 	let restTotal = $derived(st?.kind === 'set' ? restFor(plan, st.ex) : 0);
 	let restFrac = $derived(resting && restTotal ? restLeft / restTotal : 0);
 	let counting: number | null = null;
 	$effect(() => {
-		if (resting) counting = restEnd;
+		if (clock.active) counting = null;
+		else if (resting) counting = restEnd;
 		else if (counting !== null && restEnd === counting) {
 			counting = null;
 			ringBell();
@@ -152,6 +157,10 @@
 	});
 
 	let ticking = $derived(resting || clock.active || st?.kind === 'run');
+
+	// the screen stays lit while a set is in front of you; a run is long enough to let it sleep and trust the bell
+	let lit = $derived(!allDone && st?.kind !== 'run');
+	$effect(() => (lit ? holdScreen() : undefined));
 	$effect(() => {
 		if (!ticking) return;
 		const t = setInterval(() => (now = Date.now()), 200);
@@ -421,7 +430,7 @@
 
 	let nextLabel = $derived.by(() => {
 		const n = steps[stepI + 1];
-		if (!n) return 'Finish workout';
+		if (!n) return `Finish ${noun}`;
 		if (n.section === st?.section) return n.kind === 'set' ? 'Next set' : 'Next step';
 		return `Next: ${n.section}`;
 	});
@@ -434,9 +443,9 @@
 			: allDone
 				? finishing
 					? 'Saving…'
-					: 'Finish workout'
+					: `Finish ${noun}`
 				: !st
-					? 'Finish workout'
+					? `Finish ${noun}`
 					: stepDone
 						? nextLabel
 						: st.kind === 'prep'
@@ -647,7 +656,7 @@
 				{/if}
 				<FloorPrimary
 					variant="advance"
-					label={finishing ? 'Saving…' : 'Finish workout'}
+					label={finishing ? 'Saving…' : `Finish ${noun}`}
 					disabled={finishing}
 					onclick={() => void finishNow()}
 				/>
@@ -662,6 +671,7 @@
 	ex={atSet ? ex : undefined}
 	figure={allDone ? undefined : (editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : st?.kind === 'run' ? st.ex.name : undefined))}
 	cue={st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? st.ex.note : undefined}
+	{noun}
 	{sections}
 	stretches={addable}
 	backLabel={position}

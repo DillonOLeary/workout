@@ -1,5 +1,5 @@
 import { countOf, loadOf, type Measure } from './measure';
-import type { Counted, Exercise, Loaded } from './plan';
+import { progresses, type Counted, type Exercise, type Loaded } from './plan';
 import { nextRung, prevRung, snapToRack } from './racks';
 
 /** One session's sets for one exercise — what the rule reads. */
@@ -46,9 +46,9 @@ export function setEarned(m: Measure, ex: Exercise): boolean {
 	return countOf(m) >= ex.hi;
 }
 
-/** Some set of this entry reached the top of the range — the ledger's ↑ pill. */
+/** Some set of this entry reached the top of the range — the ledger's ↑ pill; a fixed hold has no top to reach */
 export function anySetEarned(sets: Measure[], ex: Exercise): boolean {
-	return sets.some((m) => setEarned(m, ex));
+	return progresses(ex) && sets.some((m) => setEarned(m, ex));
 }
 
 /** Every set of a full entry at the top of the range. */

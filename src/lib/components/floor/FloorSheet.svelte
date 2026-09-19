@@ -21,6 +21,8 @@
 		sections,
 		stretches = [],
 		backLabel,
+		/** what Finish finishes: workout · practice · stretch · run */
+		noun,
 		logged,
 		total,
 		allDone,
@@ -41,6 +43,7 @@
 		stretches?: Exercise[];
 		/** "Set 4/20" — where the way back lands */
 		backLabel: string;
+		noun: string;
 		logged: number;
 		total: number;
 		allDone: boolean;
@@ -144,7 +147,7 @@
 					</div>
 				{:else}
 					<button type="button" class="arow" onclick={() => (confirming = true)}>
-						Finish early{total ? ` — ${logged} / ${total} sets logged` : ''}
+						Finish {noun} early{total ? ` — ${logged} / ${total} sets logged` : ''}
 					</button>
 				{/if}
 			{/if}
