@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { GRID, MOTIONS, cycleMs, frameAt, glyphFor, repMs, workFrame } from '$lib/design/glyphs';
+	import { MOTIONS, cycleMs, frameAt, frameOf, glyphFor, repMs, workFrame } from '$lib/design/glyphs';
+	import { stamp } from '$lib/design/stamp';
 
 	/** `size` — the stage's side in px; a parent's `--glyph-size` overrides it */
 	/** `play` — a rep plays once on arrival (a breath waits to be pressed, a still never moves) */
@@ -13,7 +14,6 @@
 	const REST = 0;
 	/** the rep waits for the screen to settle first */
 	const ARRIVE_MS = 320;
-	const DOT = 0.34;
 	const MIN_PX = 24;
 
 	let glyph = $derived(glyphFor(name));
@@ -42,28 +42,11 @@
 		return true;
 	}
 
-	function draw(k: number) {
-		const ctx = canvas?.getContext('2d');
-		if (!ctx || !glyph || !w) return;
-		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		ctx.clearRect(0, 0, w, h);
-		const side = Math.min(w, h), pitch = side / GRID, r = DOT * pitch;
-		const ox = (w - side) / 2, oy = (h - side) / 2;
-		const f = glyph.frames[k] ?? glyph.frames[0];
-		ctx.fillStyle = ink;
-		for (let row = 0; row < GRID; row++) {
-			for (let col = 0; col < GRID; col++) {
-				if (f[row][col] !== '#') continue;
-				ctx.beginPath();
-				ctx.arc(ox + (col + 0.5) * pitch, oy + (row + 0.5) * pitch, r, 0, Math.PI * 2);
-				ctx.fill();
-			}
-		}
-	}
-
 	function show(k: number) {
 		lastIdx = k;
-		draw(k);
+		const ctx = canvas?.getContext('2d');
+		const f = frameOf(name, k);
+		if (ctx && f && w) stamp(ctx, f, w, h, dpr, ink);
 	}
 
 	const restFrame = () => (reduced && glyph?.motion === 'rep' ? workFrame('rep') : REST);

@@ -54,9 +54,9 @@ bridges that by copying `DB` into it at startup, so local "Hyperdrive" is
 just Neon, `DB` stays the one secret, and the Hyperdrive branch of
 [hooks.server.ts](src/hooks.server.ts) runs in dev exactly as in prod.
 
-Two more folders sit beside `src/`: [tools/glyphs](tools/glyphs) bakes the
-dot-matrix figures (§4), and [tools/stream](tools/stream) holds read-only SQL
-over the event store (§2, the upcaster).
+Two more folders sit beside `src/`: [tools/glyphs](tools/glyphs) snapshots the
+dot-matrix figures the rig draws (§4), and [tools/stream](tools/stream) holds
+read-only SQL over the event store (§2, the upcaster).
 
 ## 2. Event sourcing: the mental model
 
@@ -594,9 +594,11 @@ gym; the week's folds), `plan.test.ts` (the plan's boundary — every illegal
 pairing and contradiction it refuses — its accessors, and `composePlan`),
 `steps.test.ts` (that `restUntil` counts from the local timestamp, that an
 extra appends, that a step carries only what its kind needs),
-`preferences.test.ts`, `racks.test.ts`, and [glyphs.test.ts](src/lib/design/glyphs.test.ts)
-(every exercise has a figure, every frame prints, the JSON is what the
-generator bakes). Two things make these cheap to write: nothing in the
+`preferences.test.ts`, `racks.test.ts`, [rig.test.ts](src/lib/design/rig.test.ts)
+(every exercise has a figure, every stamp prints, a route through the
+waypoints is the hops the design named) and
+[glyphs.test.ts](src/lib/design/glyphs.test.ts) (the gears and the clock, and
+that the reviewed snapshot is what the rig draws). Two things make these cheap to write: nothing in the
 domain does I/O, and every fold that needs the time takes `now` as an
 argument — a test builds a history with "15 days ago" arithmetic and never
 touches the clock. The config is a separate
@@ -621,10 +623,13 @@ src/routes/
    │  │                              ?/log (LogAfter)
    │  ├─ ledger/                    Ledger — tab 2: Did I show up · Am I getting stronger · What I did  (/ledger)
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
-   │  ├─ plan/                      The Plan — tab 3: the week's switches, What I'm after  (/plan)
-   │  │                              ?/toggle (ToggleBlock) · ?/save (SetPreferences)
+   │  ├─ plan/                      The Plan — tab 3: What's the week (read it) · What's yours to change (four rows)  (/plan)
    │  ├─ plan/programme/            the lift programme — the one real choice  (/plan/programme)
    │  │                              ?/select (SelectProgramme)
+   │  ├─ plan/blocks/               the blocks, on and off, with their switches  (/plan/blocks)
+   │  │                              ?/toggle (ToggleBlock)
+   │  ├─ plan/after/ · plan/gear/   What I'm after · What I've got — one menu each  (/plan/after, /plan/gear)
+   │  │                              ?/save (SetPreferences) — the same action, from $lib/server/preferences.ts
    │  └─ plan/why/+page.svelte      the cited case — a child of The Plan, static  (/plan/why)
    ├─ floor/                        gym floor — outside (tabs): no tab bar  (/floor)
    │                                 load guard → / when nothing is open · ?/logEntry · ?/correctEntry · ?/finish
@@ -632,12 +637,12 @@ src/routes/
 
 src/lib/
 ├─ domain/        the layers of §2 — pure, no I/O
-├─ server/        db.ts (a pg client per request), eventStore.ts, ledger.ts, plans.ts, auth.ts, uid.ts
-├─ components/    Button, Card, Chip, Badge, TabBar, PhoneInput, ExerciseGlyph, MonthGrid, TrendRow,
+├─ server/        db.ts (a pg client per request), eventStore.ts, ledger.ts, plans.ts, preferences.ts, auth.ts, uid.ts
+├─ components/    Button, Card, Chip, Badge, TabBar, PhoneInput, Picks, ExerciseGlyph, Athlete, MonthGrid, TrendRow,
 │                 floor/{StepTable, AdjustTile, FloorPrimary, FloorSheet, bell, entry-queue, countdown}
-└─ design/        tokens/*.css, disciplines.css (one ink per discipline), glyphs.ts + glyph-frames.json
+└─ design/        tokens/*.css, disciplines.css (one ink per discipline), rig.ts (the athlete) + glyphs.ts + stamp.ts
 
-tools/glyphs/     athlete.js (the figure generator) + bake.mjs (rewrites glyph-frames.json; --check proves it)
+tools/glyphs/     bake.mjs snapshots the rig to glyph-frames.json; --check proves the snapshot is what the rig draws
 tools/stream/     forensics.sql — read-only queries over the event store
 ```
 
@@ -649,7 +654,7 @@ place, as permanent redirects: the old host `workout.dillonoleary.com` →
 `ledger.dillonoleary.com`; `/u/<id>` (once the login itself) → `/login`;
 `/why` → `/plan/why`; `/log` → `/floor` with its query (a phone mid-session
 at deploy time reloads onto the same step); `/plan/change` →
-`/plan/programme`; `/plan/after` → `/plan`.
+`/plan/programme`.
 
 Things to notice:
 
@@ -685,16 +690,16 @@ Things to notice:
 | `$bindable` | `floor/AdjustTile.svelte` — `bind:value={reps}` two-way binds the floor's number to the tile |
 | `$effect` that writes state | Log it after rebuilds `lines` from the rule when `routine` changes, and closes the open line — the one effect in the app that assigns state, because the lines are a *draft* seeded from data, not a derivation of it |
 | `Snippet` / `{@render children()}` | `Button`, `Card` — Svelte's children |
-| page-local `{#snippet name(args)}` | the Ledger's `stepper` and `editor`, The Plan's `blockRow` — a snippet with parameters is a local component without a file, rendered with `{@render blockRow(b, on)}`. Declare it at the top level of the markup, not inside a component's children |
+| page-local `{#snippet name(args)}` | the Ledger's `stepper` and `editor`, the blocks page's `blockRow` — a snippet with parameters is a local component without a file, rendered with `{@render blockRow(b, on)}`. Declare it at the top level of the markup, not inside a component's children |
 | `{@const}` | inside an `{#each}`: `{@const done = weekProgress(…)}` on The Plan, `{@const latest = s.id === data.latestSession}` on the Ledger — a value computed once per item |
 | `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ reps on a hold or bodyweight tile, otherwise weight; 1–9 reps and 0 = 10; Enter is the primary action; ← → step; Esc closes the sheet. The Ledger's `<svelte:window onclick>` disarms the two-tap Remove |
 | `class:` directive | `class:out={card.out}` on Today's card, `class:did` · `class:today` · `class:future` · `class:dark` on a MonthGrid cell, `class:single={tileBW}` on the floor's tile row; StepTable interpolates instead — `class="row {r.state}"` |
 | `bind:this` | the floor's hidden Finish form (`finishFormEl`, submitted from a keyboard shortcut), the tab layout's inner scroller, the glyph's canvas |
 | scoped `<style>` | every component — the design system's tokens are global (`disciplines.css` too: `.ink-lift` is one rule shared by the calendar, the legend and The Plan), layout is local |
 | `use:enhance` with a callback | the Ledger's editor: `use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') editingRow = null; }}` — the row stays open on a refusal, so the message is read where the numbers are |
-| `$effect` | `ExerciseGlyph.svelte` — a canvas that stamps baked frames: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop that plays one pass of the figure's gear, and the function it returns tears both down; a second effect runs the gear on repeat while `loop` is set (a hold in progress) — a rep with its 900 ms rest, a breath without one, a still not at all |
+| `$effect` | `ExerciseGlyph.svelte` — a canvas that stamps the rig's frames: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop that plays one pass of the figure's gear, and the function it returns tears both down; a second effect runs the gear on repeat while `loop` is set — a rep with its 900 ms rest, a breath without one, a still not at all. `Athlete.svelte` has the same two effects with a different split: one owns the canvas, the other reads `{ pose, phase }` and does nothing but tell the figure where to be |
 | `bind:clientHeight` | Today measures the room under its card (`slack`) instead of guessing the device: ≥ 150px → the figure strip, ≥ 60px → one mono line, else nothing. Nothing ever half-shows, and nothing scrolls |
-| `{#key}` | the gym floor wraps the glyph in `{#key glyphName}`: advancing to the next exercise remounts it, and a fresh mount plays once — a rest on the *same* exercise does not |
+| a component that persists | the gym floor used to wrap its glyph in `{#key glyphName}` so each exercise remounted a fresh figure. Now one `<Athlete pose phase>` lives on the floor for the whole session and is never remounted: `pose` and `phase` are a `$derived` of what the floor already knows (`resting · clock.active · stepDone · allDone`), and the figure works out its own path — exit the pose to its waypoint and up to a stand, turn if the view changes, enter the next. The floor never says "animate"; it says where the body is |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the ⋯ sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
 | transitions timed from a token | `TrendRow` opens with `transition:slide={{ duration: OPEN }}` where `OPEN = durationMs('--dur-med', 180)` — the CSS token is the one place the tempo lives |
@@ -713,21 +718,45 @@ you *don't* want reactivity is part of learning it.
 The glyph is the same lesson from the other side: its playback clock (`start`,
 `lastIdx`, the rAF handle) is plain `let`s, not `$state`, because it changes
 twelve times a rep and nothing in the template reads it. Reactivity nobody
-depends on is work the compiler does for no one. The figures themselves are
-data, not code: `src/lib/design/glyph-frames.json` holds 51 figures on one
-31 × 31 grid, baked by the repo's own generator in `tools/glyphs/` (seeded
-from two Claude Design projects, trimmed to what the bake uses;
-`node tools/glyphs/bake.mjs`, and `--check` proves the JSON is what the
-generator makes), each in one of three GEARS the JSON carries the timing
-for — a `rep` (twelve stamps out and back, then a rest), a `breath` (four
-stamps, the hold rising and falling: the planks, chair, warrior II,
-savasana) or a `still` (one stamp at full depth: the stretches, pigeon,
-sphinx). A hold is not a rep with the ends chopped off; it is a body that
-stays where it is and breathes, and `glyphs.ts` only looks a name up and
-tells the clock which frame is due in that gear. Tested like the domain:
-every plan exercise has a figure, every frame is 31 × 31 and prints, the
-frame count follows the gear, a rep moves and a breath rises, the clock holds
-on frame 0, and the JSON is what the generator bakes.
+depends on is work the compiler does for no one.
+
+The figures themselves live in [rig.ts](src/lib/design/rig.ts), and they are
+drawn live. A pose is a function of depth (`pose(d)`, 0 at the top of the
+movement, 1 at the bottom) over one skeleton — a hip, a torso angle, two
+ankles and two hands, the knees and elbows solved by inverse kinematics — on
+one world, where the ground is `FLOOR` for every exercise so the feet land on
+the bottom dot row whatever the pose. `normalize` fills both legs and both
+arms so any two poses have the same joints, `lerp` walks between them, and
+`frame` stamps the joints onto the 31 × 31 grid as tapered capsules with a
+dithered light. Fifty-two figures, each in one of three GEARS — a `rep`
+(twelve stamps out and back, then a rest), a `breath` (four stamps, the hold
+rising and falling: the planks, chair, warrior II, savasana) or a `still`
+(one stamp at full depth: the stretches, pigeon, sphinx). A hold is not a
+rep with the ends chopped off; it is a body that stays where it is and
+breathes. `glyphs.ts` looks a name up, memoizes a stamp per depth, and tells
+the clock which frame is due in that gear.
+
+Going live is what lets one athlete persist. Each figure declares a
+`waypoint` — stand (the default and the hub), kneel, sit or back — and
+`route(from, to)` plans the hops: EXIT the pose to its waypoint and up to a
+stand, TURN with a four-frame dither if a side figure has to face front,
+ENTER through the new pose's waypoint; two poses at the same waypoint skip
+the stand. `Athlete.svelte` receives `{ pose, phase }` from the floor and does
+the rest: hops of six stamps on the rep clock, then the phase's gait — one
+rep on arriving at a set, a loop while a hold or the run is counting, the
+standing breath of a rest, a still on the done screen. Ten seconds before the
+bell the figure gets back into position, which is the cue the countdown never
+had. Under reduced motion it cuts to the work frame and never hops.
+
+The snapshot is the check, not the source: `node tools/glyphs/bake.mjs`
+writes every stamp of every gear to `tools/glyphs/glyph-frames.json` (Node
+runs the TypeScript rig as-is), and `--check` exits 1 unless the file is what
+the rig draws now — so a nudged pose fails the suite until the new figures
+are re-baked and looked at. Tested like the domain: every plan exercise has a
+figure (the run included), every frame is 31 × 31 and prints, the count
+follows the gear, a rep moves and a breath rises, `lerp` lands exactly on its
+endpoints so a hop ends on the pose, a route is the hops the design named,
+the clock holds on frame 0, and the snapshot matches.
 
 ## 4½. Lessons from the first real workouts
 

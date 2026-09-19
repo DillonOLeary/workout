@@ -1,18 +1,16 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
-	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
-	import { doseLabel, prepLabel, standInMeta, turnLabel, weekHead, weekMeta } from '$lib/domain/labels';
+	import { capitalise, doseLabel, prepLabel, turnLabel, weekHead, weekMeta } from '$lib/domain/labels';
 	import { cooldownFor, cycleOf, restFor, routineTitle, warmupFor, type Block, type Cycle } from '$lib/domain/plan';
 	import { BLOCKS } from '$lib/domain/plans';
-	import { EQUIPMENT, INTENTS, MAX_INTENTS, samePreferences, type Equipment, type Intent, type Preferences } from '$lib/domain/preferences';
-	import { nextInCycle, queue, weekProgress } from '$lib/domain/projections';
+	import { EQUIPMENT, INTENTS } from '$lib/domain/preferences';
+	import { nextInCycle, weekProgress } from '$lib/domain/projections';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
-	let { data, form }: PageProps = $props();
+	let { data }: PageProps = $props();
 	const now = Date.now();
 
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
@@ -23,7 +21,6 @@
 	const isOn = (b: Block) => data.blocksOn.includes(b.id);
 	let onBlocks = $derived(BLOCKS.filter(isOn));
 	let offBlocks = $derived(BLOCKS.filter((b) => !isOn(b)));
-	let floor = $derived(BLOCKS.find((b) => b.cycle.standsInFor === lift.id));
 
 	const minutesOf = (r: string) => estimateMinutes(sessionSteps(plan, { routine: r }));
 	const cycleMinutes = (c: Cycle) => Math.round(c.routines.reduce((n, r) => n + minutesOf(r), 0) / c.routines.length);
@@ -37,7 +34,7 @@
 		return `${f(mon)} – ${f(sun)}`;
 	});
 
-	// seeded from ?routine= so Today can link straight to the one that is due
+	// seeded from ?routine= so Today and the blocks page can link straight to one
 	let picked = $state(page.url.searchParams.get('routine') ?? '');
 	let shown = $derived(plan.routines[picked] ? picked : '');
 	let info = $derived(shown ? plan.routineInfo[shown] : undefined);
@@ -52,77 +49,39 @@
 	);
 	const show = (r: string) => (picked = picked === r ? '' : r);
 
-	// svelte-ignore state_referenced_locally
-	let intents = $state<Intent[]>([...data.preferences.intents]);
-	// svelte-ignore state_referenced_locally
-	let equipment = $state<Equipment[]>([...data.preferences.equipment]);
-	let full = $derived(intents.length >= MAX_INTENTS);
-	function toggleIntent(id: Intent) {
-		if (intents.includes(id)) intents = intents.filter((x) => x !== id);
-		else if (!full) intents = [...intents, id];
-	}
-	function toggleGear(id: Equipment) {
-		equipment = equipment.includes(id) ? equipment.filter((x) => x !== id) : [...equipment, id];
-	}
-	let draft = $derived<Preferences>({ intents, equipment });
-	let changed = $derived(!samePreferences(draft, data.preferences));
-	let first = $derived(queue(data.events, plan, draft, now)[0]);
-	let preview = $derived(
-		!first ? '' : first.out ? 'Nothing you can do with what you have — check the gear.' : `Today leads with ${first.title} · ${first.why}`
+	// the four rows say their current value — the settings-list idiom, in LEDGER's clothes
+	let programmeValue = $derived(`${plan.name} · full-body ${lift.routines.join('/')}`);
+	let blocksValue = $derived(onBlocks.length ? onBlocks.map((b) => b.cycle.title).join(' · ') : 'none on');
+	let blocksOff = $derived(offBlocks.length ? `· ${offBlocks.map((b) => b.cycle.title).join(', ')} off` : '');
+	let afterValue = $derived(
+		data.preferences.intents.length ? INTENTS.filter((i) => data.preferences.intents.includes(i.id)).map((i) => i.label).join(' · ') : 'nothing picked · the plan’s own order'
+	);
+	let gotValue = $derived(
+		data.preferences.equipment.length ? capitalise(EQUIPMENT.filter((e) => data.preferences.equipment.includes(e.id)).map((e) => e.needed).join(' · ')) : 'nothing · only the floor deals'
 	);
 </script>
 
 <div class="col">
 	<div class="titleblock">
 		<h1>The Plan</h1>
-		<div class="activemeta">{weekHead(weekSessions, weekMinutes)} · the plan sets each cadence</div>
+		<div class="activemeta">{weekHead(weekSessions, weekMinutes)}</div>
 	</div>
-
-	{#if form?.message}<p class="err">{form.message}</p>{/if}
-
-		{#snippet blockRow(b: Block, on: boolean)}
-			{@const c = b.cycle}
-			{@const done = weekProgress(data.events, plan, c, now).done}
-			{@const own = c.routines.filter((r) => b.routines[r])}
-			{@const standIn = c.standsInFor ? plan.cycles.find((x) => x.id === c.standsInFor) : undefined}
-			<div class="blockrow" class:off={!on}>
-				<span class="sw ink-{b.routineInfo[own[0]].discipline}"></span>
-				<div class="rowcaps">
-					<span class="rowtitle">{c.title}</span>
-					<span class="rowmeta">{c.target > 0 ? weekMeta(c.target, done) : standInMeta(standIn?.title ?? lift.title, standIn?.target ?? lift.target)}</span>
-				</div>
-				<span class="sub">
-					{#each own as r, k (r)}{#if k}<span class="dotsep"> · </span>{/if}<button type="button" class="rlink" onclick={() => show(r)}>{routineTitle(plan, r)}</button>{/each}
-					{#if c.routines.length > own.length}<span class="dotsep"> · +{c.routines.length - own.length}</span>{/if}
-					<span class="dotsep"> · ~{cycleMinutes(c)} min</span>
-				</span>
-				<form method="POST" action="?/toggle" use:enhance class="togform">
-					<input type="hidden" name="block" value={b.id} />
-					<input type="hidden" name="on" value={String(!on)} />
-					<button type="submit" class="tog" role="switch" aria-checked={on} aria-label="{b.cycle.title} {on ? 'on' : 'off'}">
-						<span class="knob"></span>
-					</button>
-				</form>
-			</div>
-		{/snippet}
 
 	<section class="sect">
 		<div class="sechead">
-			<span class="caps">The week</span>
+			<span class="caps">What's the week</span>
 			<span class="meta">{weekSpan}</span>
 		</div>
 		<Card pad={false}>
-			<div class="liftrow">
+			<div class="wrow lift">
 				<span class="sw ink-lift"></span>
-				<div class="rowcaps">
+				<span class="rowcaps">
 					<span class="rowtitle">{lift.title}</span>
-					<span class="rowmeta">{weekMeta(liftWeek.target, liftWeek.done)}</span>
-				</div>
+					<span class="rowmeta">· {plan.name} · {lift.target} a week</span>
+				</span>
 				<span class="dots" aria-label="{liftWeek.done} of {liftWeek.target} this week">
 					{#each { length: liftWeek.target } as _, k (k)}<span class="dot" class:done={k < liftWeek.done}></span>{/each}
 				</span>
-				<span class="progname">{plan.name}</span>
-				<a class="change" href="/plan/programme">Change ▸</a>
 				<div class="rchips">
 					{#each lift.routines as r (r)}
 						<button type="button" class="rchip" class:next={r === nextLift} class:shown={shown === r} aria-pressed={shown === r} onclick={() => show(r)}>
@@ -131,18 +90,22 @@
 					{/each}
 				</div>
 			</div>
-
-
-			{#each onBlocks as b (b.id)}{@render blockRow(b, true)}{/each}
-
-			{#if offBlocks.length}
-				<div class="divider">
-					<span class="caps">Not in your week</span>
-					<span class="meta">switch one on and Today deals it</span>
+			{#each onBlocks as b (b.id)}
+				{@const c = b.cycle}
+				{@const done = weekProgress(data.events, plan, c, now).done}
+				{@const own = c.routines.filter((r) => b.routines[r])}
+				<div class="wrow">
+					<span class="sw ink-{b.routineInfo[own[0]].discipline}"></span>
+					<span class="rowcaps">
+						<span class="rowtitle">{c.title}</span>
+						<span class="rowmeta">· {c.target > 0 ? weekMeta(c.target, done) : `takes ${lift.title}'s ${lift.target} when there's no gym`} · ~{cycleMinutes(c)} min</span>
+					</span>
+					<span class="sub">
+						{#each own as r, k (r)}{#if k}<span class="dotsep"> · </span>{/if}<button type="button" class="rlink" class:shown={shown === r} onclick={() => show(r)}>{routineTitle(plan, r)}</button>{/each}
+						{#if c.routines.length > own.length}<span class="dotsep"> · +{c.routines.length - own.length}</span>{/if}
+					</span>
 				</div>
-				{#each offBlocks as b (b.id)}{@render blockRow(b, false)}{/each}
-			{/if}
-			<div class="foot">a switch is an event · the ledger shows when the week changed</div>
+			{/each}
 		</Card>
 	</section>
 
@@ -190,36 +153,27 @@
 
 	<section class="sect">
 		<div class="sechead">
-			<span class="caps">What I'm after</span>
-			<span class="meta">tilts the order · pick up to {MAX_INTENTS}</span>
+			<span class="caps">What's yours to change</span>
+			<span class="meta">all go in the ledger</span>
 		</div>
-		<Card>
-			<form method="POST" action="?/save" use:enhance class="prefs">
-				<div class="pills">
-					{#each INTENTS as it (it.id)}
-						{@const on = intents.includes(it.id)}
-						<button type="button" class="pick" class:on class:dim={full && !on} aria-pressed={on} onclick={() => toggleIntent(it.id)}>{it.label}</button>
-					{/each}
-				</div>
-				<div class="sechead inner">
-					<span class="caps">I've got</span>
-					<span class="meta">{floor && isOn(floor) ? `no gym → the ${floor.cycle.title} block deals` : `no gym → nothing stands in for the lift · switch ${floor?.cycle.title ?? 'No gym'} on`}</span>
-				</div>
-				<div class="pills">
-					{#each EQUIPMENT as g (g.id)}
-						{@const on = equipment.includes(g.id)}
-						<button type="button" class="pick" class:on aria-pressed={on} onclick={() => toggleGear(g.id)}>{g.label}</button>
-					{/each}
-				</div>
-				<div class="previewrow">
-					<span class="preview">{preview}</span>
-					{#if changed}
-						<input type="hidden" name="intents" value={JSON.stringify(intents)} />
-						<input type="hidden" name="equipment" value={JSON.stringify(equipment)} />
-						<Button variant="accent" type="submit" disabled={!intents.length}>Save</Button>
-					{/if}
-				</div>
-			</form>
+		<Card pad={false} interactive>
+			<a class="crow" href="/plan/programme">
+				<span class="crowtext"><span class="crowtitle">Lift programme</span><span class="crowval">{programmeValue}</span></span>
+				<span class="chev">›</span>
+			</a>
+			<a class="crow" href="/plan/blocks">
+				<span class="crowtext"><span class="crowtitle">Blocks in the week</span><span class="crowval">{blocksValue} <span class="off">{blocksOff}</span></span></span>
+				<span class="chev">›</span>
+			</a>
+			<a class="crow" href="/plan/after">
+				<span class="crowtext"><span class="crowtitle">What I'm after</span><span class="crowval">{afterValue}</span></span>
+				<span class="chev">›</span>
+			</a>
+			<a class="crow" href="/plan/gear">
+				<span class="crowtext"><span class="crowtitle">What I've got</span><span class="crowval">{gotValue}</span></span>
+				<span class="chev">›</span>
+			</a>
+			<div class="foot">that's the whole list · sets, reps and exercises are the plan's</div>
 		</Card>
 	</section>
 
@@ -243,7 +197,6 @@
 	}
 	.titleblock { display: flex; flex-direction: column; gap: 4px; }
 	.activemeta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); }
-	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
 	.caps {
 		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
 		text-transform: uppercase; color: var(--ink-3);
@@ -251,31 +204,21 @@
 	.mb8 { margin-bottom: 8px; }
 	.sect { display: flex; flex-direction: column; gap: 10px; }
 	.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-	.sechead.inner { margin-top: 14px; }
 	.meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
 
-	.sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ink); display: inline-block; margin-top: 4px; }
-	.rowcaps { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
-	.rowtitle { font-size: 16px; font-weight: var(--weight-bold); }
-	.rowmeta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
-
-	.liftrow {
-		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'sw caps dots' '. name change' '. sub sub';
-		column-gap: 10px; row-gap: 6px; align-items: center; padding: 14px 16px;
+	/* the reading list: one row per cycle, nothing to press but a routine's name */
+	.wrow {
+		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'sw caps dots' '. sub sub';
+		column-gap: 10px; row-gap: 6px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--border-soft);
 	}
-	.liftrow .sw { grid-area: sw; align-self: start; }
-	.liftrow .rowcaps { grid-area: caps; }
+	.wrow:first-child { border-top: none; }
+	.wrow.lift { padding-top: 12px; }
+	.sw { grid-area: sw; align-self: start; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ink); display: inline-block; margin-top: 5px; }
+	.rowcaps { grid-area: caps; min-width: 0; font-size: 15px; font-weight: var(--weight-bold); }
+	.rowmeta { font-family: var(--font-mono); font-size: 11px; font-weight: 400; color: var(--ink-3); }
 	.dots { grid-area: dots; display: inline-flex; gap: 4px; justify-self: end; }
 	.dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--ink); background: var(--white); }
 	.dot.done { background: var(--ink); }
-	.progname { grid-area: name; font-family: var(--font-display); font-weight: var(--weight-black); font-size: 22px; line-height: 1.1; }
-	.change {
-		grid-area: change; justify-self: end;
-		display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
-		background: var(--white); border: 1px solid var(--ink); border-radius: var(--radius-pill);
-		font-size: 12px; font-weight: var(--weight-bold); color: var(--ink); text-decoration: none;
-	}
-	.change:hover { background: var(--volt-tint); }
 	.rchips { grid-area: sub; display: flex; gap: 6px; flex-wrap: wrap; }
 	.rchip {
 		min-height: 32px; padding: 0 10px;
@@ -286,41 +229,30 @@
 	.rchip:hover { background: var(--volt-tint); color: var(--ink); }
 	.rchip.next { background: var(--volt); border-color: var(--ink); color: var(--ink); }
 	.rchip.shown { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-
-	.blockrow {
-		display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'sw title tog' '. sub tog';
-		column-gap: 10px; row-gap: 2px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border-soft);
-	}
-	.blockrow .sw { grid-area: sw; align-self: start; }
-	.blockrow .rowcaps { grid-area: title; }
-	.blockrow.off { opacity: 0.7; }
 	.sub { grid-area: sub; font-size: 13px; color: var(--ink-2); line-height: 1.45; }
 	.dotsep { color: var(--ink-3); }
 	.rlink {
 		background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
 		text-decoration: underline dotted; text-underline-offset: 3px; text-decoration-color: var(--ink-3);
 	}
-	.rlink:hover { color: var(--ink); text-decoration-color: var(--ink); }
-	.togform { grid-area: tog; align-self: center; }
-	.tog {
-		position: relative; width: 48px; height: 28px; padding: 0;
-		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-pill);
-		cursor: pointer; touch-action: manipulation;
-		transition: background var(--dur-med) var(--ease-snap);
+	.rlink:hover, .rlink.shown { color: var(--ink); text-decoration-color: var(--ink); }
+	.rlink.shown { text-decoration-style: solid; }
+
+	/* the settings list: a row says its value and opens the thing */
+	.crow {
+		display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: center;
+		min-height: 50px; padding: 7px 16px; border-top: 1px solid var(--border-soft);
+		color: var(--ink); text-decoration: none; transition: background var(--dur-med) var(--ease-snap);
 	}
-	.tog[aria-checked='true'] { background: var(--volt); }
-	.knob {
-		position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
-		background: var(--ink); border-radius: 50%;
-		transition: left var(--dur-med) var(--ease-snap);
-	}
-	.tog[aria-checked='true'] .knob { left: 22px; }
-	.divider {
-		display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-		padding: 10px 16px 6px; border-top: 1px solid var(--border-soft);
-	}
+	.crow:first-child { border-top: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+	.crow:hover { background: var(--volt-tint); }
+	.crowtext { display: flex; flex-direction: column; min-width: 0; }
+	.crowtitle { font-size: 15px; font-weight: var(--weight-bold); }
+	.crowval { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+	.crowval .off { color: var(--ink-3); }
+	.chev { font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 18px; color: var(--ink-2); }
 	.foot {
-		padding: 8px 16px; background: var(--paper-2); border-top: 1px solid var(--border-soft);
+		padding: 6px 16px; background: var(--paper-2); border-top: 1px solid var(--border-soft);
 		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 		font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
 	}
@@ -354,25 +286,6 @@
 	}
 	.rule { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 24px; line-height: var(--leading-snug); }
 	.hl { background: var(--volt); padding: 0 6px; }
-
-	.prefs { display: flex; flex-direction: column; gap: 8px; }
-	.pills { display: flex; gap: 8px; flex-wrap: wrap; }
-	.pick {
-		min-height: 44px; padding: 0 16px;
-		background: var(--white); color: var(--ink);
-		border: var(--border-w) solid var(--border-soft); border-radius: var(--radius-pill);
-		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 15px; cursor: pointer; touch-action: manipulation;
-		transition: background var(--dur-med) var(--ease-snap), color var(--dur-med) var(--ease-snap);
-	}
-	.pick:hover { background: var(--volt-tint); }
-	.pick.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-	.pick.dim { color: var(--ink-3); cursor: default; }
-	.pick.dim:hover { background: var(--white); }
-	.previewrow {
-		display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-		margin-top: 12px; padding: 10px 12px; background: var(--paper-2); border-radius: var(--radius-md);
-	}
-	.preview { flex: 1 1 200px; font-family: var(--font-mono); font-size: 13px; line-height: 1.45; color: var(--ink); }
 
 	.rare { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 	.rarelinks { display: flex; align-items: center; gap: 4px; }

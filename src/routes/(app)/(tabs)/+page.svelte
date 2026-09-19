@@ -105,6 +105,9 @@
 					<button type="button" class="elsebtn" onclick={next}>Something else ▸</button>
 				{/if}
 			</div>
+			{#if card.discipline === 'lift' && !data.blocksOn.includes('bw')}
+				<a class="nogym" href="/plan/blocks">No gym today? Switch the No gym block on and it deals here ›</a>
+			{/if}
 		</Card>
 
 		<div class="slack" bind:clientHeight={slack}>
@@ -204,6 +207,13 @@
 		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.elsebtn:hover { background: var(--volt-tint); }
+	/* the one case the deck can't answer on its own: the block that stands in for the gym is off */
+	.nogym {
+		display: inline-flex; align-items: center; min-height: 40px; margin-top: 4px;
+		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+	}
+	.nogym:hover { color: var(--ink); background: none; }
 
 	.slack { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
 	.strip { display: flex; flex-direction: column; gap: 8px; padding: 0 4px 4px; }

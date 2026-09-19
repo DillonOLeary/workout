@@ -1,34 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { SHIPPED_PLANS } from '$lib/domain/plans';
-import { planExercises } from '$lib/domain/plan';
-import data from './glyph-frames.json';
-import { GRID, MOTIONS, cycleMs, frameAt, framesFor, glyphFor, motionOf, repMs, workFrame } from './glyphs';
-import type { Frame, Glyph, Motion } from './glyphs';
+import { GRID, MOTIONS, cycleMs, frameAt, frameOf, framesFor, glyphFor, motionFor, repMs, workFrame } from './glyphs';
+import type { Motion } from './glyphs';
 
-const glyphs = data.glyphs as Record<string, Glyph>;
-const byName = data.byName as Record<string, string>;
-const lit = (f: Frame) => f.join('').split('#').length - 1;
 const gears = Object.keys(MOTIONS) as Motion[];
 
 describe('exercise glyphs', () => {
-	it('every exercise of every shipped plan has a figure — the run included', () => {
-		for (const plan of SHIPPED_PLANS)
-			for (const ex of planExercises(plan)) {
-				if (ex.kind === 'run') continue;
-				expect(framesFor(ex.name), ex.name).not.toBeNull();
-			}
-	});
-
 	it('an unknown name gets nothing — never a stand-in', () => {
 		expect(framesFor('Zercher Squat')).toBeNull();
-		expect(framesFor('')).toBeNull();
-		expect(motionOf('')).toBeNull();
-	});
-
-	it('every name maps to a real glyph', () => {
-		for (const id of Object.values(byName)) expect(glyphs[id], id).toBeDefined();
+		expect(frameOf('', 0)).toBeNull();
+		expect(motionFor('')).toBeNull();
+		expect(glyphFor('')).toBeNull();
 	});
 
 	it('is the three gears the clock assumes, on the grid the renderer assumes', () => {
@@ -48,34 +31,25 @@ describe('exercise glyphs', () => {
 		expect(cycleMs('still')).toBe(0);
 	});
 
-	it('every frame is 31 rows of 31 dots, on or off, and prints; the count follows the gear', () => {
-		for (const [id, g] of Object.entries(glyphs)) {
-			expect(gears, `${id} motion`).toContain(g.motion);
-			expect(g.frames.length, id).toBe(MOTIONS[g.motion].seq.length);
-			for (const [k, f] of g.frames.entries()) {
-				expect(f.length, `${id}@${k} rows`).toBe(GRID);
-				for (const row of f) expect(row, `${id}@${k}`).toMatch(/^[#.]{31}$/);
-				expect(lit(f), `${id}@${k} dots`).toBeGreaterThan(40);
-			}
-		}
-	});
-
-	it('a rep moves and a breath rises; a still is one frame', () => {
-		for (const [id, g] of Object.entries(glyphs)) {
-			if (g.motion === 'still') expect(g.frames, id).toHaveLength(1);
-			else expect(g.frames[workFrame(g.motion)], id).not.toEqual(g.frames[0]);
-		}
+	it('a stamp is asked for one at a time and is the same one the whole gear gives', () => {
+		const all = framesFor('Goblet Squat')!;
+		expect(all).toHaveLength(12);
+		expect(frameOf('Goblet Squat', 6)).toBe(all[6]);
+		expect(frameOf('Goblet Squat', 99)).toBe(all[0]);
+		expect(framesFor('Calf stretch')).toHaveLength(1);
+		for (const g of gears) expect(MOTIONS[g].seq.length).toBeGreaterThan(0);
 	});
 
 	it('the shipped figures are in the gears the design classified', () => {
-		expect(motionOf('Goblet Squat')).toBe('rep');
-		expect(['Long-Lever Plank', 'Side Plank', 'Copenhagen Plank', 'Plank', 'Forearm Plank'].map(motionOf)).toEqual(['breath', 'breath', 'breath', 'breath', 'breath']);
-		expect(['Calf stretch', 'Hip flexor stretch', 'Hamstring stretch', 'Figure-4 stretch', 'Doorway chest stretch'].map(motionOf)).toEqual(['still', 'still', 'still', 'still', 'still']);
-		expect(['Pigeon', 'Sphinx', 'Supine Twist'].map(motionOf)).toEqual(['still', 'still', 'still']);
-		expect(['Chair Pose', 'Warrior II', 'Downward Dog', 'Savasana', 'Hollow Hold', 'Superman Hold'].map(motionOf)).toEqual(['breath', 'breath', 'breath', 'breath', 'breath', 'breath']);
-		expect(['Push-up', 'Bear Crawl', 'Bodyweight Squat', 'Reverse Lunge', 'Single-leg Calf Raise'].map(motionOf)).toEqual(['rep', 'rep', 'rep', 'rep', 'rep']);
+		expect(motionFor('Goblet Squat')).toBe('rep');
+		expect(['Long-Lever Plank', 'Side Plank', 'Copenhagen Plank', 'Plank', 'Forearm Plank'].map(motionFor)).toEqual(['breath', 'breath', 'breath', 'breath', 'breath']);
+		expect(['Calf stretch', 'Hip flexor stretch', 'Hamstring stretch', 'Figure-4 stretch', 'Doorway chest stretch'].map(motionFor)).toEqual(['still', 'still', 'still', 'still', 'still']);
+		expect(['Pigeon', 'Sphinx', 'Supine Twist'].map(motionFor)).toEqual(['still', 'still', 'still']);
+		expect(['Chair Pose', 'Warrior II', 'Downward Dog', 'Savasana', 'Hollow Hold', 'Superman Hold'].map(motionFor)).toEqual(['breath', 'breath', 'breath', 'breath', 'breath', 'breath']);
+		expect(['Push-up', 'Bear Crawl', 'Bodyweight Squat', 'Reverse Lunge', 'Single-leg Calf Raise', 'Easy run'].map(motionFor)).toEqual(['rep', 'rep', 'rep', 'rep', 'rep', 'rep']);
 		expect(glyphFor('Bodyweight Squat')?.name).toBe('Goblet Squat');
-		expect(Object.keys(glyphs)).toHaveLength(51);
+		expect(glyphFor('Easy run')?.name).toBe('Easy jog');
+		expect(glyphFor('Goblet Squat')?.cue).toMatch(/hips drop/);
 	});
 
 	it('the clock: the pass, a hold on the still, then again — per gear', () => {
@@ -93,7 +67,7 @@ describe('exercise glyphs', () => {
 		expect(frameAt(-50, 'rep')).toBe(0);
 	});
 
-	it('the shipped frames are what the generator bakes', () => {
+	it('the reviewed snapshot is what the rig draws', () => {
 		const bake = fileURLToPath(new URL('../../../tools/glyphs/bake.mjs', import.meta.url));
 		expect(() => execFileSync(process.execPath, [bake, '--check'], { stdio: 'pipe' })).not.toThrow();
 	});

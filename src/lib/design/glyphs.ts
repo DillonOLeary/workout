@@ -1,35 +1,36 @@
-// Dot-matrix exercise glyphs: a name is looked up and a frame stamped — no geometry at runtime.
-// `node tools/glyphs/bake.mjs` rewrites glyph-frames.json; `--check` proves the JSON matches the generator.
-// Three gears — rep · breath · still — chosen per glyph at bake time; the JSON carries each one's timing.
-import data from './glyph-frames.json';
+// Dot-matrix exercise glyphs: a name is looked up and a stamp of the live rig drawn — memoized, so a gear costs geometry once.
+// Three gears — rep · breath · still — chosen per figure in the rig; this file tells a clock which stamp is due in a gear.
+import { MOTIONS, figureFor, frameFor, motionOf, waypointOf, type Figure, type Frame, type Motion, type Waypoint } from './rig';
 
-/** 31 rows of 31 characters, top row first; '#' prints */
-export type Frame = string[];
-export type Motion = 'rep' | 'breath' | 'still';
-/** how a gear runs: the depths it stamped, and the clock that plays them */
-export type Gear = { seq: number[]; frameMs: number; holdMs: number };
-export type Glyph = { name: string; aliases: string[]; cue: string; motion: Motion; frames: Frame[] };
+export { GRID, MOTIONS } from './rig';
+export type { Frame, Gear, Motion } from './rig';
 
-export const GRID: number = data.grid;
-export const MOTIONS: Record<Motion, Gear> = data.motions as Record<Motion, Gear>;
-
-const glyphs = data.glyphs as Record<string, Glyph | undefined>;
-const byName = data.byName as Record<string, string | undefined>;
+export type Glyph = { name: string; aliases: string[]; cue: string; motion: Motion; waypoint: Waypoint; figure: Figure };
 
 /** `Exercise.name` (plans.ts) → its glyph. Not here → nothing, never a stand-in. */
 export function glyphFor(name: string): Glyph | null {
-	const id = byName[name];
-	return (id && glyphs[id]) || null;
+	const f = figureFor(name);
+	return f && { name: f.name, aliases: f.aliases ?? [], cue: f.cue, motion: motionOf(f), waypoint: waypointOf(f), figure: f };
 }
 
-/** `Exercise.name` → its frames. Not here → no glyph, never a stand-in. */
+/** the k-th stamp of a name's gear (the first when k is past the end); null for a name with no glyph */
+export function frameOf(name: string, k: number): Frame | null {
+	const f = figureFor(name);
+	if (!f) return null;
+	const seq = MOTIONS[motionOf(f)].seq;
+	return frameFor(f, seq[k] ?? seq[0]);
+}
+
+/** every stamp of a name's gear — the tests and the bake; a screen asks for one at a time */
 export function framesFor(name: string): Frame[] | null {
-	return glyphFor(name)?.frames ?? null;
+	const f = figureFor(name);
+	return f ? MOTIONS[motionOf(f)].seq.map((d) => frameFor(f, d)) : null;
 }
 
 /** the gear a figure runs in */
-export function motionOf(name: string): Motion | null {
-	return glyphFor(name)?.motion ?? null;
+export function motionFor(name: string): Motion | null {
+	const f = figureFor(name);
+	return f ? motionOf(f) : null;
 }
 
 /** one pass through a gear's stamps, ms — a rep, a breath; 0 for a still */

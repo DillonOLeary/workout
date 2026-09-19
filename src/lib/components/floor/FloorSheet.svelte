@@ -5,7 +5,10 @@
 
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
+	import { glyphFor } from '$lib/design/glyphs';
+	import { frame, joints } from '$lib/design/rig';
 	import { durationMs } from '$lib/design/motion';
+	import { stamp } from '$lib/design/stamp';
 	import { holdDose } from '$lib/domain/labels';
 	import type { Exercise } from '$lib/domain/plan';
 
@@ -14,6 +17,7 @@
 		title,
 		ex,
 		cue,
+		figure,
 		sections,
 		stretches = [],
 		backLabel,
@@ -30,6 +34,8 @@
 		title: string;
 		ex?: Exercise;
 		cue?: string;
+		/** the figure on the floor right now — scrub its rep here, with the cue the rig wrote for it */
+		figure?: string;
 		sections: SheetSection[];
 		/** the stretches not already in this session — one tap appends one as a section */
 		stretches?: Exercise[];
@@ -51,6 +57,20 @@
 	});
 	const SLIDE = durationMs('--dur-slow', 320);
 	const FADE = durationMs('--dur-med', 180);
+
+	const SCRUB_PX = 120;
+	let glyph = $derived(figure ? glyphFor(figure) : null);
+	let depth = $state(0.5);
+	let scrubCanvas = $state<HTMLCanvasElement>();
+	// the rig draws the depth on demand — a slider position is not one of the gear's stamps
+	$effect(() => {
+		const el = scrubCanvas, g = glyph, d = depth;
+		if (!el || !g) return;
+		const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+		el.width = el.height = Math.round(SCRUB_PX * dpr);
+		const ink = getComputedStyle(el).getPropertyValue('--ink').trim() || '#1A1915';
+		stamp(el.getContext('2d')!, frame(joints(g.figure, d)), SCRUB_PX, SCRUB_PX, dpr, ink);
+	});
 </script>
 
 {#if open}
@@ -73,6 +93,16 @@
 			</section>
 		{:else if cue}
 			<section><p class="note">{cue}</p></section>
+		{/if}
+		{#if glyph}
+			<section class="scrub">
+				<canvas bind:this={scrubCanvas} class="scrubfig" aria-hidden="true"></canvas>
+				<div class="scrubside">
+					<span class="caps">Scrub the rep</span>
+					<input type="range" min="0" max="1" step="0.01" bind:value={depth} aria-label="Depth of the movement" />
+					<span class="scrubline">{glyph.name} · depth {Math.round(depth * 100)}% · <em>{glyph.cue}</em></span>
+				</div>
+			</section>
 		{/if}
 		<section>
 			<div class="caps">The session</div>
@@ -158,6 +188,16 @@
 	.equip { margin: 0; font-size: 13px; color: var(--ink-3); }
 	.note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 	.note.mono { font-family: var(--font-mono); font-size: 12px; }
+
+	.scrub {
+		display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center;
+		padding: 12px 14px; background: var(--white); border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
+	}
+	.scrubfig { width: 120px; height: 120px; display: block; background: var(--paper); border-radius: var(--radius-md); }
+	.scrubside { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+	.scrub input { width: 100%; accent-color: var(--ink); }
+	.scrubline { font-family: var(--font-mono); font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+	.scrubline em { font-style: normal; color: var(--ink-3); }
 
 	.list {
 		display: flex; flex-direction: column; margin-top: 4px;

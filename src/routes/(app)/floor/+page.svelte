@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
+	import Athlete, { type Phase } from '$lib/components/Athlete.svelte';
 	import AdjustTile from '$lib/components/floor/AdjustTile.svelte';
 	import FloorPrimary from '$lib/components/floor/FloorPrimary.svelte';
 	import FloorSheet from '$lib/components/floor/FloorSheet.svelte';
@@ -12,6 +12,7 @@
 	import { armBell, ringBell } from '$lib/components/floor/bell';
 	import { CountdownClock, type Countdown } from '$lib/components/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/components/floor/entry-queue.svelte';
+	import { STAND } from '$lib/design/rig';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { historyFor, lastEntryFor, sessionEntries, weekProgress } from '$lib/domain/projections';
@@ -321,8 +322,20 @@
 		}
 		return null;
 	});
-	let glyphName = $derived(editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : undefined) ?? '');
-	let holdRunning = $derived(clock.active);
+	/** the ten seconds before the bell: the figure gets into position first */
+	const READY_S = 10;
+	// the figure is the floor's state made visible — not a personality, a readout: the bell, the bar and the body agree
+	let athlete = $derived.by((): { pose: string; phase: Phase } => {
+		if (!st || allDone) return { pose: STAND, phase: 'still' };
+		if (editing) return { pose: editEx?.name ?? STAND, phase: 'ready' };
+		if (st.kind === 'run') return { pose: st.ex.name, phase: 'running' };
+		if (st.kind === 'prep') return { pose: STAND, phase: 'running' };
+		if (st.kind === 'timed') return { pose: st.name, phase: clock.active ? 'running' : 'ready' };
+		if (stepDone) return { pose: STAND, phase: 'running' };
+		if (clock.active) return { pose: st.ex.name, phase: 'running' };
+		if (resting) return restLeft > READY_S ? { pose: STAND, phase: 'running' } : { pose: st.ex.name, phase: 'ready' };
+		return { pose: st.ex.name, phase: 'set' };
+	});
 
 	const holdMeasure = (x: Exercise, seconds: number, target: number): Measure => measureFor(x, { load: 0, count: seconds, target });
 
@@ -550,11 +563,7 @@
 
 				<div class="fl-stage" class:clock={!!stage}>
 					<div class="fl-stagerow">
-						{#key glyphName}
-							{#if glyphName}
-								<div class="fl-glyph"><ExerciseGlyph name={glyphName} size={240} loop={holdRunning} /></div>
-							{/if}
-						{/key}
+						<div class="fl-glyph"><Athlete pose={athlete.pose} phase={athlete.phase} size={240} /></div>
 						{#if stage}
 							<div class="fl-clock">
 								<span class="fl-clocknum">{stage.value}</span>
@@ -601,10 +610,15 @@
 			</div>
 		{:else}
 			<main class="fl-main">
-				<h1 class="fl-name">Done</h1>
-				<p class="fl-meta">
-					<span>{isRun ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{queue.syncing ? ' · SAVING…' : ''}</span>
-				</p>
+				<div class="fl-donehead">
+					<div>
+						<h1 class="fl-name">Done</h1>
+						<p class="fl-meta">
+							<span>{isRun ? `${runMinutes} MIN` : `${progress.sets} SETS LOGGED`}{queue.syncing ? ' · SAVING…' : ''}</span>
+						</p>
+					</div>
+					<Athlete pose={STAND} phase="still" size={88} />
+				</div>
 				<div class="fl-receipt">
 					{#if isRun}
 						<div class="fl-rrow">
@@ -646,6 +660,7 @@
 	open={sheetOpen}
 	title={heading === 'Done' ? title : heading}
 	ex={atSet ? ex : undefined}
+	figure={allDone ? undefined : (editEx?.name ?? ex?.name ?? (st?.kind === 'timed' ? st.name : st?.kind === 'run' ? st.ex.name : undefined))}
 	cue={st?.kind === 'prep' || st?.kind === 'timed' ? cue : st?.kind === 'run' ? st.ex.note : undefined}
 	{sections}
 	stretches={addable}
@@ -802,7 +817,7 @@
 		justify-content: center;
 	}
 	.fl-glyph :global(canvas) { width: auto; height: 100%; max-height: 240px; aspect-ratio: 1; }
-	.fl-glyph:empty { display: none; }
+	.fl-donehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 	.fl-stage.clock { min-height: auto; }
 	.fl-stage.clock .fl-stagerow { flex-basis: auto; }
 	.fl-stage.clock .fl-glyph { flex: none; height: 88px; }

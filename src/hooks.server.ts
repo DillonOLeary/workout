@@ -27,9 +27,6 @@ export const handle: Handle = ({ event, resolve }) => {
 	if (url.pathname === '/plan/change') {
 		return new Response(null, { status: 301, headers: { location: '/plan/programme' } });
 	}
-	if (url.pathname === '/plan/after') {
-		return new Response(null, { status: 301, headers: { location: '/plan' } });
-	}
 
 	// Verified and re-issued on every request, so the 400-day cookie clock restarts each visit.
 	const uid = verifyAuthCookie(event.cookies);
