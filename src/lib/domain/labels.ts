@@ -221,6 +221,15 @@ export function trendTally(tones: string[]): string {
 		.join(' · ');
 }
 
+/** "SEPTEMBER · 11 sessions · 5 lift · 3 run · 3 stretch" — a month of the Ledger, folded to one line; the year only when it isn't this one */
+export function monthLine(iso: string, sessions: number, counts: { discipline: Discipline; n: number }[], now: number): string {
+	const d = new Date(iso);
+	const month = d.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+	const year = d.getFullYear() === new Date(now).getFullYear() ? '' : ` ${d.getFullYear()}`;
+	const by = counts.filter((c) => c.n > 0).map((c) => `${c.n} ${disciplineLabel(c.discipline).toLowerCase()}`);
+	return [`${month}${year}`, `${sessions} ${sessions === 1 ? 'session' : 'sessions'}`, ...by].join(' · ');
+}
+
 /** "20 sets · 48 min" · "9 holds · 11 min" · "32 min" · "nothing logged" */
 export function sessionSummary(p: { sets: number; holds?: boolean; minutes: number }): string {
 	const parts: string[] = [];

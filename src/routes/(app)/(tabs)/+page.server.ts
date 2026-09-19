@@ -27,6 +27,15 @@ export const actions: Actions = {
 		redirect(303, '/floor');
 	},
 
+	/** the session you just finished by mistake: the same SessionRemoved the Ledger's Remove appends, one tap from where the mistake happened */
+	undo: async ({ request, locals }) => {
+		const uid = requireUid(locals);
+		const session = String((await request.formData()).get('session') ?? '');
+		if (!session) return fail(400, { message: 'Missing session id.' });
+		const err = await tryCommand(uid, { type: 'RemoveSession', data: { session, at: new Date().toISOString() } });
+		if (err) return fail(400, { message: err });
+	},
+
 	/** close the open session from Today */
 	finish: async ({ locals }) => {
 		const err = await tryCommand(requireUid(locals), {

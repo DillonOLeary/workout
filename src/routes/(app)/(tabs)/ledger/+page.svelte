@@ -4,9 +4,9 @@
 	import Card from '$lib/components/Card.svelte';
 	import MonthGrid from '$lib/components/MonthGrid.svelte';
 	import TrendRow from '$lib/components/TrendRow.svelte';
-	import { disciplineLabel, fmtShort, paceSentence, paceSub, rateLabel, sessionSummary, setsLine, trendTally, weekChangeLine } from '$lib/domain/labels';
+	import { disciplineLabel, fmtShort, monthLine, paceSentence, paceSub, rateLabel, sessionSummary, setsLine, trendTally, weekChangeLine } from '$lib/domain/labels';
 	import { countOf, loadOf, uniformLoad, type Measure } from '$lib/domain/measure';
-	import { cycleDisciplines, disciplinesOf, planExercises, progresses, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { DISCIPLINES, cycleDisciplines, disciplinesOf, planExercises, progresses, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
 	import {
 		TREND_WINDOW,
@@ -60,20 +60,37 @@
 
 	let entries = $derived(projectSessions(data.events));
 	let changes = $derived(weekChanges(data.events));
-	const PAGE = 20;
-	let shown = $state(PAGE);
-	let visible = $derived(entries.slice(0, shown));
 	type Item = { kind: 'session'; s: SessionView } | { kind: 'change'; c: WeekChange };
-	let items = $derived.by((): Item[] => {
-		const oldest = visible.length ? visible[visible.length - 1].at : '';
-		const all = entries.length <= shown;
-		const out: Item[] = [
-			...visible.map((s): Item => ({ kind: 'session', s })),
-			...changes.filter((c) => all || c.at >= oldest).map((c): Item => ({ kind: 'change', c }))
-		];
+	type Month = { key: string; line: string; items: Item[] };
+	// a month is the fold: its line is the monthly view, its items the daily one — the newest month open, the rest one line each
+	const monthKey = (iso: string) => {
+		const d = new Date(iso);
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+	};
+	let months = $derived.by((): Month[] => {
+		const all: Item[] = [...entries.map((s): Item => ({ kind: 'session', s })), ...changes.map((c): Item => ({ kind: 'change', c }))];
 		const at = (i: Item) => (i.kind === 'session' ? i.s.at : i.c.at);
-		return out.sort((a, b) => at(b).localeCompare(at(a)));
+		all.sort((a, b) => at(b).localeCompare(at(a)));
+		const out: Month[] = [];
+		for (const it of all) {
+			const key = monthKey(at(it));
+			let m = out.find((x) => x.key === key);
+			if (!m) out.push((m = { key, line: '', items: [] }));
+			m.items.push(it);
+		}
+		for (const m of out) {
+			const sessions = m.items.flatMap((i) => (i.kind === 'session' ? [i.s] : []));
+			const counts = DISCIPLINES.map((discipline) => ({ discipline, n: sessions.filter((s) => s.discipline === discipline).length }));
+			m.line = monthLine(at(m.items[0]), sessions.length, counts, now);
+		}
+		return out;
 	});
+	let openMonths = $state<string[] | null>(null);
+	const isMonthOpen = (k: string) => (openMonths ? openMonths.includes(k) : k === months[0]?.key);
+	const toggleMonth = (k: string) => {
+		const open = months.filter((m) => isMonthOpen(m.key)).map((m) => m.key);
+		openMonths = open.includes(k) ? open.filter((x) => x !== k) : [...open, k];
+	};
 	let sinceLine = $derived(
 		entries.length
 			? `${entries.length} ${entries.length === 1 ? 'session' : 'sessions'} since ${fmtShort(entries[entries.length - 1].at)}`
@@ -267,7 +284,13 @@
 		{/snippet}
 
 		<div class="list">
-			{#each items as it (it.kind === 'session' ? it.s.id : it.c.at)}
+			{#each months as m (m.key)}
+			<button type="button" class="mdiv" class:shut={!isMonthOpen(m.key)} onclick={() => toggleMonth(m.key)} aria-expanded={isMonthOpen(m.key)}>
+				<span class="mtri">{isMonthOpen(m.key) ? '▾' : '▸'}</span>
+				<span class="mtext">{m.line}</span>
+			</button>
+			{#if isMonthOpen(m.key)}
+			{#each m.items as it (it.kind === 'session' ? it.s.id : it.c.at)}
 				{#if it.kind === 'change'}
 					<div class="wchange">
 						<span class="wrule"></span>
@@ -338,13 +361,9 @@
 					</Card>
 				{/if}
 			{/each}
+			{/if}
+			{/each}
 		</div>
-
-		{#if entries.length > shown}
-			<button type="button" class="more" onclick={() => (shown += PAGE)}>
-				Show more — {entries.length - shown} older
-			</button>
-		{/if}
 	</section>
 </div>
 
@@ -382,6 +401,17 @@
 	.tally { margin: 0; padding: 12px 16px; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
 
 	.list { display: flex; flex-direction: column; gap: 8px; }
+	.mdiv {
+		display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 4px 4px;
+		background: transparent; border: none; cursor: pointer; text-align: left; touch-action: manipulation;
+		font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: var(--tracking-caps); color: var(--ink);
+		border-radius: var(--radius-sm); transition: background var(--dur-med) var(--ease-snap);
+	}
+	.mdiv:hover { background: var(--volt-tint); }
+	.mdiv.shut { color: var(--ink-3); }
+	.mdiv.shut .mtext { border-bottom: 1px dashed var(--ink-3); }
+	.mtri { font-size: 12px; flex: none; }
+	.mtext { padding: 6px 0; }
 	.wchange { display: flex; align-items: center; gap: 10px; padding: 6px 4px; }
 	.wrule { flex: 1; border-top: 1px dashed var(--ink-3); }
 	.wtext { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: center; }
@@ -470,13 +500,4 @@
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 
-	.more {
-		align-self: flex-start;
-		min-height: var(--hit-min); padding: 0 22px;
-		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: var(--text-md); color: var(--ink);
-		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised); cursor: pointer;
-	}
-	.more:hover { background: var(--volt-tint); }
-	.more:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 </style>

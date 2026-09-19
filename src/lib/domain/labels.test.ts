@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ceilingHint, countLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, lineValue, listJoin,
-	loadHint, loadLabel, loadShort, needsLine, paceLabel, paceSentence, paceSub, plannedValue, prepLabel, rangeLabel, rateLabel, receiptLine, sessionNoun,
+	loadHint, loadLabel, loadShort, needsLine, paceLabel, paceSentence, paceSub, plannedValue, prepLabel, rangeLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	scheduleLine, setValue, setsLine, sessionSummary, spanLabel, standInMeta, stepLabel, trendTally, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta
 } from './labels';
 import type { Measure } from './measure';
@@ -278,5 +278,14 @@ describe('the rule, explained', () => {
 describe('sessionNoun — what Finish finishes', () => {
 	it('is a workout for the lifts and the floor, a practice, a stretch, a run', () => {
 		expect((['lift', 'bodyweight', 'yoga', 'mobility', 'run'] as const).map(sessionNoun)).toEqual(['workout', 'workout', 'practice', 'stretch', 'run']);
+	});
+});
+
+describe('monthLine — a month of the Ledger, folded to one line', () => {
+	it('names the month, counts the sessions by discipline, and adds the year only when it isn’t this one', () => {
+		const now = Date.parse('2026-09-19T12:00:00');
+		const counts = [{ discipline: 'lift' as const, n: 5 }, { discipline: 'yoga' as const, n: 0 }, { discipline: 'run' as const, n: 3 }, { discipline: 'mobility' as const, n: 3 }];
+		expect(monthLine('2026-09-02T10:00:00', 11, counts, now)).toBe('SEPTEMBER · 11 sessions · 5 lift · 3 run · 3 stretch');
+		expect(monthLine('2025-12-02T10:00:00', 1, [{ discipline: 'lift', n: 1 }], now)).toBe('DECEMBER 2025 · 1 session · 1 lift');
 	});
 });

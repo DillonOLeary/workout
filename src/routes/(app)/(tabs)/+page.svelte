@@ -5,9 +5,9 @@
 	import Card from '$lib/components/Card.svelte';
 	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
 	import { glyphFor } from '$lib/design/glyphs';
-	import { disciplineLabel, sessionNoun } from '$lib/domain/labels';
+	import { disciplineLabel, sessionNoun, sessionSummary } from '$lib/domain/labels';
 	import { cooldownFor, routineTitle, warmupFor } from '$lib/domain/plan';
-	import { queue, sessionEntries } from '$lib/domain/projections';
+	import { projectSessions, queue, sessionEntries } from '$lib/domain/projections';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
@@ -54,6 +54,22 @@
 		const sets = session.discipline === 'run' ? '' : ` · ${liveProgress.sets} ${liveProgress.sets === 1 ? 'set' : 'sets'} logged`;
 		return `${positionLabel(liveProgress.current, liveSteps)}${sets} · ~${left} min left`;
 	});
+
+	// the moment you need Undo is the moment after Finish: the latest session, while it is still today's (or was written after the fact), until the next one starts
+	let justLogged = $derived.by(() => {
+		if (session || !data.latestSession) return null;
+		const s = projectSessions(data.events).find((x) => x.id === data.latestSession);
+		if (!s) return null;
+		const when = new Date(s.finishedAt ?? s.at), d = new Date(now);
+		const sameDay = when.getFullYear() === d.getFullYear() && when.getMonth() === d.getMonth() && when.getDate() === d.getDate();
+		if (s.mode !== 'after' && !sameDay) return null;
+		const sets = s.rows.reduce((n, r) => n + r.sets.length, 0);
+		const holds = sets > 0 && s.rows.every((r) => r.sets.every((m) => m.of === 'hold'));
+		const walked = s.mode === 'live' && s.finishedAt ? Math.round((Date.parse(s.finishedAt) - Date.parse(s.at)) / 60000) : 0;
+		const title = routineTitle(data.plans.find((p) => p.id === s.plan) ?? plan, s.workout.routine) ?? disciplineLabel(s.discipline);
+		return { id: s.id, title, summary: sessionSummary({ sets, holds, minutes: s.minutes || (walked > 0 && walked <= 240 ? walked : 0) }) };
+	});
+	let undoing = $state(false);
 
 	const today = new Date().toLocaleDateString('en-US', {
 		weekday: 'short',
@@ -109,6 +125,18 @@
 				<a class="nogym" href="/plan/blocks">No gym today? Switch the No gym block on and it deals here ›</a>
 			{/if}
 		</Card>
+
+		{#if justLogged}
+			<form method="POST" action="?/undo" use:enhance class="logged">
+				<input type="hidden" name="session" value={justLogged.id} />
+				<span class="loggedtext"><b>Logged</b> · {justLogged.title} · {justLogged.summary}</span>
+				{#if undoing}
+					<button type="submit" class="undo armed">Undo?</button>
+				{:else}
+					<button type="button" class="undo" onclick={() => (undoing = true)}>Undo</button>
+				{/if}
+			</form>
+		{/if}
 
 		<div class="slack" bind:clientHeight={slack}>
 			{#if mode === 'strip'}
@@ -214,6 +242,22 @@
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 	.nogym:hover { color: var(--ink); background: none; }
+
+	.logged {
+		display: flex; align-items: center; justify-content: space-between; gap: 12px;
+		padding: 6px 4px 6px 12px; background: var(--white); border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+	}
+	.loggedtext { font-family: var(--font-mono); font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+	.loggedtext b { color: var(--ink); }
+	.undo {
+		flex: none; min-height: 40px; padding: 0 14px;
+		background: transparent; border: 1px solid var(--border-soft); border-radius: var(--radius-pill);
+		font-family: var(--font-body); font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
+		text-transform: uppercase; color: var(--ink-3); cursor: pointer; touch-action: manipulation;
+		transition: background var(--dur-med) var(--ease-snap), color var(--dur-med) var(--ease-snap);
+	}
+	.undo:hover { color: var(--danger); border-color: var(--danger); }
+	.undo.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
 
 	.slack { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
 	.strip { display: flex; flex-direction: column; gap: 8px; padding: 0 4px 4px; }
