@@ -4,7 +4,7 @@
 	type Tab = { label: string; href: string; also?: string[] };
 	let { tabs }: { tabs: Tab[] } = $props();
 	
-	// a child page keeps its tab lit: /plan/why is still The Plan, "Log it after" is still Today
+	// a child page keeps its tab lit
 	const isActive = (t: Tab) =>
 		page.url.pathname === t.href ||
 		(t.href !== '/' && page.url.pathname.startsWith(t.href + '/')) ||

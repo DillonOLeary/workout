@@ -1,4 +1,4 @@
-import { BLOCK_IDS, composePlan, type Block, type Exercise, type Plan, type PrepItem } from './plan';
+import { PRACTICES, composePlan, type Block, type Exercise, type Plan, type PrepItem, type Routines } from './plan';
 
 /** One sentence per exercise on why it is in the plan — the floor-level cousin of The Plan › why; shown on the About sheet. */
 const WHY: Record<string, string> = {
@@ -359,7 +359,7 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 	}
 ];
 
-/** Shared cycles with their routines, on or off per person; the no-gym block at target 0 stands in for the lift. */
+/** Shared cycles with their routines, on or off per person. */
 export const BLOCKS: Block[] = [
 	{
 		id: 'yoga',		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
@@ -406,28 +406,30 @@ export const BLOCKS: Block[] = [
 			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN }
 		},
 		routines: { run: [EASY_RUN] }
-	},
-	{
-		id: 'bw',		cycle: { id: 'bw', title: 'No gym', routines: ['bw1', 'bw2', 'hips', 'bw4', 'bw5', 'bw6', 'spine'], target: 0, standsInFor: 'lift' },
-		routineInfo: {
-			bw1: { title: 'Push & Squat', discipline: 'bodyweight', desc: 'Push · split squat · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw2: { title: 'Hinge & Carry', discipline: 'bodyweight', desc: 'Hinge · lunge · crawl · side plank', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw4: { title: 'Push & Squat II', discipline: 'bodyweight', desc: 'Tempo push · squat · step-up · dead bug', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw5: { title: 'Back & Core', discipline: 'bodyweight', desc: 'Superman · reverse crunch · plank · bridge', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-			bw6: { title: 'Legs', discipline: 'bodyweight', desc: 'Split squat · hinge · lunge · calves', warmup: BW_WARMUP, cooldown: BW_COOLDOWN }
-		},
-		routines: {
-			bw1: [PUSHUP, SPLIT_SQUAT, SL_BRIDGE, HOLLOW],
-			bw2: [SL_RDL, REVERSE_LUNGE, BEAR_CRAWL, { ...SIDE_PLANK, equip: 'Floor', sets: 6, rest: BW_REST }],
-			bw4: [{ ...PUSHUP, note: 'Tempo: three seconds down, a pause at the bottom, up. Same ladder as Push & Squat — the tempo is this routine’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
-			bw5: [SUPERMAN, REVERSE_CRUNCH, PLANK, SL_BRIDGE],
-			bw6: [SPLIT_SQUAT, SL_RDL, REVERSE_LUNGE, SL_CALF]
-		}
 	}
 ];
 
-/** A programme with every block on — for reading what a routine IS, whatever this person has switched. */
-export const wholePlan = (programme: Plan): Plan => composePlan(programme, BLOCKS, BLOCK_IDS);
+/** The lift's fallback: five floor sessions at target 0, always one "Something else" away, each counting as a lift. Never switched — it goes wherever the lift goes. */
+export const FLOOR: Routines = {
+	cycle: { id: 'floor', title: 'Floor', routines: ['bw1', 'bw2', 'bw4', 'bw5', 'bw6'], target: 0, standsInFor: 'lift' },
+	routineInfo: {
+		bw1: { title: 'Push & Squat', discipline: 'bodyweight', desc: 'Push · split squat · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		bw2: { title: 'Hinge & Carry', discipline: 'bodyweight', desc: 'Hinge · lunge · crawl · side plank', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		bw4: { title: 'Push & Squat II', discipline: 'bodyweight', desc: 'Tempo push · squat · step-up · dead bug', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		bw5: { title: 'Back & Core', discipline: 'bodyweight', desc: 'Superman · reverse crunch · plank · bridge', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		bw6: { title: 'Legs', discipline: 'bodyweight', desc: 'Split squat · hinge · lunge · calves', warmup: BW_WARMUP, cooldown: BW_COOLDOWN }
+	},
+	routines: {
+		bw1: [PUSHUP, SPLIT_SQUAT, SL_BRIDGE, HOLLOW],
+		bw2: [SL_RDL, REVERSE_LUNGE, BEAR_CRAWL, { ...SIDE_PLANK, equip: 'Floor', sets: 6, rest: BW_REST }],
+		bw4: [{ ...PUSHUP, note: 'Tempo: three seconds down, a pause at the bottom, up. Same ladder as Push & Squat — the tempo is this routine’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
+		bw5: [SUPERMAN, REVERSE_CRUNCH, PLANK, SL_BRIDGE],
+		bw6: [SPLIT_SQUAT, SL_RDL, REVERSE_LUNGE, SL_CALF]
+	}
+};
+
+/** A programme with every practice on — for reading what a routine IS, whatever this person has switched. */
+export const wholePlan = (programme: Plan): Plan => composePlan(programme, BLOCKS, FLOOR, PRACTICES);
 
 /** Every programme, whole — the catalogue, for tests and for anything that needs every exercise. */
 export const SHIPPED_PLANS: Plan[] = DEFAULT_PROGRAMMES.map(wholePlan);

@@ -37,8 +37,8 @@ select is_archived, count(*) from emt_messages group by is_archived;
 select distinct message_type
 from emt_messages
 where message_type not in (
-      'SessionStarted','EntryLogged','EntryCorrected','SessionFinished','SessionRemoved','ProgrammeSelected','BlockToggled','PreferencesSet',
-      'SetLogged','RunLogged','RunRemoved','SessionStruck','PlanSelected');
+      'SessionStarted','EntryLogged','EntryCorrected','SessionFinished','SessionRemoved','ProgrammeSelected','BlockToggled','GoalSet',
+      'SetLogged','RunLogged','RunRemoved','SessionStruck','PlanSelected','PreferencesSet');
 
 
 -- 5. The oldest ten events, raw: the old data's shape against what the upcaster expects (a SetLogged carries exercise/weight/reps/set).

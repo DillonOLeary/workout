@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ceilingHint, countLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, lineValue, listJoin,
-	loadHint, loadLabel, loadShort, needsLine, paceLabel, paceSentence, paceSub, plannedValue, prepLabel, rangeLabel, rateLabel, monthLine, receiptLine, sessionNoun,
-	scheduleLine, setValue, setsLine, sessionSummary, spanLabel, standInMeta, stepLabel, trendTally, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta
+	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rangeLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	setValue, setsLine, sessionSummary, spanLabel, standInLine, stepLabel, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta, weekSentence
 } from './labels';
 import type { Measure } from './measure';
 import type { Exercise, Plan } from './plan';
@@ -65,22 +65,20 @@ describe('disciplines, in words', () => {
 		expect(listJoin(['a', 'b'])).toBe('a and b');
 		expect(listJoin(['a', 'b', 'c'])).toBe('a, b and c');
 	});
-	it('says the week, the cadence and what is missing', () => {
+	it('says the week, the cadence and what stands in', () => {
 		expect(weekLine(1, 3)).toBe('1 of 3 this week');
-		expect(needsLine(['gym'])).toBe('needs a gym');
-		expect(needsLine(['mat', 'shoes'])).toBe('needs a mat and running shoes');
 		const plan: Plan = {
 			id: 'p', name: 'P', schedule: 'Mon / Wed', routines: {}, routineInfo: {},
 			cycles: [
 				{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 },
 				{ id: 'yoga', title: 'Yoga', routines: ['h'], target: 2 },
-				{ id: 'bw', title: 'No gym', routines: ['b'], target: 0 }
+				{ id: 'floor', title: 'Floor', routines: ['b'], target: 0, standsInFor: 'lift' }
 			]
 		};
-		expect(scheduleLine(plan)).toBe('Lift 3 · Yoga 2 — a week');
-		expect(scheduleLine({ ...plan, cycles: [plan.cycles[2]] })).toBe('Mon / Wed');
 		expect(turnLabel(plan.cycles[0], 'B')).toBe('Lift · 2 of 2');
 		expect(turnLabel(plan.cycles[1], 'h')).toBe('Yoga');
+		expect(standInLine('Hinge & Haul', 3)).toBe('Stands in for Hinge & Haul · counts toward 3 lifts a week');
+		expect(standInLine('Get Low', 1)).toBe('Stands in for Get Low · counts toward 1 lift a week');
 	});
 });
 
@@ -91,36 +89,15 @@ describe('rates — the running average in words', () => {
 		expect(rateLabel(0)).toBe('0');
 		expect(rateLabel(67.5)).toBe('67.5');
 	});
-	it('says which way it is going, and when there is nothing to compare to', () => {
-		expect(paceLabel(2.3, 1.5)).toBe('↑ from 1.5');
-		expect(paceLabel(1, 3)).toBe('↓ from 3');
-		expect(paceLabel(2, 2)).toBe('same as before');
-		expect(paceLabel(2.01, 2)).toBe('same as before');
-		expect(paceLabel(1.5, 0)).toBe('nothing before that');
-		expect(paceLabel(0, 0)).toBe('nothing logged');
-	});
 	it('says the window a strip covers', () => {
 		expect(spanLabel('2026-07-20T12:00:00Z', '2026-08-23T12:00:00Z')).toBe('Jul 20 – Aug 23');
 	});
-	it('answers "am I doing enough" in one line: the total against the week, and where the gap is', () => {
-		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 1.5, target: 3 }, { discipline: 'yoga', per: 1, target: 2 }, { discipline: 'mobility', per: 2, target: 3 }, { discipline: 'run', per: 2, target: 3 }] })).toBe(
-			'Showing up 6.5 times a week of the 11 the plan asks — lifts are the gap.'
-		);
-		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 3, target: 3 }, { discipline: 'yoga', per: 0.5, target: 2 }] })).toBe(
-			'Showing up 3.5 times a week of the 5 the plan asks — yoga is the gap.'
-		);
-		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 3, target: 3 }, { discipline: 'run', per: 3.2, target: 3 }] })).toBe(
-			'Showing up 6.2 times a week of the 6 the plan asks.'
-		);
-		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 2.8, target: 3 }] })).toBe('Showing up 2.8 times a week of the 3 the plan asks.');
-		expect(paceSentence({ weeks: 4, rates: [{ discipline: 'lift', per: 0, target: 3 }, { discipline: 'run', per: 0, target: 3 }] })).toBe('Nothing logged in the last 4 weeks');
-		expect(paceSentence({ weeks: 4, rates: [] })).toBe('Nothing logged in the last 4 weeks');
-	});
-	it('says what the week asks under a rate, and where the rate came from', () => {
-		expect(paceSub(3, 2.5, 2)).toBe('asks 3 · ↑ from 2');
-		expect(paceSub(3, 1, 1)).toBe('asks 3 · same');
-		expect(paceSub(2, 1, 0)).toBe('asks 2 · ↑ from 0');
-		expect(paceSub(2, 0, 0)).toBe('asks 2 · none yet');
+	it('answers "am I doing enough" in one line: this week against what the week asks, and where the gap is', () => {
+		expect(weekSentence(4, 11, ['lift', 'run'])).toBe('Showing up 4 times this week of the 11 the week asks — lift and run are the gap.');
+		expect(weekSentence(3, 5, ['yoga'])).toBe('Showing up 3 times this week of the 5 the week asks — yoga is the gap.');
+		expect(weekSentence(1, 3, ['lift'])).toBe('Showing up once this week of the 3 the week asks — lift is the gap.');
+		expect(weekSentence(6, 6, [])).toBe('Showing up 6 times this week of the 6 the week asks.');
+		expect(weekSentence(0, 11, ['lift', 'yoga', 'stretch', 'run'])).toBe('Nothing this week of the 11 the week asks — lift, yoga, stretch and run are the gap.');
 	});
 	it('folds a session to one line for a collapsed card', () => {
 		expect(sessionSummary({ sets: 20, minutes: 48 })).toBe('20 sets · 48 min');
@@ -144,18 +121,18 @@ describe('rates — the running average in words', () => {
 			'switched to Open to Work · yoga, stretch, run on'
 		);
 		expect(weekChangeLine({ blocks: [{ block: 'run', on: false }] }, name)).toBe('run off');
-		expect(weekChangeLine({ blocks: [{ block: 'bw', on: false }] }, name)).toBe('no gym off');
-		expect(weekChangeLine({ blocks: [{ block: 'run', on: true }, { block: 'bw', on: true }] }, name)).toBe('run, no gym on');
-		expect(standInMeta('Lift', 3)).toBe("takes Lift's 3 when there's no gym · dealt as Instead");
+		expect(weekChangeLine({ blocks: [{ block: 'lift', on: false }] }, name)).toBe('lift off');
+		expect(weekChangeLine({ blocks: [{ block: 'run', on: true }, { block: 'lift', on: true }] }, name)).toBe('run, lift on');
+		expect(weekChangeLine({ blocks: [], goals: [{ practice: 'lift', sessions: 4 }, { practice: 'run', sessions: 3, minutes: 35 }] }, name)).toBe('lift 4 a week · run 3 a week · 35 min');
+		expect(weekChangeLine({ blocks: [{ block: 'yoga', on: false }], goals: [{ practice: 'mob', sessions: 5 }] }, name)).toBe('yoga off · stretch 5 a week');
+		expect(goalLabel({ sessions: 2 })).toBe('2 a week');
+		expect(goalHint(3, 3)).toBe('The programme’s cadence. Change it and Today follows your number.');
+		expect(goalHint(3, 4)).toBe('The programme says 3 a week — your goal is 4.');
+		expect(['lift', 'yoga', 'mob', 'run'].map((p) => practiceLabel(p as never))).toEqual(['lift', 'yoga', 'stretch', 'run']);
 		expect(weekChangeLine({ programme: 'her-12-v1', blocks: [{ block: 'yoga', on: false }, { block: 'run', on: true }] }, name)).toBe('switched to her-12-v1 · run on · yoga off');
 		expect(weekMeta(3, 1)).toBe('3 a week · 1 done');
 		expect(weekHead(11, 340)).toBe('11 sessions a week · about 5.5 h');
 		expect(weekHead(2, 80)).toBe('2 sessions a week · about 80 min');
-	});
-	it('tallies the trend list by what the rule will do, zeroes left out', () => {
-		expect(trendTally(['up', 'flat', 'up', 'down', 'flat', 'flat'])).toBe('2 going up · 1 backing off · 3 flat');
-		expect(trendTally(['warn', 'start'])).toBe('1 warned · 1 not started');
-		expect(trendTally([])).toBe('');
 	});
 });
 

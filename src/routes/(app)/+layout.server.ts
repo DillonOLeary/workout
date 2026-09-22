@@ -1,28 +1,29 @@
 import { redirect } from '@sveltejs/kit';
 import { listProgrammes } from '$lib/server/plans';
 import { readLedgerEvents } from '$lib/server/ledger';
-import { activeProgramme, blocksOn, preferences, projectSessions } from '$lib/domain/projections';
+import { activeProgramme, goals, practicesOn, projectSessions } from '$lib/domain/projections';
 import { currentState, latestSessionOf } from '$lib/domain/decider';
 import { composePlan } from '$lib/domain/plan';
-import { BLOCKS } from '$lib/domain/plans';
+import { BLOCKS, FLOOR } from '$lib/domain/plans';
 import type { LayoutServerLoad } from './$types';
 
-/** one load for every signed-in page: the programmes composed with this person's blocks, plus the stream */
+/** one load for every signed-in page: the programmes composed with this person's practices and goals, plus the stream */
 export const load: LayoutServerLoad = async ({ locals }) => {
 	const uid = locals.uid;
 	if (!uid) redirect(303, '/login');
 
 	const [programmes, events] = await Promise.all([listProgrammes(), readLedgerEvents(uid)]);
-	const on = blocksOn(events);
-	const plans = programmes.map((p) => composePlan(p, BLOCKS, on));
+	const on = practicesOn(events);
+	const asked = goals(events);
 	const state = currentState(events);
 	return {
 		uid,
-		plans,
+		programmes,
+		plans: programmes.map((p) => composePlan(p, BLOCKS, FLOOR, on, asked)),
 		events,
-		activePlanId: activeProgramme(events) ?? plans[0]?.id ?? null,
-		blocksOn: on,
-		preferences: preferences(events),
+		activePlanId: activeProgramme(events) ?? programmes[0]?.id ?? null,
+		practicesOn: on,
+		goals: asked,
 		activeSession: state.activeSession
 			? (projectSessions(events).find((s) => s.id === state.activeSession) ?? null)
 			: null,

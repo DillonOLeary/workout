@@ -5,7 +5,7 @@
 	import Athlete, { type Phase } from '$lib/components/Athlete.svelte';
 	import AdjustTile from '$lib/components/floor/AdjustTile.svelte';
 	import FloorPrimary from '$lib/components/floor/FloorPrimary.svelte';
-	import AboutSheet from '$lib/components/floor/AboutSheet.svelte';
+	import AboutCard from '$lib/components/floor/AboutCard.svelte';
 	import SessionSheet from '$lib/components/floor/SessionSheet.svelte';
 	import type { SheetSection } from '$lib/components/floor/SessionSheet.svelte';
 	import StepTable from '$lib/components/floor/StepTable.svelte';
@@ -14,6 +14,7 @@
 	import { holdScreen } from '$lib/components/floor/wake-lock';
 	import { CountdownClock, type Countdown } from '$lib/components/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/components/floor/entry-queue.svelte';
+	import { glyphFor } from '$lib/design/glyphs';
 	import { STAND } from '$lib/design/rig';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
@@ -118,8 +119,10 @@
 	let stepI = $state(initialStep);
 	let weight = $state(0);
 	let reps = $state(0);
-	/** two questions, two handles: the name opens About, the crumb opens the session */
-	let sheet = $state<'about' | 'session' | null>(null);
+	/** three handles: the name opens About in place, the crumb opens the session, the row under the table adds a stretch */
+	let sheet = $state<'session' | null>(null);
+	let about = $state(false);
+	let addOpen = $state(false);
 	let editing = $state<string | null>(null);
 
 	let st = $derived<Step | undefined>(steps[stepI]);
@@ -215,6 +218,7 @@
 	function goTo(i: number) {
 		clock.cancel();
 		editing = null;
+		about = false;
 		if (i < 0 || i >= steps.length) return;
 		stepI = i;
 		preload(i);
@@ -324,6 +328,13 @@
 	let partOf = $derived(
 		aboutEx ? Object.keys(plan.routines).filter((r) => plan.routines[r].some((e) => e.name === aboutEx.name)).flatMap((r) => routineTitle(plan, r) ?? []) : []
 	);
+	// a warm-up line with no cue and no figure has nothing to say about itself
+	let aboutable = $derived(!!aboutEx || !!aboutText || !!glyphFor(heading));
+	let sectionNote = $derived.by(() => {
+		if (!st) return '';
+		const peers = steps.filter((s) => s.section === st.section);
+		return `${st.section} · ${peers.findIndex((s) => s.key === st.key) + 1}/${peers.length}`;
+	});
 
 
 	type Stage = { value: string; note: string; frac: number };
@@ -403,7 +414,7 @@
 		finishing = true;
 		await queue.drain();
 		if (queue.anyFailed) {
-			queue.error = 'An entry didn’t save — Retry it, or finish from the ⋯ menu.';
+			queue.error = 'An entry didn’t save — Retry it, or finish from the crumb.';
 			finishing = false;
 			return;
 		}
@@ -423,7 +434,7 @@
 	}
 
 	function addStretch(name: string) {
-		sheet = null;
+		addOpen = false;
 		if (!added.includes(name)) added = [...added, name];
 		const i = steps.findIndex((s) => s.section === name);
 		if (i >= 0) goTo(i);
@@ -524,6 +535,8 @@
 		if ((ev.target as HTMLElement | null)?.tagName === 'INPUT') return;
 		if (ev.key === 'Escape') {
 			if (sheet) sheet = null;
+			else if (about) about = false;
+			else if (addOpen) addOpen = false;
 			else if (editing) cancelEdit();
 			ev.preventDefault();
 			return;
@@ -560,7 +573,8 @@
 <div class="fl">
 	<div class="fl-inner">
 		<header class="fl-top">
-			<button type="button" class="fl-crumb" onclick={() => (sheet = 'session')} aria-label="The session — where you are, add a stretch, finish or pause">
+			<button type="button" class="fl-back" onclick={() => void exitToToday()} aria-label="Back to Today — the session stays open">˅</button>
+			<button type="button" class="fl-crumb" onclick={() => (sheet = 'session')} aria-label="The session — where you are, finish or pause">
 				<span class="fl-crumbtext">{position}{allDone ? '' : ` · ~${minutesLeft} min`}</span>
 				<span class="fl-tri">▾</span>
 			</button>
@@ -569,15 +583,40 @@
 		{#if st && !allDone}
 			<main class="fl-main">
 				<div class="fl-titleblock">
-					<button type="button" class="fl-namebtn" onclick={() => (sheet = 'about')} aria-label="About {heading}">
+					{#if aboutable}
+						<button type="button" class="fl-namebtn" onclick={() => (about = !about)} aria-expanded={about} aria-label="About {heading}">
+							<h1 class="fl-name">{heading}</h1>
+							<span class="fl-about">{about ? 'Close ×' : 'About ›'}</span>
+						</button>
+					{:else}
 						<h1 class="fl-name">{heading}</h1>
-						<span class="fl-about">About ›</span>
-					</button>
-					{#if line}<p class="fl-line">{line}</p>{/if}
+					{/if}
+					{#if line && !about}<p class="fl-line">{line}</p>{/if}
 					<p class="fl-meta">{meta}</p>
-				</div>
-
-				<StepTable {rows} onRetry={retryEntry} onTap={tapRow} />
+					</div>
+					
+					{#if about && aboutable}
+					<div class="fl-aboutwrap">
+						<AboutCard name={heading} ex={aboutEx} text={aboutText} rest={aboutEx ? restFor(plan, aboutEx) : 0} {partOf} {last} />
+					</div>
+					{/if}
+					
+					<StepTable {rows} onRetry={retryEntry} onTap={tapRow} />
+					<div class="fl-addrow">
+					{#if addable.length}
+						<button type="button" class="fl-addbtn" onclick={() => (addOpen = !addOpen)} aria-expanded={addOpen}>{addOpen ? 'never mind' : '+ add a stretch'}</button>
+					{:else}
+						<span></span>
+					{/if}
+					<span class="fl-secnote">{sectionNote}</span>
+					</div>
+					{#if addOpen}
+					<div class="fl-chips">
+						{#each addable as x (x.name)}
+							<button type="button" class="fl-chip" onclick={() => addStretch(x.name)}>{x.name}</button>
+						{/each}
+					</div>
+					{/if}
 
 				<div class="fl-stage" class:clock={!!stage}>
 					<div class="fl-stagerow">
@@ -674,24 +713,11 @@
 	</div>
 </div>
 
-<AboutSheet
-	open={sheet === 'about'}
-	name={heading}
-	ex={aboutEx}
-	text={aboutText}
-	rest={aboutEx ? restFor(plan, aboutEx) : 0}
-	{partOf}
-	{last}
-	backLabel={position}
-	onClose={() => (sheet = null)}
-/>
-
 <SessionSheet
 	open={sheet === 'session'}
 	{title}
 	sub={sessionSub}
 	{sections}
-	stretches={addable}
 	backLabel={position}
 	{noun}
 	logged={progress.sets}
@@ -701,7 +727,6 @@
 		sheet = null;
 		goTo(i);
 	}}
-	onAdd={addStretch}
 	onFinishEarly={() => void finishEarly()}
 	onExit={() => {
 		sheet = null;
@@ -747,8 +772,17 @@
 		gap: 8px;
 		padding: 8px 16px 4px;
 	}
+	.fl-back {
+		width: 44px; height: 44px; flex: none;
+		display: inline-flex; align-items: center; justify-content: center;
+		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
+		box-shadow: var(--shadow-raised);
+		font-family: var(--font-display); font-weight: var(--weight-black); font-size: 18px; color: var(--ink);
+		cursor: pointer; touch-action: manipulation;
+	}
+	.fl-back:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 	.fl-crumb {
-		display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+		display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0;
 		min-height: 40px; padding: 0 12px;
 		background: var(--white); border: 1px solid var(--ink); border-radius: var(--radius-pill);
 		font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: var(--tracking-caps);
@@ -780,6 +814,22 @@
 		text-transform: uppercase; color: var(--ink-3); white-space: nowrap;
 	}
 	.fl-line { margin: 8px 0 0; font-size: 15px; line-height: 1.4; color: var(--ink-2); }
+	.fl-aboutwrap { flex: none; margin-bottom: 12px; max-height: 45%; overflow-y: auto; overscroll-behavior: contain; }
+	.fl-addrow { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 4px 0; }
+	.fl-addbtn {
+		background: none; border: none; padding: 8px 0; cursor: pointer; touch-action: manipulation;
+		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+	}
+	.fl-addbtn:hover { color: var(--ink); }
+	.fl-secnote { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.fl-chips { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 8px; }
+	.fl-chip {
+		min-height: 44px; padding: 0 18px; border-radius: var(--radius-pill);
+		border: var(--border-w) solid var(--border-soft); background: var(--white);
+		font-family: var(--font-body); font-weight: var(--weight-bold); font-size: 15px; color: var(--ink-2); cursor: pointer; touch-action: manipulation;
+	}
+	.fl-chip:hover { background: var(--volt-tint); color: var(--ink); }
 	.fl-name {
 		margin: 0;
 		font-family: var(--font-display);

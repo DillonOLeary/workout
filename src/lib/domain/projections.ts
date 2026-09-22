@@ -1,19 +1,19 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
-import { capitalise, disciplineLabel, fmtDate, fmtShort, needsLine, setsPhrase, spanLabel, unitLabel, weekLine } from './labels';
+import { capitalise, disciplineLabel, fmtDate, fmtShort, setsPhrase, spanLabel, standInLine, unitLabel, weekLine } from './labels';
 import { countOf, isSet, loadOf, type Measure } from './measure';
 import {
-	BLOCK_IDS,
-	DISCIPLINES,
-	allBlocksOn,
+	PRACTICES,
+	allPracticesOn,
 	cycleDisciplines,
 	routineTitle,
-	type BlockId,
 	type Cycle,
 	type Discipline,
 	type Exercise,
-	type Plan
+	type Goal,
+	type Goals,
+	type Plan,
+	type PracticeId
 } from './plan';
-import { DEFAULT_PREFERENCES, missingFor, shorterFirst, weightedUp, type Preferences } from './preferences';
 import {
 	REENTRY_DAYS,
 	REENTRY_WARN_DAYS,
@@ -155,38 +155,44 @@ export function activeProgramme(events: LedgerEvent[]): string | null {
 	return null;
 }
 
-/** Which blocks of the week are on: everything, until a switch says otherwise. */
-export function blocksOn(events: LedgerEvent[]): BlockId[] {
-	const on = allBlocksOn();
+/** Which practices of the week are on: everything, until a switch says otherwise. */
+export function practicesOn(events: LedgerEvent[]): PracticeId[] {
+	const on = allPracticesOn();
 	for (const e of events) if (e.type === 'BlockToggled') on[e.data.block] = e.data.on;
-	return BLOCK_IDS.filter((b) => on[b]);
+	return PRACTICES.filter((p) => on[p]);
 }
 
-/** One change to the week: a programme switch and/or block switches made at one moment. */
-export type WeekChange = { at: string; dateLabel: string; programme?: string; blocks: { block: BlockId; on: boolean }[] };
+/** What each practice was asked for: the last goal per practice wins; nothing said means the programme's cadence. */
+export function goals(events: LedgerEvent[]): Goals {
+	const out: Goals = {};
+	for (const e of events)
+		if (e.type === 'GoalSet') out[e.data.practice] = { sessions: e.data.sessions, ...(e.data.minutes !== undefined ? { minutes: e.data.minutes } : {}) };
+	return out;
+}
+
+/** One change to the week: a programme switch, practice switches and goals set at one moment. */
+export type WeekChange = {
+	at: string;
+	dateLabel: string;
+	programme?: string;
+	blocks: { block: PracticeId; on: boolean }[];
+	goals: ({ practice: PracticeId } & Goal)[];
+};
 /** When the week changed, newest first — events sharing one `at` read as one change. */
 export function weekChanges(events: LedgerEvent[]): WeekChange[] {
 	const out: WeekChange[] = [];
 	for (const e of events) {
-		if (e.type !== 'ProgrammeSelected' && e.type !== 'BlockToggled') continue;
+		if (e.type !== 'ProgrammeSelected' && e.type !== 'BlockToggled' && e.type !== 'GoalSet') continue;
 		let c = out.find((x) => x.at === e.data.at);
 		if (!c) {
-			c = { at: e.data.at, dateLabel: fmtDate(e.data.at), blocks: [] };
+			c = { at: e.data.at, dateLabel: fmtDate(e.data.at), blocks: [], goals: [] };
 			out.push(c);
 		}
 		if (e.type === 'ProgrammeSelected') c.programme = e.data.programme;
-		else c.blocks.push({ block: e.data.block, on: e.data.on });
+		else if (e.type === 'BlockToggled') c.blocks.push({ block: e.data.block, on: e.data.on });
+		else c.goals.push({ practice: e.data.practice, sessions: e.data.sessions, ...(e.data.minutes !== undefined ? { minutes: e.data.minutes } : {}) });
 	}
 	return out.sort((a, b) => b.at.localeCompare(a.at));
-}
-
-/** What you last said you were after — the last snapshot wins, over the defaults. */
-export function preferences(events: LedgerEvent[]): Preferences {
-	for (let i = events.length - 1; i >= 0; i--) {
-		const e = events[i];
-		if (e.type === 'PreferencesSet') return { intents: e.data.intents, equipment: e.data.equipment };
-	}
-	return DEFAULT_PREFERENCES;
 }
 
 /** Every logged entry for an exercise, newest first — what `suggest` reads; a session in progress is excluded by id. */
@@ -207,9 +213,9 @@ export function lastEntryFor(events: LedgerEvent[], exercise: string, excludeSes
 
 const DAY = 86400000;
 
-/** The sessions this cycle counts: those of its disciplines, whatever plan offered them, newest first. */
+/** The sessions this cycle counts: those of its disciplines — and of any cycle standing in for it — whatever plan offered them, newest first. */
 const countedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => {
-	const ds = cycleDisciplines(plan, cycle);
+	const ds = plan.cycles.filter((c) => c === cycle || c.standsInFor === cycle.id).flatMap((c) => cycleDisciplines(plan, c));
 	return sessions.filter((s) => ds.includes(s.discipline));
 };
 /** The sessions that turned this cycle: finished, this plan, a routine on its list — newest first. */
@@ -258,10 +264,10 @@ export type Candidate = {
 	minutes: number;
 	/** ordering only; never shown */
 	score: number;
-	/** ruled out by equipment — still in the list, never first */
-	out: boolean;
 	/** under its cycle's weekly target — what "due" means */
 	due: boolean;
+	/** the cycle this one's sessions count toward — the floor stands in for the lift */
+	standsInFor?: string;
 };
 
 /** Cadences overdue, in whole tiers; never done counts as very. */
@@ -272,46 +278,50 @@ function staleTier(daysSince: number | null, target: number): number {
 }
 
 /**
- * One candidate per cycle, ranked: owed → shortfall + intent → staleness → minutes → plan order;
- * "show up more" swaps the last two. A target-0 cycle is always dealt, never above anything owed,
- * unless it stands in for a ruled-out cycle. Ruled out is never hidden — it sits last and says so.
+ * One candidate per cycle, ranked: owed → shortfall → staleness → minutes → plan order.
+ * A target-0 cycle is always dealt and never above anything owed — the floor is one "Something else" away.
  */
-export function queue(events: LedgerEvent[], plan: Plan, prefs: Preferences, now: number): Candidate[] {
+export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate[] {
 	const sessions = projectSessions(events);
-	const up = weightedUp(prefs);
-	const shortFirst = shorterFirst(prefs);
 	type Scored = { c: Candidate; order: number };
 	const scored: Scored[] = [];
 	for (const [order, cycle] of plan.cycles.entries()) {
 		const routine = nextInCycle(events, plan, cycle);
 		// parsePlan: a cycle names only routines the plan has, and every routine has its info
 		const { discipline, title } = plan.routineInfo[routine];
-		const missing = missingFor(discipline, prefs);
-		const out = missing.length > 0;
-		let target = cycle.target;
-		let standingIn = false;
-		if (target === 0 && cycle.standsInFor) {
-			const standIn = plan.cycles.find((c) => c.id === cycle.standsInFor);
-			if (standIn && missingFor(plan.routineInfo[nextInCycle(events, plan, standIn)].discipline, prefs).length) {
-				target = standIn.target;
-				standingIn = true;
-			}
-		}
-		const { done } = weekProgress(events, plan, cycle, now);
+		const { done, target } = weekProgress(events, plan, cycle, now);
 		const shortfall = Math.max(0, target - done);
-		const tier = shortfall + (up.has(discipline) ? 1 : 0);
 		const lastIn = lastCounted(sessions, plan, cycle);
 		const stale = staleTier(lastIn ? (now - Date.parse(lastIn.at)) / DAY : null, target);
 		const workout = { routine };
 		const minutes = estimateMinutes(sessionSteps(plan, workout));
-		const why = out ? needsLine(missing) : whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, up.has(discipline));
-		// bands that cannot touch: owed 1e8 > tier·1e6 > tail < 1e6 (stale·1e3 + shorter, or swapped; both ≤ 999,009); ruled out −1
-		const owed = cycle.target > 0 || standingIn;
+		const standIn = cycle.standsInFor ? plan.cycles.find((c) => c.id === cycle.standsInFor) : undefined;
+		const why = standIn
+			? standInLine(routineTitle(plan, nextInCycle(events, plan, standIn)) ?? standIn.title, standIn.target)
+			: whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target);
+		// bands that cannot touch: owed 1e8 > shortfall·1e6 > stale·1e3 + shorter (≤ 999,009)
+		const owed = cycle.target > 0;
 		const shorter = 999 - Math.min(999, minutes);
-		const score = out ? -1 : (owed ? 1e8 : 0) + tier * 1e6 + (shortFirst ? shorter * 1e3 + stale : stale * 1e3 + shorter);
-		scored.push({ c: { cycle: cycle.id, workout, discipline, title, why, minutes, score, out, due: shortfall > 0 }, order });
+		const score = (owed ? 1e8 : 0) + shortfall * 1e6 + stale * 1e3 + shorter;
+		scored.push({
+			c: { cycle: cycle.id, workout, discipline, title, why, minutes, score, due: shortfall > 0, ...(standIn ? { standsInFor: standIn.id } : {}) },
+			order
+		});
 	}
 	return scored.sort((a, b) => b.c.score - a.c.score || a.order - b.order).map((s) => s.c);
+}
+
+/** The week so far: every session in the trailing seven days against everything the on cycles ask, and which of them are behind. */
+export function weekTally(events: LedgerEvent[], plan: Plan, now: number): { done: number; asked: number; gaps: string[] } {
+	const cutoff = now - 7 * DAY;
+	const done = projectSessions(events).filter((s) => {
+		const t = Date.parse(s.at);
+		return t > cutoff && t <= now;
+	}).length;
+	const owed = plan.cycles.filter((c) => c.target > 0);
+	const asked = owed.reduce((n, c) => n + c.target, 0);
+	const gaps = owed.filter((c) => weekProgress(events, plan, c, now).done < c.target).map((c) => c.title.toLowerCase());
+	return { done, asked, gaps };
 }
 
 /** The mono line under a candidate: re-entry warning, days since the cycle last turned, then what the rule moves next — or where the week stands. */
@@ -324,8 +334,7 @@ function whyLine(
 	lastIn: SessionView | undefined,
 	now: number,
 	done: number,
-	target: number,
-	asked: boolean
+	target: number
 ): string {
 	const exercises: Exercise[] = plan.routines[routine];
 	const moved = exercises
@@ -353,7 +362,7 @@ function whyLine(
 		sinceLine = lastAge === 0 ? `${title} today` : `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${title}`;
 	}
 	const week = target > 0 ? weekLine(done, target) : cycle.title;
-	return [warn, sinceLine, movedLine ?? week, asked ? 'you asked for this' : null].filter(Boolean).join(' · ');
+	return [warn, sinceLine, movedLine ?? week].filter(Boolean).join(' · ');
 }
 
 /** Sessions a trend strip shows — sessions, not weeks. */
@@ -508,77 +517,34 @@ export const GRID_WEEKS = 5;
 /** Local calendar day as a sortable yyyymmdd number. */
 const dayKey = (d: Date) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 
-/** The last `weeks` weeks as a calendar, bucketed by local day; a cell lists its sessions in order, an unfinished one today included. */
-export function monthGrid(events: LedgerEvent[], now: number, weeks: number = GRID_WEEKS): MonthGrid {
+/** `days` consecutive local days from `first`, bucketed by local day; a cell lists its sessions in order, an unfinished one today included. */
+function dayCells(events: LedgerEvent[], first: Date, days: number, now: number): DayCell[] {
 	const did = new Map<number, Discipline[]>();
 	for (const s of projectSessions(events).slice().reverse()) {
 		const key = dayKey(new Date(s.at));
 		did.set(key, [...(did.get(key) ?? []), s.discipline]);
 	}
+	const todayKey = dayKey(new Date(now));
+	return Array.from({ length: days }, (_, i) => {
+		const d = new Date(first.getFullYear(), first.getMonth(), first.getDate() + i);
+		const key = dayKey(d);
+		return { key, date: d.getDate(), label: fmtDate(d.toISOString()), did: did.get(key) ?? [], today: key === todayKey, future: key > todayKey };
+	});
+}
+
+/** The last `weeks` weeks as a calendar, Monday first, today in the last row. */
+export function monthGrid(events: LedgerEvent[], now: number, weeks: number = GRID_WEEKS): MonthGrid {
 	const today = new Date(now);
-	const todayKey = dayKey(today);
 	// the Monday that opens the window: this week's Monday, `weeks - 1` weeks back
-	const first = new Date(
-		today.getFullYear(),
-		today.getMonth(),
-		today.getDate() - ((today.getDay() + 6) % 7) - (weeks - 1) * 7
-	);
+	const first = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7) - (weeks - 1) * 7);
+	const cells = dayCells(events, first, weeks * 7, now);
 	const rows: DayCell[][] = [];
-	for (let w = 0; w < weeks; w++) {
-		rows.push(
-			Array.from({ length: 7 }, (_, i) => {
-				const d = new Date(first.getFullYear(), first.getMonth(), first.getDate() + w * 7 + i);
-				const key = dayKey(d);
-				return {
-					key,
-					date: d.getDate(),
-					label: fmtDate(d.toISOString()),
-					did: did.get(key) ?? [],
-					today: key === todayKey,
-					future: key > todayKey
-				};
-			})
-		);
-	}
+	for (let w = 0; w < weeks; w++) rows.push(cells.slice(w * 7, w * 7 + 7));
 	return { weekdays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], weeks: rows, span: spanLabel(first.toISOString(), today.toISOString()) };
 }
 
-/** Days a pace averages over — four weeks. */
-export const PACE_DAYS = 28;
-
-/** A rate per week, and the one before it. */
-export type PaceStat = {
-	/** the trailing window as a rate per week */
-	per: number;
-	/** the window before it, same rate — so a tile can say which way it's going */
-	prev: number;
-};
-/** Sessions a week, per discipline, over a trailing window and the one before it. */
-export type Pace = {
-	/** the window each rate averages over, in days */
-	days: number;
-	/** sessions a week, per discipline — the unit every target is written in */
-	by: Record<Discipline, PaceStat>;
-};
-
-/** Sessions a week per discipline over the trailing `days` and the `days` before — rates divide by the window given, never by assumed weeks. */
-export function weeklyPace(events: LedgerEvent[], now: number, days: number = PACE_DAYS): Pace {
-	const sessions = projectSessions(events);
-	const window = (endsDaysAgo: number) => {
-		const to = now - endsDaysAgo * DAY;
-		const from = to - days * DAY;
-		const inside = sessions.filter((s) => {
-			const t = Date.parse(s.at);
-			return t > from && t <= to;
-		});
-		const perWeek = (n: number) => (n * 7) / days;
-		const out = {} as Record<Discipline, number>;
-		for (const d of DISCIPLINES) out[d] = perWeek(inside.filter((s) => s.discipline === d).length);
-		return out;
-	};
-	const now4 = window(0);
-	const before = window(days);
-	const by = {} as Record<Discipline, PaceStat>;
-	for (const d of DISCIPLINES) by[d] = { per: now4[d], prev: before[d] };
-	return { days, by };
+/** The trailing seven days, today last — the strip Today glances at. */
+export function weekStrip(events: LedgerEvent[], now: number): DayCell[] {
+	const today = new Date(now);
+	return dayCells(events, new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), 7, now);
 }

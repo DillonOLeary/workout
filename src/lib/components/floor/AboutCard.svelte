@@ -1,5 +1,4 @@
 <script lang="ts">
-	import Sheet from './Sheet.svelte';
 	import { glyphFor } from '$lib/design/glyphs';
 	import { frame, joints } from '$lib/design/rig';
 	import { stamp } from '$lib/design/stamp';
@@ -7,19 +6,15 @@
 	import type { Exercise } from '$lib/domain/plan';
 	import type { HistoryEntry } from '$lib/domain/progression';
 
-	/** what is this — everything the plan already knows about one exercise, and the rig's figure to scrub */
+	/** what is this — everything the plan already knows about one exercise, and the rig's figure to scrub; sits inline under the name, not behind a sheet */
 	let {
-		open,
 		name,
 		ex,
 		text,
 		rest = 0,
 		partOf = [],
-		last = null,
-		backLabel,
-		onClose
+		last = null
 	}: {
-		open: boolean;
 		name: string;
 		ex?: Exercise;
 		/** for a step that isn't an exercise: the routine's cue, the run's note */
@@ -28,11 +23,9 @@
 		/** the routines this exercise is part of */
 		partOf?: string[];
 		last?: HistoryEntry | null;
-		backLabel: string;
-		onClose: () => void;
 	} = $props();
 
-	const SCRUB_PX = 120;
+	const SCRUB_PX = 96;
 	let glyph = $derived(glyphFor(name));
 	let depth = $state(0.5);
 	let scrubCanvas = $state<HTMLCanvasElement>();
@@ -47,11 +40,11 @@
 	});
 </script>
 
-<Sheet {open} title={name} {backLabel} label="About {name}" {onClose}>
-	{#if ex || text}
+<div class="about">
+	{#if ex?.note ?? text}
 		<section>
 			<div class="caps">How</div>
-			{#if ex?.note ?? text}<p class="note">{ex?.note ?? text}</p>{/if}
+			<p class="note">{ex?.note ?? text}</p>
 			{#if ex}<p class="dose">{doseSentence(ex, rest)}.</p>{/if}
 		</section>
 	{/if}
@@ -86,25 +79,26 @@
 			</section>
 		{/if}
 	{/if}
-</Sheet>
+</div>
 
 <style>
+	.about {
+		display: flex; flex-direction: column; gap: 12px;
+		padding: 12px 14px; background: var(--white); border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
+	}
 	.caps {
 		font-size: 12px; font-weight: var(--weight-bold);
 		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);
 	}
-	section { display: flex; flex-direction: column; gap: 6px; }
+	section { display: flex; flex-direction: column; gap: 4px; }
 	.note { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
 	.note b { font-weight: var(--weight-bold); }
 	.note.mono { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
 	.muted { color: var(--ink-3); }
 	.dose { margin: 0; font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); }
-	.scrub {
-		display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center;
-		padding: 12px 14px; background: var(--white); border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
-	}
-	.scrubfig { width: 120px; height: 120px; display: block; background: var(--paper); border-radius: var(--radius-md); }
-	.scrubside { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+	.scrub { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+	.scrubfig { width: 96px; height: 96px; display: block; background: var(--paper); border-radius: var(--radius-md); }
+	.scrubside { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 	.scrub input { width: 100%; accent-color: var(--ink); }
 	.scrubline { font-family: var(--font-mono); font-size: 12px; line-height: 1.45; color: var(--ink-2); }
 	.scrubline em { font-style: normal; color: var(--ink-3); }

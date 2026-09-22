@@ -3,22 +3,12 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import MonthGrid from '$lib/components/MonthGrid.svelte';
-	import TrendRow from '$lib/components/TrendRow.svelte';
-	import { disciplineLabel, fmtShort, monthLine, paceSentence, paceSub, rateLabel, sessionSummary, setsLine, trendTally, weekChangeLine } from '$lib/domain/labels';
+	import SheetPage from '$lib/components/SheetPage.svelte';
+	import { disciplineLabel, fmtShort, monthLine, sessionSummary, setsLine, weekChangeLine, weekSentence } from '$lib/domain/labels';
 	import { countOf, loadOf, uniformLoad, type Measure } from '$lib/domain/measure';
-	import { DISCIPLINES, cycleDisciplines, disciplinesOf, planExercises, progresses, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { DISCIPLINES, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { anySetEarned, bumpCount, bumpLoad } from '$lib/domain/progression';
-	import {
-		TREND_WINDOW,
-		monthGrid,
-		projectSessions,
-		trendFor,
-		weekChanges,
-		weeklyPace,
-		type SessionRow,
-		type SessionView,
-		type WeekChange
-	} from '$lib/domain/projections';
+	import { GRID_WEEKS, monthGrid, projectSessions, weekChanges, weekTally, type SessionRow, type SessionView, type WeekChange } from '$lib/domain/projections';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -26,39 +16,20 @@
 
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let grid = $derived(monthGrid(data.events, now));
-	let pace = $derived(weeklyPace(data.events, now));
-	let weeks = $derived(Math.round(pace.days / 7));
-	let disciplines = $derived.by(() => {
+	let tally = $derived(weekTally(data.events, plan, now));
+	let entries = $derived(projectSessions(data.events));
+	// the legend: what the week asks for, plus anything you did that it doesn't
+	let legend = $derived.by(() => {
 		const out = disciplinesOf(plan);
-		for (const d of Object.keys(pace.by) as Discipline[]) if (!out.includes(d) && (pace.by[d].per > 0 || pace.by[d].prev > 0)) out.push(d);
+		for (const s of entries) if (!out.includes(s.discipline)) out.push(s.discipline);
 		return out;
 	});
-	const targetFor = (d: Discipline) => plan.cycles.filter((c) => cycleDisciplines(plan, c).includes(d)).reduce((n, c) => n + c.target, 0);
-	let paceLine = $derived(
-		paceSentence({ weeks, rates: disciplines.map((d) => ({ discipline: d, per: pace.by[d].per, target: targetFor(d) })) })
-	);
-	let legend = $derived(disciplines.map((d) => ({ d, per: pace.by[d].per, sub: paceSub(targetFor(d), pace.by[d].per, pace.by[d].prev) })));
-
-	let askedRoutines = $derived(new Set(plan.cycles.filter((c) => c.target > 0).flatMap((c) => c.routines)));
-	let trends = $derived(
-		planExercises(plan)
-			.filter(progresses)
-			.map((ex) => ({
-				ex,
-				trend: trendFor(data.events, ex, data.activeSession?.id, now),
-				asked: Object.entries(plan.routines).some(([r, list]) => askedRoutines.has(r) && list.includes(ex))
-			}))
-			.filter((t) => t.asked || t.trend.sessions > 0)
-	);
-	let openTrend = $state<string | null>(null);
-	let trendLine = $derived(trendTally(trends.map((t) => t.trend.tone)));
 
 	let removing = $state<string | null>(null);
 	function onWindowClick(e: MouseEvent) {
 		if (removing && !(e.target as HTMLElement | null)?.closest('.remove')) removing = null;
 	}
 
-	let entries = $derived(projectSessions(data.events));
 	let changes = $derived(weekChanges(data.events));
 	type Item = { kind: 'session'; s: SessionView } | { kind: 'change'; c: WeekChange };
 	type Month = { key: string; line: string; items: Item[] };
@@ -116,8 +87,8 @@
 	const planName = (id: string) => data.plans.find((x) => x.id === id)?.name ?? id;
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
-	const blocksText = (c: WeekChange) => {
-		const t = weekChangeLine({ blocks: c.blocks }, planName);
+	const restText = (c: WeekChange) => {
+		const t = weekChangeLine({ blocks: c.blocks, goals: c.goals }, planName);
 		return t ? `${c.programme ? ' · ' : ''}${t}` : '';
 	};
 
@@ -182,53 +153,18 @@
 
 <svelte:window onclick={onWindowClick} />
 
-<div class="col">
-	<h1>Ledger</h1>
-
+<SheetPage title="How it's going" sub="{tally.done} of {tally.asked} this week · last {GRID_WEEKS} weeks" back="/" backLabel="Today">
 	{#if form?.message}
 		<p class="err">{form.message}</p>
 	{/if}
 
-	<section class="sect">
-		<div class="sechead">
-			<span class="caps">Did I show up</span>
-			<span class="meta">last {weeks} weeks · {grid.span}</span>
-		</div>
-		<Card>
-			<div class="showup">
-				<p class="answer">{paceLine}</p>
-				<MonthGrid {grid} />
-				<div class="legend">
-					{#each legend as l (l.d)}
-						<span class="lsw ink-{l.d}"></span>
-						<span class="llabel">{disciplineLabel(l.d)}</span>
-						<span class="lrate">{rateLabel(l.per)}<i>/wk</i></span>
-						<span class="lsub">{l.sub}</span>
-					{/each}
-				</div>
-			</div>
-		</Card>
-	</section>
-
-	{#if trends.length}
-		<section class="sect">
-			<div class="sechead">
-				<span class="caps">Am I getting stronger</span>
-				<span class="meta">last {TREND_WINDOW} sessions</span>
-			</div>
-			<Card pad={false}>
-				{#if trendLine}<p class="tally">{trendLine}</p>{/if}
-				{#each trends as t (t.ex.name)}
-					<TrendRow
-						ex={t.ex}
-						trend={t.trend}
-						open={openTrend === t.ex.name}
-						ontoggle={() => (openTrend = openTrend === t.ex.name ? null : t.ex.name)}
-					/>
-				{/each}
-			</Card>
-		</section>
-	{/if}
+	<div class="cal"><MonthGrid {grid} /></div>
+	<div class="legend">
+		{#each legend as d (d)}
+			<span class="lkey"><span class="lsw ink-{d}"></span>{disciplineLabel(d).toLowerCase()}</span>
+		{/each}
+	</div>
+	<p class="answer">{weekSentence(tally.done, tally.asked, tally.gaps)}</p>
 
 	<section class="sect">
 		<div class="sechead">
@@ -294,7 +230,7 @@
 				{#if it.kind === 'change'}
 					<div class="wchange">
 						<span class="wrule"></span>
-						<span class="wtext">{it.c.dateLabel} · {#if it.c.programme}switched to <b>{planName(it.c.programme)}</b>{/if}{blocksText(it.c)}</span>
+						<span class="wtext">{it.c.dateLabel} · {#if it.c.programme}switched to <b>{planName(it.c.programme)}</b>{/if}{restText(it.c)}</span>
 						<span class="wrule"></span>
 					</div>
 				{:else}
@@ -365,17 +301,9 @@
 			{/each}
 		</div>
 	</section>
-</div>
+</SheetPage>
 
 <style>
-	.col { display: flex; flex-direction: column; gap: 16px; }
-	h1 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-weight: var(--weight-black);
-		font-size: var(--text-display);
-		line-height: var(--leading-tight);
-	}
 	.caps {
 		font-size: 12px; font-weight: var(--weight-bold); letter-spacing: var(--tracking-caps);
 		text-transform: uppercase; color: var(--ink-3);
@@ -386,19 +314,12 @@
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); font-size: var(--text-sm); }
 	.empty { font-size: 16px; color: var(--ink-2); }
 
-	.showup { display: flex; flex-direction: column; gap: 14px; }
-	.answer { margin: 0; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
-	.legend {
-		display: grid; grid-template-columns: auto 1fr auto auto; column-gap: 12px; align-items: center;
-		border-top: 1px solid var(--border-soft); padding-top: 6px;
-	}
-	.lsw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ink); }
-	.llabel { font-size: 14px; font-weight: var(--weight-bold); min-height: 36px; display: flex; align-items: center; }
-	.lrate { font-family: var(--font-mono); font-size: 14px; font-weight: 800; text-align: right; }
-	.lrate i { font-style: normal; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 1px; }
-	.lsub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: right; white-space: nowrap; }
-
-	.tally { margin: 0; padding: 12px 16px; font-size: 16px; font-weight: var(--weight-bold); line-height: 1.35; }
+	.cal { display: flex; justify-content: center; }
+	.cal :global(.cal) { width: 100%; }
+	.legend { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+	.lkey { display: inline-flex; align-items: center; gap: 5px; }
+	.lsw { width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--ink); }
+	.answer { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
 
 	.list { display: flex; flex-direction: column; gap: 8px; }
 	.mdiv {
@@ -499,5 +420,4 @@
 		font-family: var(--font-body); font-size: 15px; font-weight: var(--weight-bold); color: var(--ink-2);
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
-
 </style>

@@ -6,10 +6,11 @@ the next size up next time; miss the bottom twice in a row and it backs off one
 size; two weeks away and everything comes back one size lighter. Every move
 lands on a real rack size, so it never asks you for a 37.5 lb kettlebell.
 
-The week is one lift programme plus the blocks you have on — yoga, a morning
-stretch, an easy run, a no-gym floor. Today ranks them and answers "what should
-I do?" with one button; the latest session can be corrected, older history is
-immutable.
+The week is four practices — a lift programme, yoga, a morning stretch, an
+easy run — each on or off, each at the cadence you set; five floor sessions
+stand in for the lift whenever you pick one. Today ranks them and answers
+"what should I do?" with one button; the latest session can be corrected,
+older history is immutable.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)
 PostgreSQL event store · Neon · Cloudflare Workers · TypeScript.

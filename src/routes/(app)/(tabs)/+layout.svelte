@@ -13,13 +13,7 @@
 <div class="app-frame">
 	<div class="tabwrap">
 		<div class="tabwrap-inner">
-			<TabBar
-				tabs={[
-					{ label: 'Today', href: '/', also: ['/log/after'] },
-					{ label: 'Ledger', href: '/ledger' },
-					{ label: 'The Plan', href: '/plan' }
-				]}
-			/>
+			<TabBar tabs={[{ label: 'Today', href: '/' }, { label: 'Week', href: '/week' }]} />
 		</div>
 	</div>
 	<main class="app-main" bind:this={mainEl}>
@@ -84,7 +78,7 @@
 	}
 
 	@media (max-width: 640px) {
-		/* 8px side padding: three tabs stay ≥ 120px wide at 375px */
+		/* 8px side padding, the same gutter the floor keeps */
 		.tabwrap {
 			order: 2;
 			padding: 8px 8px;

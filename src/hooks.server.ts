@@ -18,14 +18,18 @@ export const handle: Handle = ({ event, resolve }) => {
 	if (url.pathname.startsWith('/u/')) {
 		return new Response(null, { status: 301, headers: { location: '/login' } });
 	}
-	if (url.pathname === '/why') {
-		return new Response(null, { status: 301, headers: { location: '/plan/why' } });
+	if (url.pathname === '/why' || url.pathname === '/plan/why') {
+		return new Response(null, { status: 301, headers: { location: '/week/why' } });
 	}
 	if (url.pathname === '/log') {
 		return new Response(null, { status: 301, headers: { location: `/floor${url.search}` } });
 	}
-	if (url.pathname === '/plan/change') {
-		return new Response(null, { status: 301, headers: { location: '/plan/programme' } });
+	if (url.pathname === '/plan/change' || url.pathname === '/plan/programme') {
+		return new Response(null, { status: 301, headers: { location: '/week/programme' } });
+	}
+	// The Plan and its settings pages became The Week (2026-09-21)
+	if (url.pathname === '/plan' || url.pathname.startsWith('/plan/')) {
+		return new Response(null, { status: 301, headers: { location: '/week' } });
 	}
 
 	// Verified and re-issued on every request, so the 400-day cookie clock restarts each visit.

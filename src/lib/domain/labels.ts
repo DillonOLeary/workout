@@ -1,6 +1,5 @@
 import { countOf, loadOf, uniformLoad, type Measure } from './measure';
-import type { BlockId, Cycle, Discipline, Exercise, Plan, PrepItem } from './plan';
-import { EQUIPMENT, type Equipment } from './preferences';
+import type { Cycle, Discipline, Exercise, Goal, PracticeId, PrepItem } from './plan';
 import { rungLabel } from './racks';
 import type { Reason, Suggestion } from './progression';
 
@@ -121,60 +120,55 @@ export function rateLabel(n: number): string {
 	return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
 
-/** "↑ from 1.5" · "↓ from 3" · "same as before" */
-export function paceLabel(per: number, prev: number): string {
-	const a = Math.round(per * 10);
-	const b = Math.round(prev * 10);
-	if (!b) return a ? 'nothing before that' : 'nothing logged';
-	if (a === b) return 'same as before';
-	return `${a > b ? '↑' : '↓'} from ${rateLabel(prev)}`;
-}
-
-/** "asks 3 · ↑ from 2" · "asks 3 · same" · "asks 3 · ↑ from 0" */
-export function paceSub(target: number, per: number, prev: number): string {
-	const from = paceLabel(per, prev);
-	const short = from === 'same as before' ? 'same' : from === 'nothing before that' ? '↑ from 0' : from === 'nothing logged' ? 'none yet' : from;
-	return `asks ${target} · ${short}`;
-}
-
-/** "Showing up 6.5 times a week of the 11 the plan asks — lifts are the gap." · "Nothing logged in the last 4 weeks" */
-export function paceSentence(p: { weeks: number; rates: { discipline: Discipline; per: number; target: number }[] }): string {
-	const total = p.rates.reduce((n, r) => n + r.per, 0);
-	if (Math.round(total * 10) === 0) return `Nothing logged in the last ${p.weeks} weeks`;
-	const asked = p.rates.reduce((n, r) => n + r.target, 0);
-	const gap = p.rates.map((r) => ({ r, short: r.target - r.per })).sort((a, b) => b.short - a.short)[0];
-	const tail = gap && gap.short >= 0.5 ? ` — ${disciplineNoun(gap.r.discipline, 2)} ${gap.r.discipline === 'yoga' ? 'is' : 'are'} the gap.` : '.';
-	return `Showing up ${rateLabel(total)} times a week of the ${rateLabel(asked)} the plan asks${tail}`;
+/** "Showing up 4 times this week of the 11 the week asks — lift and run are the gap." · "Showing up once this week of the 3 the week asks." · "Nothing this week of the 11 the week asks — …" */
+export function weekSentence(done: number, asked: number, gaps: string[]): string {
+	const times = done === 0 ? 'Nothing' : done === 1 ? 'Showing up once' : `Showing up ${done} times`;
+	const tail = gaps.length ? ` — ${listJoin(gaps)} ${gaps.length === 1 ? 'is' : 'are'} the gap.` : '.';
+	return `${times} this week of the ${asked} the week asks${tail}`;
 }
 
 /** "3 a week · 1 done" */
 export const weekMeta = (target: number, done: number): string => `${target} a week · ${done} done`;
 
-/** "takes Lift's 3 when there's no gym · dealt as Instead" */
-export const standInMeta = (title: string, target: number): string => `takes ${title}'s ${target} when there's no gym · dealt as Instead`;
+/** "Stands in for Hinge & Haul · counts toward 3 lifts a week" — the floor is the lift's fallback, so the noun is the lift's */
+export const standInLine = (forTitle: string, target: number): string =>
+	`Stands in for ${forTitle} · counts toward ${target} ${disciplineNoun('lift', target)} a week`;
 
-/** "yoga" · "stretch" · "run" · "no gym" */
-export function blockLabel(b: BlockId): string {
-	switch (b) {
+/** "The programme says 3 a week — your goal is 4." · "The programme's cadence. Change it and Today follows your number." */
+export const goalHint = (programmeTarget: number, goal: number): string =>
+	goal === programmeTarget
+		? 'The programme’s cadence. Change it and Today follows your number.'
+		: `The programme says ${programmeTarget} a week — your goal is ${goal}.`;
+
+/** "lift" · "yoga" · "stretch" · "run" */
+export function practiceLabel(p: PracticeId): string {
+	switch (p) {
+		case 'lift':
+			return 'lift';
 		case 'yoga':
 			return 'yoga';
 		case 'mob':
 			return 'stretch';
 		case 'run':
 			return 'run';
-		case 'bw':
-			return 'no gym';
 	}
 }
 
-/** "switched to Open to Work · yoga, stretch, run on" · "run off" */
-export function weekChangeLine(c: { programme?: string; blocks: { block: BlockId; on: boolean }[] }, programmeName: (id: string) => string): string {
+/** "4 a week" · "3 a week · 35 min" */
+export const goalLabel = (g: Goal): string => `${g.sessions} a week${g.minutes !== undefined ? ` · ${g.minutes} min` : ''}`;
+
+/** "switched to Open to Work · yoga, stretch, run on" · "run off" · "lift 4 a week · run 3 a week · 35 min" */
+export function weekChangeLine(
+	c: { programme?: string; blocks: { block: PracticeId; on: boolean }[]; goals?: ({ practice: PracticeId } & Goal)[] },
+	programmeName: (id: string) => string
+): string {
 	const parts: string[] = [];
 	if (c.programme) parts.push(`switched to ${programmeName(c.programme)}`);
-	const on = c.blocks.filter((b) => b.on).map((b) => blockLabel(b.block));
-	const off = c.blocks.filter((b) => !b.on).map((b) => blockLabel(b.block));
+	const on = c.blocks.filter((b) => b.on).map((b) => practiceLabel(b.block));
+	const off = c.blocks.filter((b) => !b.on).map((b) => practiceLabel(b.block));
 	if (on.length) parts.push(`${on.join(', ')} on`);
 	if (off.length) parts.push(`${off.join(', ')} off`);
+	for (const g of c.goals ?? []) parts.push(`${practiceLabel(g.practice)} ${goalLabel(g)}`);
 	return parts.join(' · ');
 }
 
@@ -184,12 +178,6 @@ export function weekHead(sessions: number, minutes: number): string {
 	return `${sessions} sessions a week · ${time}`;
 }
 
-/** "Lift 3 · Yoga 2 · Stretch 3 · Run 3 — a week" */
-export function scheduleLine(plan: Plan): string {
-	const on = plan.cycles.filter((c) => c.target > 0);
-	return on.length ? `${on.map((c) => `${c.title} ${c.target}`).join(' · ')} — a week` : plan.schedule;
-}
-
 /** "1 of 3 this week" */
 export const weekLine = (done: number, target: number): string => `${done} of ${target} this week`;
 
@@ -197,28 +185,6 @@ export const weekLine = (done: number, target: number): string => `${done} of ${
 export function turnLabel(cycle: Cycle, routine: string): string {
 	const i = cycle.routines.indexOf(routine);
 	return cycle.routines.length === 1 ? cycle.title : `${cycle.title} · ${i + 1} of ${cycle.routines.length}`;
-}
-
-/** "needs a gym" · "needs a mat and running shoes" */
-export function needsLine(missing: Equipment[]): string {
-	const words = missing.map((m) => EQUIPMENT.find((e) => e.id === m)?.needed ?? m);
-	return `needs ${listJoin(words)}`;
-}
-
-/** "2 going up · 3 flat · 1 backing off" — zeroes left out */
-export function trendTally(tones: string[]): string {
-	const words: [string, string][] = [
-		['up', 'going up'],
-		['warn', 'warned'],
-		['down', 'backing off'],
-		['flat', 'flat'],
-		['start', 'not started']
-	];
-	return words
-		.map(([tone, word]) => [tones.filter((t) => t === tone).length, word] as const)
-		.filter(([n]) => n > 0)
-		.map(([n, word]) => `${n} ${word}`)
-		.join(' · ');
 }
 
 /** "SEPTEMBER · 11 sessions · 5 lift · 3 run · 3 stretch" — a month of the Ledger, folded to one line; the year only when it isn't this one */

@@ -71,9 +71,9 @@ export type Cycle = {
 	title: string;
 	/** ordered routine keys */
 	routines: string[];
-	/** sessions a week. Always sessions. 0 = never owed on its own: dealt after everything owed, or at the target of the cycle it stands in for */
+	/** sessions a week. Always sessions. 0 = never owed on its own: dealt after everything owed, one "Something else" away */
 	target: number;
-	/** takes that cycle's target while it is ruled out (the floor stands in for the gym) */
+	/** its sessions count toward that cycle's target (the floor stands in for the lift) */
 	standsInFor?: string;
 };
 
@@ -129,7 +129,7 @@ export function disciplinesOf(plan: Plan): Discipline[] {
 		}
 	return out;
 }
-/** The disciplines one cycle turns through — one, usually; the no-gym block mixes two. */
+/** The disciplines one cycle turns through — one, usually. */
 export function cycleDisciplines(plan: Plan, cycle: Cycle): Discipline[] {
 	const out: Discipline[] = [];
 	for (const r of cycle.routines) {
@@ -164,33 +164,58 @@ export function planExercises(plan: Plan): Exercise[] {
 	return out;
 }
 
-/** The blocks a person can switch. A closed union: a switch is an event, and the decider must know the block exists. */
-export type BlockId = 'yoga' | 'mob' | 'run' | 'bw';
-export const BLOCK_IDS: readonly BlockId[] = ['yoga', 'mob', 'run', 'bw'];
-export const isBlockId = (v: unknown): v is BlockId => BLOCK_IDS.includes(v as BlockId);
-/** Every block on — the week before a switch says otherwise. */
-export const allBlocksOn = (): Record<BlockId, boolean> =>
-	Object.fromEntries(BLOCK_IDS.map((b) => [b, true])) as Record<BlockId, boolean>;
+/** The rows of the week: the lift (whatever programme it is) and the shared blocks. A closed union: a switch is an event, and the decider must know the practice exists. */
+export type PracticeId = 'lift' | 'yoga' | 'mob' | 'run';
+export const PRACTICES: readonly PracticeId[] = ['lift', 'yoga', 'mob', 'run'];
+export const isPractice = (v: unknown): v is PracticeId => PRACTICES.includes(v as PracticeId);
+/** Every practice on — the week before a switch says otherwise. */
+export const allPracticesOn = (): Record<PracticeId, boolean> =>
+	Object.fromEntries(PRACTICES.map((p) => [p, true])) as Record<PracticeId, boolean>;
+/** The practices that are shared blocks in code — every practice but the lift, which is the programme's. */
+export type BlockId = Exclude<PracticeId, 'lift'>;
 
-/** A shared cycle with its routines — on or off per person. */
-export type Block = {
-	id: BlockId;
+/** What you asked of a practice: sessions a week, and for the run its minutes — over the programme's own cadence. */
+export type Goal = { sessions: number; minutes?: number };
+export type Goals = Partial<Record<PracticeId, Goal>>;
+/** Sessions a week a goal may ask. */
+export const GOAL_SESSIONS = { min: 1, max: 7 } as const;
+/** Minutes a run goal may ask, and the step the dial moves in. */
+export const GOAL_MINUTES = { min: 10, max: 90, step: 5 } as const;
+
+/** A cycle with the routines it turns through. */
+export type Routines = {
 	cycle: Cycle;
 	routines: Record<string, Exercise[]>;
 	routineInfo: Record<string, Routine>;
 };
+/** A shared cycle with its routines — on or off per person. */
+export type Block = Routines & { id: BlockId };
 
-/** The week as one Plan: every block's routines are known whether or not it is on, but only an on block's cycle is in the week. */
-export function composePlan(programme: Plan, blocks: readonly Block[], on: readonly BlockId[]): Plan {
-	const routines: Record<string, Exercise[]> = { ...programme.routines };
-	const routineInfo: Record<string, Routine> = { ...programme.routineInfo };
+/**
+ * The week as one Plan: the programme's lifting (while the lift is on), the floor that stands in for it, and every block that is on;
+ * a goal rewrites a cycle's target, and the run's minutes. Every block's routines are known whether or not it is on, so a session
+ * of something you switched off still has a title.
+ */
+export function composePlan(programme: Plan, blocks: readonly Block[], floor: Routines, on: readonly PracticeId[], goals: Goals = {}): Plan {
+	const routines: Record<string, Exercise[]> = { ...programme.routines, ...floor.routines };
+	const routineInfo: Record<string, Routine> = { ...programme.routineInfo, ...floor.routineInfo };
+	const cycles: Cycle[] = [];
+	if (on.includes('lift')) {
+		cycles.push(...programme.cycles.map((c) => (c.id === 'lift' ? withGoal(c, goals.lift) : c)), floor.cycle);
+	}
 	for (const b of blocks) {
 		Object.assign(routines, b.routines);
 		Object.assign(routineInfo, b.routineInfo);
+		if (!on.includes(b.id)) continue;
+		const goal = goals[b.id];
+		cycles.push(withGoal(b.cycle, goal));
+		if (goal?.minutes)
+			for (const r of b.cycle.routines)
+				routines[r] = routines[r].map((ex) => (ex.kind === 'run' ? { ...ex, lo: goal.minutes!, hi: goal.minutes! } : ex));
 	}
-	const cycles = [...programme.cycles, ...blocks.filter((b) => on.includes(b.id)).map((b) => b.cycle)];
 	return { ...programme, cycles, routines, routineInfo };
 }
+const withGoal = (c: Cycle, goal: Goal | undefined): Cycle => (goal ? { ...c, target: goal.sessions } : c);
 
 /** A timed prep item's countdown, in seconds; 0 for a line you tick; a stretch's is one hold. */
 export const prepSeconds = (item: PrepItem): number =>

@@ -3,11 +3,10 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
-	import ExerciseGlyph from '$lib/components/ExerciseGlyph.svelte';
-	import { glyphFor } from '$lib/design/glyphs';
-	import { disciplineLabel, sessionNoun, sessionSummary } from '$lib/domain/labels';
-	import { cooldownFor, routineTitle, warmupFor } from '$lib/domain/plan';
-	import { projectSessions, queue, sessionEntries } from '$lib/domain/projections';
+	import DayCells from '$lib/components/DayCells.svelte';
+	import { disciplineLabel, sessionNoun, sessionSummary, weekLine } from '$lib/domain/labels';
+	import { routineTitle } from '$lib/domain/plan';
+	import { projectSessions, queue, sessionEntries, weekStrip, weekTally } from '$lib/domain/projections';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
@@ -16,31 +15,24 @@
 
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let session = $derived(data.activeSession);
-	let deck = $derived(queue(data.events, plan, data.preferences, now));
+	let strip = $derived(weekStrip(data.events, now));
+	let tally = $derived(weekTally(data.events, plan, now));
+
+	let deck = $derived(queue(data.events, plan, now));
 	let i = $state(0);
 	let card = $derived(deck[Math.min(i, Math.max(0, deck.length - 1))]);
 	let caps = $derived(
-		!card ? '' : `${card.out ? 'Ruled out' : i === 0 ? (card.due ? 'Due today' : 'Up next') : 'Instead'} · ${disciplineLabel(card.discipline)}`
+		!card
+			? ''
+			: `${i === 0 ? (card.due ? 'Due today' : 'Up next') : 'Instead'} · ${disciplineLabel(card.discipline)}${card.standsInFor ? ' · counts as the lift' : ''}`
 	);
-	function next() {
-		i = (i + 1) % deck.length;
+	let items = $derived(card ? routineExercises(plan, card.workout).map((e) => (e.kind === 'run' ? `${e.name} · ${e.hi} min` : e.name)) : []);
+	let deckOpen = $state(false);
+	let others = $derived(deck.map((c, k) => ({ c, k })).filter((x) => x.k !== i));
+	function pick(k: number) {
+		i = k;
+		deckOpen = false;
 	}
-
-	let exercises = $derived(card ? routineExercises(plan, card.workout).filter((e) => e.kind !== 'run') : []);
-	let drills = $derived(
-		card
-			? [...warmupFor(plan, card.workout.routine), ...cooldownFor(plan, card.workout.routine)].flatMap((it) => (typeof it === 'string' ? [] : [it.name]))
-			: []
-	);
-	let peek = $derived(
-		[...exercises.map((e) => e.name), ...drills].filter((n, i, all) => glyphFor(n) && all.indexOf(n) === i).slice(0, 4)
-	);
-	let rest = $derived(exercises.map((e) => e.name).filter((n) => !peek.includes(n)));
-	let oneline = $derived(card ? (plan.routineInfo[card.workout.routine].desc ?? `${exercises.length} exercises`) : '');
-	let more = $derived(rest.length ? `+ ${rest.length} more · ${rest.join(', ')}` : exercises.length ? '' : oneline);
-	// the slack region is flex: 1 with a zero basis — its height IS the space the page has left over, measured rather than assumed
-	let slack = $state(0);
-	let mode = $derived(!card || card.out ? 'none' : slack >= 150 && peek.length ? 'strip' : slack >= 60 ? 'line' : 'none');
 
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
 	let liveEntries = $derived(session ? sessionEntries(data.events, session.id) : []);
@@ -71,11 +63,7 @@
 	});
 	let undoing = $state(false);
 
-	const today = new Date().toLocaleDateString('en-US', {
-		weekday: 'short',
-		month: 'short',
-		day: 'numeric'
-	});
+	const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 </script>
 
 <div class="col">
@@ -84,8 +72,25 @@
 		<Badge tone="neutral">{today}</Badge>
 	</div>
 
+	<a class="strip" href="/ledger">
+		<DayCells cells={strip} label="The last seven days" strip />
+		<span class="stripline"><span>{weekLine(tally.done, tally.asked)}</span><span class="going">How it's going ›</span></span>
+	</a>
+
 	{#if form?.message}
 		<p class="err">{form.message}</p>
+	{/if}
+
+	{#if justLogged}
+		<form method="POST" action="?/undo" use:enhance class="logged">
+			<input type="hidden" name="session" value={justLogged.id} />
+			<span class="loggedtext"><b>Logged</b> · {justLogged.title} · {justLogged.summary}</span>
+			{#if undoing}
+				<button type="submit" class="undo armed">Undo?</button>
+			{:else}
+				<button type="button" class="undo" onclick={() => (undoing = true)}>Undo</button>
+			{/if}
+		</form>
 	{/if}
 
 	{#if session}
@@ -103,59 +108,48 @@
 	{:else if card}
 		<Card interactive>
 			<div class="caps">{caps}</div>
-			<div class="title" class:out={card.out}>{card.title}</div>
+			<div class="title">{card.title}</div>
 			<div class="mono-sub">{card.why}</div>
+			{#if items.length}
+				<div class="items">
+					{#each items as n (n)}<span class="item">{n}</span>{/each}
+				</div>
+			{/if}
 
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="routine" value={card.workout.routine} />
 				<input type="hidden" name="plan" value={plan.id} />
-				<button type="submit" class="startbtn" class:quiet={card.out}>Start <span class="startmin">~{card.minutes} min</span></button>
+				<button type="submit" class="startbtn">Start <span class="startmin">~{card.minutes} min</span></button>
 			</form>
 
 			<div class="links">
-				<span class="dots" aria-label="{i + 1} of {deck.length}">
-					{#each deck as c, k (c.cycle)}<span class="dot" class:on={k === i}></span>{/each}
-				</span>
 				<a class="textlink" href="/log/after">Log it after →</a>
 				{#if deck.length > 1}
-					<button type="button" class="elsebtn" onclick={next}>Something else ▸</button>
+					<button type="button" class="elsebtn" onclick={() => (deckOpen = !deckOpen)} aria-expanded={deckOpen}>
+						{deckOpen ? 'Fewer ▴' : `Something else · ${deck.length - 1} ▾`}
+					</button>
 				{/if}
 			</div>
-			{#if card.discipline === 'lift' && !data.blocksOn.includes('bw')}
-				<a class="nogym" href="/plan/blocks">No gym today? Switch the No gym block on and it deals here ›</a>
-			{/if}
 		</Card>
-
-		{#if justLogged}
-			<form method="POST" action="?/undo" use:enhance class="logged">
-				<input type="hidden" name="session" value={justLogged.id} />
-				<span class="loggedtext"><b>Logged</b> · {justLogged.title} · {justLogged.summary}</span>
-				{#if undoing}
-					<button type="submit" class="undo armed">Undo?</button>
-				{:else}
-					<button type="button" class="undo" onclick={() => (undoing = true)}>Undo</button>
-				{/if}
-			</form>
+		{#if deckOpen}
+			<div class="deck">
+				{#each others as { c, k } (c.cycle)}
+					<button type="button" class="deckrow" onclick={() => pick(k)}>
+						<span class="deckmain">
+							<span class="caps">Instead · {disciplineLabel(c.discipline)}{c.standsInFor ? ' · counts as the lift' : ''}</span>
+							<span class="decktitle">{c.title}</span>
+						</span>
+						<span class="deckmin">~{c.minutes} min</span>
+					</button>
+				{/each}
+			</div>
 		{/if}
-
-		<div class="slack" bind:clientHeight={slack}>
-			{#if mode === 'strip'}
-				<div class="strip">
-					<div class="caps">What's in it</div>
-					<div class="peek">
-						{#each peek as name (name)}
-							<div class="peekone">
-								<ExerciseGlyph {name} size={72} play={false} />
-								<span class="peekname">{name}</span>
-							</div>
-						{/each}
-					</div>
-					{#if more}<div class="more">{more}</div>{/if}
-				</div>
-			{:else if mode === 'line'}
-				<div class="oneline">{oneline}</div>
-			{/if}
-		</div>
+	{:else}
+		<Card interactive>
+			<div class="caps">Nothing on</div>
+			<div class="title">The week is empty</div>
+			<div class="mono-sub">Switch a practice on in <a href="/week">Week</a> and Today deals it.</div>
+		</Card>
 	{/if}
 </div>
 
@@ -182,13 +176,26 @@
 		font-size: var(--text-title);
 		margin: 4px 0 0;
 	}
-	.title.out { text-decoration: line-through; text-decoration-thickness: 3px; color: var(--ink-3); }
 	.mono-sub { font-family: var(--font-mono); font-size: 14px; line-height: 1.45; color: var(--ink-2); margin: 4px 0 14px; }
+	.mono-sub a { color: var(--ink); }
 	.row { display: flex; align-items: center; }
 	.gap12 { gap: 12px; }
 	.wrap { flex-wrap: wrap; }
 	.grow { flex: 1; }
 	.err { margin: 0; color: var(--danger); font-weight: var(--weight-bold); }
+
+	/* the strip: a glance, and the door to history */
+	.strip { display: flex; flex-direction: column; gap: 6px; padding: 0 2px; text-decoration: none; color: inherit; border-radius: var(--radius-sm); }
+	.strip:hover { background: transparent; }
+	.stripline { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+	.going { font-weight: 700; color: var(--ink-2); }
+	.strip:hover .going { color: var(--ink); }
+
+	.items { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
+	.item {
+		font-size: 12px; line-height: 1; padding: 6px 9px;
+		border: 1px solid var(--border-soft); border-radius: var(--radius-pill); color: var(--ink-2); white-space: nowrap;
+	}
 
 	.startbtn {
 		width: 100%;
@@ -211,22 +218,17 @@
 	.startmin { font-family: var(--font-mono); font-size: 14px; font-weight: 700; letter-spacing: var(--tracking-caps); text-transform: none; color: var(--ink-2); }
 	.startbtn:hover { background: var(--volt-deep); }
 	.startbtn:active { transform: translateY(3px); box-shadow: var(--shadow-pressed); }
-	.startbtn.quiet { background: var(--white); box-shadow: var(--shadow-raised); }
-	.startbtn.quiet:hover { background: var(--volt-tint); }
 
 	.links { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-	.dots { display: inline-flex; gap: 5px; align-items: center; margin-right: auto; }
-	.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--white); border: 1px solid var(--ink); }
-	.dot.on { background: var(--ink); }
 	.textlink {
-		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px;
+		display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; margin-right: auto;
 		background: none; border: none; cursor: pointer;
 		font-family: var(--font-body); font-size: 13px; font-weight: var(--weight-bold); color: var(--ink-2);
 		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
 	}
 	.textlink:hover { color: var(--ink); background: none; }
 	.elsebtn {
-		display: inline-flex; align-items: center; justify-content: center; flex: none; margin-left: auto;
+		display: inline-flex; align-items: center; justify-content: center; flex: none;
 		min-height: 40px; padding: 0 14px;
 		background: var(--white); color: var(--ink);
 		border: 1px solid var(--ink); border-radius: var(--radius-pill);
@@ -235,13 +237,20 @@
 		transition: background var(--dur-med) var(--ease-snap);
 	}
 	.elsebtn:hover { background: var(--volt-tint); }
-	/* the one case the deck can't answer on its own: the block that stands in for the gym is off */
-	.nogym {
-		display: inline-flex; align-items: center; min-height: 40px; margin-top: 4px;
-		font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
-		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-soft);
+
+	/* the rest of the deck: the other cards, the floor last, one tap each */
+	.deck { display: flex; flex-direction: column; gap: 8px; }
+	.deckrow {
+		display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%;
+		padding: 12px 16px; text-align: left;
+		background: var(--white); border: var(--border-w) solid var(--border-soft); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+		font-family: var(--font-body); color: var(--ink); cursor: pointer; touch-action: manipulation;
+		transition: border-color var(--dur-med) var(--ease-snap);
 	}
-	.nogym:hover { color: var(--ink); background: none; }
+	.deckrow:hover { border-color: var(--ink); }
+	.deckmain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+	.decktitle { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 17px; }
+	.deckmin { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); text-align: right; flex: none; }
 
 	.logged {
 		display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -258,14 +267,6 @@
 	}
 	.undo:hover { color: var(--danger); border-color: var(--danger); }
 	.undo.armed { color: var(--paper); background: var(--danger); border-color: var(--danger); }
-
-	.slack { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-	.strip { display: flex; flex-direction: column; gap: 8px; padding: 0 4px 4px; }
-	.peek { display: flex; justify-content: space-between; gap: 8px; }
-	.peekone { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; flex: 1 1 0; }
-	.peekone :global(canvas) { width: 72px; height: 72px; max-width: 100%; }
-	.peekname { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-	.more, .oneline { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); padding: 0 4px 4px; }
 
 	.resume {
 		flex: 1;
@@ -294,6 +295,5 @@
 	}
 	@media (max-height: 700px) {
 		.startbtn { min-height: 64px; font-size: 20px; }
-		.peekone :global(canvas) { width: 56px; height: 56px; }
 	}
 </style>

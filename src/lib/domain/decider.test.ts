@@ -188,26 +188,25 @@ describe('decide — CorrectEntry: freedom inside the latest session, immutabili
 	});
 });
 
-describe('decide — idempotent removes, selects and preferences', () => {
+describe('decide — idempotent removes, selects, switches and goals', () => {
 	it('selects a programme once', () => {
 		const first = decide({ type: 'SelectProgramme', data: { programme: 'p', at: AT } }, initialState());
 		expect(first).toEqual([{ type: 'ProgrammeSelected', data: { programme: 'p', at: AT } }]);
 		const state = evolve(initialState(), first[0]);
 		expect(decide({ type: 'SelectProgramme', data: { programme: 'p', at: AT } }, state)).toEqual([]);
 	});
-	it('switches a block once, refuses a block the week has not got', () => {
-		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, initialState())).toEqual([]);
-		const off = decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, initialState());
+	it('switches a practice once, refuses a practice the week has not got', () => {
+		expect(decide({ type: 'TogglePractice', data: { practice: 'yoga', on: true, at: AT } }, initialState())).toEqual([]);
+		const off = decide({ type: 'TogglePractice', data: { practice: 'yoga', on: false, at: AT } }, initialState());
 		expect(off).toEqual([{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } }]);
 		const state = evolve(initialState(), off[0]);
-		expect(state.blocks).toEqual({ yoga: false, mob: true, run: true, bw: true });
-		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: false, at: AT } }, state)).toEqual([]);
-		expect(decide({ type: 'ToggleBlock', data: { block: 'yoga', on: true, at: AT } }, state)).toHaveLength(1);
-		expect(decide({ type: 'ToggleBlock', data: { block: 'bw', on: true, at: AT } }, initialState())).toEqual([]);
-		const floorOff = decide({ type: 'ToggleBlock', data: { block: 'bw', on: false, at: AT } }, initialState());
-		expect(floorOff).toEqual([{ type: 'BlockToggled', data: { block: 'bw', on: false, at: AT } }]);
-		expect(decide({ type: 'ToggleBlock', data: { block: 'bw', on: false, at: AT } }, evolve(initialState(), floorOff[0]))).toEqual([]);
-		expect(() => decide({ type: 'ToggleBlock', data: { block: 'swim' as never, on: false, at: AT } }, initialState())).toThrow(ValidationError);
+		expect(state.practices).toEqual({ lift: true, yoga: false, mob: true, run: true });
+		expect(decide({ type: 'TogglePractice', data: { practice: 'yoga', on: false, at: AT } }, state)).toEqual([]);
+		expect(decide({ type: 'TogglePractice', data: { practice: 'yoga', on: true, at: AT } }, state)).toHaveLength(1);
+		const liftOff = decide({ type: 'TogglePractice', data: { practice: 'lift', on: false, at: AT } }, initialState());
+		expect(liftOff).toEqual([{ type: 'BlockToggled', data: { block: 'lift', on: false, at: AT } }]);
+		expect(decide({ type: 'TogglePractice', data: { practice: 'lift', on: false, at: AT } }, evolve(initialState(), liftOff[0]))).toEqual([]);
+		expect(() => decide({ type: 'TogglePractice', data: { practice: 'bw' as never, on: false, at: AT } }, initialState())).toThrow(ValidationError);
 	});
 	it('removes a known session once, refuses an unknown one', () => {
 		expect(() =>
@@ -219,23 +218,30 @@ describe('decide — idempotent removes, selects and preferences', () => {
 		expect(state.activeSession).toBeNull(); // removing the live session abandons it
 		expect(decide({ type: 'RemoveSession', data: { session: 's1', at: AT } }, state)).toEqual([]);
 	});
-	it('records a preferences snapshot once, from the menu, one to three intents', () => {
-		const prefs = (intents: string[], equipment: string[] = ['gym', 'mat']): LedgerCommand => ({
-			type: 'SetPreferences',
-			data: { at: AT, intents: intents as never, equipment: equipment as never }
+	it('records a goal once, inside the dial’s range, minutes for the run only', () => {
+		const goal = (practice: string, sessions: number, minutes?: number): LedgerCommand => ({
+			type: 'SetGoal',
+			data: { practice: practice as never, at: AT, sessions, ...(minutes !== undefined ? { minutes } : {}) }
 		});
-		const [e] = decide(prefs(['move-better', 'calm-down']), initialState());
-		expect(e).toEqual({ type: 'PreferencesSet', data: { at: AT, intents: ['move-better', 'calm-down'], equipment: ['gym', 'mat'] } });
+		const [e] = decide(goal('lift', 4), initialState());
+		expect(e).toEqual({ type: 'GoalSet', data: { practice: 'lift', at: AT, sessions: 4 } });
 		const state = evolve(initialState(), e);
-		expect(state.preferences).toEqual({ intents: ['move-better', 'calm-down'], equipment: ['gym', 'mat'] });
-		expect(decide(prefs(['calm-down', 'move-better'], ['mat', 'gym']), state)).toEqual([]); // same snapshot, any order
-		expect(decide(prefs(['calm-down']), state)).toHaveLength(1);
-		expect(() => decide(prefs([]), state)).toThrow(ValidationError);
-		expect(() => decide(prefs(['move-better', 'calm-down', 'run-better', 'get-stronger']), state)).toThrow(ValidationError);
-		expect(() => decide(prefs(['move-better', 'move-better']), state)).toThrow(ValidationError);
-		expect(() => decide(prefs(['be-happy']), state)).toThrow(ValidationError);
-		expect(() => decide(prefs(['move-better'], ['pool']), state)).toThrow(ValidationError);
-		expect(decide(prefs(['move-better'], []), state)).toHaveLength(1); // nothing at all is a legal answer
+		expect(state.goals).toEqual({ lift: { sessions: 4 } });
+		expect(decide(goal('lift', 4), state)).toEqual([]);
+		expect(decide(goal('lift', 3), state)).toHaveLength(1);
+		const [run] = decide(goal('run', 2, 40), state);
+		expect(run).toEqual({ type: 'GoalSet', data: { practice: 'run', at: AT, sessions: 2, minutes: 40 } });
+		const withRun = evolve(state, run);
+		expect(decide(goal('run', 2, 40), withRun)).toEqual([]);
+		expect(decide(goal('run', 2, 45), withRun)).toHaveLength(1);
+		expect(decide(goal('run', 2), withRun)).toHaveLength(1); // dropping the minutes is a change too
+		expect(() => decide(goal('lift', 0), state)).toThrow(ValidationError);
+		expect(() => decide(goal('lift', 8), state)).toThrow(ValidationError);
+		expect(() => decide(goal('lift', 2.5), state)).toThrow(ValidationError);
+		expect(() => decide(goal('yoga', 2, 30), state)).toThrow(ValidationError);
+		expect(() => decide(goal('run', 2, 5), state)).toThrow(ValidationError);
+		expect(() => decide(goal('run', 2, 95), state)).toThrow(ValidationError);
+		expect(() => decide(goal('swim', 2), state)).toThrow(ValidationError);
 	});
 });
 

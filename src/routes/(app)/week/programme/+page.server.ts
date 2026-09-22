@@ -12,6 +12,6 @@ export const actions: Actions = {
 		if (!programme) return fail(400, { message: 'Missing programme id.' });
 		const err = await tryCommand(uid, { type: 'SelectProgramme', data: { programme, at: new Date().toISOString() } });
 		if (err) return fail(400, { message: err });
-		redirect(303, '/plan');
+		redirect(303, '/week');
 	}
 };

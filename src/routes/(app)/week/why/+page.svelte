@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import Card from '$lib/components/Card.svelte';
+	import SheetPage from '$lib/components/SheetPage.svelte';
 
 	/** The case for the plans, static: every claim cites one of these. */
 	const refs = [
@@ -180,11 +181,8 @@
 	}
 </script>
 
+<SheetPage title="Why this works" sub="the rule, in one breath — then the case" back="/week" backLabel="The Week">
 <div class="col">
-	<div class="head">
-		<a class="back" href="/plan" aria-label="Back to The Plan">←</a>
-		<h1>Why this works</h1>
-	</div>
 
 	<article class="essay">
 		<p class="lede">
@@ -406,37 +404,10 @@
 		</Card>
 	</details>
 </div>
+</SheetPage>
 
 <style>
 	.col { display: flex; flex-direction: column; gap: 28px; }
-	.head { display: flex; align-items: center; gap: 14px; }
-	h1 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-weight: var(--weight-black);
-		font-size: var(--text-display);
-		line-height: var(--leading-tight);
-	}
-	/* a real 48px button home — this is a child page of The Plan now */
-	.back {
-		width: 48px;
-		height: 48px;
-		flex: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		background: var(--white);
-		border: var(--border-w) solid var(--ink);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised);
-		text-decoration: none;
-		font-family: var(--font-display);
-		font-weight: var(--weight-black);
-		font-size: 22px;
-		color: var(--ink);
-	}
-	.back:hover { background: var(--volt-tint); }
-	.back:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
 
 	/* the essay: one reading column, prose-first */
 	.essay { max-width: 66ch; display: flex; flex-direction: column; gap: 14px; }

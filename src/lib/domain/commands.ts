@@ -1,8 +1,7 @@
 import type { Command } from '@event-driven-io/emmett';
 import type { Workout } from './events';
 import type { Measure } from './measure';
-import type { BlockId, Discipline } from './plan';
-import type { Equipment, Intent } from './preferences';
+import type { Goal, PracticeId, Discipline } from './plan';
 
 /** Open a live session; ids, timestamps and the discipline are generated at the edge and passed in. */
 export type StartSession = Command<
@@ -46,11 +45,11 @@ export type RemoveSession = Command<'RemoveSession', { session: string; at: stri
 
 export type SelectProgramme = Command<'SelectProgramme', { programme: string; at: string }>;
 
-/** Switch a block of the week on or off. */
-export type ToggleBlock = Command<'ToggleBlock', { block: BlockId; on: boolean; at: string }>;
+/** Switch a practice of the week on or off. */
+export type TogglePractice = Command<'TogglePractice', { practice: PracticeId; on: boolean; at: string }>;
 
-/** The whole snapshot, every time: what you're after, and what you've got. */
-export type SetPreferences = Command<'SetPreferences', { at: string; intents: Intent[]; equipment: Equipment[] }>;
+/** Ask a practice for so many sessions a week — and the run for so many minutes. */
+export type SetGoal = Command<'SetGoal', { practice: PracticeId; at: string } & Goal>;
 
 export type LedgerCommand =
 	| StartSession
@@ -60,5 +59,5 @@ export type LedgerCommand =
 	| FinishSession
 	| RemoveSession
 	| SelectProgramme
-	| ToggleBlock
-	| SetPreferences;
+	| TogglePractice
+	| SetGoal;

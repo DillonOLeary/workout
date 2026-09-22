@@ -1,7 +1,6 @@
 import type { Event } from '@event-driven-io/emmett';
 import type { Measure } from './measure';
-import type { BlockId, Discipline } from './plan';
-import type { Equipment, Intent } from './preferences';
+import type { Goal, PracticeId, Discipline } from './plan';
 
 /** What a session is: the routine it ran — the whole address. */
 export type Workout = { routine: string };
@@ -52,14 +51,11 @@ export type SessionRemoved = Event<'SessionRemoved', { session: string; at: stri
 /** You switched the lifting to another programme. The blocks stay as they were. */
 export type ProgrammeSelected = Event<'ProgrammeSelected', { programme: string; at: string }>;
 
-/** You switched a block of the week on or off — a fact with a date, so the Ledger can say when the week changed. */
-export type BlockToggled = Event<'BlockToggled', { block: BlockId; on: boolean; at: string }>;
+/** You switched a practice of the week on or off — a fact with a date, so the Ledger can say when the week changed. Stored under its first name, and the field is still `block`. */
+export type BlockToggled = Event<'BlockToggled', { block: PracticeId; on: boolean; at: string }>;
 
-/** What you told the app about yourself — a full snapshot each time; the last one wins. */
-export type PreferencesSet = Event<
-	'PreferencesSet',
-	{ at: string; intents: Intent[]; equipment: Equipment[] }
->;
+/** You set a practice's goal: sessions a week, and the run's minutes — over the programme's own cadence. */
+export type GoalSet = Event<'GoalSet', { practice: PracticeId; at: string } & Goal>;
 
 export type LedgerEvent =
 	| SessionStarted
@@ -69,7 +65,7 @@ export type LedgerEvent =
 	| SessionRemoved
 	| ProgrammeSelected
 	| BlockToggled
-	| PreferencesSet;
+	| GoalSet;
 
 /** A row as the store hands it back: any name, any shape — the upcaster's input. */
 export type StoredEvent = { type: string; data: unknown };

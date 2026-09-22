@@ -2,8 +2,7 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
-import { BLOCK_IDS, allBlocksOn, isBlockId, isDiscipline, type BlockId } from './plan';
-import { MAX_INTENTS, isEquipment, isIntent, samePreferences, type Preferences } from './preferences';
+import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, allPracticesOn, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
 import { upcast } from './upcast';
 
 /** What the rules need and nothing a screen does — rebuilt from events on every command, never stored. */
@@ -11,27 +10,27 @@ export type LedgerState = {
 	/** the one live slot: the session the floor is walking, if any */
 	activeSession: string | null;
 	activeProgramme: string | null;
-	/** which blocks of the week are on — everything, until a switch says otherwise */
-	blocks: Record<BlockId, boolean>;
+	/** which practices of the week are on — everything, until a switch says otherwise */
+	practices: Record<PracticeId, boolean>;
+	/** what each practice was last asked for — so asking again records nothing */
+	goals: Goals;
 	/** every session ever started, in start order; the last one not removed is the latest */
 	started: string[];
 	/** already removed — removing twice is a no-op */
 	removedSessions: Record<string, true>;
 	/** every entry that landed, by session then identity, and what it measured */
 	logged: Record<string, Record<string, Measure['of']>>;
-	/** the last snapshot said — so saying it again records nothing */
-	preferences: Preferences | null;
 };
 
 /** Where every stream begins. */
 export const initialState = (): LedgerState => ({
 	activeSession: null,
 	activeProgramme: null,
-	blocks: allBlocksOn(),
+	practices: allPracticesOn(),
+	goals: {},
 	started: [],
 	removedSessions: {},
-	logged: {},
-	preferences: null
+	logged: {}
 });
 
 /** The latest session: the most recent start that hasn't been removed. */
@@ -73,11 +72,14 @@ function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
 		case 'ProgrammeSelected':
 			return { ...state, activeProgramme: data.programme };
 		case 'BlockToggled':
-			return { ...state, blocks: { ...state.blocks, [data.block]: data.on } };
-		case 'PreferencesSet':
-			return { ...state, preferences: { intents: data.intents, equipment: data.equipment } };
+			return { ...state, practices: { ...state.practices, [data.block]: data.on } };
+		case 'GoalSet':
+			return { ...state, goals: { ...state.goals, [data.practice]: goalOf(data) } };
 	}
 }
+
+const goalOf = (g: Goal): Goal => ({ sessions: g.sessions, ...(g.minutes !== undefined ? { minutes: g.minutes } : {}) });
+const sameGoal = (a: Goal | undefined, b: Goal): boolean => !!a && a.sessions === b.sessions && a.minutes === b.minutes;
 
 /** One stored row folded as the facts it reads as today — the upcaster runs here, before any rule sees the event. */
 export const evolve = (state: LedgerState, event: StoredEvent): LedgerState =>
@@ -164,24 +166,26 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			return [{ type: 'ProgrammeSelected', data: { programme: command.data.programme, at: command.data.at } }];
 		}
 
-		case 'ToggleBlock': {
-			const { block, on, at } = command.data;
-			if (!isBlockId(block)) throw new ValidationError(`No such block — the week has ${BLOCK_IDS.join(', ')}.`);
-			if (state.blocks[block] === on) return [];
-			return [{ type: 'BlockToggled', data: { block, on, at } }];
+		case 'TogglePractice': {
+			const { practice, on, at } = command.data;
+			if (!isPractice(practice)) throw new ValidationError(`No such practice — the week has ${PRACTICES.join(', ')}.`);
+			if (state.practices[practice] === on) return [];
+			return [{ type: 'BlockToggled', data: { block: practice, on, at } }];
 		}
 
-		case 'SetPreferences': {
-			const { at, intents, equipment } = command.data;
-			if (!Array.isArray(intents) || !intents.length || intents.length > MAX_INTENTS)
-				throw new ValidationError(`Pick one to ${MAX_INTENTS} things you're after.`);
-			if (!intents.every(isIntent) || new Set(intents).size !== intents.length)
-				throw new ValidationError('That is not something the app can act on.');
-			if (!Array.isArray(equipment) || !equipment.every(isEquipment) || new Set(equipment).size !== equipment.length)
-				throw new ValidationError('That is not something the app knows about.');
-			const next: Preferences = { intents: [...intents], equipment: [...equipment] };
-			if (state.preferences && samePreferences(state.preferences, next)) return [];
-			return [{ type: 'PreferencesSet', data: { at, ...next } }];
+		case 'SetGoal': {
+			const { practice, at, sessions, minutes } = command.data;
+			if (!isPractice(practice)) throw new ValidationError(`No such practice — the week has ${PRACTICES.join(', ')}.`);
+			if (!isInt(sessions) || sessions < GOAL_SESSIONS.min || sessions > GOAL_SESSIONS.max)
+				throw new ValidationError(`A goal is ${GOAL_SESSIONS.min} to ${GOAL_SESSIONS.max} sessions a week.`);
+			if (minutes !== undefined) {
+				if (practice !== 'run') throw new ValidationError('Only the run has minutes.');
+				if (!isInt(minutes) || minutes < GOAL_MINUTES.min || minutes > GOAL_MINUTES.max)
+					throw new ValidationError(`A run is ${GOAL_MINUTES.min} to ${GOAL_MINUTES.max} minutes.`);
+			}
+			const goal = goalOf({ sessions, minutes });
+			if (sameGoal(state.goals[practice], goal)) return [];
+			return [{ type: 'GoalSet', data: { practice, at, ...goal } }];
 		}
 	}
 };

@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import Button from '$lib/components/Button.svelte';
 	import Card from '$lib/components/Card.svelte';
+	import SheetPage from '$lib/components/SheetPage.svelte';
 	import type { AfterEntry } from '$lib/domain/commands';
 	import { lineValue, turnLabel, weekMeta } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
@@ -115,12 +116,7 @@
 	);
 </script>
 
-<div class="col">
-	<div class="head">
-		<a class="back" href="/" aria-label="Back to Today">←</a>
-		<h1>Log it after</h1>
-	</div>
-
+<SheetPage title="Log it after" sub="a session written in one shot, backdated" back="/" backLabel="Today">
 	<form method="POST" action="?/log" use:enhance class="col">
 		<Card interactive>
 			{#if pickerOpen}
@@ -232,27 +228,10 @@
 			<p class="summary">{summaryLine}</p>
 		</div>
 	</form>
-</div>
+</SheetPage>
 
 <style>
 	.col { display: flex; flex-direction: column; gap: 16px; }
-	.head { display: flex; align-items: center; gap: 14px; }
-	.back {
-		width: 48px; height: 48px; flex: none;
-		display: inline-flex; align-items: center; justify-content: center;
-		background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-md);
-		box-shadow: var(--shadow-raised); text-decoration: none;
-		font-family: var(--font-display); font-weight: var(--weight-black); font-size: 22px; color: var(--ink);
-	}
-	.back:hover { background: var(--volt-tint); }
-	.back:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
-	h1 {
-		margin: 0;
-		font-family: var(--font-display);
-		font-weight: var(--weight-black);
-		font-size: var(--text-display);
-		line-height: var(--leading-tight);
-	}
 	.caps {
 		font-size: 12px; font-weight: var(--weight-bold);
 		letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-3);

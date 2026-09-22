@@ -5,23 +5,19 @@
 
 <script lang="ts">
 	import Sheet from './Sheet.svelte';
-	import { holdDose } from '$lib/domain/labels';
-	import type { Exercise } from '$lib/domain/plan';
-
-	/** where am I — the map of the session, where a stretch would land, and how to leave */
+	
+	/** where am I — the map of the session, and how to leave */
 	let {
 		open,
 		title,
 		sub,
 		sections,
-		stretches = [],
 		backLabel,
 		noun,
 		logged,
 		total,
 		allDone,
 		onJump,
-		onAdd,
 		onFinishEarly,
 		onExit,
 		onClose
@@ -30,8 +26,6 @@
 		title: string;
 		sub: string;
 		sections: SheetSection[];
-		/** the stretches and poses not already in this session — one tap appends one as a section */
-		stretches?: Exercise[];
 		backLabel: string;
 		/** what Finish finishes: workout · practice · stretch · run */
 		noun: string;
@@ -39,16 +33,14 @@
 		total: number;
 		allDone: boolean;
 		onJump: (i: number) => void;
-		onAdd?: (name: string) => void;
 		onFinishEarly: () => void;
 		onExit: () => void;
 		onClose: () => void;
 	} = $props();
 
 	let confirming = $state(false);
-	let adding = $state(false);
 	$effect(() => {
-		if (!open) confirming = adding = false;
+		if (!open) confirming = false;
 	});
 </script>
 
@@ -61,21 +53,7 @@
 					<span class="secstatus">{sec.status}</span>
 				</button>
 			{/each}
-			{#if stretches.length && onAdd}
-				<button type="button" class="secrow add" class:open={adding} onclick={() => (adding = !adding)} aria-expanded={adding}>
-					<span class="sectitle">+ Add a stretch</span>
-					<span class="secstatus">{adding ? 'pick one' : `${stretches.length} to pick from`}</span>
-				</button>
-				{#if adding}
-					{#each stretches as s (s.name)}
-						<button type="button" class="secrow pick" onclick={() => onAdd(s.name)}>
-							<span class="sectitle">{s.name}</span>
-							<span class="secstatus">+ {holdDose(s)}</span>
-						</button>
-					{/each}
-				{/if}
-			{/if}
-		</div>
+			</div>
 	</section>
 	<section class="actions">
 		{#if !allDone}
@@ -124,10 +102,6 @@
 	.secrow.now { background: var(--volt); }
 	.secrow.now .sectitle { font-weight: var(--weight-bold); }
 	.secrow.done .sectitle { color: var(--ink-3); }
-	.secrow.add { color: var(--ink-2); border-top-style: dashed; }
-	.secrow.add.open { background: var(--paper-2); }
-	.secrow.pick { padding-left: 28px; background: var(--paper-2); }
-	.secrow.pick:hover { background: var(--volt-tint); }
 	.sectitle { font-size: 15px; min-width: 0; }
 	.secstatus { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); white-space: nowrap; }
 	.secrow.done .secstatus { font-weight: 800; color: var(--ink-2); }

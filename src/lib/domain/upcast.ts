@@ -1,6 +1,6 @@
 import type { LedgerEvent, StoredEvent } from './events';
 import type { Measure } from './measure';
-import { BLOCK_IDS, type BlockId, type Discipline } from './plan';
+import { PRACTICES, isPractice, type Discipline, type PracticeId } from './plan';
 
 /**
  * The read boundary: retired shapes are read here and nowhere else; the stream itself is never rewritten.
@@ -8,6 +8,7 @@ import { BLOCK_IDS, type BlockId, type Discipline } from './plan';
  *   SetLogged 288 (56 timed, 71 at weight 0) · RunLogged 22 · RunRemoved 2 · SessionStruck 7 · SessionStarted 121,
  *   none carrying `discipline` — 66 without `mode`, 26 spelling the run as day: 'run' or kind: 'run', the rest keyed
  *   by `day` under the three shipped plans in the table below · EntryLogged carrying plan/day 77, at load 0 4 · PlanSelected 40.
+ * Counted 2026-09-21: PreferencesSet 7 · BlockToggled for the retired no-gym block 7.
  * Delete a case only when its count is zero — and count again first.
  */
 
@@ -43,6 +44,8 @@ type EntryLoggedV1 = {
 type SessionFinishedV1 = { type: 'SessionFinished'; data: { session: string; at: string } };
 /** A plan chosen, until the week became a programme plus blocks (2026-09-14). */
 type PlanSelectedV1 = { type: 'PlanSelected'; data: { plan: string; at: string } };
+/** A block switched — including `bw`, the no-gym block, until the floor became the lift's fallback (2026-09-21). */
+type BlockToggledV1 = { type: 'BlockToggled'; data: { block: string; on: boolean; at: string } };
 
 /** A retired run's session id: its `at` timestamp was always its identity. */
 export const runSessionId = (at: string) => `run-${at}`;
@@ -56,14 +59,14 @@ const DISCIPLINE_BEFORE_2026_09_14: Record<string, Record<string, Discipline>> =
 };
 
 /**
- * ab-fullbody-v1 (Open to Work): its programme, and every block on — the floor was inside it.
+ * ab-fullbody-v1 (Open to Work): its programme, and every block on.
  * her-12-v1 (Full Range of Motion): its programme, the run on and nothing else.
  * yoga-2day-v1 (Hold Steady): no lifting of its own — its blocks only; the programme stays whatever it was.
  */
-const WEEK_OF_PLAN: Record<string, { programme?: string; on: Partial<Record<BlockId, boolean>> }> = {
-	'ab-fullbody-v1': { programme: 'ab-fullbody-v1', on: { yoga: true, mob: true, run: true, bw: true } },
-	'her-12-v1': { programme: 'her-12-v1', on: { yoga: false, mob: false, run: true, bw: false } },
-	'yoga-2day-v1': { on: { yoga: true, mob: false, run: false, bw: false } }
+const WEEK_OF_PLAN: Record<string, { programme?: string; on: Partial<Record<PracticeId, boolean>> }> = {
+	'ab-fullbody-v1': { programme: 'ab-fullbody-v1', on: { yoga: true, mob: true, run: true } },
+	'her-12-v1': { programme: 'her-12-v1', on: { yoga: false, mob: false, run: true } },
+	'yoga-2day-v1': { on: { yoga: true, mob: false, run: false } }
 };
 
 /** A bodyweight set was a load of 0 before the reps measure existed — checked against the whole stream on 2026-08-25: every zero-load rep entry belongs to a bodyweight exercise, and no weighted lift was ever logged at 0. */
@@ -96,16 +99,23 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 		case 'EntryCorrected':
 		case 'SessionRemoved':
 		case 'ProgrammeSelected':
-		case 'BlockToggled':
-		case 'PreferencesSet':
+		case 'GoalSet':
 			return [e as LedgerEvent];
+		case 'BlockToggled': {
+			// the no-gym block is gone: the floor is the lift's fallback now, dealt whether or not a switch once said so
+			const d = (e as BlockToggledV1).data;
+			return isPractice(d.block) ? [{ type: 'BlockToggled', data: { block: d.block, on: d.on, at: d.at } }] : [];
+		}
+		case 'PreferencesSet':
+			// intents and gear are gone: a snapshot reads as nothing, and the week is what the switches say
+			return [];
 		case 'PlanSelected': {
 			// one-to-many: a plan chosen is a programme chosen and its blocks switched
 			const { plan, at } = (e as PlanSelectedV1).data;
 			const week = WEEK_OF_PLAN[plan] ?? { programme: plan, on: {} };
 			const out: LedgerEvent[] = [];
 			if (week.programme) out.push({ type: 'ProgrammeSelected', data: { programme: week.programme, at } });
-			for (const block of BLOCK_IDS) {
+			for (const block of PRACTICES) {
 				const on = week.on[block];
 				if (on !== undefined) out.push({ type: 'BlockToggled', data: { block, on, at } });
 			}

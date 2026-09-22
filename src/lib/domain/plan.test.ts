@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCKS, DEFAULT_PROGRAMMES, SHIPPED_PLANS } from './plans';
+import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR, SHIPPED_PLANS } from './plans';
 import {
 	composePlan,
 	cooldownFor,
@@ -33,9 +33,11 @@ describe('parsePlan — the plan’s read boundary', () => {
 	it('reads every shipped programme back unchanged, from JSON — whole or lift-only', () => {
 		for (const p of [...DEFAULT_PROGRAMMES, ...SHIPPED_PLANS]) expect(parsePlan(JSON.stringify(p))).toEqual(p);
 	});
-	it('ships lift-only programmes: the blocks are the only other cycles', () => {
+	it('ships lift-only programmes: the floor and the blocks are the only other cycles', () => {
 		for (const p of DEFAULT_PROGRAMMES) expect(p.cycles.map((c) => c.id)).toEqual(['lift']);
-		expect(BLOCKS.map((b) => b.id)).toEqual(['yoga', 'mob', 'run', 'bw']);
+		expect(BLOCKS.map((b) => b.id)).toEqual(['yoga', 'mob', 'run']);
+		expect(FLOOR.cycle).toMatchObject({ id: 'floor', target: 0, standsInFor: 'lift' });
+		expect(FLOOR.cycle.routines.every((r) => FLOOR.routineInfo[r].discipline === 'bodyweight')).toBe(true);
 	});
 	it('needs a kind and a progress — there is no older encoding to fall back on', () => {
 		expect(one({ ...goblet, progress: { of: 'size', start: 35, inc: 5 } })).toMatchObject({ kind: 'load', progress: { of: 'size', start: 35, inc: 5 } });
@@ -127,7 +129,7 @@ describe('plan accessors — the defaults live in one place', () => {
 		cycles: [
 			{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 },
 			{ id: 'mob', title: 'Stretch', routines: ['S'], target: 2 },
-			{ id: 'bw', title: 'No gym', routines: ['B', 'S'], target: 0, standsInFor: 'lift' }
+			{ id: 'floor', title: 'Floor', routines: ['B', 'S'], target: 0, standsInFor: 'lift' }
 		],
 		routineInfo: {
 			A: { title: 'Squat & Shove', discipline: 'lift', warmup: ['Row'], cue: 'Exhale' },
@@ -164,24 +166,35 @@ describe('plan accessors — the defaults live in one place', () => {
 	});
 });
 
-describe('composePlan — the week is one programme plus the blocks that are on', () => {
+describe('composePlan — the week is one programme, its floor, and the practices that are on', () => {
 	const programme = DEFAULT_PROGRAMMES[0];
-	it('adds only the on blocks’ cycles — the floor included', () => {
-		expect(composePlan(programme, BLOCKS, ['run']).cycles.map((c) => c.id)).toEqual(['lift', 'run']);
-		expect(composePlan(programme, BLOCKS, []).cycles.map((c) => c.id)).toEqual(['lift']);
-		expect(composePlan(programme, BLOCKS, ['bw']).cycles.map((c) => c.id)).toEqual(['lift', 'bw']);
-		expect(composePlan(programme, BLOCKS, ['yoga', 'mob', 'run', 'bw']).cycles.map((c) => c.id)).toEqual(['lift', 'yoga', 'mob', 'run', 'bw']);
+	it('adds the lift with its floor, then only the on blocks’ cycles', () => {
+		expect(composePlan(programme, BLOCKS, FLOOR, ['lift', 'run']).cycles.map((c) => c.id)).toEqual(['lift', 'floor', 'run']);
+		expect(composePlan(programme, BLOCKS, FLOOR, ['lift']).cycles.map((c) => c.id)).toEqual(['lift', 'floor']);
+		expect(composePlan(programme, BLOCKS, FLOOR, ['run']).cycles.map((c) => c.id)).toEqual(['run']);
+		expect(composePlan(programme, BLOCKS, FLOOR, ['lift', 'yoga', 'mob', 'run']).cycles.map((c) => c.id)).toEqual(['lift', 'floor', 'yoga', 'mob', 'run']);
 	});
-	it('knows every block’s routines whether or not the block is on — a session of an off block still has a title', () => {
-		const off = composePlan(programme, BLOCKS, []);
+	it('knows every routine whether or not its practice is on — a session of something switched off still has a title', () => {
+		const off = composePlan(programme, BLOCKS, FLOOR, []);
+		expect(off.cycles).toEqual([]);
 		expect(routineTitle(off, 'hips')).toBe('Hips & Hamstrings');
 		expect(routineTitle(off, 'bw1')).toBe('Push & Squat');
+		expect(routineTitle(off, 'A')).toBe('Squat & Shove');
 		expect(disciplineOf(off, 'run')).toBe('run');
-		expect(parsePlan(JSON.stringify(off))).toEqual(off);
+		const on = composePlan(programme, BLOCKS, FLOOR, ['lift', 'run']);
+		expect(parsePlan(JSON.stringify(on))).toEqual(on);
 	});
-	it('leaves the programme itself alone', () => {
-		composePlan(programme, BLOCKS, ['yoga']);
-		expect(programme.cycles.map((c) => c.id)).toEqual(['lift']);
+	it('lets a goal rewrite a cycle’s target, and the run’s minutes', () => {
+		const week = composePlan(programme, BLOCKS, FLOOR, ['lift', 'yoga', 'run'], { lift: { sessions: 4 }, run: { sessions: 2, minutes: 40 } });
+		expect(week.cycles.map((c) => [c.id, c.target])).toEqual([['lift', 4], ['floor', 0], ['yoga', 2], ['run', 2]]);
+		expect(week.routines.run[0]).toMatchObject({ kind: 'run', lo: 40, hi: 40 });
+		expect(composePlan(programme, BLOCKS, FLOOR, ['run'], { run: { sessions: 3 } }).routines.run[0]).toMatchObject({ lo: 30, hi: 30 });
+		expect(parsePlan(JSON.stringify(week))).toEqual(week);
+	});
+	it('leaves the programme and the blocks themselves alone', () => {
+		composePlan(programme, BLOCKS, FLOOR, ['lift', 'yoga', 'run'], { lift: { sessions: 5 }, run: { sessions: 1, minutes: 60 } });
+		expect(programme.cycles.map((c) => [c.id, c.target])).toEqual([['lift', 3]]);
 		expect(Object.keys(programme.routines)).toEqual(['A', 'B']);
+		expect(BLOCKS.find((b) => b.id === 'run')!.routines.run[0]).toMatchObject({ lo: 30, hi: 30 });
 	});
 });
