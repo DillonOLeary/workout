@@ -72,6 +72,7 @@
 	// the two removes arm on the first tap and post on the second; four seconds and they stand down
 	let armed = $state<string | null>(null);
 	let removeForm = $state<HTMLFormElement>();
+	let finishForm = $state<HTMLFormElement>();
 	let armTimer: ReturnType<typeof setTimeout> | undefined;
 	function removeTap(id: string) {
 		if (armed === id) {
@@ -80,6 +81,17 @@
 			return;
 		}
 		armed = id;
+		clearTimeout(armTimer);
+		armTimer = setTimeout(() => (armed = null), 4000);
+	}
+
+	function finishTap() {
+		if (armed === 'finish') {
+			armed = null;
+			finishForm?.requestSubmit();
+			return;
+		}
+		armed = 'finish';
 		clearTimeout(armTimer);
 		armTimer = setTimeout(() => (armed = null), 4000);
 	}
@@ -136,6 +148,8 @@
 		<div class="gap"></div>
 		<Primary onclick={() => goto('/floor')}>Back to the floor</Primary>
 	</Card>
+	<form method="POST" action="?/finish" use:enhance bind:this={finishForm} hidden></form>
+	<Row label={armed === 'finish' ? 'Finish here?' : 'Finish here'} right="{liveProgress.sets} {liveProgress.sets === 1 ? 'set' : 'sets'} logged ›" onclick={finishTap} />
 	<Row label={armed === session.id ? 'Bin it?' : 'Bin this session'} right="nothing is kept ›" tone="signal" onclick={() => removeTap(session.id)} />
 {:else}
 	{#if justLogged}

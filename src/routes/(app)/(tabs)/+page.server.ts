@@ -40,6 +40,12 @@ export const actions: Actions = {
 		if (err) return fail(400, { message: err });
 	},
 
+	/** finish the session in progress from Today — leaving is a session question, and not every session is walked to its last step */
+	finish: async ({ locals }) => {
+		const err = await tryCommand(requireUid(locals), { type: 'FinishSession', data: { at: new Date().toISOString() } });
+		if (err) return fail(400, { message: err });
+	},
+
 	/** a session you already did, in one LogAfter command: start · entries · finish, backdated, written with the plan's sets */
 	logAfter: async ({ request, locals }) => {
 		const uid = requireUid(locals);

@@ -635,7 +635,7 @@ src/routes/
    ├─ +layout.server.ts            ONE load for all pages: programmes composed with this person's practices, goals and rest, plus the stream
    ├─ (tabs)/                      nested group — the locked frame with the tab bar at its foot, three tabs
    │  ├─ +page.svelte              Today — the week strip, the deal on one card, Something else, Log a session I already did (a sheet)  (/)
-   │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/logAfter (LogAfter)
+   │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/finish (FinishSession, from Today) · ?/logAfter (LogAfter)
    │  ├─ ledger/                    Ledger — five weeks of cells, the pace, every session by month; the latest one fixable  (/ledger)
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
    │  └─ plan/                      Plan — four practices: switch · goal · rest; the programme (a sheet); how loads move  (/plan)
@@ -911,7 +911,8 @@ The floor lost its About card, its session sheet, its add-a-stretch row and
 its keyboard legend and kept what the design asked for: one table (the current
 section's rows), one button, the figure's slot, "why?" as a note that expands,
 and fixing a set in place — tap `fix` on a done row and the two tiles and the
-primary point at that set until you save. Everything underneath survived
+primary point at that set until you save. Leaving early is a session question,
+so it lives on Today: *Finish here* under the in-progress card, beside *Bin*. Everything underneath survived
 untouched: the entry queue, the countdown, the bell, the wake lock, the rest as
 a clock under the next set, the step in the URL.
 
