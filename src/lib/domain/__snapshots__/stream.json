@@ -1,0 +1,1678 @@
+[
+	{
+		"type": "PlanSelected",
+		"data": {
+			"plan": "ab-fullbody-v1",
+			"at": "2026-07-24T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"at": "2026-07-26T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 35,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-26T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 35,
+			"reps": 9,
+			"set": 2,
+			"at": "2026-07-26T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 35,
+			"reps": 8,
+			"set": 3,
+			"at": "2026-07-26T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Chest Press",
+			"weight": 45,
+			"reps": 12,
+			"set": 1,
+			"at": "2026-07-26T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Chest Press",
+			"weight": 45,
+			"reps": 12,
+			"set": 2,
+			"at": "2026-07-26T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Chest Press",
+			"weight": 45,
+			"reps": 12,
+			"set": 3,
+			"at": "2026-07-26T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Lat Pulldown",
+			"weight": 65,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-26T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Lat Pulldown",
+			"weight": 65,
+			"reps": 10,
+			"set": 2,
+			"at": "2026-07-26T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Lat Pulldown",
+			"weight": 65,
+			"reps": 9,
+			"set": 3,
+			"at": "2026-07-26T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Long-Lever Plank",
+			"weight": 0,
+			"reps": 20,
+			"set": 1,
+			"at": "2026-07-26T08:00:00.000Z",
+			"unit": "s",
+			"target": 20
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Dead Bug",
+			"weight": 0,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-26T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s001",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"at": "2026-07-26T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"at": "2026-07-28T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "KB Deadlift",
+			"weight": 53,
+			"reps": 12,
+			"set": 1,
+			"at": "2026-07-28T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "KB Deadlift",
+			"weight": 53,
+			"reps": 12,
+			"set": 2,
+			"at": "2026-07-28T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "KB Deadlift",
+			"weight": 53,
+			"reps": 12,
+			"set": 3,
+			"at": "2026-07-28T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Shoulder Press",
+			"weight": 30,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-28T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Shoulder Press",
+			"weight": 30,
+			"reps": 9,
+			"set": 2,
+			"at": "2026-07-28T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Shoulder Press",
+			"weight": 30,
+			"reps": 8,
+			"set": 3,
+			"at": "2026-07-28T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Seated Row",
+			"weight": 65,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-28T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Seated Row",
+			"weight": 65,
+			"reps": 10,
+			"set": 2,
+			"at": "2026-07-28T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Seated Row",
+			"weight": 65,
+			"reps": 10,
+			"set": 3,
+			"at": "2026-07-28T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Long-Lever Plank",
+			"weight": 0,
+			"reps": 20,
+			"set": 1,
+			"at": "2026-07-28T08:00:00.000Z",
+			"unit": "s",
+			"target": 20
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"exercise": "Dead Bug",
+			"weight": 0,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-28T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s002",
+			"plan": "ab-fullbody-v1",
+			"day": "B",
+			"at": "2026-07-28T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"at": "2026-07-30T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 35,
+			"reps": 12,
+			"set": 1,
+			"at": "2026-07-30T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 35,
+			"reps": 10,
+			"set": 2,
+			"at": "2026-07-30T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 35,
+			"reps": 8,
+			"set": 3,
+			"at": "2026-07-30T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Chest Press",
+			"weight": 50,
+			"reps": 8,
+			"set": 1,
+			"at": "2026-07-30T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Chest Press",
+			"weight": 50,
+			"reps": 8,
+			"set": 2,
+			"at": "2026-07-30T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Chest Press",
+			"weight": 50,
+			"reps": 8,
+			"set": 3,
+			"at": "2026-07-30T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Lat Pulldown",
+			"weight": 65,
+			"reps": 12,
+			"set": 1,
+			"at": "2026-07-30T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Lat Pulldown",
+			"weight": 65,
+			"reps": 10,
+			"set": 2,
+			"at": "2026-07-30T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Lat Pulldown",
+			"weight": 65,
+			"reps": 9,
+			"set": 3,
+			"at": "2026-07-30T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Long-Lever Plank",
+			"weight": 0,
+			"reps": 20,
+			"set": 1,
+			"at": "2026-07-30T08:00:00.000Z",
+			"unit": "s",
+			"target": 20
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Dead Bug",
+			"weight": 0,
+			"reps": 10,
+			"set": 1,
+			"at": "2026-07-30T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s003",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"at": "2026-07-30T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s004",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"at": "2026-07-31T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s004",
+			"plan": "ab-fullbody-v1",
+			"day": "A",
+			"exercise": "Goblet Squat",
+			"weight": 200,
+			"reps": 1,
+			"set": 1,
+			"at": "2026-07-31T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStruck",
+		"data": {
+			"session": "s004",
+			"at": "2026-07-31T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "RunLogged",
+		"data": {
+			"minutes": 30,
+			"at": "2026-07-27T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "RunLogged",
+		"data": {
+			"minutes": 25,
+			"at": "2026-07-29T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "RunRemoved",
+		"data": {
+			"run": "2026-07-29T07:00:00.000Z",
+			"at": "2026-07-29T09:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s005",
+			"plan": "ab-fullbody-v1",
+			"day": "run",
+			"at": "2026-08-03T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s005",
+			"at": "2026-08-03T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s006",
+			"plan": "ab-fullbody-v1",
+			"kind": "run",
+			"mode": "live",
+			"at": "2026-08-05T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s006",
+			"plan": "ab-fullbody-v1",
+			"day": "run",
+			"item": "Easy run",
+			"index": 1,
+			"at": "2026-08-05T08:00:00.000Z",
+			"measure": {
+				"of": "duration",
+				"minutes": 32
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s006",
+			"plan": "ab-fullbody-v1",
+			"day": "run",
+			"at": "2026-08-05T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "PlanSelected",
+		"data": {
+			"plan": "yoga-2day-v1",
+			"at": "2026-08-06T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s007",
+			"plan": "yoga-2day-v1",
+			"day": "1",
+			"at": "2026-08-07T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SetLogged",
+		"data": {
+			"session": "s007",
+			"plan": "yoga-2day-v1",
+			"day": "1",
+			"exercise": "Pigeon",
+			"weight": 0,
+			"reps": 60,
+			"set": 1,
+			"at": "2026-08-07T07:00:00.000Z",
+			"unit": "s",
+			"target": 60
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s007",
+			"at": "2026-08-07T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "PlanSelected",
+		"data": {
+			"plan": "her-12-v1",
+			"at": "2026-08-08T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s008",
+			"plan": "her-12-v1",
+			"day": "1",
+			"mode": "live",
+			"at": "2026-08-09T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s008",
+			"item": "Deep Goblet Squat",
+			"index": 1,
+			"at": "2026-08-09T08:00:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 20,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s008",
+			"item": "Dead Bug",
+			"index": 1,
+			"at": "2026-08-09T08:00:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 0,
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s008",
+			"at": "2026-08-09T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "PlanSelected",
+		"data": {
+			"plan": "ab-fullbody-v1",
+			"at": "2026-08-10T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "PreferencesSet",
+		"data": {
+			"intents": [
+				"run"
+			],
+			"gear": {
+				"gym": false
+			},
+			"at": "2026-08-11T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "BlockToggled",
+		"data": {
+			"block": "bw",
+			"on": true,
+			"at": "2026-08-11T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "BlockToggled",
+		"data": {
+			"block": "bw",
+			"on": false,
+			"at": "2026-08-23T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s009",
+			"plan": "ab-fullbody-v1",
+			"routine": "B",
+			"discipline": "lift",
+			"mode": "live",
+			"at": "2026-09-02T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Warm-up",
+			"index": 1,
+			"at": "2026-09-02T07:00:00.000Z",
+			"measure": {
+				"of": "step"
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "KB Deadlift",
+			"index": 1,
+			"at": "2026-09-02T07:06:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 62,
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "KB Deadlift",
+			"index": 2,
+			"at": "2026-09-02T07:12:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 62,
+				"reps": 7
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "KB Deadlift",
+			"index": 3,
+			"at": "2026-09-02T07:18:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 62,
+				"reps": 6
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Shoulder Press",
+			"index": 1,
+			"at": "2026-09-02T07:24:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 30,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Shoulder Press",
+			"index": 2,
+			"at": "2026-09-02T07:30:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 30,
+				"reps": 11
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Shoulder Press",
+			"index": 3,
+			"at": "2026-09-02T07:36:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 30,
+				"reps": 9
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Copenhagen Plank",
+			"index": 1,
+			"at": "2026-09-02T07:42:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Copenhagen Plank",
+			"index": 2,
+			"at": "2026-09-02T07:48:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Calf stretch",
+			"index": 1,
+			"at": "2026-09-02T07:54:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s009",
+			"item": "Calf stretch",
+			"index": 2,
+			"at": "2026-09-02T08:00:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s009",
+			"at": "2026-09-02T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "BlockToggled",
+		"data": {
+			"block": "yoga",
+			"on": false,
+			"at": "2026-09-03T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "GoalSet",
+		"data": {
+			"practice": "run",
+			"sessions": 2,
+			"minutes": 35,
+			"at": "2026-09-03T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s010",
+			"plan": "ab-fullbody-v1",
+			"routine": "A",
+			"discipline": "lift",
+			"mode": "live",
+			"at": "2026-09-13T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Goblet Squat",
+			"index": 1,
+			"at": "2026-09-13T07:00:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 40,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Goblet Squat",
+			"index": 2,
+			"at": "2026-09-13T07:06:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 40,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Goblet Squat",
+			"index": 3,
+			"at": "2026-09-13T07:12:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 40,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Chest Press",
+			"index": 1,
+			"at": "2026-09-13T07:18:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 50,
+				"reps": 5
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Chest Press",
+			"index": 2,
+			"at": "2026-09-13T07:24:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 50,
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Chest Press",
+			"index": 3,
+			"at": "2026-09-13T07:30:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 50,
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Band Face Pull",
+			"index": 1,
+			"at": "2026-09-13T07:36:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 20
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Band Face Pull",
+			"index": 2,
+			"at": "2026-09-13T07:42:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 18
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Long-Lever Plank",
+			"index": 1,
+			"at": "2026-09-13T07:48:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 20,
+				"target": 20
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Long-Lever Plank",
+			"index": 2,
+			"at": "2026-09-13T07:54:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 20,
+				"target": 20
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s010",
+			"item": "Long-Lever Plank",
+			"index": 3,
+			"at": "2026-09-13T08:00:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 15,
+				"target": 20
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s010",
+			"at": "2026-09-13T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "EntryCorrected",
+		"data": {
+			"session": "s010",
+			"item": "Chest Press",
+			"index": 1,
+			"at": "2026-09-13T09:00:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 50,
+				"reps": 7
+			}
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s011",
+			"plan": "ab-fullbody-v1",
+			"routine": "run",
+			"discipline": "run",
+			"mode": "live",
+			"at": "2026-09-14T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s011",
+			"item": "Warm-up",
+			"index": 1,
+			"at": "2026-09-14T07:00:00.000Z",
+			"measure": {
+				"of": "step"
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s011",
+			"item": "Easy run",
+			"index": 1,
+			"at": "2026-09-14T07:06:00.000Z",
+			"measure": {
+				"of": "duration",
+				"minutes": 35
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s011",
+			"item": "Cooldown",
+			"index": 1,
+			"at": "2026-09-14T07:12:00.000Z",
+			"measure": {
+				"of": "step"
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s011",
+			"at": "2026-09-14T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s012",
+			"plan": "ab-fullbody-v1",
+			"routine": "S",
+			"discipline": "mobility",
+			"mode": "after",
+			"at": "2026-09-16T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s012",
+			"item": "Calf stretch",
+			"index": 1,
+			"at": "2026-09-16T07:30:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s012",
+			"item": "Calf stretch",
+			"index": 2,
+			"at": "2026-09-16T07:30:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s012",
+			"item": "Hip flexor stretch",
+			"index": 1,
+			"at": "2026-09-16T07:30:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s012",
+			"item": "Hip flexor stretch",
+			"index": 2,
+			"at": "2026-09-16T07:30:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s012",
+			"at": "2026-09-16T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s013",
+			"plan": "ab-fullbody-v1",
+			"routine": "bw1",
+			"discipline": "bodyweight",
+			"mode": "live",
+			"at": "2026-09-17T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Push-up",
+			"index": 1,
+			"at": "2026-09-17T07:00:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 15
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Push-up",
+			"index": 2,
+			"at": "2026-09-17T07:06:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 15
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Push-up",
+			"index": 3,
+			"at": "2026-09-17T07:12:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 15
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Split Squat",
+			"index": 1,
+			"at": "2026-09-17T07:18:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 10
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Split Squat",
+			"index": 2,
+			"at": "2026-09-17T07:24:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 9
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Split Squat",
+			"index": 3,
+			"at": "2026-09-17T07:30:00.000Z",
+			"measure": {
+				"of": "reps",
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Hollow Hold",
+			"index": 1,
+			"at": "2026-09-17T07:36:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 25,
+				"target": 25
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Hollow Hold",
+			"index": 2,
+			"at": "2026-09-17T07:42:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 25,
+				"target": 25
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s013",
+			"item": "Hollow Hold",
+			"index": 3,
+			"at": "2026-09-17T07:48:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 20,
+				"target": 25
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s013",
+			"at": "2026-09-17T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s014",
+			"plan": "ab-fullbody-v1",
+			"routine": "B",
+			"discipline": "lift",
+			"mode": "live",
+			"at": "2026-09-18T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s014",
+			"item": "KB Deadlift",
+			"index": 1,
+			"at": "2026-09-18T07:00:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 70,
+				"reps": 3
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s014",
+			"at": "2026-09-18T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionRemoved",
+		"data": {
+			"session": "s014",
+			"at": "2026-09-18T08:00:00.000Z"
+		}
+	},
+	{
+		"type": "GoalSet",
+		"data": {
+			"practice": "lift",
+			"sessions": 4,
+			"at": "2026-09-19T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s015",
+			"plan": "ab-fullbody-v1",
+			"routine": "B",
+			"discipline": "lift",
+			"mode": "live",
+			"at": "2026-09-19T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "KB Deadlift",
+			"index": 1,
+			"at": "2026-09-19T07:00:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 62,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "KB Deadlift",
+			"index": 2,
+			"at": "2026-09-19T07:06:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 62,
+				"reps": 10
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "KB Deadlift",
+			"index": 3,
+			"at": "2026-09-19T07:12:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 62,
+				"reps": 5
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "Shoulder Press",
+			"index": 1,
+			"at": "2026-09-19T07:18:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 35,
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "Shoulder Press",
+			"index": 2,
+			"at": "2026-09-19T07:24:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 30,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "Shoulder Press",
+			"index": 3,
+			"at": "2026-09-19T07:30:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 30,
+				"reps": 12
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "Leg Curl",
+			"index": 1,
+			"at": "2026-09-19T07:36:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 60,
+				"reps": 15
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "Leg Curl",
+			"index": 2,
+			"at": "2026-09-19T07:42:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 60,
+				"reps": 15
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s015",
+			"item": "Leg Curl",
+			"index": 3,
+			"at": "2026-09-19T07:48:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 60,
+				"reps": 15
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s015",
+			"at": "2026-09-19T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s016",
+			"plan": "ab-fullbody-v1",
+			"routine": "run",
+			"discipline": "run",
+			"mode": "after",
+			"at": "2026-09-20T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s016",
+			"item": "Easy run",
+			"index": 1,
+			"at": "2026-09-20T07:30:00.000Z",
+			"measure": {
+				"of": "duration",
+				"minutes": 40
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s016",
+			"at": "2026-09-20T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s017",
+			"plan": "ab-fullbody-v1",
+			"routine": "S",
+			"discipline": "mobility",
+			"mode": "live",
+			"at": "2026-09-21T07:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s017",
+			"item": "Calf stretch",
+			"index": 1,
+			"at": "2026-09-21T07:00:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s017",
+			"item": "Calf stretch",
+			"index": 2,
+			"at": "2026-09-21T07:06:00.000Z",
+			"measure": {
+				"of": "hold",
+				"seconds": 45,
+				"target": 45
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s017",
+			"at": "2026-09-21T07:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s018",
+			"plan": "ab-fullbody-v1",
+			"routine": "A",
+			"discipline": "lift",
+			"mode": "live",
+			"at": "2026-09-22T11:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s018",
+			"item": "Warm-up",
+			"index": 1,
+			"at": "2026-09-22T11:06:00.000Z",
+			"measure": {
+				"of": "step"
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s018",
+			"item": "Goblet Squat",
+			"index": 1,
+			"at": "2026-09-22T11:18:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 45,
+				"reps": 8
+			}
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s018",
+			"item": "Goblet Squat",
+			"index": 2,
+			"at": "2026-09-22T11:24:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 45,
+				"reps": 7
+			}
+		}
+	}
+]

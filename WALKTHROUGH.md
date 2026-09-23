@@ -595,8 +595,12 @@ because the measure says what it was: a retired "Weighted Plank" is still
 
 ### Tests — the domain is pure, so test it like arithmetic
 
-`pnpm test` runs vitest over `src/**/*.test.ts` — ten suites, 181 tests, one
-per layer: `decider.test.ts` (the write-side rules — including that a
+`pnpm test` runs vitest over `src/**/*.test.ts` — eleven suites, 186 tests, one
+per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/snapshot.test.ts)
+builds a full stream in every stored shape the upcaster reads, folds it through
+every rule at one fixed `now`, and compares the JSON to the committed
+`__snapshots__/` — the domain's contract for the v3 UI rebuild, written down as
+five rules in [src/lib/domain/README.md](src/lib/domain/README.md). The layers: `decider.test.ts` (the write-side rules — including that a
 correction on anything but the latest session fails, that one changing a
 set's variant fails, that a removal on an older one does not, that a
 practice the week has not got is refused and a switch to where it already is

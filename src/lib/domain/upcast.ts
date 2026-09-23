@@ -9,6 +9,10 @@ import { PRACTICES, isPractice, type Discipline, type PracticeId } from './plan'
  *   none carrying `discipline` — 66 without `mode`, 26 spelling the run as day: 'run' or kind: 'run', the rest keyed
  *   by `day` under the three shipped plans in the table below · EntryLogged carrying plan/day 77, at load 0 4 · PlanSelected 40.
  * Counted 2026-09-21: PreferencesSet 7 · BlockToggled for the retired no-gym block 7.
+ * Counted again 2026-09-22, before the v3 UI rebuild (every stream, read-only): SetLogged 288 (56 timed, 71 at weight 0) · RunLogged 22 ·
+ *   RunRemoved 2 · SessionStruck 7 · PlanSelected 40 · PreferencesSet 7 · BlockToggled bw 7 · SessionStarted 140, of which 121 carry no
+ *   discipline and 66 no mode · EntryLogged 654, 77 carrying plan/day and 4 at load 0 · EntryCorrected 8 · SessionRemoved 38 · GoalSet 0.
+ *   Every case below is still backed by rows; none is at zero. These counts are this file's contract — the rebuild leaves it alone.
  * Delete a case only when its count is zero — and count again first.
  */
 

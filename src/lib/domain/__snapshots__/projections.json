@@ -1,0 +1,2637 @@
+{
+	"now": "2026-09-22T12:00:00.000Z",
+	"state": {
+		"activeSession": "s018",
+		"latestSession": "s018",
+		"activeProgramme": "ab-fullbody-v1",
+		"practices": {
+			"lift": true,
+			"yoga": false,
+			"mob": true,
+			"run": true
+		},
+		"goals": {
+			"run": {
+				"sessions": 2,
+				"minutes": 35
+			},
+			"lift": {
+				"sessions": 4
+			}
+		}
+	},
+	"week": {
+		"programme": "ab-fullbody-v1",
+		"practicesOn": [
+			"lift",
+			"mob",
+			"run"
+		],
+		"goals": {
+			"run": {
+				"sessions": 2,
+				"minutes": 35
+			},
+			"lift": {
+				"sessions": 4
+			}
+		},
+		"cycles": [
+			{
+				"id": "lift",
+				"title": "Lift",
+				"routines": [
+					"A",
+					"B"
+				],
+				"target": 4
+			},
+			{
+				"id": "floor",
+				"title": "Floor",
+				"routines": [
+					"bw1",
+					"bw2",
+					"bw4",
+					"bw5",
+					"bw6"
+				],
+				"target": 0,
+				"standsInFor": "lift"
+			},
+			{
+				"id": "mob",
+				"title": "Stretch",
+				"routines": [
+					"S"
+				],
+				"target": 3
+			},
+			{
+				"id": "run",
+				"title": "Run",
+				"routines": [
+					"run"
+				],
+				"target": 2
+			}
+		]
+	},
+	"owed": [
+		{
+			"cycle": "lift",
+			"done": 3,
+			"target": 4
+		},
+		{
+			"cycle": "floor",
+			"done": 1,
+			"target": 0
+		},
+		{
+			"cycle": "mob",
+			"done": 2,
+			"target": 3
+		},
+		{
+			"cycle": "run",
+			"done": 1,
+			"target": 2
+		}
+	],
+	"next": [
+		{
+			"cycle": "lift",
+			"routine": "A"
+		},
+		{
+			"cycle": "floor",
+			"routine": "bw2"
+		},
+		{
+			"cycle": "mob",
+			"routine": "S"
+		},
+		{
+			"cycle": "run",
+			"routine": "run"
+		}
+	],
+	"staleness": [
+		{
+			"cycle": "lift",
+			"daysSince": 3.21
+		},
+		{
+			"cycle": "floor",
+			"daysSince": 5.21
+		},
+		{
+			"cycle": "mob",
+			"daysSince": 1.21
+		},
+		{
+			"cycle": "run",
+			"daysSince": 2.21
+		}
+	],
+	"deal": [
+		{
+			"cycle": "lift",
+			"workout": {
+				"routine": "A"
+			},
+			"discipline": "lift",
+			"title": "Squat & Shove",
+			"why": "3 days since Hinge & Haul · 3 of 4 this week",
+			"minutes": 41,
+			"score": 101001958,
+			"due": true
+		},
+		{
+			"cycle": "mob",
+			"workout": {
+				"routine": "S"
+			},
+			"discipline": "mobility",
+			"title": "Morning stretch",
+			"why": "1 day since Morning stretch · 2 of 3 this week",
+			"minutes": 7,
+			"score": 101000992,
+			"due": true
+		},
+		{
+			"cycle": "run",
+			"workout": {
+				"routine": "run"
+			},
+			"discipline": "run",
+			"title": "Easy run",
+			"why": "2 days since Easy run · 1 of 2 this week",
+			"minutes": 50,
+			"score": 101000949,
+			"due": true
+		},
+		{
+			"cycle": "floor",
+			"workout": {
+				"routine": "bw2"
+			},
+			"discipline": "bodyweight",
+			"title": "Hinge & Carry",
+			"why": "Stands in for Squat & Shove · counts toward 4 lifts a week",
+			"minutes": 27,
+			"score": 972,
+			"due": false,
+			"standsInFor": "lift"
+		}
+	],
+	"tally": {
+		"done": 6,
+		"asked": 9,
+		"gaps": [
+			"lift",
+			"stretch",
+			"run"
+		]
+	},
+	"load": [
+		{
+			"exercise": "Goblet Squat",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 45,
+						"reason": "increase",
+						"reps": 6,
+						"missed": false
+					},
+					{
+						"weight": 45,
+						"reason": "increase",
+						"reps": 6,
+						"missed": false
+					},
+					{
+						"weight": 45,
+						"reason": "increase",
+						"reps": 6,
+						"missed": false
+					}
+				],
+				"reason": "increase",
+				"up": true,
+				"down": false,
+				"weight": 45,
+				"daysSince": 9.208333333333334
+			}
+		},
+		{
+			"exercise": "Chest Press",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 50,
+						"reason": "hold",
+						"reps": 7,
+						"missed": true
+					},
+					{
+						"weight": 50,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 50,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					}
+				],
+				"reason": "hold",
+				"up": false,
+				"down": false,
+				"weight": 50,
+				"daysSince": 9.208333333333334
+			}
+		},
+		{
+			"exercise": "Band Face Pull",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "ceiling"
+					},
+					{
+						"count": 18,
+						"reason": "hold"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 9.208333333333334
+			}
+		},
+		{
+			"exercise": "Lat Pulldown",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 65,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 65,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 65,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					}
+				],
+				"reason": "hold",
+				"up": false,
+				"down": false,
+				"weight": 65,
+				"daysSince": 54.208333333333336
+			}
+		},
+		{
+			"exercise": "Romanian Deadlift",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 40,
+						"reason": "start",
+						"reps": 6,
+						"missed": false
+					},
+					{
+						"weight": 40,
+						"reason": "start",
+						"reps": 6,
+						"missed": false
+					},
+					{
+						"weight": 40,
+						"reason": "start",
+						"reps": 6,
+						"missed": false
+					}
+				],
+				"reason": "start",
+				"up": false,
+				"down": false,
+				"weight": 40,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Standing Calf Raise",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 90,
+						"reason": "start",
+						"reps": 10,
+						"missed": false
+					},
+					{
+						"weight": 90,
+						"reason": "start",
+						"reps": 10,
+						"missed": false
+					},
+					{
+						"weight": 90,
+						"reason": "start",
+						"reps": 10,
+						"missed": false
+					}
+				],
+				"reason": "start",
+				"up": false,
+				"down": false,
+				"weight": 90,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Long-Lever Plank",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "ceiling"
+					},
+					{
+						"count": 20,
+						"reason": "ceiling"
+					},
+					{
+						"count": 15,
+						"reason": "hold"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 9.208333333333334
+			}
+		},
+		{
+			"exercise": "KB Deadlift",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 70,
+						"reason": "increase",
+						"reps": 6,
+						"missed": false
+					},
+					{
+						"weight": 62,
+						"reason": "hold",
+						"reps": 10,
+						"missed": false
+					},
+					{
+						"weight": 62,
+						"reason": "hold",
+						"reps": 5,
+						"missed": true
+					}
+				],
+				"reason": "increase",
+				"up": true,
+				"down": false,
+				"weight": 70,
+				"daysSince": 3.2083333333333335
+			}
+		},
+		{
+			"exercise": "Shoulder Press",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 35,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 35,
+						"reason": "increase",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 35,
+						"reason": "increase",
+						"reps": 8,
+						"missed": false
+					}
+				],
+				"reason": "increase",
+				"up": true,
+				"down": false,
+				"weight": 35,
+				"daysSince": 3.2083333333333335
+			}
+		},
+		{
+			"exercise": "Seated Row",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 65,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 65,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 65,
+						"reason": "hold",
+						"reps": 8,
+						"missed": false
+					}
+				],
+				"reason": "hold",
+				"up": false,
+				"down": false,
+				"weight": 65,
+				"daysSince": 56.208333333333336
+			}
+		},
+		{
+			"exercise": "DB Reverse Lunge",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 20,
+						"reason": "start",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 20,
+						"reason": "start",
+						"reps": 8,
+						"missed": false
+					},
+					{
+						"weight": 20,
+						"reason": "start",
+						"reps": 8,
+						"missed": false
+					}
+				],
+				"reason": "start",
+				"up": false,
+				"down": false,
+				"weight": 20,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Leg Curl",
+			"suggestion": {
+				"kind": "load",
+				"sets": [
+					{
+						"weight": 70,
+						"reason": "increase",
+						"reps": 10,
+						"missed": false
+					},
+					{
+						"weight": 70,
+						"reason": "increase",
+						"reps": 10,
+						"missed": false
+					},
+					{
+						"weight": 70,
+						"reason": "increase",
+						"reps": 10,
+						"missed": false
+					}
+				],
+				"reason": "increase",
+				"up": true,
+				"down": false,
+				"weight": 70,
+				"daysSince": 3.2083333333333335
+			}
+		},
+		{
+			"exercise": "Copenhagen Plank",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 8,
+						"reason": "hold"
+					},
+					{
+						"count": 8,
+						"reason": "hold"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 20.208333333333332
+			}
+		},
+		{
+			"exercise": "Push-up",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 8,
+						"reason": "increase"
+					},
+					{
+						"count": 8,
+						"reason": "increase"
+					},
+					{
+						"count": 8,
+						"reason": "increase"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 5.208333333333333,
+				"variant": {
+					"name": "Push-up",
+					"rung": 1,
+					"promoted": true,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Split Squat",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 10,
+						"reason": "hold"
+					},
+					{
+						"count": 9,
+						"reason": "hold"
+					},
+					{
+						"count": 8,
+						"reason": "hold"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 5.208333333333333,
+				"variant": {
+					"name": "Split squat",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Single-leg Hip Bridge",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 10,
+						"reason": "start"
+					},
+					{
+						"count": 10,
+						"reason": "start"
+					},
+					{
+						"count": 10,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Single-leg hip bridge",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Hollow Hold",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 30,
+						"reason": "increase"
+					},
+					{
+						"count": 30,
+						"reason": "increase"
+					},
+					{
+						"count": 20,
+						"reason": "hold"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 5.208333333333333
+			}
+		},
+		{
+			"exercise": "Single-leg RDL Reach",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 8,
+						"reason": "start"
+					},
+					{
+						"count": 8,
+						"reason": "start"
+					},
+					{
+						"count": 8,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Single-leg RDL reach",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Reverse Lunge",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 10,
+						"reason": "start"
+					},
+					{
+						"count": 10,
+						"reason": "start"
+					},
+					{
+						"count": 10,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Reverse lunge",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Side Plank",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Bodyweight Squat",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 12,
+						"reason": "start"
+					},
+					{
+						"count": 12,
+						"reason": "start"
+					},
+					{
+						"count": 12,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Bodyweight squat",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Step-up",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 8,
+						"reason": "start"
+					},
+					{
+						"count": 8,
+						"reason": "start"
+					},
+					{
+						"count": 8,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Step-up",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Dead Bug",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 8,
+						"reason": "hold"
+					},
+					{
+						"count": 8,
+						"reason": "hold"
+					},
+					{
+						"count": 8,
+						"reason": "hold"
+					}
+				],
+				"ceiling": false,
+				"daysSince": 44.208333333333336
+			}
+		},
+		{
+			"exercise": "Superman Hold",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Reverse Crunch",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 10,
+						"reason": "start"
+					},
+					{
+						"count": 10,
+						"reason": "start"
+					},
+					{
+						"count": 10,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Reverse crunch",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Plank",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 30,
+						"reason": "start"
+					},
+					{
+						"count": 30,
+						"reason": "start"
+					},
+					{
+						"count": 30,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Single-leg Calf Raise",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 12,
+						"reason": "start"
+					},
+					{
+						"count": 12,
+						"reason": "start"
+					},
+					{
+						"count": 12,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
+				"variant": {
+					"name": "Single-leg calf raise",
+					"rung": 0,
+					"promoted": false,
+					"top": false
+				}
+			}
+		},
+		{
+			"exercise": "Chair Pose",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Warrior II",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 30,
+						"reason": "start"
+					},
+					{
+						"count": 30,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Bridge",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Downward Dog",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 30,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Forearm Plank",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		}
+	],
+	"sessions": [
+		{
+			"id": "s018",
+			"workout": {
+				"routine": "A"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-22T11:00:00.000Z",
+			"dateLabel": "Tue, Sep 22",
+			"finished": false,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Goblet Squat",
+					"sets": [
+						{
+							"of": "load",
+							"load": 45,
+							"reps": 8
+						},
+						{
+							"of": "load",
+							"load": 45,
+							"reps": 7
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 1,
+			"entries": 3
+		},
+		{
+			"id": "s017",
+			"workout": {
+				"routine": "S"
+			},
+			"discipline": "mobility",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-21T07:00:00.000Z",
+			"dateLabel": "Mon, Sep 21",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Calf stretch",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						},
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 2,
+			"finishedAt": "2026-09-21T07:54:00.000Z"
+		},
+		{
+			"id": "s016",
+			"workout": {
+				"routine": "run"
+			},
+			"discipline": "run",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-20T07:00:00.000Z",
+			"dateLabel": "Sun, Sep 20",
+			"finished": true,
+			"mode": "after",
+			"rows": [],
+			"minutes": 40,
+			"durations": [
+				{
+					"item": "Easy run",
+					"index": 1,
+					"minutes": 40
+				}
+			],
+			"prep": 0,
+			"entries": 1,
+			"finishedAt": "2026-09-20T07:54:00.000Z"
+		},
+		{
+			"id": "s015",
+			"workout": {
+				"routine": "B"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-19T07:00:00.000Z",
+			"dateLabel": "Sat, Sep 19",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "KB Deadlift",
+					"sets": [
+						{
+							"of": "load",
+							"load": 62,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 62,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 62,
+							"reps": 5
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Shoulder Press",
+					"sets": [
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 8
+						},
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 12
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Leg Curl",
+					"sets": [
+						{
+							"of": "load",
+							"load": 60,
+							"reps": 15
+						},
+						{
+							"of": "load",
+							"load": 60,
+							"reps": 15
+						},
+						{
+							"of": "load",
+							"load": 60,
+							"reps": 15
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 9,
+			"finishedAt": "2026-09-19T07:54:00.000Z"
+		},
+		{
+			"id": "s013",
+			"workout": {
+				"routine": "bw1"
+			},
+			"discipline": "bodyweight",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-17T07:00:00.000Z",
+			"dateLabel": "Thu, Sep 17",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Push-up",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 15
+						},
+						{
+							"of": "reps",
+							"reps": 15
+						},
+						{
+							"of": "reps",
+							"reps": 15
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Split Squat",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 9
+						},
+						{
+							"of": "reps",
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Hollow Hold",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 25,
+							"target": 25
+						},
+						{
+							"of": "hold",
+							"seconds": 25,
+							"target": 25
+						},
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 25
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 9,
+			"finishedAt": "2026-09-17T07:54:00.000Z"
+		},
+		{
+			"id": "s012",
+			"workout": {
+				"routine": "S"
+			},
+			"discipline": "mobility",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-16T07:00:00.000Z",
+			"dateLabel": "Wed, Sep 16",
+			"finished": true,
+			"mode": "after",
+			"rows": [
+				{
+					"item": "Calf stretch",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						},
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				},
+				{
+					"item": "Hip flexor stretch",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						},
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 4,
+			"finishedAt": "2026-09-16T07:54:00.000Z"
+		},
+		{
+			"id": "s011",
+			"workout": {
+				"routine": "run"
+			},
+			"discipline": "run",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-14T07:00:00.000Z",
+			"dateLabel": "Mon, Sep 14",
+			"finished": true,
+			"mode": "live",
+			"rows": [],
+			"minutes": 35,
+			"durations": [
+				{
+					"item": "Easy run",
+					"index": 1,
+					"minutes": 35
+				}
+			],
+			"prep": 2,
+			"entries": 3,
+			"finishedAt": "2026-09-14T07:54:00.000Z"
+		},
+		{
+			"id": "s010",
+			"workout": {
+				"routine": "A"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-13T07:00:00.000Z",
+			"dateLabel": "Sun, Sep 13",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Goblet Squat",
+					"sets": [
+						{
+							"of": "load",
+							"load": 40,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 40,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 40,
+							"reps": 12
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Chest Press",
+					"sets": [
+						{
+							"of": "load",
+							"load": 50,
+							"reps": 7
+						},
+						{
+							"of": "load",
+							"load": 50,
+							"reps": 8
+						},
+						{
+							"of": "load",
+							"load": 50,
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Band Face Pull",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 18
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				},
+				{
+					"item": "Long-Lever Plank",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						},
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						},
+						{
+							"of": "hold",
+							"seconds": 15,
+							"target": 20
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 11,
+			"finishedAt": "2026-09-13T07:54:00.000Z"
+		},
+		{
+			"id": "s009",
+			"workout": {
+				"routine": "B"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-02T07:00:00.000Z",
+			"dateLabel": "Wed, Sep 2",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "KB Deadlift",
+					"sets": [
+						{
+							"of": "load",
+							"load": 62,
+							"reps": 8
+						},
+						{
+							"of": "load",
+							"load": 62,
+							"reps": 7
+						},
+						{
+							"of": "load",
+							"load": 62,
+							"reps": 6
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Shoulder Press",
+					"sets": [
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 11
+						},
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 9
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Copenhagen Plank",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 8
+						},
+						{
+							"of": "reps",
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				},
+				{
+					"item": "Calf stretch",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						},
+						{
+							"of": "hold",
+							"seconds": 45,
+							"target": 45
+						}
+					],
+					"indices": [
+						1,
+						2
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 1,
+			"entries": 11,
+			"finishedAt": "2026-09-02T07:54:00.000Z"
+		},
+		{
+			"id": "s008",
+			"workout": {
+				"routine": "1"
+			},
+			"discipline": "lift",
+			"plan": "her-12-v1",
+			"at": "2026-08-09T07:00:00.000Z",
+			"dateLabel": "Sun, Aug 9",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Deep Goblet Squat",
+					"sets": [
+						{
+							"of": "load",
+							"load": 20,
+							"reps": 12
+						}
+					],
+					"indices": [
+						1
+					]
+				},
+				{
+					"item": "Dead Bug",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 8
+						}
+					],
+					"indices": [
+						1
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 2,
+			"finishedAt": "2026-08-09T08:00:00.000Z"
+		},
+		{
+			"id": "s007",
+			"workout": {
+				"routine": "1"
+			},
+			"discipline": "yoga",
+			"plan": "yoga-2day-v1",
+			"at": "2026-08-07T07:00:00.000Z",
+			"dateLabel": "Fri, Aug 7",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Pigeon",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 60,
+							"target": 60
+						}
+					],
+					"indices": [
+						1
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 1,
+			"finishedAt": "2026-08-07T08:00:00.000Z"
+		},
+		{
+			"id": "s006",
+			"workout": {
+				"routine": "run"
+			},
+			"discipline": "run",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-08-05T07:00:00.000Z",
+			"dateLabel": "Wed, Aug 5",
+			"finished": true,
+			"mode": "live",
+			"rows": [],
+			"minutes": 32,
+			"durations": [
+				{
+					"item": "Easy run",
+					"index": 1,
+					"minutes": 32
+				}
+			],
+			"prep": 0,
+			"entries": 1,
+			"finishedAt": "2026-08-05T08:00:00.000Z"
+		},
+		{
+			"id": "s005",
+			"workout": {
+				"routine": "run"
+			},
+			"discipline": "run",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-08-03T07:00:00.000Z",
+			"dateLabel": "Mon, Aug 3",
+			"finished": true,
+			"mode": "live",
+			"rows": [],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 0,
+			"finishedAt": "2026-08-03T08:00:00.000Z"
+		},
+		{
+			"id": "s003",
+			"workout": {
+				"routine": "A"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-07-30T07:00:00.000Z",
+			"dateLabel": "Thu, Jul 30",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Goblet Squat",
+					"sets": [
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Chest Press",
+					"sets": [
+						{
+							"of": "load",
+							"load": 50,
+							"reps": 8
+						},
+						{
+							"of": "load",
+							"load": 50,
+							"reps": 8
+						},
+						{
+							"of": "load",
+							"load": 50,
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Lat Pulldown",
+					"sets": [
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 9
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Long-Lever Plank",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						}
+					],
+					"indices": [
+						1
+					]
+				},
+				{
+					"item": "Dead Bug",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						}
+					],
+					"indices": [
+						1
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 11,
+			"finishedAt": "2026-07-30T08:00:00.000Z"
+		},
+		{
+			"id": "s002",
+			"workout": {
+				"routine": "B"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-07-28T07:00:00.000Z",
+			"dateLabel": "Tue, Jul 28",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "KB Deadlift",
+					"sets": [
+						{
+							"of": "load",
+							"load": 53,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 53,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 53,
+							"reps": 12
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Shoulder Press",
+					"sets": [
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 9
+						},
+						{
+							"of": "load",
+							"load": 30,
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Seated Row",
+					"sets": [
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 10
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Long-Lever Plank",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						}
+					],
+					"indices": [
+						1
+					]
+				},
+				{
+					"item": "Dead Bug",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						}
+					],
+					"indices": [
+						1
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 11,
+			"finishedAt": "2026-07-28T08:00:00.000Z"
+		},
+		{
+			"id": "run-2026-07-27T07:00:00.000Z",
+			"workout": {
+				"routine": "run"
+			},
+			"discipline": "run",
+			"plan": "",
+			"at": "2026-07-27T06:30:00.000Z",
+			"dateLabel": "Mon, Jul 27",
+			"finished": true,
+			"mode": "after",
+			"rows": [],
+			"minutes": 30,
+			"durations": [
+				{
+					"item": "Run",
+					"index": 1,
+					"minutes": 30
+				}
+			],
+			"prep": 0,
+			"entries": 1,
+			"finishedAt": "2026-07-27T07:00:00.000Z"
+		},
+		{
+			"id": "s001",
+			"workout": {
+				"routine": "A"
+			},
+			"discipline": "lift",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-07-26T07:00:00.000Z",
+			"dateLabel": "Sun, Jul 26",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Goblet Squat",
+					"sets": [
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 9
+						},
+						{
+							"of": "load",
+							"load": 35,
+							"reps": 8
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Chest Press",
+					"sets": [
+						{
+							"of": "load",
+							"load": 45,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 45,
+							"reps": 12
+						},
+						{
+							"of": "load",
+							"load": 45,
+							"reps": 12
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Lat Pulldown",
+					"sets": [
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 10
+						},
+						{
+							"of": "load",
+							"load": 65,
+							"reps": 9
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Long-Lever Plank",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						}
+					],
+					"indices": [
+						1
+					]
+				},
+				{
+					"item": "Dead Bug",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						}
+					],
+					"indices": [
+						1
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 11,
+			"finishedAt": "2026-07-26T08:00:00.000Z"
+		}
+	],
+	"openSession": [
+		{
+			"session": "s018",
+			"item": "Warm-up",
+			"index": 1,
+			"at": "2026-09-22T11:06:00.000Z",
+			"measure": {
+				"of": "step"
+			}
+		},
+		{
+			"session": "s018",
+			"item": "Goblet Squat",
+			"index": 1,
+			"at": "2026-09-22T11:18:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 45,
+				"reps": 8
+			}
+		},
+		{
+			"session": "s018",
+			"item": "Goblet Squat",
+			"index": 2,
+			"at": "2026-09-22T11:24:00.000Z",
+			"measure": {
+				"of": "load",
+				"load": 45,
+				"reps": 7
+			}
+		}
+	],
+	"weekChanges": [
+		{
+			"at": "2026-09-19T07:00:00.000Z",
+			"dateLabel": "Sat, Sep 19",
+			"blocks": [],
+			"goals": [
+				{
+					"practice": "lift",
+					"sessions": 4
+				}
+			]
+		},
+		{
+			"at": "2026-09-03T07:00:00.000Z",
+			"dateLabel": "Thu, Sep 3",
+			"blocks": [
+				{
+					"block": "yoga",
+					"on": false
+				}
+			],
+			"goals": [
+				{
+					"practice": "run",
+					"sessions": 2,
+					"minutes": 35
+				}
+			]
+		},
+		{
+			"at": "2026-08-10T07:00:00.000Z",
+			"dateLabel": "Mon, Aug 10",
+			"blocks": [
+				{
+					"block": "yoga",
+					"on": true
+				},
+				{
+					"block": "mob",
+					"on": true
+				},
+				{
+					"block": "run",
+					"on": true
+				}
+			],
+			"goals": [],
+			"programme": "ab-fullbody-v1"
+		},
+		{
+			"at": "2026-08-08T07:00:00.000Z",
+			"dateLabel": "Sat, Aug 8",
+			"blocks": [
+				{
+					"block": "yoga",
+					"on": false
+				},
+				{
+					"block": "mob",
+					"on": false
+				},
+				{
+					"block": "run",
+					"on": true
+				}
+			],
+			"goals": [],
+			"programme": "her-12-v1"
+		},
+		{
+			"at": "2026-08-06T07:00:00.000Z",
+			"dateLabel": "Thu, Aug 6",
+			"blocks": [
+				{
+					"block": "yoga",
+					"on": true
+				},
+				{
+					"block": "mob",
+					"on": false
+				},
+				{
+					"block": "run",
+					"on": false
+				}
+			],
+			"goals": []
+		},
+		{
+			"at": "2026-07-24T07:00:00.000Z",
+			"dateLabel": "Fri, Jul 24",
+			"blocks": [
+				{
+					"block": "yoga",
+					"on": true
+				},
+				{
+					"block": "mob",
+					"on": true
+				},
+				{
+					"block": "run",
+					"on": true
+				}
+			],
+			"goals": [],
+			"programme": "ab-fullbody-v1"
+		}
+	],
+	"strip": [
+		{
+			"key": 20260916,
+			"date": 16,
+			"label": "Wed, Sep 16",
+			"did": [
+				"mobility"
+			],
+			"today": false,
+			"future": false
+		},
+		{
+			"key": 20260917,
+			"date": 17,
+			"label": "Thu, Sep 17",
+			"did": [
+				"bodyweight"
+			],
+			"today": false,
+			"future": false
+		},
+		{
+			"key": 20260918,
+			"date": 18,
+			"label": "Fri, Sep 18",
+			"did": [],
+			"today": false,
+			"future": false
+		},
+		{
+			"key": 20260919,
+			"date": 19,
+			"label": "Sat, Sep 19",
+			"did": [
+				"lift"
+			],
+			"today": false,
+			"future": false
+		},
+		{
+			"key": 20260920,
+			"date": 20,
+			"label": "Sun, Sep 20",
+			"did": [
+				"run"
+			],
+			"today": false,
+			"future": false
+		},
+		{
+			"key": 20260921,
+			"date": 21,
+			"label": "Mon, Sep 21",
+			"did": [
+				"mobility"
+			],
+			"today": false,
+			"future": false
+		},
+		{
+			"key": 20260922,
+			"date": 22,
+			"label": "Tue, Sep 22",
+			"did": [
+				"lift"
+			],
+			"today": true,
+			"future": false
+		}
+	],
+	"month": {
+		"weekdays": [
+			"M",
+			"T",
+			"W",
+			"T",
+			"F",
+			"S",
+			"S"
+		],
+		"weeks": [
+			[
+				{
+					"key": 20260824,
+					"date": 24,
+					"label": "Mon, Aug 24",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260825,
+					"date": 25,
+					"label": "Tue, Aug 25",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260826,
+					"date": 26,
+					"label": "Wed, Aug 26",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260827,
+					"date": 27,
+					"label": "Thu, Aug 27",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260828,
+					"date": 28,
+					"label": "Fri, Aug 28",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260829,
+					"date": 29,
+					"label": "Sat, Aug 29",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260830,
+					"date": 30,
+					"label": "Sun, Aug 30",
+					"did": [],
+					"today": false,
+					"future": false
+				}
+			],
+			[
+				{
+					"key": 20260831,
+					"date": 31,
+					"label": "Mon, Aug 31",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260901,
+					"date": 1,
+					"label": "Tue, Sep 1",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260902,
+					"date": 2,
+					"label": "Wed, Sep 2",
+					"did": [
+						"lift"
+					],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260903,
+					"date": 3,
+					"label": "Thu, Sep 3",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260904,
+					"date": 4,
+					"label": "Fri, Sep 4",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260905,
+					"date": 5,
+					"label": "Sat, Sep 5",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260906,
+					"date": 6,
+					"label": "Sun, Sep 6",
+					"did": [],
+					"today": false,
+					"future": false
+				}
+			],
+			[
+				{
+					"key": 20260907,
+					"date": 7,
+					"label": "Mon, Sep 7",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260908,
+					"date": 8,
+					"label": "Tue, Sep 8",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260909,
+					"date": 9,
+					"label": "Wed, Sep 9",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260910,
+					"date": 10,
+					"label": "Thu, Sep 10",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260911,
+					"date": 11,
+					"label": "Fri, Sep 11",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260912,
+					"date": 12,
+					"label": "Sat, Sep 12",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260913,
+					"date": 13,
+					"label": "Sun, Sep 13",
+					"did": [
+						"lift"
+					],
+					"today": false,
+					"future": false
+				}
+			],
+			[
+				{
+					"key": 20260914,
+					"date": 14,
+					"label": "Mon, Sep 14",
+					"did": [
+						"run"
+					],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260915,
+					"date": 15,
+					"label": "Tue, Sep 15",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260916,
+					"date": 16,
+					"label": "Wed, Sep 16",
+					"did": [
+						"mobility"
+					],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260917,
+					"date": 17,
+					"label": "Thu, Sep 17",
+					"did": [
+						"bodyweight"
+					],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260918,
+					"date": 18,
+					"label": "Fri, Sep 18",
+					"did": [],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260919,
+					"date": 19,
+					"label": "Sat, Sep 19",
+					"did": [
+						"lift"
+					],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260920,
+					"date": 20,
+					"label": "Sun, Sep 20",
+					"did": [
+						"run"
+					],
+					"today": false,
+					"future": false
+				}
+			],
+			[
+				{
+					"key": 20260921,
+					"date": 21,
+					"label": "Mon, Sep 21",
+					"did": [
+						"mobility"
+					],
+					"today": false,
+					"future": false
+				},
+				{
+					"key": 20260922,
+					"date": 22,
+					"label": "Tue, Sep 22",
+					"did": [
+						"lift"
+					],
+					"today": true,
+					"future": false
+				},
+				{
+					"key": 20260923,
+					"date": 23,
+					"label": "Wed, Sep 23",
+					"did": [],
+					"today": false,
+					"future": true
+				},
+				{
+					"key": 20260924,
+					"date": 24,
+					"label": "Thu, Sep 24",
+					"did": [],
+					"today": false,
+					"future": true
+				},
+				{
+					"key": 20260925,
+					"date": 25,
+					"label": "Fri, Sep 25",
+					"did": [],
+					"today": false,
+					"future": true
+				},
+				{
+					"key": 20260926,
+					"date": 26,
+					"label": "Sat, Sep 26",
+					"did": [],
+					"today": false,
+					"future": true
+				},
+				{
+					"key": 20260927,
+					"date": 27,
+					"label": "Sun, Sep 27",
+					"did": [],
+					"today": false,
+					"future": true
+				}
+			]
+		],
+		"span": "Aug 24 – Sep 22"
+	}
+}
