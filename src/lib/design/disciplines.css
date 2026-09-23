@@ -1,6 +1,0 @@
-/* one ink per discipline, shared by the calendar's stripes, the Ledger's legend and The Plan's swatches */
-.ink-lift { background: var(--volt); }
-.ink-run { background: var(--ink); }
-.ink-mobility { background: var(--white); }
-.ink-yoga { background: var(--ink-3); }
-.ink-bodyweight { background: repeating-linear-gradient(135deg, var(--volt) 0 3px, var(--white) 3px 6px); }

@@ -4,10 +4,8 @@ import type { StoredEvent } from './events';
 import { composePlan, planExercises, progresses } from './plan';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from './plans';
 import { suggest } from './progression';
-import {
-	activeProgramme, goals, historyFor, monthGrid, nextInCycle, practicesOn, projectSessions, queue, restSeconds, sessionEntries, staleness,
-	weekChanges, weekProgress, weekStrip, weekTally
-} from './projections';
+import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
+import { nextInCycle, queue, staleness, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 /**

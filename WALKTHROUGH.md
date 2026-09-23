@@ -74,16 +74,18 @@ which job a file has tells you what belongs in it — and what doesn't:
 | **vocabulary** | [measure.ts](src/lib/domain/measure.ts), [plan.ts](src/lib/domain/plan.ts), [events.ts](src/lib/domain/events.ts), [commands.ts](src/lib/domain/commands.ts) | the measure; the plan model and the week (routines, cycles, disciplines, practices, goals); the facts; the requests | closed unions, self-describing, past / imperative tense — and the *current* shape only |
 | **read boundary** | [upcast.ts](src/lib/domain/upcast.ts) | translate stored rows into today's vocabulary | the only place shape inference lives; an unknown name throws |
 | **rules** | [decider.ts](src/lib/domain/decider.ts) | accept or refuse a command | state holds only what a rule needs; validates shape, never meaning |
-| **read model** | [projections.ts](src/lib/domain/projections.ts) | what happened — per session, per exercise, per cycle, per week — and what to offer next | pure folds over events; removal applied once; `now` is an argument |
+| **read model** | [projections.ts](src/lib/domain/projections.ts) | what happened — per session, per exercise, per day — and what the week is set to | pure folds over events; removal applied once; `now` is an argument |
+| **the week** | [week.ts](src/lib/domain/week.ts) | the three rules over the read model: owed, next, the deal | one function per rule, named in [domain/README.md](src/lib/domain/README.md) |
 | **policy** | [progression.ts](src/lib/domain/progression.ts) | what every set should be next time | a function of (history, exercise, now) — knows nothing about events |
 | **words** | [labels.ts](src/lib/domain/labels.ts) | every phrase about a set, a load, a range, a week | one implementation per phrase, tested as strings |
 | **reference** | [plans.ts](src/lib/domain/plans.ts), [racks.ts](src/lib/domain/racks.ts), [steps.ts](src/lib/domain/steps.ts) | the shipped programmes and blocks, the ladders, the walk | parsed at *its* boundary too — a programme row is data from outside, like an event row |
 
 Dependencies point one way. `plan.ts` is vocabulary: `events.ts` and
 `commands.ts` import its types (`PracticeId`, `Goal`, `Discipline`),
-`upcast.ts` reads them, `decider.ts` checks against them. On the read side `projections → progression → plan → racks`,
-`projections → steps` (the minutes a candidate costs) and `projections →
-labels` (a candidate's one-line reason) — so a file never reaches up. When
+`upcast.ts` reads them, `decider.ts` checks against them. On the read side `week → projections`,
+`week → progression → plan → racks`, `week → steps` (the minutes a candidate
+costs) and `week → labels` (a candidate's one-line reason) — so a file never
+reaches up. When
 something feels like it belongs in two places, the table says which. The
 smell that produced this shape was `projections.ts` holding the read model,
 the rule *and* the words at once, while every screen re-derived the words
@@ -111,7 +113,7 @@ they govern; `measureFor(exercise, …)` is the one place "which variant does
 this exercise write" is decided. Note there is no "load of 0 means
 bodyweight": a convention is exactly what a union exists to remove.
 
-[events.ts](src/lib/domain/events.ts) then names the eight facts:
+[events.ts](src/lib/domain/events.ts) then names the nine facts:
 
 | Event | Meaning |
 |---|---|
@@ -122,7 +124,8 @@ bodyweight": a convention is exactly what a union exists to remove.
 | `SessionRemoved` | the event-sourced delete — a fact about a fact |
 | `ProgrammeSelected` | you switched the lifting to another programme — the blocks stay as they were |
 | `BlockToggled` | you switched a block of the week (yoga · stretch · run · no gym) on or off — a fact with a date, so the Ledger can say when the week changed |
-| `PreferencesSet` | what you told the app you're after and what you've got — a full snapshot with a date, so "you said you wanted to run better six weeks ago" is sayable |
+| `GoalSet` | what you asked a practice for — sessions a week, the run's minutes — over the programme's own cadence |
+| `RestSet` | the rest between sets, in seconds: a programme constant until the Plan made it a person's setting (2026-09-22) |
 
 The discipline is **stamped** on `SessionStarted` when the session starts and
 never looked up later. Programme rows are upserted with no history, so a
@@ -148,10 +151,10 @@ may write.
 
 Names are **past tense** — an event can't be rejected, it already happened.
 Requests that *can* be rejected are **commands**, named in the imperative —
-nine of them in [commands.ts](src/lib/domain/commands.ts): `StartSession`,
+ten of them in [commands.ts](src/lib/domain/commands.ts): `StartSession`,
 `LogEntry`, `CorrectEntry`, `FinishSession`, `LogAfter` (a whole backdated
 session: `startAt`, `at`, its `AfterEntry` list), `RemoveSession`,
-`SelectProgramme`, `TogglePractice`, `SetGoal`. One command per verb, and
+`SelectProgramme`, `TogglePractice`, `SetGoal`, `SetRest`. One command per verb, and
 nothing else writes: every tap in the app maps to exactly one of them. The
 discipline rides IN on `StartSession` and `LogAfter`: the form action reads
 it off `wholePlan(programme)` — every routine, whether or not its practice is
@@ -189,11 +192,12 @@ yoga, the morning stretch, the run — each on or off, each at a cadence:
   folds them. A **goal** is a `GoalSet` event — sessions a week, and for the
   run its minutes — over the programme's or the block's own cadence; `goals(events)`
   keeps the last per practice.
-- `composePlan(programme, BLOCKS, FLOOR, on, goals)` ([plan.ts](src/lib/domain/plan.ts))
+- `composePlan(programme, BLOCKS, FLOOR, on, goals, rest)` ([plan.ts](src/lib/domain/plan.ts))
   folds it all into the one `Plan` every projection, step list and rule
   consumes: the programme's cycle with its goal applied and the floor behind
   it (while the lift is on), then the cycle of each block that is on with its
-  goal applied — the run's minutes rewrite the run exercise's `lo`/`hi` — and
+  goal applied — the run's minutes rewrite the run exercise's `lo`/`hi`, a
+  `RestSet` rewrites the programme's `rest` while an exercise's own stands — and
   **every** routine and `routineInfo`, on or off, so a session of something
   you switched off still has a title. The layout does this once
   ([+layout.server.ts](src/routes/(app)/+layout.server.ts)) for every
@@ -309,7 +313,8 @@ records nothing; `TogglePractice` refuses a practice the week has not got
 (`isPractice`) and records nothing for a switch to where it already is;
 `SetGoal` refuses a number off the dial (`GOAL_SESSIONS`, `GOAL_MINUTES`) or
 minutes for anything but the run, and records nothing when the goal is the
-one already set; `StartSession` and `LogAfter` refuse a discipline that is
+one already set; `SetRest` refuses a rest off its dial (`REST_SECONDS`: 30–180
+in 15 s steps) and records nothing when it is the one already set; `StartSession` and `LogAfter` refuse a discipline that is
 not one of the five.
 
 Notice also what's *not* here: `crypto.randomUUID()` and `new Date()` live in
@@ -370,27 +375,17 @@ else lives there:
 - `historyFor` → the seam between the read model and the rule: one exercise's
   sets per session, newest first, the session in progress left out — exactly
   what `suggest` reads. `lastEntryFor` is the same seam for one set
-- `trendFor` → one exercise over time: the last `TREND_WINDOW` (7) sessions
-  as points, what the rule has queued next, a tone (`start` · `up` · `down` ·
-  `warn` · `flat`) and ONE status sentence ("35 lb since Jul 11 — 6 sessions,
-  no change", "Set 1 at the top of the range — 40 lb next time", "Re-entry
-  haircut in 3 days"). The Ledger's "Am I getting stronger" list is this fold
-  run per exercise at request time — no stored projection, no new events
-- `nextInCycle` / `weekProgress` / `staleness` → where each cycle of the plan
-  is turned to (the routine after the last one of it you finished — position
-  is derived, never stored: do B twice and the pointer sits after B), how
-  many sessions of it the trailing week holds against its target, and how
-  long since it last turned. Two different questions, named once in the
-  file: a cycle COUNTS sessions by discipline, whatever plan offered them
-  (`countedBy` — yoga is yoga), and TURNS only on its own routines
-  (`turnedBy` — a finished session of this plan's key); `lastCounted` is the
-  session the first question ends on
-- `queue` → what Today deals, one `Candidate` per cycle (its `workout`,
-  `discipline`, `title`, `why`, `minutes`, `due`, `standsInFor`, and a `score`
-  that is ordering only). The next section is about it
+- `nextInCycle` / `weekProgress` / `staleness` / `queue` / `weekTally` live in
+  [week.ts](src/lib/domain/week.ts) since v3 — the three rules the domain
+  README names (owed · next · deal), read against this file's folds. Position
+  is derived, never stored: do B twice and the pointer sits after B. Two
+  different questions, named once: a cycle COUNTS sessions by discipline,
+  whatever plan offered them (`countedBy` — yoga is yoga, and a cycle that
+  stands in for another pays into its count), and TURNS only on its own
+  routines (`turnedBy` — a finished session of this plan's key)
 - `activeProgramme` → the last `ProgrammeSelected` wins; `practicesOn` → every
   practice until a `BlockToggled` says otherwise; `goals` → the last `GoalSet`
-  per practice; `weekChanges` → all three, grouped by the moment they
+  per practice; `restSeconds` → the last `RestSet`, or nothing; `weekChanges` → the first three, grouped by the moment they
   happened (a stored plan choice comes back as several events with one
   `at`), newest first, for the dividers between sessions in How it's going
 - `monthGrid` → the last `GRID_WEEKS` (5) weeks as a calendar, one cell per
@@ -399,11 +394,11 @@ else lives there:
   week was quiet"; a month says whether that is the habit
 - `weekStrip` → the trailing seven days as the same cells, today last — the
   strip under Today's title, and the door to the month
-- `weekTally` → this week in one line's worth of numbers: every session in
-  the trailing seven days, everything the on cycles ask, and which of them
-  are behind (`weekSentence` says it: "Showing up 4 times this week of the 11
-  the week asks — lift and run are the gap."). Seven days, not a running
-  average: the strip and the sentence must agree
+- `weekTally` (in week.ts) → this week in one line's worth of numbers: every
+  session in the trailing seven days, everything the on cycles ask, and which
+  of them are behind (`paceLine` says it: "6 of 9 this week — lift, run still
+  owed."). Seven days, not a running average: the strip and the sentence must
+  agree
 
 Even "is a session open?" is a projection (`currentState(events).activeSession`
 in [+layout.server.ts](src/routes/(app)/+layout.server.ts)) — the same
@@ -417,7 +412,7 @@ cached.
 
 ### The queue — how Today decides
 
-`queue(events, plan, now)` is the one piece of genuinely new logic: ONE
+`queue(events, plan, now)` in [week.ts](src/lib/domain/week.ts) is the one piece of genuinely new logic: ONE
 candidate per cycle of the composed plan, ranked, and Today shows the
 first; "Something else" lists the rest. The ranking is a single number with
 bands that cannot touch:
@@ -483,22 +478,21 @@ time is data the rule receives, never a clock it reads.
 ### The words — labels.ts
 
 [src/lib/domain/labels.ts](src/lib/domain/labels.ts) holds every phrase a
-screen shows — about a set, a load or a range (`setsLine` "35 lb · 12 · 9 ·
-5", "8 L · 8 R"; `doseLabel` "3 × 6–12 · per side"; `loadHint`, the one line
-before set 1: "Set 1 goes up to 40 lb — sets 2–3 stay at 35."; `lineValue`
-"40 lb · 3 × 8" on Log it after), and now about the week (`weekMeta` "3 a
-week · 1 done", `standInLine`, `weekHead` "11 sessions a week · about 5 h",
-`goalHint` "The programme says 3 a week — your goal is 4.", `practiceLabel`
-and `weekChangeLine` "switched to Open to Work · yoga, stretch, run on",
-"run 3 a week · 35 min" for the Ledger's dividers), the week (`weekSentence`
-"Showing up 4 times this week of the 11 the week asks — lift and run are the
-gap.") and a folded session (`sessionSummary` "20
-sets · 48 min", "9 holds · 11 min") — written once and tested as strings.
-The per-hand and per-side questions must be answered identically on the
-plan screen, the gym floor and the ledger; two screens phrasing "3 × 8–12"
-differently is how a lunge ends up meaning two different workouts.
-`setsLine` reads the measures alone, so a retired exercise still renders
-exactly as it was logged.
+screen shows — about a set, a load or a range (`setsLine` "35 lb · 12 · 9 · 5",
+"8 L · 8 R"; `doseLabel` "3 × 6–12 · per side"; `itemDose` "45 lb · 3 × 6–12",
+the line beside an exercise on Today's card; `loadHint`, the one line behind
+"why?" on the floor: "Set 1 goes up to 40 lb — sets 2–3 stay at 35."), about the
+week (`dealCaption` "Due · Lift · 1 of 3 this week", `standInLine`, `weekHead`
+"11 sessions a week · about 5 h", `goalHint`, `paceLine` "6 of 9 this week —
+lift, run still owed.", `weekChangeLine` for the Ledger's dividers), about a day
+(`disciplineLetter` L · Y · S · R · F and `cellLegend`), about when (`whenLabel`
+"yesterday", "6 days ago") and about a folded session (`sessionSummary` "20 sets
+· 48 min", `monthLine`) — written once and tested as strings. The per-hand and
+per-side questions must be answered identically on the plan screen, the gym
+floor and the ledger; two screens phrasing "3 × 8–12" differently is how a
+lunge ends up meaning two different workouts. `setsLine` reads the measures
+alone, so a retired exercise still renders exactly as it was logged. The v3
+trim shortened this file: a phrase leaves when no screen says it.
 
 ### The session is a list of steps
 
@@ -595,7 +589,7 @@ because the measure says what it was: a retired "Weighted Plank" is still
 
 ### Tests — the domain is pure, so test it like arithmetic
 
-`pnpm test` runs vitest over `src/**/*.test.ts` — eleven suites, 186 tests, one
+`pnpm test` runs vitest over `src/**/*.test.ts` — ten suites, 174 tests, one
 per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/snapshot.test.ts)
 builds a full stream in every stored shape the upcaster reads, folds it through
 every rule at one fixed `now`, and compares the JSON to the committed
@@ -612,17 +606,16 @@ blocks switched, and that reading twice is reading once),
 needed; the rung counted from the stream), `labels.test.ts` (every phrase, as
 a string), `projections.test.ts` (the folds, fed the retired `SetLogged`
 shape on purpose so the boundary is proved every run; that a correction
-replaces its set; that the queue leads with what is owed, keeps the floor
-last and lets a floor session pay the lift's debt; the week's folds and the
-tally), `plan.test.ts` (the plan's boundary — every illegal pairing and
+replaces its set; and the week's rules from `week.ts` — that the queue leads
+with what is owed, keeps the floor last and lets a floor session pay the
+lift's debt), `plan.test.ts` (the plan's boundary — every illegal pairing and
 contradiction it refuses — its accessors, and `composePlan` with its goals),
 `steps.test.ts` (that `restUntil` counts from the local timestamp, that an
 extra appends, that a step carries only what its kind needs),
-`racks.test.ts`, [rig.test.ts](src/lib/design/rig.test.ts)
+`racks.test.ts`, and [rig.test.ts](src/lib/design/rig.test.ts)
 (every exercise has a figure, every stamp prints, a route through the
-waypoints is the hops the design named) and
-[glyphs.test.ts](src/lib/design/glyphs.test.ts) (the gears and the clock, and
-that the reviewed snapshot is what the rig draws). Two things make these cheap to write: nothing in the
+waypoints is the hops the design named, and the reviewed snapshot in
+`tools/glyphs` is what the rig draws). Two things make these cheap to write: nothing in the
 domain does I/O, and every fold that needs the time takes `now` as an
 argument — a test builds a history with "15 days ago" arithmetic and never
 touches the clock. The config is a separate
@@ -639,29 +632,25 @@ src/routes/
 ├─ login/                          phone → HMAC id → signed stay-signed-in cookie (+page.svelte, +page.server.ts)
 ├─ logout/+page.server.ts          POST signs out (CSRF-checked); a GET just redirects
 └─ (app)/                          layout GROUP — every page inside requires the cookie
-   ├─ +layout.server.ts            ONE load for all pages: programmes composed with this person's blocks, plus the stream
-   ├─ (tabs)/                      nested group — the TabBar shell (+layout.svelte: the locked frame), two tabs
-   │  ├─ +page.svelte              Today — the week strip, one card, Something else  (/)
-   │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/undo (RemoveSession) · ?/finish
-   │  └─ week/                      The Week — four practices: switch · goal · done this week; the lift's trends  (/week)
-   │                                 ?/toggle (TogglePractice) · ?/goal (SetGoal)
-   ├─ ledger/                       How it's going — a sheet page, one tap under the strip  (/ledger)
-   │                                 ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
-   ├─ log/after/                    Log it after — a sheet page: What/When card, the sets card, one button  (/log/after)
-   │                                 ?/log (LogAfter)
-   ├─ week/programme/               the lift programme — a sheet page under The Week  (/week/programme)
-   │                                 ?/select (SelectProgramme)
-   ├─ week/why/+page.svelte         the cited case — a sheet page, static  (/week/why)
-   ├─ floor/                        gym floor — no tab bar  (/floor)
+   ├─ +layout.server.ts            ONE load for all pages: programmes composed with this person's practices, goals and rest, plus the stream
+   ├─ (tabs)/                      nested group — the locked frame with the tab bar at its foot, three tabs
+   │  ├─ +page.svelte              Today — the week strip, the deal on one card, Something else, Log a session I already did (a sheet)  (/)
+   │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/logAfter (LogAfter)
+   │  ├─ ledger/                    Ledger — five weeks of cells, the pace, every session by month; the latest one fixable  (/ledger)
+   │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
+   │  └─ plan/                      Plan — four practices: switch · goal · rest; the programme (a sheet); how loads move  (/plan)
+   │                                 ?/toggle (TogglePractice) · ?/goal (SetGoal) · ?/rest (SetRest) · ?/select (SelectProgramme)
+   ├─ floor/                        gym floor — covers the tabs  (/floor)
    │                                 load guard → / when nothing is open · ?/logEntry · ?/correctEntry · ?/finish
+   ├─ kit/                          every part of the kit in every state — dev only  (/kit)
    └─ export/+server.ts             GET /export: the stream as a JSON download
 
 src/lib/
-├─ domain/        the layers of §2 — pure, no I/O
+├─ domain/        the layers of §2 — pure, no I/O; README.md is the contract, __snapshots__/ the freeze
 ├─ server/        db.ts (a pg client per request), eventStore.ts, ledger.ts, plans.ts, auth.ts, uid.ts
-├─ components/    Button, Card, Badge, TabBar, SheetPage, PhoneInput, ExerciseGlyph, Athlete, DayCells, MonthGrid, TrendRow,
-│                 floor/{StepTable, AdjustTile, FloorPrimary, Sheet, AboutCard, SessionSheet, bell, wake-lock, entry-queue, countdown}
-└─ design/        tokens/*.css, disciplines.css (one ink per discipline), rig.ts (the athlete) + glyphs.ts + stamp.ts
+├─ ui/            the kit — twelve parts, props only, no domain imports: Caption, Title, Note, Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot
+├─ floor/         bell, wake-lock, entry-queue, countdown — the floor's machinery, no markup
+└─ design/        tokens/*.css, rig.ts (the figures; the Slot draws a still until rig v2)
 
 tools/glyphs/     bake.mjs snapshots the rig to glyph-frames.json; --check proves the snapshot is what the rig draws
 tools/stream/     forensics.sql — read-only queries over the event store
@@ -673,10 +662,10 @@ a signed, HttpOnly cookie on every request into `locals.uid` and re-issues it
 link shares nothing. The same file is where retired URLs live, all in one
 place, as permanent redirects: the old host `workout.dillonoleary.com` →
 `ledger.dillonoleary.com`; `/u/<id>` (once the login itself) → `/login`;
-`/why` and `/plan/why` → `/week/why`; `/log` → `/floor` with its query (a
-phone mid-session at deploy time reloads onto the same step); `/plan/change`
-and `/plan/programme` → `/week/programme`; `/plan` and everything under it
-→ `/week`.
+`/log` → `/floor` with its query (a phone mid-session at deploy time reloads
+onto the same step); and since v3 (2026-09-22) `/week`, everything under it,
+`/why`, `/plan/why`, `/plan/change` and `/plan/programme` → `/plan`, and
+`/log/after` → `/`.
 
 Things to notice:
 
@@ -684,105 +673,87 @@ Things to notice:
   (SvelteKit enforces this — importing them from a component is a build error).
   Your DB password cannot leak into the client bundle.
 - **Layout data merges down.** The `(app)` layout loads `{ uid, programmes,
-  plans, events, activePlanId, practicesOn, goals, activeSession, latestSession }` once;
+  plans, events, activePlanId, practicesOn, goals, rest, activeSession, latestSession }` once;
   every child page receives it as `data` and picks its plan with
   `data.plans.find((p) => p.id === data.activePlanId)`.
 - **Form actions are the only mutations.** No API routes, no fetch handlers —
   `<form method="POST" action="?/start">` works with JS disabled, and
   `use:enhance` upgrades it to a fetch that re-runs `load` and updates `data`
-  in place. The one exception that proves the rule is the gym floor's queue,
-  which POSTs the same `?/logEntry` and `?/correctEntry` actions by hand
-  (§4½) — but even there, Finish is a real hidden `<form use:enhance>`.
+  in place. The kit's `Primary` and `Switch` take `type="submit"`, so a
+  card's one button and a practice's switch are plain form posts. The one
+  exception that proves the rule is the gym floor's queue, which POSTs the same
+  `?/logEntry` and `?/correctEntry` actions by hand (§4½) — but even there,
+  Finish is a real hidden `<form use:enhance>`.
 - **Errors flow as data.** The decider throws → the action catches
   (`tryCommand`) → `fail(400, { message })` → the page renders `form.message`.
   Infrastructure errors still crash to a 500, as they should.
 - **The URL is state you read, not store.** Pages read `page.url` from
-  `$app/state` (the runes-era module; `$app/stores` is the old one): Today
-  links Log it after with `?what=A`, and the floor keeps its step in
-  `?step=` and the stretches you added in `?add=`.
+  `$app/state` (the runes-era module; `$app/stores` is the old one): the
+  floor keeps its step in `?step=`, so a reload lands on the same set.
 
 ## 4. Svelte 5: the runes tour
 
 | Rune / feature | Where to look |
 |---|---|
-| `$state` | `stepI`, `weight`, `reps` on the gym floor — plain variables, deeply reactive; Log it after's `lines[]` is an array of objects, and mutating `l.sets` inside it is enough |
+| `$state` | `stepI`, `weight`, `reps` on the gym floor — plain variables, deeply reactive; the Ledger's `edit[]` is an array of objects, and mutating `edit[k].count` inside it is enough |
 | `$derived` | everything computed from `data.events`; change the stream, the screen recomputes |
-| `$derived.by` | a derivation that needs a block: How it's going's `months` (sessions and week changes interleaved by time, folded by month), The Week's `practices`, Log it after's `groups` |
+| `$derived.by` | a derivation that needs a block: the Ledger's `months` (sessions and week changes interleaved by time, folded by month), Plan's `practices`, Today's `entries` for the Log-after sheet, the floor's `rows` |
 | `$props` | every component; typed destructuring `let { data, form }: PageProps = $props()` |
-| `$bindable` | `floor/AdjustTile.svelte` — `bind:value={reps}` two-way binds the floor's number to the tile |
-| `$effect` that writes state | Log it after rebuilds `lines` from the rule when `routine` changes, and closes the open line — the one effect in the app that assigns state, because the lines are a *draft* seeded from data, not a derivation of it |
-| `Snippet` / `{@render children()}` | `Button`, `Card` — Svelte's children |
-| page-local `{#snippet name(args)}` | the Ledger's `stepper` and `editor`, the blocks page's `blockRow` — a snippet with parameters is a local component without a file, rendered with `{@render blockRow(b, on)}`. Declare it at the top level of the markup, not inside a component's children |
-| `{@const}` | inside an `{#each}`: `{@const expanded = open === p.id}` on The Week, `{@const latest = s.id === data.latestSession}` on How it's going — a value computed once per item |
-| `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ reps on a hold or bodyweight tile, otherwise weight; 1–9 reps and 0 = 10; Enter is the primary action; ← → step; Esc closes whichever sheet is open. The Ledger's `<svelte:window onclick>` disarms the two-tap Remove |
-| `class:` directive | `class:out={card.out}` on Today's card, `class:did` · `class:today` · `class:future` · `class:dark` on a MonthGrid cell, `class:single={tileBW}` on the floor's tile row; StepTable interpolates instead — `class="row {r.state}"` |
-| `bind:this` | the floor's hidden Finish form (`finishFormEl`, submitted from a keyboard shortcut), the tab layout's inner scroller, the glyph's canvas |
-| scoped `<style>` | every component — the design system's tokens are global (`disciplines.css` too: `.ink-lift` is one rule shared by the calendar, the legend and The Week), layout is local |
+| `$bindable` | nowhere, on purpose: the kit's `Stepper` never owns a number — it gets `value` and calls `onstep(±1)`, and the parent decides what a step means (a rack size, five minutes, one rep) |
+| `$effect` that writes state | none left: Log it after used to rebuild a draft of lines when the routine changed; the sheet now derives its `entries` from the rule and the picked routine, so there is nothing to seed |
+| `Snippet` / `{@render children()}` | every part of the kit that holds content — `Card`, `Primary`, `Row`, `Sheet`, `Note` — is Svelte's children |
+| page-local `{#snippet name(args)}` | `Row`'s `inner` snippet renders the same label and right side whether the row is a link, a button or plain text; `SetTable` takes a `fixing` snippet as a prop, so the floor decides what an editing row shows |
+| `{@const}` | inside an `{#each}`: `{@const expanded = open === p.id}` on Plan, `{@const latest = s.id === data.latestSession}` in the Ledger — a value computed once per item |
+| `<svelte:window onkeydown>` | gym floor keyboard: ↑↓ the number, ← → step, Enter the primary, Esc cancels a fix. `Sheet` listens for Esc too, and the Ledger's `<svelte:window onclick>` disarms the two-tap Remove |
+| `class:` directive | `class:done` · `class:today` · `class:future` on a `Cell`, `class:on` on a `Switch`, `class:off` on a Plan row; `SetTable` interpolates instead — `class="row {r.state}"` |
+| `bind:this` | the floor's hidden Finish form (submitted from the primary), the Plan's goal and rest forms (submitted once the tapping stops), the tab layout's inner scroller, the Slot's canvas |
+| scoped `<style>` | every component — the design system's tokens are global, layout is local; a kit part exposes nothing but its props, so a screen never reaches into one with `:global` except to size a `Slot` |
 | `use:enhance` with a callback | the Ledger's editor: `use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') editingRow = null; }}` — the row stays open on a refusal, so the message is read where the numbers are |
-| `$effect` | `ExerciseGlyph.svelte` — a canvas that stamps the rig's frames: the effect wires a `ResizeObserver` and a `requestAnimationFrame` loop that plays one pass of the figure's gear, and the function it returns tears both down; a second effect runs the gear on repeat while `loop` is set — a rep with its 900 ms rest, a breath without one, a still not at all. `Athlete.svelte` has the same two effects with a different split: one owns the canvas, the other reads `{ pose, phase }` and does nothing but tell the figure where to be |
-| `bind:clientHeight` | Today measures the room under its card (`slack`) instead of guessing the device: ≥ 150px → the figure strip, ≥ 60px → one mono line, else nothing. Nothing ever half-shows, and nothing scrolls |
-| a component that persists | the gym floor used to wrap its glyph in `{#key glyphName}` so each exercise remounted a fresh figure. Now one `<Athlete pose phase>` lives on the floor for the whole session and is never remounted: `pose` and `phase` are a `$derived` of what the floor already knows (`resting · clock.active · stepDone · allDone`), and the figure works out its own path — exit the pose to its waypoint and up to a stand, turn if the view changes, enter the next. The floor never says "animate"; it says where the body is |
+| `$effect` | `Slot.svelte` — one effect reads `exercise`, `phase` and `size`, asks the rig for one frame and stamps it on the canvas; nothing animates yet, so there is nothing to tear down. The floor's `$effect` that rings the bell is the other one worth reading |
+| a component that persists | the Slot's contract — `<Slot exercise phase size />` — is fixed now so rig v2 can put a live athlete in it without touching a screen: the floor says where the body is, never "animate" |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
-| `$derived` over `$state` | the floor's `steps` are derived, not a snapshot: a stretch added from the session sheet changes `added`, the steps grow a section, and every row, label and estimate follows |
-| transitions timed from a token | `TrendRow` opens with `transition:slide={{ duration: OPEN }}` where `OPEN = durationMs('--dur-med', 180)` — the CSS token is the one place the tempo lives |
-| `bind:open` | the Why page's `<details bind:open={refsOpen}>`: a cite opens the references before the browser scrolls to the target |
+| `$derived` over `$state` | the floor's `steps` are derived from the entries: a set logged outside the routine grows a section, and every row, label and estimate follows |
+| transitions | `Sheet` flies in with `transition:fly` and fades its scrim; both durations drop to 0 under `prefers-reduced-motion`, read once when the sheet opens |
 | `afterNavigate` | the tab layout resets its inner scroller on every navigation — the document never scrolls, so the browser can't do it for you |
-| `<script module>` | `StepTable`, `SessionSheet` and `Athlete` export their row, section and phase types from a module script, so the page can type what it hands them |
-| a shell with a snippet | `floor/Sheet.svelte` is one shape — header, a body that scrolls, a footer that doesn't — and `SessionSheet` fills its `children`; `SheetPage.svelte` is the same shape as a whole page, and How it's going, Log it after, the programme and Why fill it. The fixed footer is also the fix for a bug: a `position: sticky` button inside the scroller rode the home bar and the last rows slid under it |
+| `<script module>` | `SetTable` exports its `SetRow` type from a module script, so the floor can type the rows it builds |
+| a shell with a snippet | `ui/Sheet.svelte` is one shape — a scrim, a header with ×, a body that scrolls — and the Programme sheet and Log-after fill its `children`. Two exist; a sheet never opens a sheet |
 | `$effect` that returns a release | the floor's `$effect(() => (lit ? holdScreen() : undefined))` — `holdScreen` requests a screen wake lock and returns its release, so the effect's cleanup is the release; `lit` is false on the run, which is long enough to let the screen sleep and trust the bell |
-| callback props | `ontoggle`, `onStep`, `onTap`, `onRetry` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
-| runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/components/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/components/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
+| callback props | `onstep`, `onfix`, `onretry`, `onclose`, `onclick` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
+| runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
 (and a `svelte-ignore state_referenced_locally`) because a session's identity
-*can't* change while you're on the floor; The Week and Log it after do the
-same when they seed a draft (a goal, `lines`) from `data` — and The Week's
-goal is posted once the tapping stops, not once per tap, so a dial to 5 is
-one `GoalSet`, not three. Knowing when you *don't* want reactivity is part of
+*can't* change while you're on the floor; Plan does the same when it seeds a
+draft goal from `data` — and the goal is posted once the tapping stops, not
+once per tap, so a dial to 5 is one `GoalSet`, not three; the rest dial works
+the same way. Knowing when you *don't* want reactivity is part of
 learning it.
 
-The glyph is the same lesson from the other side: its playback clock (`start`,
-`lastIdx`, the rAF handle) is plain `let`s, not `$state`, because it changes
-twelve times a rep and nothing in the template reads it. Reactivity nobody
-depends on is work the compiler does for no one.
-
-The figures themselves live in [rig.ts](src/lib/design/rig.ts), and they are
-drawn live. A pose is a function of depth (`pose(d)`, 0 at the top of the
-movement, 1 at the bottom) over one skeleton — a hip, a torso angle, two
-ankles and two hands, the knees and elbows solved by inverse kinematics — on
-one world, where the ground is `FLOOR` for every exercise so the feet land on
-the bottom dot row whatever the pose. `normalize` fills both legs and both
-arms so any two poses have the same joints, `lerp` walks between them, and
-`frame` stamps the joints onto the 31 × 31 grid as tapered capsules with a
-dithered light. Fifty-two figures, each in one of three GEARS — a `rep`
-(twelve stamps out and back, then a rest), a `breath` (four stamps, the hold
-rising and falling: the planks, chair, warrior II, savasana) or a `still`
-(one stamp at full depth: the stretches, pigeon, sphinx). A hold is not a
-rep with the ends chopped off; it is a body that stays where it is and
-breathes. `glyphs.ts` looks a name up, memoizes a stamp per depth, and tells
-the clock which frame is due in that gear.
-
-Going live is what lets one athlete persist. Each figure declares a
-`waypoint` — stand (the default and the hub), kneel, sit or back — and
-`route(from, to)` plans the hops: EXIT the pose to its waypoint and up to a
-stand, TURN with a four-frame dither if a side figure has to face front,
-ENTER through the new pose's waypoint; two poses at the same waypoint skip
-the stand. `Athlete.svelte` receives `{ pose, phase }` from the floor and does
-the rest: hops of six stamps on the rep clock, then the phase's gait — one
-rep on arriving at a set, a loop while a hold or the run is counting, the
-standing breath of a rest, a still on the done screen. Ten seconds before the
-bell the figure gets back into position, which is the cue the countdown never
-had. Under reduced motion it cuts to the work frame and never hops.
+The figures live in [rig.ts](src/lib/design/rig.ts), and they are drawn live.
+A pose is a function of depth (`pose(d)`, 0 at the top of the movement, 1 at
+the bottom) over one skeleton — a hip, a torso angle, two ankles and two hands,
+the knees and elbows solved by inverse kinematics — on one world, where the
+ground is `FLOOR` for every exercise so the feet land on the bottom dot row
+whatever the pose. `normalize` fills both legs and both arms so any two poses
+have the same joints, `lerp` walks between them, and `frame` stamps the joints
+onto the 31 × 31 grid as tapered capsules with a dithered light. Fifty-two
+figures, each in one of three GEARS — a `rep`, a `breath` or a `still` — and
+each with a `waypoint` so `route(from, to)` can plan the hops between any two.
+Since v3 only the `Slot` reads it, and it reads one frame: the work frame for a
+set, the top for a rest. The live athlete — the hops, the gears on a clock, the
+figure getting into position ten seconds before the bell — is rig v2, the
+roadmap's phase 5, and it lands inside the Slot's contract without touching a
+screen.
 
 The snapshot is the check, not the source: `node tools/glyphs/bake.mjs`
 writes every stamp of every gear to `tools/glyphs/glyph-frames.json` (Node
 runs the TypeScript rig as-is), and `--check` exits 1 unless the file is what
-the rig draws now — so a nudged pose fails the suite until the new figures
+the rig draws now — so a nudged pose fails `rig.test.ts` until the new figures
 are re-baked and looked at. Tested like the domain: every plan exercise has a
 figure (the run included), every frame is 31 × 31 and prints, the count
 follows the gear, a rep moves and a breath rises, `lerp` lands exactly on its
 endpoints so a hop ends on the pose, a route is the hops the design named,
-the clock holds on frame 0, and the snapshot matches.
+and the snapshot matches.
 
 ## 4½. Lessons from the first real workouts
 
@@ -790,7 +761,7 @@ The first gym session produced a feedback batch, and the week-model rewrite
 another; the patterns worth studying:
 
 - **Optimistic UI over an event store**
-  ([floor/entry-queue.svelte.ts](src/lib/components/floor/entry-queue.svelte.ts)): "Log
+  ([floor/entry-queue.svelte.ts](src/lib/floor/entry-queue.svelte.ts)): "Log
   set" pushes onto the `EntryQueue` and the screen updates in the same
   frame; a single-flight pump POSTs queued entries in order in the
   background, and no invalidation runs mid-session. The safety net is in
@@ -799,8 +770,7 @@ another; the patterns worth studying:
   Emmett's `retry: { onVersionConflict: true }` absorbs concurrent appends.
   A set the server rejects stays on the table as a failed row with a Retry
   — marked, never silently removed — and the floor draws the whole queue as
-  rows of a step table (confirmed / saving… / current / resting / editing /
-  upcoming). A correction rides the same queue with `op: 'correct'`:
+  rows of a `SetTable` (done / saving / now / fixing / todo / failed). A correction rides the same queue with `op: 'correct'`:
   `overlay()` lays the queue over the server's entries, a log adding a row
   and a correction replacing a measure, and that merged list is what the
   rest clock reads — so a set that hasn't reached the server yet still
@@ -837,9 +807,8 @@ another; the patterns worth studying:
   screen asking "is this cycle a block?" — is the same smell as every screen
   phrasing "3 × 8–12" for itself.
 - **Shallow routing** (`replaceState` from `$app/navigation`): the current
-  step lives in the URL (`/floor?step=6`, plus `&add=` for stretches added
-  from the session sheet) so refresh keeps your place, but no server load runs and
-  no history entries pile up.
+  step lives in the URL (`/floor?step=6`) so refresh keeps your place, but no
+  server load runs and no history entries pile up.
 - **The locked app shell**
   ([(tabs)/+layout.svelte](src/routes/(app)/(tabs)/+layout.svelte)), stolen
   from the cabin site: on mobile the document itself never scrolls (html/body
@@ -847,7 +816,7 @@ another; the patterns worth studying:
   flex child at the bottom — `position: fixed` bars slide when mobile browsers
   collapse their toolbars; an in-flow bar in a locked frame cannot.
 
-### The floor without a ⋯
+### The floor without a ⋯ (history — superseded by v3 below)
 
 The floor used to keep everything that wasn't the next set behind one ⋯
 button: what the exercise is, where you are in the session, and how to leave,
@@ -871,7 +840,7 @@ The note's first sentence sits on the floor itself under the name
 lift shows its load hint there instead. Finish takes the discipline's noun
 (`sessionNoun`: a workout, a practice, a stretch, a run).
 
-### Two tabs
+### Two tabs (history — superseded by v3 below)
 
 Three tabs asked three questions — what now, what happened, what is the
 programme — and the answers were not equally often needed. History and
@@ -903,6 +872,49 @@ hold you'd started early because `resting` was derived from the previous
 entry's timestamp alone; it now excludes `clock.active`, and starting a clock
 clears the pending "rest over".
 
+### v3: three tabs, one kit
+
+The third redesign (2026-09-22, the `App flow and glyph system` design
+project) started from a different question than the two before it: not "what
+should the screen show" but "how many kinds of thing may a screen be made of".
+The answer was twelve, in [src/lib/ui/](src/lib/ui/) — Caption, Title, Note,
+Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot — each under
+eighty lines, props only, no domain imports, every state on the `/kit` page.
+Every screen is those parts and nothing else, which is why the whole of
+`src/lib/components/` could go. The rules that keep it clear are the design's:
+every screen is caption → title → note → one primary; a row with › opens
+something, a row with ▾ expands, a row with a value is just information;
+volt-light is the one "you are here" colour (the current set, the in-progress
+card, an open row, the deck); tabs are the only navigation, the floor covers
+them and ‹ brings them back; nothing hides behind a long-press or a swipe.
+
+The domain was frozen before a screen changed ([domain/README.md](src/lib/domain/README.md),
+`snapshot.test.ts`), and it moved in exactly two places. `RestSet` is a new
+event: rest between sets was a programme constant and the Plan makes it a
+person's setting, so it is a fact with a date like a goal. And the three week
+rules — owed, next, the deal — moved out of `projections.ts` into
+[week.ts](src/lib/domain/week.ts), which is the split the read model always
+wanted: what happened on one side, what to do about it on the other.
+
+Tabs went back to three. Two tabs had made the Ledger a sheet under a strip and
+the programme a sheet under a row under a tab, and each of those sheets was a
+page with its own route and chrome. Now Today, Ledger and Plan are the tabs,
+and the two things that are still sheets — the programme, and logging a session
+you already did — are real bottom sheets on the tab they belong to, one `Sheet`
+each, posting form actions to that tab's page. Six routes left with them:
+`/week`, `/week/programme`, `/week/why`, `/log/after`, `/ledger` as a sheet
+page, and `/glyphs`; [hooks.server.ts](src/hooks.server.ts) redirects the ones
+a phone might still have. The essay that was `/week/why` is one paragraph
+under a Row on Plan; the twenty-eight kilobytes of citations are in git.
+
+The floor lost its About card, its session sheet, its add-a-stretch row and
+its keyboard legend and kept what the design asked for: one table (the current
+section's rows), one button, the figure's slot, "why?" as a note that expands,
+and fixing a set in place — tap `fix` on a done row and the two tiles and the
+primary point at that set until you save. Everything underneath survived
+untouched: the entry queue, the countdown, the bell, the wake lock, the rest as
+a clock under the next set, the step in the URL.
+
 ## 5. Exercises
 
 1. **Corrections, the event-sourced way — done.** `EntryCorrected` is the
@@ -927,7 +939,7 @@ clears the pending "rest over".
 3. **A fifth practice.** Add `'swim'` to `PracticeId` and let the compiler
    walk you: `allPracticesOn`, `practiceLabel`, `WEEK_OF_PLAN` (what did
    choosing an old plan mean for it?), a `Discipline` if it needs one —
-   `disciplineLabel`, DayCells' `INK`, `disciplines.css` — and the block
+   `disciplineLabel`, `disciplineLetter` for the cells — and the block
    itself in `BLOCKS`. Nothing in a screen should need to change. Then switch it off
    and watch the Ledger's divider say so.
 4. **Retire an upcaster case.** Run forensics query 6 against the store. If a

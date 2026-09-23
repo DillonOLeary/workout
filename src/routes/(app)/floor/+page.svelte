@@ -3,14 +3,14 @@
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Caption, Card, Note, Primary, SetTable, Slot, Stepper, Title, type SetRow } from '$lib/ui';
-	import { armBell, ringBell } from '$lib/components/floor/bell';
-	import { holdScreen } from '$lib/components/floor/wake-lock';
-	import { CountdownClock, type Countdown } from '$lib/components/floor/countdown.svelte';
-	import { EntryQueue, type QueueOp } from '$lib/components/floor/entry-queue.svelte';
+	import { armBell, ringBell } from '$lib/floor/bell';
+	import { holdScreen } from '$lib/floor/wake-lock';
+	import { CountdownClock, type Countdown } from '$lib/floor/countdown.svelte';
+	import { EntryQueue, type QueueOp } from '$lib/floor/entry-queue.svelte';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { disciplineLabel, durationLabel, firstSentence, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
-	import { progresses, restFor, routineTitle, type Exercise } from '$lib/domain/plan';
+	import { cueFor, progresses, restFor, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
 	import { anySetEarned, bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
 	import { estimateMinutes, loggedOutside, restUntil, runStart, sessionProgress, sessionSteps, type Step } from '$lib/domain/steps';
@@ -222,7 +222,7 @@
 		return `${st.section.toLowerCase()} ${peers.indexOf(st) + 1} of ${peers.length}`;
 	});
 	let heading = $derived(!st ? 'Done' : st.kind === 'set' ? st.ex.name : st.section);
-	let cue = $derived(st?.kind === 'set' ? (st.ex.note ? firstSentence(st.ex.note) : '') : st?.kind === 'run' ? (st.ex.note ?? '') : '');
+	let cue = $derived(st?.kind === 'set' ? (st.ex.note ? firstSentence(st.ex.note) : '') : st?.kind === 'run' ? (st.ex.note ?? '') : (cueFor(plan, workout.routine) ?? ''));
 	let loadLine = $derived.by(() => {
 		if (!ex) return '';
 		if (ex.kind === 'load') {

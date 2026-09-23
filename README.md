@@ -8,9 +8,12 @@ lands on a real rack size, so it never asks you for a 37.5 lb kettlebell.
 
 The week is four practices — a lift programme, yoga, a morning stretch, an
 easy run — each on or off, each at the cadence you set; five floor sessions
-stand in for the lift whenever you pick one. Today ranks them and answers
-"what should I do?" with one button; the latest session can be corrected,
-older history is immutable.
+stand in for the lift whenever you pick one. Three tabs: **Today** ranks the
+practices and answers "what should I do?" with one button, the **Ledger** is
+the stream made readable (the latest session can be corrected, older history is
+immutable), and the **Plan** is the rules' inputs. The floor covers the tabs
+while a session is walked. Every screen is built from one twelve-part kit in
+`src/lib/ui/` — `/kit` renders every part in every state in dev.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)
 PostgreSQL event store · Neon · Cloudflare Workers · TypeScript.

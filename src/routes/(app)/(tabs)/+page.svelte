@@ -6,7 +6,8 @@
 	import { dealCaption, disciplineLabel, disciplineLetter, itemDose, sessionSummary, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
 	import { routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
-	import { historyFor, projectSessions, queue, sessionEntries, weekProgress, weekStrip, weekTally, type DayCell } from '$lib/domain/projections';
+	import { historyFor, projectSessions, sessionEntries, weekStrip, type DayCell } from '$lib/domain/projections';
+	import { queue, weekProgress, weekTally } from '$lib/domain/week';
 	import { suggest } from '$lib/domain/progression';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';

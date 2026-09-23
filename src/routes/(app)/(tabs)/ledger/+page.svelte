@@ -5,7 +5,8 @@
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
 	import { DISCIPLINES, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { bumpCount, bumpLoad } from '$lib/domain/progression';
-	import { GRID_WEEKS, monthGrid, projectSessions, weekChanges, weekTally, type DayCell, type SessionView, type WeekChange } from '$lib/domain/projections';
+	import { GRID_WEEKS, monthGrid, projectSessions, weekChanges, type DayCell, type SessionView, type WeekChange } from '$lib/domain/projections';
+	import { weekTally } from '$lib/domain/week';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();

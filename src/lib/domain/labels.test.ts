@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
-	ceilingHint, countLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, lineValue, listJoin,
-	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rangeLabel, rateLabel, monthLine, receiptLine, sessionNoun,
-	setValue, setsLine, sessionSummary, spanLabel, standInLine, stepLabel, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta, weekSentence
+	ceilingHint, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
+	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	setValue, setsLine, sessionSummary, spanLabel, standInLine, weekChangeLine, weekHead, weekLine
 } from './labels';
 import type { Measure } from './measure';
-import type { Exercise, Plan } from './plan';
+import type { Exercise } from './plan';
 import { suggest, type History } from './progression';
 
 const DAY = 86400000;
@@ -39,14 +39,6 @@ describe('one number', () => {
 		expect(loadShort(40, rdl)).toBe('40 /hand');
 		expect(loadShort(35, goblet)).toBe('35 lb');
 	});
-	it('speaks each exercise’s own unit', () => {
-		expect(unitLabel(35, goblet)).toBe('35 lb');
-		expect(unitLabel(40, rdl)).toBe('40 lb each hand');
-		expect(unitLabel(15, plank)).toBe('15s');
-		expect(unitLabel(8, copenhagen)).toBe('8 reps');
-		expect(unitLabel(30, run)).toBe('30 min');
-		expect([goblet, plank, copenhagen, run].map(unitOf)).toEqual(['lb', 's', '', 'min']);
-	});
 	it('reads dates two ways', () => {
 		expect(fmtDate('2026-08-23T18:00:00Z')).toMatch(/^Sun, Aug 23$/);
 		expect(fmtShort('2026-08-23T18:00:00Z')).toBe('Aug 23');
@@ -62,22 +54,9 @@ describe('disciplines, in words', () => {
 		expect(disciplineNoun('yoga', 2)).toBe('yoga');
 		expect(disciplineNoun('run', 1.04)).toBe('run');
 		expect(disciplineNoun('bodyweight', 3)).toBe('floor sessions');
-		expect(listJoin(['a'])).toBe('a');
-		expect(listJoin(['a', 'b'])).toBe('a and b');
-		expect(listJoin(['a', 'b', 'c'])).toBe('a, b and c');
 	});
 	it('says the week, the cadence and what stands in', () => {
 		expect(weekLine(1, 3)).toBe('1 of 3 this week');
-		const plan: Plan = {
-			id: 'p', name: 'P', schedule: 'Mon / Wed', routines: {}, routineInfo: {},
-			cycles: [
-				{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 },
-				{ id: 'yoga', title: 'Yoga', routines: ['h'], target: 2 },
-				{ id: 'floor', title: 'Floor', routines: ['b'], target: 0, standsInFor: 'lift' }
-			]
-		};
-		expect(turnLabel(plan.cycles[0], 'B')).toBe('Lift · 2 of 2');
-		expect(turnLabel(plan.cycles[1], 'h')).toBe('Yoga');
 		expect(standInLine('Hinge & Haul', 3)).toBe('Stands in for Hinge & Haul · counts toward 3 lifts a week');
 		expect(standInLine('Get Low', 1)).toBe('Stands in for Get Low · counts toward 1 lift a week');
 	});
@@ -93,28 +72,12 @@ describe('rates — the running average in words', () => {
 	it('says the window a strip covers', () => {
 		expect(spanLabel('2026-07-20T12:00:00Z', '2026-08-23T12:00:00Z')).toBe('Jul 20 – Aug 23');
 	});
-	it('answers "am I doing enough" in one line: this week against what the week asks, and where the gap is', () => {
-		expect(weekSentence(4, 11, ['lift', 'run'])).toBe('Showing up 4 times this week of the 11 the week asks — lift and run are the gap.');
-		expect(weekSentence(3, 5, ['yoga'])).toBe('Showing up 3 times this week of the 5 the week asks — yoga is the gap.');
-		expect(weekSentence(1, 3, ['lift'])).toBe('Showing up once this week of the 3 the week asks — lift is the gap.');
-		expect(weekSentence(6, 6, [])).toBe('Showing up 6 times this week of the 6 the week asks.');
-		expect(weekSentence(0, 11, ['lift', 'yoga', 'stretch', 'run'])).toBe('Nothing this week of the 11 the week asks — lift, yoga, stretch and run are the gap.');
-	});
 	it('folds a session to one line for a collapsed card', () => {
 		expect(sessionSummary({ sets: 20, minutes: 48 })).toBe('20 sets · 48 min');
 		expect(sessionSummary({ sets: 1, minutes: 0 })).toBe('1 set');
 		expect(sessionSummary({ sets: 9, holds: true, minutes: 11 })).toBe('9 holds · 11 min');
 		expect(sessionSummary({ sets: 0, minutes: 32 })).toBe('32 min');
 		expect(sessionSummary({ sets: 0, minutes: 0 })).toBe('nothing logged');
-	});
-	it('says a log-it-after line’s value the way the plan says it', () => {
-		const rdl: Exercise = { name: 'RDL', equip: '', tag: '', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 40, inc: 5, each: true } };
-		expect(lineValue(goblet, 3, 40, 8)).toBe('40 lb · 3 × 8');
-		expect(lineValue(rdl, 3, 45, 6)).toBe('45 /hand · 3 × 6');
-		expect(lineValue(plank, 3, 0, 15)).toBe('3 × 15s');
-		expect(lineValue(pushup, 2, 0, 14)).toBe('2 × 14');
-		expect(lineValue(runEx, 1, 0, 30)).toBe('30 min');
-		expect(lineValue(goblet, 0, 40, 8)).toBe('skipped');
 	});
 	it('names the week’s changes and its head', () => {
 		const name = (id: string) => (id === 'ab-fullbody-v1' ? 'Open to Work' : id);
@@ -131,19 +94,12 @@ describe('rates — the running average in words', () => {
 		expect(goalHint(3, 4)).toBe('The programme says 3 a week — your goal is 4.');
 		expect(['lift', 'yoga', 'mob', 'run'].map((p) => practiceLabel(p as never))).toEqual(['lift', 'yoga', 'stretch', 'run']);
 		expect(weekChangeLine({ programme: 'her-12-v1', blocks: [{ block: 'yoga', on: false }, { block: 'run', on: true }] }, name)).toBe('switched to her-12-v1 · run on · yoga off');
-		expect(weekMeta(3, 1)).toBe('3 a week · 1 done');
 		expect(weekHead(11, 340)).toBe('11 sessions a week · about 5.5 h');
 		expect(weekHead(2, 80)).toBe('2 sessions a week · about 80 min');
 	});
 });
 
 describe('the plan’s numbers', () => {
-	it('phrases the range with its side rule', () => {
-		expect(rangeLabel(goblet)).toBe('6–12 reps');
-		expect(rangeLabel(lunge)).toBe('6–12 reps per side');
-		expect(rangeLabel(plank)).toBe('10–20 sec');
-		expect(rangeLabel(run)).toBe('30 min');
-	});
 	it('phrases the dose the way the plan row does', () => {
 		expect(doseLabel(goblet)).toBe('3 × 6–12');
 		expect(doseLabel(plank)).toBe('3 × 10–20s');
@@ -153,10 +109,6 @@ describe('the plan’s numbers', () => {
 		expect(doseLabel(run)).toBe('30 min');
 	});
 	it('phrases a stretch’s hold, a prep item, and a countdown', () => {
-		expect(holdLine(stretch, 2)).toBe('HOLD 2 OF 2 · 45S EACH SIDE');
-		expect(holdLine({ ...stretch, sets: 1, side: undefined }, 1)).toBe('HOLD 1 OF 1 · 45S');
-		expect(holdDose(stretch)).toBe('45s each side');
-		expect(holdDose({ ...stretch, sets: 1, side: undefined })).toBe('45s');
 		expect(prepLabel('5 min easy bike')).toBe('5 min easy bike');
 		expect(prepLabel({ name: 'Easy jog', minutes: 3 })).toBe('Easy jog · 3 min');
 		expect(prepLabel({ name: 'Calf stretch', equip: 'Mat', tag: '', kind: 'hold', sets: 2, lo: 45, hi: 45, progress: { of: 'none' }, side: 'sets' })).toBe('Calf stretch · 45s each');
@@ -171,14 +123,6 @@ describe('the plan’s numbers', () => {
 		expect(receiptLine(41, true, true)).toBe('41 min · warm-up and cooldown done.');
 		expect(receiptLine(38, true, false)).toBe('38 min · warm-up done.');
 		expect(receiptLine(12, false, false)).toBe('12 min.');
-	});
-	it('says what a level-up costs', () => {
-		expect(stepLabel(goblet)).toBe('next dumbbell up');
-		expect(stepLabel(press)).toBe('+5 lb');
-		expect(stepLabel(plank)).toBe('+5s');
-		expect(stepLabel(copenhagen)).toBe('+1 rep');
-		expect(stepLabel(pushup)).toBe('next rung');
-		expect(stepLabel(stretch)).toBe('');
 	});
 });
 
@@ -199,12 +143,6 @@ describe('a set', () => {
 		expect(plannedValue(copenhagen, 0)).toBe('5–15');
 		expect(plannedValue(stretch, 0)).toBe('45s');
 		expect(plannedValue(run, 0)).toBe('30 min');
-	});
-	it('says last time’s count in its own unit', () => {
-		expect(countLabel(load(35, 12))).toBe('12');
-		expect(countLabel(hold(15, 15))).toBe('15s');
-		expect(countLabel(reps(8))).toBe('8');
-		expect(countLabel({ of: 'duration', minutes: 30 })).toBe('30 min');
 	});
 	it('puts a whole entry on one line', () => {
 		expect(setsLine([load(35, 12), load(35, 9), load(35, 5)], goblet)).toBe('35 lb · 12 · 9 · 5');

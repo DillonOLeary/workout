@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { LedgerEvent, StoredEvent } from './events';
 import { countOf } from './measure';
 import type { Discipline, Exercise, Plan } from './plan';
-import { REENTRY_WARN_DAYS, suggest } from './progression';
-import {
-	activeProgramme, goals, historyFor, monthGrid, nextInCycle, practicesOn, projectSessions, queue, restSeconds, sessionEntries, staleness, trendFor,
-	weekChanges, weekProgress, weekStrip, weekTally
-} from './projections';
+import { suggest } from './progression';
+import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
+import { nextInCycle, queue, staleness, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -97,83 +95,6 @@ describe('historyFor — the seam between the read model and the rule', () => {
 		const s = suggest(historyFor(ev, 'Goblet Squat'), goblet, NOW);
 		expect(s).toMatchObject({ reason: 'reentry', weight: 40 });
 		expect(Math.floor(s.daysSince!)).toBe(20);
-	});
-});
-
-describe('trendFor — the status sentence', () => {
-	it('names the starting load before any history', () => {
-		const t = trendFor([], goblet, undefined, NOW);
-		expect(t.sentence).toBe('Starts at 35 lb');
-		expect(t.tone).toBe('start');
-		expect(t.points).toEqual([]);
-		expect(t.next).toBe(35);
-	});
-	it('calls a stall by its length', () => {
-		const ev = ledger('Goblet Squat', [
-			{ daysAgo: 16, sets: [[35, 10], [35, 10], [35, 10]] },
-			{ daysAgo: 9, sets: [[35, 10], [35, 10], [35, 10]] },
-			{ daysAgo: 2, sets: [[35, 10], [35, 10], [35, 10]] }
-		]);
-		const t = trendFor(ev, goblet, undefined, NOW);
-		expect(t.sentence).toMatch(/^35 lb since Aug 7 — 3 sessions, no change$/);
-		expect(t.tone).toBe('flat');
-		expect(t.points.map((p) => p.load)).toEqual([35, 35, 35]);
-	});
-	it('celebrates the set that earned its increase', () => {
-		const ev = ledger('Goblet Squat', [{ daysAgo: 2, sets: [[35, 12], [35, 9], [35, 5]] }]);
-		const t = trendFor(ev, goblet, undefined, NOW);
-		expect(t.sentence).toBe('Set 1 at the top of the range — 40 lb next time');
-		expect(t.tone).toBe('up');
-		expect(t.points[0].earned).toBe(true);
-		expect(t.points[0].missed).toBe(true);
-	});
-	it('reads a climb across the window', () => {
-		const ev = ledger('Goblet Squat', [
-			{ daysAgo: 9, sets: [[30, 11], [30, 10], [30, 10]] },
-			{ daysAgo: 2, sets: [[35, 10], [35, 10], [35, 10]] }
-		]);
-		const t = trendFor(ev, goblet, undefined, NOW);
-		expect(t.sentence).toBe('↑ 30 → 35 lb since Aug 14');
-		expect(t.tone).toBe('up');
-	});
-	it('warns three days before the re-entry haircut — loads only', () => {
-		const ev = ledger('Goblet Squat', [{ daysAgo: 12, sets: [[40, 10], [40, 10], [40, 10]] }]);
-		const t = trendFor(ev, goblet, undefined, NOW);
-		expect(t.sentence).toBe('Re-entry haircut in 2 days');
-		expect(t.tone).toBe('warn');
-		expect(REENTRY_WARN_DAYS).toBe(11);
-		const held = ledger('Long-Lever Plank', [{ daysAgo: 12, unit: 's', sets: [[0, 20, 20], [0, 20, 20], [0, 20, 20]] }]);
-		expect(trendFor(held, plank, undefined, NOW).sentence).toBe('At the ceiling (20s) — make it harder, not longer');
-	});
-	it('explains an adjustment', () => {
-		const ev = ledger('Goblet Squat', [
-			{ daysAgo: 9, sets: [[35, 5], [35, 9], [35, 9]] },
-			{ daysAgo: 2, sets: [[35, 4], [35, 9], [35, 9]] }
-		]);
-		const t = trendFor(ev, goblet, undefined, NOW);
-		expect(t.sentence).toBe('Missed the bottom twice at 35 — back to 30 lb next time');
-		expect(t.tone).toBe('down');
-	});
-	it('caps a hold at its ceiling', () => {
-		const ev = ledger('Long-Lever Plank', [{ daysAgo: 2, sets: [[0, 20, 20], [0, 20, 20], [0, 20, 20]], unit: 's' }]);
-		const t = trendFor(ev, plank, undefined, NOW);
-		expect(t.sentence).toBe('At the ceiling (20s) — make it harder, not longer');
-		expect(t.next).toBe(20);
-	});
-	it('says when a ladder went up a rung, and when it has run out', () => {
-		const up = ledger('Push-up', [{ daysAgo: 2, sets: [[0, 15], [0, 15]] }]);
-		expect(trendFor(up, pushup, undefined, NOW)).toMatchObject({ tone: 'up', sentence: 'Every set at the top — up a rung: Push-up', next: 8 });
-		const out = ledger('Push-up', [{ daysAgo: 2, sets: [[0, 15], [0, 15]] }, { daysAgo: 6, sets: [[0, 15], [0, 15]], session: 'x' }]);
-		expect(trendFor(out, pushup, undefined, NOW).sentence).toBe('Top of the ladder (Push-up) — make it harder');
-	});
-	it('windows to the last seven sessions but counts them all', () => {
-		const ev = ledger(
-			'Goblet Squat',
-			Array.from({ length: 9 }, (_, i) => ({ daysAgo: 2 + i * 3, sets: [[35, 10], [35, 10], [35, 10]] as [number, number][] }))
-		);
-		const t = trendFor(ev, goblet, undefined, NOW);
-		expect(t.points).toHaveLength(7);
-		expect(t.sessions).toBe(9);
 	});
 });
 

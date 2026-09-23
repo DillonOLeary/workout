@@ -1,6 +1,5 @@
 import { countOf, loadOf, uniformLoad, type Measure } from './measure';
-import type { Cycle, Discipline, Exercise, Goal, PracticeId, PrepItem } from './plan';
-import { rungLabel } from './racks';
+import type { Discipline, Exercise, Goal, PracticeId, PrepItem } from './plan';
 import type { Reason, Suggestion } from './progression';
 
 /** The words: every phrase a screen shows about a set, a load, a range or a week, written once and tested as a string. */
@@ -30,34 +29,6 @@ export function loadLabel(weight: number, ex: Exercise): string {
 export function loadShort(weight: number, ex: Exercise): string {
 	if (ex.kind !== 'load') return '';
 	return ex.progress.each ? `${weight} /hand` : `${weight} lb`;
-}
-
-/** "35 lb" · "40 lb each hand" · "15s" · "8 reps" · "30 min" */
-export function unitLabel(n: number, ex: Exercise): string {
-	switch (ex.kind) {
-		case 'load':
-			return loadLabel(n, ex);
-		case 'hold':
-			return `${n}s`;
-		case 'run':
-			return `${n} min`;
-		case 'reps':
-			return `${n} reps`;
-	}
-}
-
-/** "lb" · "s" · "min" · "" */
-export function unitOf(ex: Exercise): string {
-	switch (ex.kind) {
-		case 'load':
-			return 'lb';
-		case 'hold':
-			return 's';
-		case 'run':
-			return 'min';
-		case 'reps':
-			return '';
-	}
 }
 
 /** "Lift" · "Yoga" · "Bodyweight" · "Stretch" · "Run" */
@@ -108,27 +79,11 @@ export function disciplineNoun(d: Discipline, n: number): string {
 	}
 }
 
-/** "a, b and c" */
-export function listJoin(items: string[]): string {
-	if (items.length <= 1) return items.join('');
-	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
 /** "2.3" · "3" · "68" — one decimal unless whole */
 export function rateLabel(n: number): string {
 	const r = Math.round(n * 10) / 10;
 	return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
-
-/** "Showing up 4 times this week of the 11 the week asks — lift and run are the gap." · "Showing up once this week of the 3 the week asks." · "Nothing this week of the 11 the week asks — …" */
-export function weekSentence(done: number, asked: number, gaps: string[]): string {
-	const times = done === 0 ? 'Nothing' : done === 1 ? 'Showing up once' : `Showing up ${done} times`;
-	const tail = gaps.length ? ` — ${listJoin(gaps)} ${gaps.length === 1 ? 'is' : 'are'} the gap.` : '.';
-	return `${times} this week of the ${asked} the week asks${tail}`;
-}
-
-/** "3 a week · 1 done" */
-export const weekMeta = (target: number, done: number): string => `${target} a week · ${done} done`;
 
 /** "Stands in for Hinge & Haul · counts toward 3 lifts a week" — the floor is the lift's fallback, so the noun is the lift's */
 export const standInLine = (forTitle: string, target: number): string =>
@@ -181,12 +136,6 @@ export function weekHead(sessions: number, minutes: number): string {
 /** "1 of 3 this week" */
 export const weekLine = (done: number, target: number): string => `${done} of ${target} this week`;
 
-/** "Lift · 1 of 2" · "No gym · 3 of 7" */
-export function turnLabel(cycle: Cycle, routine: string): string {
-	const i = cycle.routines.indexOf(routine);
-	return cycle.routines.length === 1 ? cycle.title : `${cycle.title} · ${i + 1} of ${cycle.routines.length}`;
-}
-
 /** "SEPTEMBER · 11 sessions · 5 lift · 3 run · 3 stretch" — a month of the Ledger, folded to one line; the year only when it isn't this one */
 export function monthLine(iso: string, sessions: number, counts: { discipline: Discipline; n: number }[], now: number): string {
 	const d = new Date(iso);
@@ -204,21 +153,7 @@ export function sessionSummary(p: { sets: number; holds?: boolean; minutes: numb
 	return parts.join(' · ') || 'nothing logged';
 }
 
-/** "40 lb · 3 × 8" · "45 /hand · 3 × 6" · "2 × 14" · "3 × 15s" · "30 min" · "skipped" — every set the same numbers */
-export function lineValue(ex: Exercise, sets: number, weight: number, count: number): string {
-	if (ex.kind === 'run') return `${count} min`;
-	if (!sets) return 'skipped';
-	const reps = `${sets} × ${count}${ex.kind === 'hold' ? 's' : ''}`;
-	return ex.kind === 'load' ? `${loadShort(weight, ex)} · ${reps}` : reps;
-}
-
 const range = (ex: Exercise) => (ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`);
-
-/** "8–12 reps per side" · "20–45 sec" · "30 min" */
-export function rangeLabel(ex: Exercise): string {
-	const unit = ex.kind === 'hold' ? 'sec' : ex.kind === 'run' ? 'min' : 'reps';
-	return `${range(ex)} ${unit}${ex.side === 'reps' ? ' per side' : ''}`;
-}
 
 /** "3 × 6–12" · "3 × 10–20s" · "2 × 45s · L/R" · "3 × 8–12 · per side" · "30 min" */
 export function doseLabel(ex: Exercise): string {
@@ -229,54 +164,10 @@ export function doseLabel(ex: Exercise): string {
 	);
 }
 
-/** "45 seconds a side, 10 between" · "3 sets of 6–12 reps, 90 s between" · "2 holds of 20–45 seconds, 30 between" · "30 minutes" — the dose as a sentence */
-export function doseSentence(ex: Exercise, rest: number): string {
-	if (ex.kind === 'run') return `${range(ex)} minutes`;
-	const between = ex.sets > 1 ? `, ${rest} between` : '';
-	if (ex.kind === 'hold') {
-		const sets = ex.side === 'sets' ? ' a side' : ex.sets > 1 ? ` × ${ex.sets}` : '';
-		return `${range(ex)} seconds${sets}${between}`;
-	}
-	const per = ex.side === 'reps' ? ' per side' : '';
-	return `${ex.sets} ${ex.sets === 1 ? 'set' : 'sets'} of ${range(ex)} reps${per}${between}`;
-}
-
-/** "Fixed at 45 s — a stretch doesn't progress." · "+5 s at the top of the range, to 45 s — then harder, never longer." · "Top of 6–12 on a set → that set takes the next dumbbell up." · "+1 rep at the top of the range." · "Every set at 15 → the next rung: Incline push-up → Push-up → …" */
-export function ruleLine(ex: Exercise): string {
-	switch (ex.progress.of) {
-		case 'none':
-			return ex.kind === 'hold' ? `Fixed at ${ex.lo} s — a stretch doesn't progress.` : ex.kind === 'run' ? 'A time, not a target — the run doesn\'t progress.' : 'Fixed — it doesn\'t progress.';
-		case 'time':
-			return `+${ex.progress.inc} s at the top of the range, to ${ex.hi} s — then harder, never longer.`;
-		case 'size':
-			return `Top of ${range(ex)} on a set → that set takes ${stepLabel(ex) === `+${ex.progress.inc} lb` ? `+${ex.progress.inc} lb` : `the ${stepLabel(ex)}`} next time; the others keep climbing where they are.`;
-		case 'count':
-			return `+1 rep at the top of the range, ${range(ex)}.`;
-		case 'variant':
-			return `Every set at ${ex.hi} → the next rung: ${ex.progress.ladder.join(' → ')}.`;
-	}
-}
-
-/** "Mat · no load" · "Dumbbells · per hand" · "Cable machine · loaded" */
-export function loadLine(ex: Exercise): string {
-	const equip = ex.equip || 'No kit';
-	return ex.kind === 'load' ? `${equip} · ${ex.progress.each ? 'per hand' : 'loaded'}` : `${equip} · no load`;
-}
-
 /** the first sentence of a note — what fits on the floor */
 export function firstSentence(text: string): string {
 	const m = /^(.+?[.!?])(\s|$)/.exec(text.trim());
 	return m ? m[1] : text.trim();
-}
-
-/** "45s each side" · "45s" */
-export function holdDose(ex: Exercise): string {
-	return `${ex.lo}s${ex.side === 'sets' ? ' each side' : ''}`;
-}
-
-/** "HOLD 1 OF 2 · 45S EACH SIDE" */
-export function holdLine(ex: Exercise, index: number): string {
-	return `HOLD ${index} OF ${ex.sets} · ${ex.lo}S${ex.side === 'sets' ? ' EACH SIDE' : ''}`;
 }
 
 /** "Easy jog · 3 min" · "Carioca · 30s each" · "Sun Salutation A × 3" · "One light set of the first lift" */
@@ -297,22 +188,6 @@ export function durationLabel(seconds: number): string {
 export function receiptLine(minutes: number, warm: boolean, cool: boolean): string {
 	const did = warm && cool ? 'warm-up and cooldown done' : warm ? 'warm-up done' : cool ? 'cooldown done' : null;
 	return `${minutes} min${did ? ` · ${did}` : ''}.`;
-}
-
-/** "+5 lb" · "+5s" · "+1 rep" · "next rung" · "" — what a level-up costs */
-export function stepLabel(ex: Exercise): string {
-	switch (ex.progress.of) {
-		case 'size':
-			return ex.progress.rack ? rungLabel(ex.progress.rack) : `+${ex.progress.inc} lb`;
-		case 'time':
-			return `+${ex.progress.inc}s`;
-		case 'count':
-			return '+1 rep';
-		case 'variant':
-			return 'next rung';
-		case 'none':
-			return '';
-	}
 }
 
 /** "45 lb × 12" · "50 /hand × 10" · "30s" · "12 reps" · "32 min" · "45 lb × —" */
@@ -342,11 +217,6 @@ export function plannedValue(ex: Exercise, weight: number): string {
 		case 'reps':
 			return range(ex);
 	}
-}
-
-/** "12" · "15s" · "30 min" */
-export function countLabel(m: Measure): string {
-	return m.of === 'hold' ? `${countOf(m)}s` : m.of === 'duration' ? `${countOf(m)} min` : String(countOf(m));
 }
 
 /** "35 lb · 12 · 12 · 11" · "45×5 · 35×12" · "8 L · 8 R" · "20s · 20s" — works without the exercise */

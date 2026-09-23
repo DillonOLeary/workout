@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { SHIPPED_PLANS } from '$lib/domain/plans';
 import { planExercises } from '$lib/domain/plan';
@@ -102,5 +104,10 @@ describe('the rig', () => {
 		expect(dissolve(a, b, 0)).toEqual(a);
 		expect(dissolve(a, b, 1)).toEqual(b);
 		expect(stamps[1].frame()).toEqual(stamps[1].frame());
+	});
+
+	it('the reviewed snapshot is what the rig draws', () => {
+		const bake = fileURLToPath(new URL('../../../tools/glyphs/bake.mjs', import.meta.url));
+		expect(() => execFileSync(process.execPath, [bake, '--check'], { stdio: 'pipe' })).not.toThrow();
 	});
 });

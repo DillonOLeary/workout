@@ -4,7 +4,7 @@
 	import { goalHint, weekHead, weekLine } from '$lib/domain/labels';
 	import { GOAL_MINUTES, GOAL_SESSIONS, REST_SECONDS, restFor, routineTitle, type Cycle, type Plan, type PracticeId } from '$lib/domain/plan';
 	import { BLOCKS } from '$lib/domain/plans';
-	import { weekProgress } from '$lib/domain/projections';
+	import { weekProgress } from '$lib/domain/week';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
