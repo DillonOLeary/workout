@@ -10,10 +10,16 @@
 
   --volt: #C8F04B;
   --volt-deep: #A8D32A;
-  --volt-tint: #EAF9C4;
+  /* the one "you are here" colour: the current set, the in-progress card, an open row, the deck */
+  --volt-light: #EAF9C4;
+  --volt-tint: var(--volt-light);
 
-  /* signal */
-  --signal-red: #C43D2B;
+  /* the v3 names, one word each: paper · ink · volt · volt-light · ash · stone · signal */
+  --ash: var(--paper-2);
+  --stone: var(--ink-3);
+  --slate: var(--ink-2);
+  --signal: #C43D2B;
+  --signal-red: var(--signal);
 
   /* semantic aliases */
   --text-body: var(--ink);
