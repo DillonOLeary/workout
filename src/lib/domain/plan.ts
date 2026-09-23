@@ -181,6 +181,8 @@ export type Goals = Partial<Record<PracticeId, Goal>>;
 export const GOAL_SESSIONS = { min: 1, max: 7 } as const;
 /** Minutes a run goal may ask, and the step the dial moves in. */
 export const GOAL_MINUTES = { min: 10, max: 90, step: 5 } as const;
+/** Seconds of rest between sets a person may set, and the step the dial moves in. */
+export const REST_SECONDS = { min: 30, max: 180, step: 15 } as const;
 
 /** A cycle with the routines it turns through. */
 export type Routines = {
@@ -193,10 +195,10 @@ export type Block = Routines & { id: BlockId };
 
 /**
  * The week as one Plan: the programme's lifting (while the lift is on), the floor that stands in for it, and every block that is on;
- * a goal rewrites a cycle's target, and the run's minutes. Every block's routines are known whether or not it is on, so a session
- * of something you switched off still has a title.
+ * a goal rewrites a cycle's target, and the run's minutes; a rest setting rewrites the programme's rest (an exercise's own stays).
+ * Every block's routines are known whether or not it is on, so a session of something you switched off still has a title.
  */
-export function composePlan(programme: Plan, blocks: readonly Block[], floor: Routines, on: readonly PracticeId[], goals: Goals = {}): Plan {
+export function composePlan(programme: Plan, blocks: readonly Block[], floor: Routines, on: readonly PracticeId[], goals: Goals = {}, rest?: number | null): Plan {
 	const routines: Record<string, Exercise[]> = { ...programme.routines, ...floor.routines };
 	const routineInfo: Record<string, Routine> = { ...programme.routineInfo, ...floor.routineInfo };
 	const cycles: Cycle[] = [];
@@ -213,7 +215,7 @@ export function composePlan(programme: Plan, blocks: readonly Block[], floor: Ro
 			for (const r of b.cycle.routines)
 				routines[r] = routines[r].map((ex) => (ex.kind === 'run' ? { ...ex, lo: goal.minutes!, hi: goal.minutes! } : ex));
 	}
-	return { ...programme, cycles, routines, routineInfo };
+	return { ...programme, cycles, routines, routineInfo, ...(rest ? { rest } : {}) };
 }
 const withGoal = (c: Cycle, goal: Goal | undefined): Cycle => (goal ? { ...c, target: goal.sessions } : c);
 

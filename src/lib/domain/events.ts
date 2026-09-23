@@ -57,6 +57,9 @@ export type BlockToggled = Event<'BlockToggled', { block: PracticeId; on: boolea
 /** You set a practice's goal: sessions a week, and the run's minutes — over the programme's own cadence. */
 export type GoalSet = Event<'GoalSet', { practice: PracticeId; at: string } & Goal>;
 
+/** You set the rest between sets — a programme constant until the Plan made it a person's setting (2026-09-22). */
+export type RestSet = Event<'RestSet', { seconds: number; at: string }>;
+
 export type LedgerEvent =
 	| SessionStarted
 	| EntryLogged
@@ -65,7 +68,8 @@ export type LedgerEvent =
 	| SessionRemoved
 	| ProgrammeSelected
 	| BlockToggled
-	| GoalSet;
+	| GoalSet
+	| RestSet;
 
 /** A row as the store hands it back: any name, any shape — the upcaster's input. */
 export type StoredEvent = { type: string; data: unknown };

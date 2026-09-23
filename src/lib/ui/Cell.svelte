@@ -13,7 +13,7 @@
 	}: { label: string; done?: boolean; today?: boolean; future?: boolean; size?: 'strip' | 'month'; title?: string } = $props();
 </script>
 
-<span class="cell {size}" class:done class:today class:future role="listitem" aria-label={title ?? label}>{label}</span>
+<span class="cell {size}" class:done class:today class:future class:long={label.length > 2} role="listitem" aria-label={title ?? label}>{label}</span>
 
 <style>
 	.cell {
@@ -25,4 +25,5 @@
 	.cell.done { background: var(--ink); color: var(--volt); border-color: var(--ink); }
 	.cell.today { outline: 2px dashed var(--ink); outline-offset: 1px; }
 	.cell.future { background: transparent; }
+	.cell.long { font-size: 8px; letter-spacing: 0; }
 </style>

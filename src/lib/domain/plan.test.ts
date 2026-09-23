@@ -191,6 +191,13 @@ describe('composePlan — the week is one programme, its floor, and the practice
 		expect(composePlan(programme, BLOCKS, FLOOR, ['run'], { run: { sessions: 3 } }).routines.run[0]).toMatchObject({ lo: 30, hi: 30 });
 		expect(parsePlan(JSON.stringify(week))).toEqual(week);
 	});
+	it('lets a rest setting rewrite the programme’s rest, and an exercise’s own stand', () => {
+		const p = composePlan(DEFAULT_PROGRAMMES[0], BLOCKS, FLOOR, ['lift', 'yoga', 'mob', 'run'], {}, 120);
+		expect(p.rest).toBe(120);
+		expect(restFor(p, p.routines.A[0])).toBe(120);
+		expect(restFor(p, p.routines.S[0])).toBe(10);
+		expect(composePlan(DEFAULT_PROGRAMMES[0], BLOCKS, FLOOR, ['lift'], {}, null).rest).toBe(90);
+	});
 	it('leaves the programme and the blocks themselves alone', () => {
 		composePlan(programme, BLOCKS, FLOOR, ['lift', 'yoga', 'run'], { lift: { sessions: 5 }, run: { sessions: 1, minutes: 60 } });
 		expect(programme.cycles.map((c) => [c.id, c.target])).toEqual([['lift', 3]]);

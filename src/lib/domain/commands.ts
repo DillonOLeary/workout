@@ -51,6 +51,9 @@ export type TogglePractice = Command<'TogglePractice', { practice: PracticeId; o
 /** Ask a practice for so many sessions a week — and the run for so many minutes. */
 export type SetGoal = Command<'SetGoal', { practice: PracticeId; at: string } & Goal>;
 
+/** Set the rest between sets, in seconds, on the dial the Plan offers. */
+export type SetRest = Command<'SetRest', { seconds: number; at: string }>;
+
 export type LedgerCommand =
 	| StartSession
 	| LogEntry
@@ -60,4 +63,5 @@ export type LedgerCommand =
 	| RemoveSession
 	| SelectProgramme
 	| TogglePractice
-	| SetGoal;
+	| SetGoal
+	| SetRest;

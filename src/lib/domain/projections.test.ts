@@ -4,7 +4,7 @@ import { countOf } from './measure';
 import type { Discipline, Exercise, Plan } from './plan';
 import { REENTRY_WARN_DAYS, suggest } from './progression';
 import {
-	activeProgramme, goals, historyFor, monthGrid, nextInCycle, practicesOn, projectSessions, queue, sessionEntries, staleness, trendFor,
+	activeProgramme, goals, historyFor, monthGrid, nextInCycle, practicesOn, projectSessions, queue, restSeconds, sessionEntries, staleness, trendFor,
 	weekChanges, weekProgress, weekStrip, weekTally
 } from './projections';
 import { upcastAll } from './upcast';
@@ -283,6 +283,10 @@ describe('the week — one programme, the blocks that are on, and when it change
 			{ at: at(2), dateLabel: expect.any(String), blocks: [{ block: 'run', on: false }], goals: [{ practice: 'lift', sessions: 4 }] },
 			{ at: at(9), dateLabel: expect.any(String), programme: 'ab-fullbody-v1', blocks: [{ block: 'yoga', on: true }, { block: 'mob', on: true }, { block: 'run', on: true }], goals: [] }
 		]);
+	});
+	it('reads the rest between sets as the last one set, or nothing', () => {
+		expect(restSeconds([])).toBeNull();
+		expect(restSeconds([{ type: 'RestSet', data: { seconds: 90, at: at(2) } }, { type: 'RestSet', data: { seconds: 120, at: at(1) } }])).toBe(120);
 	});
 	it('folds goals to the last one said per practice', () => {
 		expect(goals([])).toEqual({});

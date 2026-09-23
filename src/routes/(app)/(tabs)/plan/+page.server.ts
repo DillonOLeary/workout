@@ -30,5 +30,22 @@ export const actions: Actions = {
 			data: { practice, sessions, ...(minutes !== undefined ? { minutes } : {}), at: new Date().toISOString() }
 		});
 		if (err) return fail(400, { message: err });
+	},
+
+	/** the rest between sets, dialled: one RestSet */
+	rest: async ({ request, locals }) => {
+		const uid = requireUid(locals);
+		const seconds = Number((await request.formData()).get('seconds'));
+		const err = await tryCommand(uid, { type: 'SetRest', data: { seconds, at: new Date().toISOString() } });
+		if (err) return fail(400, { message: err });
+	},
+
+	/** the one real choice: a ProgrammeSelected event — that IS history */
+	select: async ({ request, locals }) => {
+		const uid = requireUid(locals);
+		const programme = String((await request.formData()).get('programme') ?? '');
+		if (!programme) return fail(400, { message: 'Missing programme id.' });
+		const err = await tryCommand(uid, { type: 'SelectProgramme', data: { programme, at: new Date().toISOString() } });
+		if (err) return fail(400, { message: err });
 	}
 };

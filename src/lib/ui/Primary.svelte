@@ -26,8 +26,8 @@
 		cursor: pointer; touch-action: manipulation;
 		transition: transform var(--dur-fast) var(--ease-snap), box-shadow var(--dur-fast) var(--ease-snap), background var(--dur-med) var(--ease-snap);
 	}
-	.primary.md { min-height: 64px; border-radius: 14px; font-size: 22px; }
-	.primary.lg { min-height: 76px; border-radius: var(--radius-lg); font-size: 24px; }
+	.primary.md { min-height: 64px; border-radius: 14px; font-size: clamp(17px, 5.6vw, 22px); }
+	.primary.lg { min-height: 76px; border-radius: var(--radius-lg); font-size: clamp(19px, 6.2vw, 24px); }
 	.primary.volt { background: var(--volt); color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
 	.primary.lg.volt { box-shadow: 0 6px 0 var(--ink); }
 	.primary.volt:hover:not(:disabled) { background: var(--volt-deep); }

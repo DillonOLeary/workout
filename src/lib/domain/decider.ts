@@ -2,7 +2,7 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
-import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, allPracticesOn, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
+import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, REST_SECONDS, allPracticesOn, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
 import { upcast } from './upcast';
 
 /** What the rules need and nothing a screen does — rebuilt from events on every command, never stored. */
@@ -14,6 +14,8 @@ export type LedgerState = {
 	practices: Record<PracticeId, boolean>;
 	/** what each practice was last asked for — so asking again records nothing */
 	goals: Goals;
+	/** the rest between sets last set, if ever — so setting it again records nothing */
+	rest: number | null;
 	/** every session ever started, in start order; the last one not removed is the latest */
 	started: string[];
 	/** already removed — removing twice is a no-op */
@@ -28,6 +30,7 @@ export const initialState = (): LedgerState => ({
 	activeProgramme: null,
 	practices: allPracticesOn(),
 	goals: {},
+	rest: null,
 	started: [],
 	removedSessions: {},
 	logged: {}
@@ -75,6 +78,8 @@ function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
 			return { ...state, practices: { ...state.practices, [data.block]: data.on } };
 		case 'GoalSet':
 			return { ...state, goals: { ...state.goals, [data.practice]: goalOf(data) } };
+		case 'RestSet':
+			return { ...state, rest: data.seconds };
 	}
 }
 
@@ -186,6 +191,14 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			const goal = goalOf({ sessions, minutes });
 			if (sameGoal(state.goals[practice], goal)) return [];
 			return [{ type: 'GoalSet', data: { practice, at, ...goal } }];
+		}
+
+		case 'SetRest': {
+			const { seconds, at } = command.data;
+			if (!isInt(seconds) || seconds < REST_SECONDS.min || seconds > REST_SECONDS.max || seconds % REST_SECONDS.step !== 0)
+				throw new ValidationError(`Rest is ${REST_SECONDS.min} to ${REST_SECONDS.max} seconds, in ${REST_SECONDS.step}s steps.`);
+			if (state.rest === seconds) return [];
+			return [{ type: 'RestSet', data: { seconds, at } }];
 		}
 	}
 };

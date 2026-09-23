@@ -18,7 +18,8 @@
 			"lift": {
 				"sessions": 4
 			}
-		}
+		},
+		"rest": 120
 	},
 	"week": {
 		"programme": "ab-fullbody-v1",
@@ -36,6 +37,7 @@
 				"sessions": 4
 			}
 		},
+		"rest": 120,
 		"cycles": [
 			{
 				"id": "lift",
@@ -144,8 +146,8 @@
 			"discipline": "lift",
 			"title": "Squat & Shove",
 			"why": "3 days since Hinge & Haul · 3 of 4 this week",
-			"minutes": 41,
-			"score": 101001958,
+			"minutes": 48,
+			"score": 101001951,
 			"due": true
 		},
 		{

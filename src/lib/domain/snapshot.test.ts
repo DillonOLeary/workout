@@ -5,7 +5,7 @@ import { composePlan, planExercises, progresses } from './plan';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from './plans';
 import { suggest } from './progression';
 import {
-	activeProgramme, goals, historyFor, monthGrid, nextInCycle, practicesOn, projectSessions, queue, sessionEntries, staleness,
+	activeProgramme, goals, historyFor, monthGrid, nextInCycle, practicesOn, projectSessions, queue, restSeconds, sessionEntries, staleness,
 	weekChanges, weekProgress, weekStrip, weekTally
 } from './projections';
 import { upcastAll } from './upcast';
@@ -96,6 +96,7 @@ function fullStream(): StoredEvent[] {
 	const binned = live(4, 'B', 'lift', [['KB Deadlift', 1, L(70, 3)]]);
 	row('SessionRemoved', { session: binned, at: at(4, 8) });
 	row('GoalSet', { practice: 'lift', sessions: 4, at: at(3) });
+	row('RestSet', { seconds: 120, at: at(3, 8) });
 	live(3, 'B', 'lift', [['KB Deadlift', 1, L(62, 12)], ['KB Deadlift', 2, L(62, 10)], ['KB Deadlift', 3, L(62, 5)], ['Shoulder Press', 1, L(35, 8)], ['Shoulder Press', 2, L(30, 12)], ['Shoulder Press', 3, L(30, 12)], ['Leg Curl', 1, L(60, 15)], ['Leg Curl', 2, L(60, 15)], ['Leg Curl', 3, L(60, 15)]]);
 	live(2, 'run', 'run', [['Easy run', 1, { of: 'duration', minutes: 40 }]], 'after');
 	live(1, 'S', 'mobility', [['Calf stretch', 1, H(45)], ['Calf stretch', 2, H(45)]]);
@@ -114,7 +115,8 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 	const programme = DEFAULT_PROGRAMMES.find((p) => p.id === (activeProgramme(events) ?? ''))!;
 	const on = practicesOn(events);
 	const asked = goals(events);
-	const plan = composePlan(programme, BLOCKS, FLOOR, on, asked);
+	const rest = restSeconds(events);
+	const plan = composePlan(programme, BLOCKS, FLOOR, on, asked, rest);
 	const state = currentState(events);
 
 	it('the stream itself is what this test built — the input is frozen with the output', async () => {
@@ -124,10 +126,10 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 	it('reads every retired shape and lands on the current vocabulary', () => {
 		expect(new Set(stored.map((e) => e.type))).toEqual(new Set([
 			'PlanSelected', 'SessionStarted', 'SetLogged', 'SessionFinished', 'SessionStruck', 'RunLogged', 'RunRemoved', 'EntryLogged',
-			'PreferencesSet', 'BlockToggled', 'EntryCorrected', 'GoalSet', 'SessionRemoved'
+			'PreferencesSet', 'BlockToggled', 'EntryCorrected', 'GoalSet', 'SessionRemoved', 'RestSet'
 		]));
 		expect(new Set(events.map((e) => e.type))).toEqual(new Set([
-			'SessionStarted', 'EntryLogged', 'EntryCorrected', 'SessionFinished', 'SessionRemoved', 'ProgrammeSelected', 'BlockToggled', 'GoalSet'
+			'SessionStarted', 'EntryLogged', 'EntryCorrected', 'SessionFinished', 'SessionRemoved', 'ProgrammeSelected', 'BlockToggled', 'GoalSet', 'RestSet'
 		]));
 		expect(programme.id).toBe('ab-fullbody-v1');
 	});
@@ -137,8 +139,8 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 		const exercises = planExercises(plan).filter(progresses);
 		const out = {
 			now: new Date(NOW).toISOString(),
-			state: { activeSession: state.activeSession, latestSession: latestSessionOf(state), activeProgramme: state.activeProgramme, practices: state.practices, goals: state.goals },
-			week: { programme: programme.id, practicesOn: on, goals: asked, cycles: plan.cycles },
+			state: { activeSession: state.activeSession, latestSession: latestSessionOf(state), activeProgramme: state.activeProgramme, practices: state.practices, goals: state.goals, rest: state.rest },
+			week: { programme: programme.id, practicesOn: on, goals: asked, rest: plan.rest ?? null, cycles: plan.cycles },
 			owed: plan.cycles.map((c) => ({ cycle: c.id, ...weekProgress(events, plan, c, NOW) })),
 			next: plan.cycles.map((c) => ({ cycle: c.id, routine: nextInCycle(events, plan, c) })),
 			staleness: staleness(events, plan, NOW).map((s) => ({ ...s, daysSince: s.daysSince === null ? null : Math.round(s.daysSince * 100) / 100 })),

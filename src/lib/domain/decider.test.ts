@@ -258,3 +258,20 @@ describe('the fold reads raw history', () => {
 		expect(struck.activeSession).toBeNull();
 	});
 });
+
+describe('SetRest — the rest between sets is a setting', () => {
+	it('records a rest on the dial once, and refuses one off it', () => {
+		const set = (seconds: number): LedgerCommand => ({ type: 'SetRest', data: { seconds, at: AT } });
+		const s0 = initialState();
+		expect(s0.rest).toBeNull();
+		const ev = decide(set(90), s0);
+		expect(ev).toEqual([{ type: 'RestSet', data: { seconds: 90, at: AT } }]);
+		const s1 = ev.reduce(evolve, s0);
+		expect(s1.rest).toBe(90);
+		expect(decide(set(90), s1)).toEqual([]);
+		expect(decide(set(120), s1)).toHaveLength(1);
+		expect(() => decide(set(100), s1)).toThrow(ValidationError);
+		expect(() => decide(set(15), s1)).toThrow(ValidationError);
+		expect(() => decide(set(195), s1)).toThrow(ValidationError);
+	});
+});

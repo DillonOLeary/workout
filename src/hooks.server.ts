@@ -18,18 +18,15 @@ export const handle: Handle = ({ event, resolve }) => {
 	if (url.pathname.startsWith('/u/')) {
 		return new Response(null, { status: 301, headers: { location: '/login' } });
 	}
-	if (url.pathname === '/why' || url.pathname === '/plan/why') {
-		return new Response(null, { status: 301, headers: { location: '/week/why' } });
-	}
 	if (url.pathname === '/log') {
 		return new Response(null, { status: 301, headers: { location: `/floor${url.search}` } });
 	}
-	if (url.pathname === '/plan/change' || url.pathname === '/plan/programme') {
-		return new Response(null, { status: 301, headers: { location: '/week/programme' } });
+	// Three tabs again (2026-09-22): The Week and its sheet pages folded into Plan; Log it after is a sheet on Today
+	if (['/week', '/week/programme', '/week/why', '/why', '/plan/why', '/plan/change', '/plan/programme'].includes(url.pathname) || url.pathname.startsWith('/week/')) {
+		return new Response(null, { status: 301, headers: { location: '/plan' } });
 	}
-	// The Plan and its settings pages became The Week (2026-09-21)
-	if (url.pathname === '/plan' || url.pathname.startsWith('/plan/')) {
-		return new Response(null, { status: 301, headers: { location: '/week' } });
+	if (url.pathname === '/log/after') {
+		return new Response(null, { status: 301, headers: { location: '/' } });
 	}
 
 	// Verified and re-issued on every request, so the 400-day cookie clock restarts each visit.

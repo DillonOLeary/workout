@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	cellLegend, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, countLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort, holdDose, holdLine, lineValue, listJoin,
 	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rangeLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, standInLine, stepLabel, turnLabel, unitLabel, unitOf, weekChangeLine, weekHead, weekLine, weekMeta, weekSentence
@@ -266,5 +267,35 @@ describe('monthLine — a month of the Ledger, folded to one line', () => {
 		const counts = [{ discipline: 'lift' as const, n: 5 }, { discipline: 'yoga' as const, n: 0 }, { discipline: 'run' as const, n: 3 }, { discipline: 'mobility' as const, n: 3 }];
 		expect(monthLine('2026-09-02T10:00:00', 11, counts, now)).toBe('SEPTEMBER · 11 sessions · 5 lift · 3 run · 3 stretch');
 		expect(monthLine('2025-12-02T10:00:00', 1, [{ discipline: 'lift', n: 1 }], now)).toBe('DECEMBER 2025 · 1 session · 1 lift');
+	});
+});
+
+describe('v3 — the cell, the card, the pace, the when', () => {
+	it('gives each discipline a letter and a legend', () => {
+		expect((['lift', 'yoga', 'mobility', 'run', 'bodyweight'] as const).map(disciplineLetter).join('')).toBe('LYSRF');
+		expect(cellLegend(['lift', 'yoga', 'mobility', 'run', 'bodyweight'])).toBe('L lift · Y yoga · S stretch · R run · F floor · today outlined');
+		expect(cellLegend(['lift'])).toBe('L lift · today outlined');
+	});
+	it('captions the card by what is owed, and the floor by what it counts as', () => {
+		expect(dealCaption({ due: true }, 'Lift', 1, 3)).toBe('Due · Lift · 1 of 3 this week');
+		expect(dealCaption({ due: false }, 'Run', 3, 3)).toBe('Extra · Run · 3 of 3 this week');
+		expect(dealCaption({ due: false, standsInFor: 'lift' }, 'Floor', 0, 0)).toBe('Floor · counts as the lift');
+	});
+	it('says the pace of the week in one line', () => {
+		expect(paceLine(6, 9, ['lift', 'run'])).toBe('6 of 9 this week — lift, run still owed.');
+		expect(paceLine(9, 9, [])).toBe('9 of 9 this week — all square.');
+	});
+	it('says when, relative until it stops being useful', () => {
+		const now = Date.parse('2026-09-22T12:00:00');
+		expect(whenLabel('2026-09-22T07:00:00', now)).toBe('today');
+		expect(whenLabel('2026-09-21T23:00:00', now)).toBe('yesterday');
+		expect(whenLabel('2026-09-16T07:00:00', now)).toBe('6 days ago');
+		expect(whenLabel('2026-08-23T07:00:00', now)).toBe('Aug 23');
+	});
+	it('doses an item on the card with the load the rule queued', () => {
+		expect(itemDose(goblet, 45)).toBe('45 lb · 3 × 6–12');
+		expect(itemDose(rdl, 40)).toBe('40 /hand · 3 × 6–12');
+		expect(itemDose(plank, 0)).toBe('3 × 10–20s');
+		expect(itemDose(run, 0)).toBe('30 min');
 	});
 });

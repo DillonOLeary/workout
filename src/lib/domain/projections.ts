@@ -170,6 +170,15 @@ export function goals(events: LedgerEvent[]): Goals {
 	return out;
 }
 
+/** The rest between sets this person set, or null for the programme's own: the last RestSet wins. */
+export function restSeconds(events: LedgerEvent[]): number | null {
+	for (let i = events.length - 1; i >= 0; i--) {
+		const e = events[i];
+		if (e.type === 'RestSet') return e.data.seconds;
+	}
+	return null;
+}
+
 /** One change to the week: a programme switch, practice switches and goals set at one moment. */
 export type WeekChange = {
 	at: string;

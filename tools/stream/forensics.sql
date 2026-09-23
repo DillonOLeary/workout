@@ -37,7 +37,7 @@ select is_archived, count(*) from emt_messages group by is_archived;
 select distinct message_type
 from emt_messages
 where message_type not in (
-      'SessionStarted','EntryLogged','EntryCorrected','SessionFinished','SessionRemoved','ProgrammeSelected','BlockToggled','GoalSet',
+      'SessionStarted','EntryLogged','EntryCorrected','SessionFinished','SessionRemoved','ProgrammeSelected','BlockToggled','GoalSet','RestSet',
       'SetLogged','RunLogged','RunRemoved','SessionStruck','PlanSelected','PreferencesSet');
 
 

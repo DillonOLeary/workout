@@ -104,6 +104,7 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 		case 'SessionRemoved':
 		case 'ProgrammeSelected':
 		case 'GoalSet':
+		case 'RestSet':
 			return [e as LedgerEvent];
 		case 'BlockToggled': {
 			// the no-gym block is gone: the floor is the lift's fallback now, dealt whether or not a switch once said so

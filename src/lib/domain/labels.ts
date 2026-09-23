@@ -409,3 +409,47 @@ export function loadHint(s: Suggestion, ex: Exercise): string | null {
 		return `${capitalise(setsPhrase(missed))} missed last time — miss again and it backs off a size.`;
 	return null;
 }
+
+/** "L" · "Y" · "S" · "R" · "F" — one letter per discipline, for a day's cell */
+export function disciplineLetter(d: Discipline): string {
+	switch (d) {
+		case 'lift':
+			return 'L';
+		case 'yoga':
+			return 'Y';
+		case 'mobility':
+			return 'S';
+		case 'run':
+			return 'R';
+		case 'bodyweight':
+			return 'F';
+	}
+}
+
+/** "L lift · Y yoga · S stretch · R run · F floor · today outlined" — the cells' legend, for the disciplines shown */
+export const cellLegend = (ds: Discipline[]): string =>
+	[...ds.map((d) => `${disciplineLetter(d)} ${d === 'bodyweight' ? 'floor' : disciplineLabel(d).toLowerCase()}`), 'today outlined'].join(' · ');
+
+/** "Due · Lift · 1 of 3 this week" · "Extra · Run · 3 of 3 this week" · "Floor · counts as the lift" — the card's caption */
+export function dealCaption(c: { due: boolean; standsInFor?: string }, practice: string, done: number, target: number): string {
+	if (c.standsInFor) return `${practice} · counts as the lift`;
+	return `${c.due ? 'Due' : 'Extra'} · ${practice} · ${weekLine(done, target)}`;
+}
+
+/** "6 of 9 this week — lift, run still owed." · "9 of 9 this week — all square." */
+export const paceLine = (done: number, asked: number, gaps: string[]): string =>
+	`${weekLine(done, asked)} — ${gaps.length ? `${gaps.join(', ')} still owed.` : 'all square.'}`;
+
+/** "today" · "yesterday" · "6 days ago" · "Aug 23" past two weeks */
+export function whenLabel(iso: string, now: number): string {
+	const d = new Date(iso), n = new Date(now);
+	const days = Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+	if (days <= 0) return 'today';
+	if (days === 1) return 'yesterday';
+	if (days < 14) return `${days} days ago`;
+	return fmtShort(iso);
+}
+
+/** "45 lb · 3 × 6–12" · "3 × 10–20s" · "30 min" — one exercise on Today's card, with the load the rule has queued */
+export const itemDose = (ex: Exercise, weight: number): string =>
+	ex.kind === 'load' ? `${loadShort(weight, ex)} · ${doseLabel(ex)}` : doseLabel(ex);

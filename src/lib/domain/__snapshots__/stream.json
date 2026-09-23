@@ -1404,6 +1404,13 @@
 		}
 	},
 	{
+		"type": "RestSet",
+		"data": {
+			"seconds": 120,
+			"at": "2026-09-19T08:00:00.000Z"
+		}
+	},
+	{
 		"type": "SessionStarted",
 		"data": {
 			"session": "s015",
