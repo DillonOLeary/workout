@@ -52,7 +52,7 @@
 <style>
 	.table { background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-lg); overflow: hidden auto; overscroll-behavior: contain; }
 	.row {
-		position: relative; display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center;
+		position: relative; display: grid; grid-template-columns: minmax(56px, auto) 1fr auto; gap: 10px; align-items: center;
 		min-height: 52px; padding: 0 14px; border-top: 1px solid var(--paper-2); color: var(--stone);
 	}
 	.row:first-child { border-top: none; }
