@@ -164,6 +164,10 @@ export function doseLabel(ex: Exercise): string {
 	);
 }
 
+/** "12 · 12 · 10" · "45s · 45s" — a tile's worth of sets: the counts alone, the load is the floor's to say */
+export const countsLine = (sets: Measure[]): string =>
+	sets.map((m) => (m.of === 'hold' ? `${countOf(m)}s` : String(countOf(m)))).join(' · ');
+
 /** the first sentence of a note — what fits on the floor */
 export function firstSentence(text: string): string {
 	const m = /^(.+?[.!?])(\s|$)/.exec(text.trim());

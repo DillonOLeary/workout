@@ -3,11 +3,13 @@ import { entryKey } from './events';
 import {
 	estimateMinutes,
 	loggedOutside,
+	nextOpenStep,
 	positionLabel,
 	restUntil,
 	routineExercises,
 	runStart,
 	sessionProgress,
+	sessionSections,
 	sessionSteps,
 	type Entry
 } from './steps';
@@ -193,5 +195,41 @@ describe('positionLabel — where you are, the way the crumb says it', () => {
 		expect(positionLabel(9, steps)).toBe('Done');
 		expect(positionLabel(3, sessionSteps(plan, RUN))).toBe('Run');
 		expect(positionLabel(1, sessionSteps(plan, S))).toBe('Hold 2/4');
+	});
+});
+
+describe('sessionSections — the session as the map shows it', () => {
+	const steps = sessionSteps(plan, A);
+	const keys = (...ks: [string, number][]) => new Set(ks.map(([item, index]) => entryKey(item, index)));
+	it('counts each section in plan order and lands a tap on its first open step', () => {
+		const done = keys(['Warm-up', 1], ['Warm-up', 2], ['Goblet Squat', 1]);
+		expect(sessionSections(steps, done).map((x) => [x.name, x.done, x.steps, x.jump])).toEqual([
+			['Warm-up', 2, 2, 0],
+			['Goblet Squat', 1, 3, 3],
+			['Plank', 0, 2, 5],
+			['Cooldown', 0, 2, 7]
+		]);
+	});
+	it('lands on the first step of a finished section, and reads its figure from the step that opens it', () => {
+		const all = new Set(steps.map((s) => s.key));
+		const secs = sessionSections(steps, all);
+		expect(secs.map((x) => x.jump)).toEqual([0, 2, 5, 7]);
+		expect(secs[1].first.kind === 'set' && secs[1].first.ex.name).toBe('Goblet Squat');
+	});
+});
+
+describe('nextOpenStep — where Next goes', () => {
+	const steps = sessionSteps(plan, A);
+	const except = (...open: number[]) => new Set(steps.filter((_, i) => !open.includes(i)).map((s) => s.key));
+	it('walks plan order from where you are', () => {
+		expect(nextOpenStep(steps, new Set(), 2)).toBe(3);
+		expect(nextOpenStep(steps, except(5, 6, 7, 8), 4)).toBe(5);
+	});
+	it('wraps round to a section left open behind you', () => {
+		expect(nextOpenStep(steps, except(2, 3, 4), 8)).toBe(2);
+		expect(nextOpenStep(steps, except(2, 3, 4, 7), 5)).toBe(7);
+	});
+	it('has nowhere to go when every step is done', () => {
+		expect(nextOpenStep(steps, except(), 8)).toBeNull();
 	});
 });

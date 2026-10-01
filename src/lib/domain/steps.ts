@@ -180,3 +180,44 @@ export function positionLabel(i: number, steps: Step[]): string {
 	const peers = steps.filter((x) => x.section === s.section);
 	return `${s.section} ${peers.indexOf(s) + 1}/${peers.length}`;
 }
+
+/** One section of a session as the floor's map shows it: its steps counted, and where a tap on it lands. */
+export type Section = {
+	/** 'Warm-up', an exercise name, 'Cooldown' */
+	name: string;
+	steps: number;
+	done: number;
+	/** the step that opens it — what its figure and its dose are read from */
+	first: Step;
+	/** the step index a tap lands on: its first open step, or its first step when nothing is */
+	jump: number;
+};
+
+/** The session in sections, in plan order — the strip's cells and the wall's tiles. */
+export function sessionSections(steps: Step[], done: Set<string>): Section[] {
+	const out: Section[] = [];
+	let open = false;
+	steps.forEach((s, i) => {
+		let sec = out.find((x) => x.name === s.section);
+		if (!sec) {
+			out.push((sec = { name: s.section, steps: 0, done: 0, first: s, jump: i }));
+			open = false;
+		}
+		sec.steps++;
+		if (done.has(s.key)) sec.done++;
+		else if (!open) {
+			sec.jump = i;
+			open = true;
+		}
+	});
+	return out;
+}
+
+/** The next step that isn't done, in plan order after `from`, wrapping round to what was left behind; null when nothing is open. */
+export function nextOpenStep(steps: Step[], done: Set<string>, from: number): number | null {
+	for (let d = 1; d <= steps.length; d++) {
+		const i = (((from + d) % steps.length) + steps.length) % steps.length;
+		if (!done.has(steps[i].key)) return i;
+	}
+	return null;
+}

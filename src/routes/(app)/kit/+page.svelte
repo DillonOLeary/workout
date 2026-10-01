@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Caption, Card, Cell, Note, Primary, Row, SetTable, Sheet, Slot, Stepper, Switch, Title, type SetRow } from '$lib/ui';
+	import { Caption, Card, Cell, Note, Primary, Row, SetTable, Sheet, Slot, Stepper, Switch, Tile, Title, type SetRow } from '$lib/ui';
 
 	let n = $state(3);
 	let on = $state(true);
@@ -19,7 +19,7 @@
 </script>
 
 <div class="kit">
-	<div class="head"><Title>The kit</Title><Note>Twelve parts, every state. Props only, no domain imports. This replaces /glyphs as the place you look.</Note></div>
+	<div class="head"><Title>The kit</Title><Note>Thirteen parts, every state. Props only, no domain imports. This replaces /glyphs as the place you look.</Note></div>
 
 	<section><Caption>Caption</Caption><div class="rowx"><Caption>Today · Thu 21</Caption><span class="ground now"><Caption tone="slate">In progress · set 4 of 12</Caption></span></div></section>
 	<section><Caption>Title</Caption><Title>Hinge &amp; Haul</Title><Title size="md">Goblet Squat</Title><Title size="sm">Programme</Title><Title size="md" caps>Goblet Squat</Title></section>
@@ -54,6 +54,8 @@
 	<section><Caption>Cell</Caption>
 		<div class="grid7" role="list">{#each week as w, i (i)}<Cell size="strip" label={i === 1 ? 'L' : i === 3 ? 'YS' : i === 6 ? 'R' : w} done={[1, 3, 6].includes(i)} today={i === 6} />{/each}</div>
 		<div class="grid7" role="list">{#each Array.from({ length: 14 }, (_, i) => i) as i (i)}<Cell label={i === 2 ? 'L' : i === 5 ? 'R' : i === 9 ? 'LS' : i > 10 ? '' : '·'} done={[2, 5, 9].includes(i)} today={i === 10} future={i > 10} />{/each}</div>
+		<div class="strip" role="list">{#each ['✓', '✓', '3', '✓', '1/3', '3', '3', '2'] as l, i (i)}<Cell size="strip" label={l} done={l === '✓'} now={i === 4} today={i === 4} />{/each}</div>
+		<Note size="sm" tone="stone">The floor's strip: one cell per section. Volt-light is the one in progress; a white cell among the ink ones was skipped.</Note>
 	</section>
 
 	<section><Caption>Set table</Caption>
@@ -66,7 +68,21 @@
 		<Sheet open={sheet} title="Programme" onclose={() => (sheet = false)}><Note>One at a time. Switching keeps every set logged.</Note><Card><Title size="md">Open to Work</Title><Note>Full body, A/B, three a week.</Note></Card><Primary onclick={() => (sheet = false)}>Log it</Primary></Sheet>
 	</section>
 
-	<section><Caption>Slot</Caption><div class="rowx"><Slot exercise="Goblet Squat" phase="set" /><Slot exercise="Goblet Squat" phase="ready" /><Slot exercise="Pigeon" phase="still" size={84} /><Slot exercise="Nothing here" size={84} /></div><Note size="sm">92px on the floor, 84px on Done. A still frame of the current rig until rig v2 fills it.</Note></section>
+	<section><Caption>Slot</Caption><div class="rowx"><Slot exercise="Goblet Squat" phase="set" /><Slot exercise="Goblet Squat" phase="ready" /><Slot exercise="Pigeon" phase="still" size={84} /><Slot exercise="Nothing here" size={84} /></div><Note size="sm">92px on the floor, 84px on Done. A still frame of the current rig until rig v2 fills it.</Note>
+		<div class="rowx"><Slot exercise="Goblet Squat" phase="still" size={54} /><span class="ground now"><Slot exercise="Goblet Squat" phase="still" size={54} tone="white" /></span><span class="ground ink"><Slot exercise="Goblet Squat" phase="still" size={54} tone="volt" /></span></div><Note size="sm">The three tones, 54px: ash, white on volt-light, volt on ink.</Note>
+	</section>
+
+	<section><Caption>Tile</Caption>
+		<div class="wall">
+			<Tile exercise="Goblet Squat" title="Goblet Squat" note="12 · 12 · 10" badge="✓" state="done" />
+			<Tile exercise="Chest Press" title="Chest Press" note="3 × 8–12" />
+			<Tile exercise="Lat Pulldown" title="Lat Pulldown" note="you are here" badge="1/3" state="now" here />
+			<Tile exercise="Standing Calf Raise" title="Standing Calf Raise" note="3 × 10–15" />
+			<Tile exercise="Romanian Deadlift" title="Romanian Deadlift" note="10" badge="1/3" />
+			<Tile exercise="Goblet Squat" title="Goblet Squat" note="12 · 12 · 10" badge="✓" state="done" here />
+		</div>
+		<Note size="sm" tone="stone">The session's wall, floor only. Done · open · in progress and here · open · left part-way · done and here (a visit).</Note>
+	</section>
 </div>
 
 <style>
@@ -81,4 +97,7 @@
 	.tile.dim { opacity: 0.35; }
 	.dimrow { display: inline-flex; align-items: center; gap: 10px; opacity: 0.5; font-size: 14px; }
 	.grid7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+	.strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+	.wall { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+	.ground.ink { background: var(--ink); padding: 6px; border-radius: 12px; }
 </style>
