@@ -2,18 +2,18 @@
 	import { enhance } from '$app/forms';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Caption, Card, Cell, Note, Primary, SetTable, Sheet, Slot, Stepper, Tile, Title, type SetRow } from '$lib/ui';
+	import { Caption, Card, Note, Primary, SetTable, Slot, Stepper, Title, type SetRow } from '$lib/ui';
 	import { armBell, ringBell } from '$lib/floor/bell';
 	import { holdScreen } from '$lib/floor/wake-lock';
 	import { CountdownClock, type Countdown } from '$lib/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/floor/entry-queue.svelte';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
-	import { countsLine, disciplineLabel, doseLabel, durationLabel, firstSentence, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
+	import { disciplineLabel, durationLabel, firstSentence, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { cueFor, progresses, restFor, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
 	import { anySetEarned, bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
-	import { estimateMinutes, loggedOutside, nextOpenStep, restUntil, runStart, sessionProgress, sessionSections, sessionSteps, type Section, type Step } from '$lib/domain/steps';
+	import { estimateMinutes, loggedOutside, restUntil, runStart, sessionProgress, sessionSteps, type Step } from '$lib/domain/steps';
 	import { STAND } from '$lib/design/rig';
 	import type { PageProps } from './$types';
 
@@ -130,20 +130,6 @@
 		preload(i);
 		replaceState(`?step=${i}`, {});
 	}
-
-	// the session's map: a cell per section on the strip, a tile per section on the wall behind it
-	let sections = $derived(sessionSections(steps, progress.done));
-	let map = $state(false);
-	/** the step you left to visit a finished section — where "Back to …" goes, for as long as that step is still open */
-	let returnTo = $state<number | null>(null);
-	let back = $derived(returnTo !== null && steps[returnTo] && !progress.done.has(steps[returnTo].key) ? returnTo : null);
-	function visit(sec: Section) {
-		map = false;
-		if (sec.name === st?.section) return;
-		// a finished section is a visit, and the button remembers the way back; an open one is where the work goes now
-		returnTo = sec.done === sec.steps ? (stepDone ? back : stepI) : null;
-		goTo(sec.jump);
-	}
 	function fix(key: string) {
 		const s = steps.find((x) => x.key === key);
 		const e = s && entryFor(s);
@@ -216,11 +202,7 @@
 		armBell();
 		if (editing) return saveFix();
 		if (allDone) return void finishNow();
-		if (stepDone) {
-			const to = back ?? nextOpenStep(steps, progress.done, stepI);
-			returnTo = null;
-			return to === null ? undefined : goTo(to);
-		}
+		if (stepDone) return goTo(stepI + 1);
 		if (st.kind === 'prep') return enqueue({ of: 'step' });
 		if (st.kind === 'timed') return startOrDone({ kind: 'timed', target: st.seconds });
 		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
@@ -282,14 +264,10 @@
 			return { key: s.key, label, text: plannedValue(s.ex, plannedWeight(s.ex, s.index - 1)), state: 'todo' };
 		});
 	});
-	// what the button walks to once this section is behind you: the next one with something open, wrapping round
 	let thenLine = $derived.by(() => {
 		if (!st) return '';
-		if (stepDone && back !== null) return `then: back to ${steps[back].section}`;
-		let last = stepI;
-		while (last + 1 < steps.length && steps[last + 1].section === st.section) last++;
-		const to = nextOpenStep(steps, progress.done, last);
-		return `then: ${to !== null && steps[to].section !== st.section ? steps[to].section : 'done'}`;
+		const next = steps.slice(stepI + 1).find((s) => s.section !== st.section);
+		return `then: ${next ? next.section : 'done'}`;
 	});
 	let exLine = $derived(ex ? `${exercises.findIndex((e) => e.name === ex.name) + 1} of ${exercises.length} exercises` : `~${estimateMinutes(steps, progress.current)} min left`);
 	let stage = $derived.by((): { value: string; note: string; frac: number } | null => {
@@ -303,14 +281,13 @@
 		if (st.kind === 'run') return { value: mmss(runElapsed), note: `Run · of ${st.minutes} min`, frac: Math.max(0, 1 - runElapsed / (st.minutes * 60000)) };
 		return null;
 	});
-	let readyLine = $derived(stepDone && back !== null ? 'All logged. Fix one, or go back.' : progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
+	let readyLine = $derived(progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
 	let primaryLabel = $derived.by(() => {
 		if (editing) return `Save ${editStep?.kind === 'set' && editStep.ex.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`;
 		if (!st) return `Finish ${noun}`;
 		if (stepDone) {
-			if (back !== null) return `Back to ${steps[back].section}`;
-			const n = nextOpenStep(steps, progress.done, stepI);
-			return n === null ? `Finish ${noun}` : steps[n].section === st.section ? 'Next' : `Next: ${steps[n].section}`;
+			const n = steps[stepI + 1];
+			return !n ? `Finish ${noun}` : n.section === st.section ? 'Next' : `Next: ${n.section}`;
 		}
 		if (st.kind === 'prep') return 'Done';
 		if (st.kind === 'timed') return clock.active ? 'Done early' : `Start ${durationLabel(st.seconds)}`;
@@ -321,24 +298,12 @@
 	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && (!!ex && progresses(ex))));
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileLoad = $derived(dialEx?.kind === 'load');
-	const figureOf = (s: Step) => (s.kind === 'set' || s.kind === 'run' ? s.ex.name : s.kind === 'timed' ? s.name : STAND);
-	let figure = $derived(!st || allDone ? STAND : figureOf(st));
+	let figure = $derived(!st || allDone ? STAND : st.kind === 'set' ? st.ex.name : st.kind === 'timed' ? st.name : st.kind === 'run' ? st.ex.name : STAND);
 	let phase = $derived<'set' | 'ready' | 'running' | 'still'>(clock.active || st?.kind === 'run' ? 'running' : resting || stepDone ? 'ready' : 'set');
 
 	// the receipt
 	const receiptSets = (name: string): Measure[] => entries.filter((e) => e.item === name && isSet(e.measure)).sort((a, b) => a.index - b.index).map((e) => e.measure);
 	let runMinutes = $derived(entries.reduce((n, e) => n + (e.measure.of === 'duration' ? e.measure.minutes : 0), 0));
-
-	// the map's words: ✓ when a section is behind you, 1/3 while it is under way or under you, else how many steps it holds
-	const isHere = (sec: Section) => !allDone && sec.name === st?.section;
-	const tally = (sec: Section) => (sec.done === sec.steps ? '✓' : sec.done > 0 || isHere(sec) ? `${sec.done}/${sec.steps}` : '');
-	const tileNote = (sec: Section) => {
-		const f = sec.first;
-		if (isHere(sec) && sec.done < sec.steps) return 'you are here';
-		if (f.kind === 'set') return sec.done ? countsLine(receiptSets(f.ex.name)) : doseLabel(f.ex);
-		if (f.kind === 'run') return `${(sec.done && runMinutes) || f.minutes} min`;
-		return `${sec.steps} ${sec.steps === 1 ? 'step' : 'steps'}`;
-	};
 	let sessionMinutes = $derived(Math.max(1, Math.round(((entries.reduce((m, e) => Math.max(m, Date.parse(e.at)), 0) || now) - Date.parse(session.at)) / 60000)));
 	let doneNote = $derived.by(() => {
 		const up = exercises.filter((e) => e.kind === 'load' && anySetEarned(receiptSets(e.name), e)).map((e) => e.name);
@@ -347,7 +312,6 @@
 	});
 
 	function onKey(ev: KeyboardEvent) {
-		if (map) return;
 		if (ev.key === 'Escape' && editing) return cancelFix();
 		if (ev.key === 'Enter') return primaryAction();
 		if (allDone) return;
@@ -366,16 +330,7 @@
 			<button type="button" class="back" onclick={() => void exitToToday()}>‹ Today</button>
 			<Caption tone="slate">{title} · {pos}</Caption>
 		</header>
-		{#snippet cells()}
-			<span class="cells" role="list">
-				{#each sections as sec (sec.name)}<Cell size="strip" label={tally(sec) || String(sec.steps)} done={sec.done === sec.steps} now={isHere(sec) && sec.done < sec.steps} today={isHere(sec)} title="{sec.name}: {sec.done} of {sec.steps}" />{/each}
-			</span>
-		{/snippet}
-		{#if allDone}
-			<div class="strip">{@render cells()}</div>
-		{:else}
-			<button type="button" class="strip" onclick={() => (map = true)} aria-label="The session: {progress.done.size} of {steps.length} done. Every section, and a way to any of them">{@render cells()}<span class="chev" aria-hidden="true">›</span></button>
-		{/if}
+		<div class="bar"><span style="width: {steps.length ? (progress.current / steps.length) * 100 : 0}%"></span></div>
 
 		{#if st && !allDone}
 			<div class="who">
@@ -452,16 +407,6 @@
 <!-- finish goes through a real form action; its 303 makes use:enhance run invalidateAll, so Today reloads fresh events; a refusal frees the button -->
 <form bind:this={finishFormEl} method="POST" action="?/finish" use:enhance={() => async ({ result, update }) => { await update(); if (result.type !== 'redirect') finishing = false; }} hidden></form>
 
-<!-- the wall: every section of the session; a tap goes there, and a finished one opens with its sets to fix -->
-<Sheet open={map} {title} onclose={() => (map = false)}>
-	<Note size="sm">{progress.done.size} of {steps.length} done. Tap one to go there.</Note>
-	<div class="wall">
-		{#each sections as sec (sec.name)}
-			<Tile exercise={figureOf(sec.first)} title={sec.name} note={tileNote(sec)} badge={tally(sec)} state={sec.done === sec.steps ? 'done' : isHere(sec) ? 'now' : 'open'} here={isHere(sec)} onclick={() => visit(sec)} />
-		{/each}
-	</div>
-</Sheet>
-
 <style>
 	.fl {
 		position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100svh; z-index: 50;
@@ -476,12 +421,6 @@
 		font-family: var(--font-body); font-weight: 700; font-size: 14px; color: var(--ink); box-shadow: 0 2px 0 var(--ink); cursor: pointer; touch-action: manipulation;
 	}
 	.back:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
-	.strip { flex: none; display: flex; align-items: center; gap: 4px; width: 100%; padding: 0; margin: 0; background: none; border: 0; }
-	button.strip { cursor: pointer; touch-action: manipulation; }
-	.cells { flex: 1; min-width: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
-	.chev { flex: none; width: 12px; text-align: right; font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--stone); }
-	button.strip:hover .chev { color: var(--ink); }
-	.wall { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 	.bar { flex: none; height: 6px; background: var(--ash); border-radius: var(--radius-pill); overflow: hidden; }
 	.bar span { display: block; height: 100%; background: var(--ink); transition: width 300ms; }
 	.bar.wide { width: 100%; }

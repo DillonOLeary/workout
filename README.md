@@ -12,8 +12,7 @@ stand in for the lift whenever you pick one. Three tabs: **Today** ranks the
 practices and answers "what should I do?" with one button, the **Ledger** is
 the stream made readable (the latest session can be corrected, older history is
 immutable), and the **Plan** is the rules' inputs. The floor covers the tabs
-while a session is walked; a strip of cells along its top is the whole session,
-and a tap on it opens every section to go to, skip or fix. Every screen is built from one thirteen-part kit in
+while a session is walked. Every screen is built from one twelve-part kit in
 `src/lib/ui/` — `/kit` renders every part in every state in dev.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)

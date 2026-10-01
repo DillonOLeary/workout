@@ -515,11 +515,7 @@ so it gets a `run` step where a lift gets its sets, between the same drills
 and stretches. Steps are **derived from the plan, never stored**, and this file
 is the only one that knows what a session *is*: the floor renders steps, it
 never invents one. Which steps are done is read from the session's entries
-(`sessionProgress`, `positionLabel` "Set 4 of 20"), and the same list folds
-into the floor's map: `sessionSections` groups it by section, counts what is
-behind you in each and says where a tap on it lands, and `nextOpenStep` is
-where Next goes — the next step not yet done, in plan order, wrapping round to
-anything left open behind you. A **rest is not a
+(`sessionProgress`, `positionLabel` "Set 4 of 20"). A **rest is not a
 step** — it is a clock that runs under the next set (`restUntil`: the
 previous set's timestamp plus the exercise's rest), never written, which is
 why a reload lands back on the same countdown and why a set that hasn't
@@ -608,7 +604,7 @@ because the measure says what it was: a retired "Weighted Plank" is still
 
 ### Tests — the domain is pure, so test it like arithmetic
 
-`pnpm test` runs vitest over `src/**/*.test.ts` — eleven suites, 187 tests, one
+`pnpm test` runs vitest over `src/**/*.test.ts` — eleven suites, 182 tests, one
 per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/snapshot.test.ts)
 builds a full stream in every stored shape the upcaster reads, folds it through
 every rule at one fixed `now`, and compares the JSON to the committed
@@ -663,14 +659,13 @@ src/routes/
    │                                 a dial posts 700 ms after the last tap — or at once when its panel folds or the page leaves, so a tap is never lost
    ├─ floor/                        gym floor — covers the tabs  (/floor)
    │                                 load guard → / when nothing is open · ?/logEntry · ?/correctEntry · ?/finish
-   │                                 the strip along its top is the session, a cell per section; a tap opens the wall — go to any section, skip one, fix a set in a finished one
    ├─ kit/                          every part of the kit in every state — dev only  (/kit)
    └─ export/+server.ts             GET /export: the stream as a JSON download
 
 src/lib/
 ├─ domain/        the layers of §2 — pure, no I/O; README.md is the contract, __snapshots__/ the freeze
 ├─ server/        db.ts (the connection string), eventStore.ts (a pg client per request), ledger.ts, auth.ts, uid.ts
-├─ ui/            the kit — thirteen parts, props only, no domain imports: Caption, Title, Note, Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot, Tile
+├─ ui/            the kit — twelve parts, props only, no domain imports: Caption, Title, Note, Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot
 ├─ floor/         bell, wake-lock, entry-queue, countdown — the floor's machinery, no markup
 └─ design/        tokens/*.css, rig.ts (the figures; the Slot draws a still until rig v2)
 
@@ -945,30 +940,6 @@ primary point at that set until you save. Leaving early is a session question,
 so it lives on Today: *Finish here* under the in-progress card, beside *Bin*. Everything underneath survived
 untouched: the entry queue, the countdown, the bell, the wake lock, the rest as
 a clock under the next set, the step in the URL.
-
-The session sheet came back eight days later (2026-09-30), because the rebuild
-had taken more than chrome with it: on a phone there was no longer a way to see
-what was left, to skip a machine that was taken, or to go back to a set from an
-earlier exercise — only ← → on a keyboard still moved between steps, and `fix`
-reached only the section on screen. The old map had been a list of text rows
-(every set on 2026-08-24, then one row per section, then opened from the
-header's crumb), and a first attempt at restoring it as a `Row` and a list read
-like a settings page. What shipped speaks the grammar the week strip on Today
-already speaks. The thin bar at the top of the floor is now a **strip** of
-`Cell`s, one per section: ink is done, white is not, volt-light is under way
-and the dashed outline is where you are, so a section you skipped is a white
-gap among the ink. A tap on the strip opens the **wall**, the third `Sheet` in
-the app: a grid of `Tile`s — the kit's thirteenth part, the Cell's states at
-tile size with the `Slot`'s figure (`Slot` gained a `tone` for the ground it
-sits on, `Cell` a `now`) — each saying what was logged there or the dose still
-to do. A tap goes there: an open section is where the work goes now; a finished
-one is a visit, its sets waiting with their `fix` pills, and the button
-remembers the step you left and reads *Back to Lat Pulldown*. Otherwise Next is
-`nextOpenStep`, so the end of the cooldown offers whatever is still open where
-Finish would be, and the line under the table always says what the button will
-do. No event, no rule and no action changed: the decider already took entries
-in any order within the open session and a correction to any of its sets — the
-floor just had no way to ask.
 
 ## 5. Exercises
 

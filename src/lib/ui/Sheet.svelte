@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
-	/** Bottom, ink border, × and tap-out. Three exist: Programme, Log-after, the floor's session. A sheet never opens a sheet. Esc closes it. */
+	/** Bottom, ink border, × and tap-out. Two exist: Programme, Log-after. A sheet never opens a sheet. Esc closes it. */
 	let { open, title, onclose, children }: { open: boolean; title: string; onclose: () => void; children: Snippet } = $props();
 
 	const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	cellLegend, countsLine, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
+	cellLegend, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
 	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, standInLine, weekChangeLine, weekHead, weekLine
@@ -150,8 +150,6 @@ describe('a set', () => {
 		expect(setsLine([load(45, 5), load(35, 12)], goblet)).toBe('45×5 · 35×12');
 		expect(setsLine([load(45, 5), load(35, 12)], rdl)).toBe('45×5 · 35×12 each hand');
 		expect(setsLine([hold(20, 20), hold(19, 20)], plank)).toBe('20s · 19s');
-		expect(countsLine([load(35, 12), load(35, 9), load(35, 5)])).toBe('12 · 9 · 5');
-		expect(countsLine([hold(45), hold(40)])).toBe('45s · 40s');
 		expect(setsLine([reps(8), reps(8)], copenhagen)).toBe('8 L · 8 R');
 	});
 	it('still reads a retired exercise from its measures alone', () => {
