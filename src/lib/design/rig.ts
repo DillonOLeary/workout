@@ -21,7 +21,6 @@ export const MOTIONS: Record<Motion, Gear> = {
 };
 /** one hop of a transition: six stamps, on the rep clock */
 export const HOP_FRAMES = 6;
-export const HOP_MS = MOTIONS.rep.frameMs;
 /** a side figure can't rotate — a turn is four dithered stamps */
 export const TURN_FRAMES = 4;
 

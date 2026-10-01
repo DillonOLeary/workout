@@ -101,7 +101,8 @@
 	let ticking = $derived(resting || clock.active || st?.kind === 'run');
 	$effect(() => {
 		if (!ticking) return;
-		const t = setInterval(() => (now = Date.now()), 200);
+		// the rest bar and a hold move by the fifth of a second; the run's clock shows whole seconds
+		const t = setInterval(() => (now = Date.now()), resting || clock.active ? 200 : 1000);
 		return () => clearInterval(t);
 	});
 	let lit = $derived(!allDone && st?.kind !== 'run');
@@ -153,6 +154,7 @@
 		cancelFix();
 	}
 	function push(op: QueueOp, s: Step, measure: Measure) {
+		now = Date.now(); // the rest clock starts from this tap, not from the last tick
 		queue.push(op, s, measure);
 		navigator.vibrate?.(12);
 	}
@@ -189,6 +191,10 @@
 	}
 	async function exitToToday() {
 		await queue.drain();
+		if (queue.anyFailed) {
+			queue.error = 'An entry didn’t save — Retry it before you leave.';
+			return;
+		}
 		await goto('/', { invalidateAll: true });
 	}
 	function primaryAction() {
@@ -398,8 +404,8 @@
 	</div>
 </div>
 
-<!-- finish goes through a real form action; its 303 makes use:enhance run invalidateAll, so Today reloads fresh events -->
-<form bind:this={finishFormEl} method="POST" action="?/finish" use:enhance hidden></form>
+<!-- finish goes through a real form action; its 303 makes use:enhance run invalidateAll, so Today reloads fresh events; a refusal frees the button -->
+<form bind:this={finishFormEl} method="POST" action="?/finish" use:enhance={() => async ({ result, update }) => { await update(); if (result.type !== 'redirect') finishing = false; }} hidden></form>
 
 <style>
 	.fl {

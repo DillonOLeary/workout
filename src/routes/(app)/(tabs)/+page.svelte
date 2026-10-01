@@ -3,10 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { dealCaption, disciplineLabel, disciplineLetter, itemDose, sessionSummary, weekLine } from '$lib/domain/labels';
+	import { dealCaption, disciplineLabel, disciplineLetter, itemDose, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
 	import { routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
-	import { historyFor, projectSessions, sessionEntries, weekStrip, type DayCell } from '$lib/domain/projections';
+	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
 	import { queue, weekProgress, weekTally } from '$lib/domain/week';
 	import { suggest } from '$lib/domain/progression';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps } from '$lib/domain/steps';
@@ -19,7 +19,8 @@
 	let session = $derived(data.activeSession);
 	let strip = $derived(weekStrip(data.events, now));
 	let tally = $derived(weekTally(data.events, plan, now));
-	const cellLabel = (c: DayCell) => (c.did.length ? c.did.map(disciplineLetter).join('') : 'MTWTFSS'[(new Date(c.key.toString().replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3T12:00:00')).getDay() + 6) % 7]);
+	// an empty cell shows its weekday's initial — the first letter of "Sun, Aug 23"
+	const cellLabel = (c: DayCell) => (c.did.length ? c.did.map(disciplineLetter).join('') : c.label[0]);
 
 	// the deal: one candidate per cycle, the first on the card, the rest one "Something else" away
 	let deck = $derived(queue(data.events, plan, now));
@@ -27,10 +28,9 @@
 	let card = $derived(deck[Math.min(i, Math.max(0, deck.length - 1))]);
 	let deckOpen = $state(false);
 	const cycleTitle = (id: string) => plan.cycles.find((c) => c.id === id)?.title ?? id;
-	const progressOf = (id: string) => {
-		const c = plan.cycles.find((x) => x.id === id);
-		return c ? weekProgress(data.events, plan, c, now) : { done: 0, target: 0 };
-	};
+	// owed, once per cycle: the card's caption and every "Something else" line read the same numbers
+	let progress = $derived(new Map(plan.cycles.map((c) => [c.id, weekProgress(data.events, plan, c, now)])));
+	const progressOf = (id: string) => progress.get(id) ?? { done: 0, target: 0 };
 	const captionOf = (c: typeof card) => {
 		const { done, target } = progressOf(c.cycle);
 		return dealCaption(c, cycleTitle(c.cycle), done, target);
@@ -54,7 +54,7 @@
 		return st.kind === 'set' ? `next: ${st.ex.name} · ${st.ex.kind === 'hold' ? 'hold' : 'set'} ${st.index}` : st.kind === 'run' ? 'next: the run' : `next: ${st.section.toLowerCase()} · step ${st.index}`;
 	});
 
-	// the moment you need Undo is the moment after Finish: the latest session, while it is still today's, until the next one starts
+	// the moment you need Undo is the moment after Finish: the latest session while it is still today's (a backdated one whatever its day), until the next one starts
 	let justLogged = $derived.by(() => {
 		if (session || !data.latestSession) return null;
 		const s = projectSessions(data.events).find((x) => x.id === data.latestSession);
@@ -62,11 +62,8 @@
 		const when = new Date(s.finishedAt ?? s.at), d = new Date(now);
 		const sameDay = when.getFullYear() === d.getFullYear() && when.getMonth() === d.getMonth() && when.getDate() === d.getDate();
 		if (s.mode !== 'after' && !sameDay) return null;
-		const sets = s.rows.reduce((n, r) => n + r.sets.length, 0);
-		const holds = sets > 0 && s.rows.every((r) => r.sets.every((m) => m.of === 'hold'));
-		const walked = s.mode === 'live' && s.finishedAt ? Math.round((Date.parse(s.finishedAt) - Date.parse(s.at)) / 60000) : 0;
 		const title = routineTitle(data.plans.find((p) => p.id === s.plan) ?? plan, s.workout.routine) ?? disciplineLabel(s.discipline);
-		return { id: s.id, title, summary: sessionSummary({ sets, holds, minutes: s.minutes || (walked > 0 && walked <= 240 ? walked : 0) }) };
+		return { id: s.id, title, summary: sessionSummaryOf(s) };
 	});
 
 	// the two removes arm on the first tap and post on the second; four seconds and they stand down

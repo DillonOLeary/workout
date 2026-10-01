@@ -26,7 +26,8 @@
 			"id": "7d60b374c6434905a51c6ed070b9d3f8"
 		}
 	],
+	// the gate: types, tests and the glyph snapshot must pass before Workers Builds deploys a push to main
 	"build": {
-		"command": "pnpm run build"
+		"command": "pnpm check && pnpm run build"
 	}
 }

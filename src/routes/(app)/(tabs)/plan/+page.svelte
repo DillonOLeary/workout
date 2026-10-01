@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { Caption, Card, Note, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import { goalHint, weekHead, weekLine } from '$lib/domain/labels';
 	import { GOAL_MINUTES, GOAL_SESSIONS, REST_SECONDS, restFor, routineTitle, type Cycle, type Plan, type PracticeId } from '$lib/domain/plan';
-	import { BLOCKS } from '$lib/domain/plans';
+	import { BLOCKS, DEFAULT_PROGRAMMES } from '$lib/domain/plans';
 	import { weekProgress } from '$lib/domain/week';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
@@ -12,7 +13,7 @@
 	const now = Date.now();
 
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
-	let programme = $derived(data.programmes.find((p) => p.id === plan.id) ?? data.programmes[0]);
+	let programme = $derived(DEFAULT_PROGRAMMES.find((p) => p.id === plan.id) ?? DEFAULT_PROGRAMMES[0]);
 
 	type Practice = { id: PracticeId; name: string; sub: string; cycle: Cycle; programmeTarget: number; on: boolean; done: number; minutes: number; runMinutes?: number };
 	let practices = $derived.by((): Practice[] => {
@@ -42,7 +43,7 @@
 	let goalForm = $state<HTMLFormElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function toggleOpen(p: Practice) {
-		clearTimeout(timer);
+		flush();
 		if (open === p.id) return (open = null);
 		draft = { sessions: p.cycle.target, ...(p.runMinutes !== undefined ? { minutes: p.runMinutes } : {}) };
 		open = p.id;
@@ -51,7 +52,10 @@
 	function dial(sessions: number, minutes?: number) {
 		draft = { sessions, ...(minutes !== undefined ? { minutes } : {}) };
 		clearTimeout(timer);
-		timer = setTimeout(() => goalForm?.requestSubmit(), 700);
+		timer = setTimeout(() => {
+			timer = undefined;
+			goalForm?.requestSubmit();
+		}, 700);
 	}
 
 	// the rest between sets: the programme's until you set it; posted the same way
@@ -64,8 +68,25 @@
 	function dialRest(dir: 1 | -1) {
 		restDraft = clamp(restShown + dir * REST_SECONDS.step, REST_SECONDS.min, REST_SECONDS.max);
 		clearTimeout(restTimer);
-		restTimer = setTimeout(() => restForm?.requestSubmit(), 700);
+		restTimer = setTimeout(() => {
+			restTimer = undefined;
+			restForm?.requestSubmit();
+		}, 700);
 	}
+	/** a draft still waiting on the debounce posts now — the dial is about to fold away or the page to leave, and a tap dialled is a tap kept */
+	function flush() {
+		if (timer) {
+			clearTimeout(timer);
+			timer = undefined;
+			goalForm?.requestSubmit();
+		}
+		if (restTimer) {
+			clearTimeout(restTimer);
+			restTimer = undefined;
+			restForm?.requestSubmit();
+		}
+	}
+	onDestroy(flush);
 
 	let whyOpen = $state(false);
 	let sheet = $state(false);
@@ -140,7 +161,7 @@
 
 <Sheet open={sheet} title="Programme" onclose={() => (sheet = false)}>
 	<Note size="sm">One at a time. Switching keeps every set logged; the rule picks up where each exercise left off.</Note>
-	{#each data.programmes as p (p.id)}
+	{#each DEFAULT_PROGRAMMES as p (p.id)}
 		{@const current = p.id === programme.id}
 		<Card tone={current ? 'ink' : 'quiet'}>
 			<div class="phead">

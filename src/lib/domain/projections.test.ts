@@ -98,6 +98,18 @@ describe('historyFor — the seam between the read model and the rule', () => {
 	});
 });
 
+describe('projectSessions — one fold per stream', () => {
+	it('hands the same sessions back for the same array, and folds a new array afresh', () => {
+		const ev = ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10]] }]);
+		const once = projectSessions(ev);
+		expect(projectSessions(ev)).toBe(once);
+		const again = projectSessions([...ev, ...did('s9', 'S', 'mobility', 0)]);
+		expect(again).not.toBe(once);
+		expect(again.map((s) => s.id)).toEqual(['s9', 's0']);
+		expect(once.map((s) => s.id)).toEqual(['s0']);
+	});
+});
+
 describe('corrections — the last word on an entry', () => {
 	const at = new Date(NOW - DAY).toISOString();
 	const base: LedgerEvent[] = [

@@ -1,5 +1,5 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
-import { fmtDate, spanLabel } from './labels';
+import { fmtDate, sessionSummary, spanLabel } from './labels';
 import { isSet, type Measure } from './measure';
 import { PRACTICES, allPracticesOn, type Discipline, type Goal, type Goals, type PracticeId } from './plan';
 import type { History, HistoryEntry } from './progression';
@@ -38,8 +38,17 @@ export type SessionView = {
 	entries: number;
 };
 
+// One fold per stream, keyed on the array: a read of the store is a new array and nothing changes one in place; the result is shared, so nothing changes it either.
+const folded = new WeakMap<LedgerEvent[], SessionView[]>();
+
 /** Sessions newest-first with their rows; removed sessions are dropped here and only here; a correction replaces its entry in place. */
 export function projectSessions(events: LedgerEvent[]): SessionView[] {
+	let sessions = folded.get(events);
+	if (!sessions) folded.set(events, (sessions = foldSessions(events)));
+	return sessions;
+}
+
+function foldSessions(events: LedgerEvent[]): SessionView[] {
 	const removed = new Set(events.filter((e) => e.type === 'SessionRemoved').map((e) => e.data.session));
 	type Building = { view: SessionView; entries: Map<string, EntryLogged['data']> };
 	const map = new Map<string, Building>();
@@ -108,6 +117,17 @@ export function projectSessions(events: LedgerEvent[]): SessionView[] {
 			return view;
 		})
 		.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+/** A live session left open longer than this was not a workout of that length — it was forgotten; its minutes are not shown. */
+const WALKED_CAP_MINUTES = 240;
+
+/** What a session came to, as the Ledger and Today's Undo both say it: its sets (or holds) and its minutes — a run's, or the time walked on the floor. */
+export function sessionSummaryOf(s: SessionView): string {
+	const sets = s.rows.reduce((n, r) => n + r.sets.length, 0);
+	const holds = sets > 0 && s.rows.every((r) => r.sets.every((m) => m.of === 'hold'));
+	const walked = s.mode === 'live' && s.finishedAt ? Math.round((Date.parse(s.finishedAt) - Date.parse(s.at)) / 60000) : 0;
+	return sessionSummary({ sets, holds, minutes: s.minutes || (walked > 0 && walked <= WALKED_CAP_MINUTES ? walked : 0) });
 }
 
 /** One session's entries in arrival order, each with any correction applied to its measure. */

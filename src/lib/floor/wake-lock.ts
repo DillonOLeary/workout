@@ -4,10 +4,12 @@ export function holdScreen(): () => void {
 	let lock: WakeLockSentinel | null = null;
 	let held = true;
 	const request = async () => {
+		if (lock && !lock.released) return; // the browser drops it on hide; while it holds, a second request would leak the first
 		try {
-			lock = await navigator.wakeLock.request('screen');
+			const granted = await navigator.wakeLock.request('screen');
 			// released between the await and now — a fast unmount
-			if (!held) await lock.release();
+			if (!held) await granted.release();
+			else lock = granted;
 		} catch {
 			/* a low battery, or a page not visible yet: the floor works without it */
 		}

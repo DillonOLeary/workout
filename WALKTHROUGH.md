@@ -18,7 +18,7 @@ lines and the few constraints it cannot state, so the *why* lives here.
     │  via Emmett's DeciderCommandHandler
     ▼
  PostgreSQL event store on Neon           ← emt_messages: append-only facts
-    │                                        ledger_plans: the programmes, reference rows
+    │                                        (the programmes are code: DEFAULT_PROGRAMMES in plans.ts)
     ▼
  load() re-reads the stream → upcast → composePlan(programme, blocks on) → projections → the rule, the words → the UI
 ```
@@ -42,8 +42,9 @@ Secrets live in `.env.local` (git-ignored), read at runtime via
   ([src/lib/server/uid.ts](src/lib/server/uid.ts)) and signs the
   stay-signed-in cookie ([src/lib/server/auth.ts](src/lib/server/auth.ts))
 
-Run it: `pnpm dev` → http://localhost:5173. Check it: `pnpm test` (vitest,
-`src/**/*.test.ts`), `pnpm check` (svelte-check), `pnpm build`.
+Run it: `pnpm dev` → http://localhost:5173. Check it: `pnpm check` — types
+(svelte-check), tests (vitest, `src/**/*.test.ts`) and the glyph snapshot, the
+same gate Workers Builds runs before a deploy — and `pnpm build`.
 
 One wrinkle: `adapter-cloudflare` emulates the Worker bindings from
 [wrangler.jsonc](wrangler.jsonc) in dev, and wrangler won't emulate the
@@ -169,7 +170,7 @@ A plan is a handful of **cycles** over a set of **routines** — but a plan is
 not the unit a person chooses. The week is four **practices** — the lift,
 yoga, the morning stretch, the run — each on or off, each at a cadence:
 
-- The lift is a **programme**: a lift-only `Plan`, a row in `ledger_plans`.
+- The lift is a **programme**: a lift-only `Plan`, shipped as code.
   Two ship in `DEFAULT_PROGRAMMES` ([plans.ts](src/lib/domain/plans.ts)):
   *Open to Work* (routines A "Squat & Shove" and B "Hinge & Haul", cycle
   `lift` at 3 a week, 90 s rest) and *Full Range of Motion* (routines 1 "Get
@@ -406,9 +407,20 @@ in [+layout.server.ts](src/routes/(app)/+layout.server.ts)) — the same
 can disagree.
 
 These projections re-run per request (cheap at personal scale, and events are
-read once per page anyway). When that stops scaling, Emmett can maintain
-**stored projections** (Pongo / SQL) updated as events append — same concept,
-cached.
+read once per page anyway). Measured on 2026-09-30 against a synthetic stream
+the size of the real one (~600 events): one pass over the events is 0.02 ms and
+the decider's rebuild 0.4 ms — the replay is free. What was not free was
+`projectSessions`: every rule in week.ts calls it for itself, so Today folded
+the stream some fifty times a render, and each fold was ~95% `fmtDate`
+(`toLocaleDateString`, ~30 µs a session) — 52 ms on a laptop, once on the
+Worker and again in the browser. So `projectSessions` folds once per array (a
+`WeakMap` keyed on the events array — a read of the store is a new array, and
+nothing changes one in place) and Today is back to about one fold. When the
+stream itself is the cost — the payload is ~170 bytes an event, and the
+decider's `evolve` copies its `logged` map per entry, so it turns quadratic past
+~10k events, years away — the answers are to send views instead of events, or
+to close the books into a new stream; Emmett's **stored projections** (Pongo /
+SQL) are for queries across many streams, which this app has none of.
 
 ### The queue — how Today decides
 
@@ -535,15 +547,19 @@ the place to see it pay off.
 
 ### Not everything is an event — and the plan has a boundary too
 
-Programmes are reference data — rows in `ledger_plans`
-([src/lib/server/plans.ts](src/lib/server/plans.ts)), UPSERTed, no history.
-Events point at them by id. Deciding *what deserves history* is the actual
-modelling skill, and the split is visible on The Week: the programme is a
-table row, *choosing* it is a `ProgrammeSelected` event, a practice's switch
-is a `BlockToggled` event and its goal a `GoalSet` — the Ledger shows when
-the week changed, the table only knows what a programme is now. New programmes are added at
-the table, not in the app; `listProgrammes()` reads every row through
-`parsePlan`, and a row nobody can parse is logged and skipped, never a 500.
+Programmes are reference data — `DEFAULT_PROGRAMMES` in
+[plans.ts](src/lib/domain/plans.ts), code, no history. Events point at them
+by id. Deciding *what deserves history* is the actual modelling skill, and
+the split is visible on The Week: the programme is a constant, *choosing* it
+is a `ProgrammeSelected` event, a practice's switch is a `BlockToggled` event
+and its goal a `GoalSet` — the Ledger shows when the week changed, the code
+only knows what a programme is now. (Until 2026-09-30 the programmes were
+also rows in a `ledger_plans` table, upserted from the same constants on
+every boot and read back on every page load — a round trip and a write for
+data the Worker already had in its bundle. The table is gone from the code;
+the pages import the constants. The lesson is the one the queue and the
+cycle pointer already teach: derive, don't store, unless something outside
+the code can change it.)
 
 An exercise **measures one thing and progresses another**. Its `kind` —
 `load` | `hold` | `reps` | `run` — decides which measure a set writes; its
@@ -559,8 +575,7 @@ Warm-ups and cooldowns are lists of `PrepItem`s — a string you tick, a timed
 item (`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down,
 or a counted one (`{ name, reps, each? }` — "Sun Salutation A × 3") you
 tick. The one default (rest 60 s) lives here once, behind `restFor` — no
-screen writes `?? 60` for itself. The accessors — `routinesOf`, `cycleOf`,
-`cycleDisciplines`, `disciplinesOf`, `routineKeys`, `planExercises`,
+screen writes `?? 60` for itself. The accessors — `cycleDisciplines`, `disciplinesOf`, `routineKeys`, `planExercises`,
 `exerciseNamed`, `routineTitle` (which returns `undefined` for a key the plan
 hasn't got, so a screen falls back to the session's own discipline) — are
 how every screen asks the plan a question without indexing it by hand.
@@ -573,23 +588,23 @@ hi`), a per-side movement with an odd set count, a hold that climbs but has
 one length, a mobility routine with a squat on it, a cycle naming a routine
 the plan hasn't got, a duplicate cycle id, a `standsInFor` naming itself or
 a cycle that isn't there, a run routine with no run in it — is refused with
-a sentence. Unlike the event stream, the table has no upcasters: the shipped
-programmes are rewritten from code on every boot, so there is no old shape
-to read (Hold Steady, the retired yoga plan, was deleted the same way, from
-code, on 2026-09-14 — its sessions stay in the stream and read as yoga).
-One consequence worth knowing: editing `DEFAULT_PROGRAMMES` (or `BLOCKS`,
-which are code and never stored) in [plans.ts](src/lib/domain/plans.ts)
-*is* the migration. `ensureReady` upserts the shipped programmes on every
-boot, so a new exercise, a widened rep range or a rewritten note reaches
-every database the next time a worker starts — no migration file, no
-upcaster. History for an exercise that has since left the plan stays in the
+a sentence. Unlike the event stream, a programme has no upcasters: it is
+code, so there is no old shape to read (Hold Steady, the retired yoga plan,
+was deleted from code on 2026-09-14 — its sessions stay in the stream and
+read as yoga), and [plan.test.ts](src/lib/domain/plan.test.ts) round-trips
+every shipped programme through `parsePlan` so the boundary still holds for
+the day a programme comes from somewhere else. One consequence worth knowing:
+editing `DEFAULT_PROGRAMMES` (or `BLOCKS`) in
+[plans.ts](src/lib/domain/plans.ts) *is* the migration: a new exercise, a
+widened rep range or a rewritten note reaches every user on the next deploy
+— no migration file, no upcaster. History for an exercise that has since left the plan stays in the
 stream under its old name, and the Ledger still renders it correctly,
 because the measure says what it was: a retired "Weighted Plank" is still
 `45s`, not `45`.
 
 ### Tests — the domain is pure, so test it like arithmetic
 
-`pnpm test` runs vitest over `src/**/*.test.ts` — ten suites, 174 tests, one
+`pnpm test` runs vitest over `src/**/*.test.ts` — eleven suites, 182 tests, one
 per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/snapshot.test.ts)
 builds a full stream in every stored shape the upcaster reads, folds it through
 every rule at one fixed `now`, and compares the JSON to the committed
@@ -629,6 +644,7 @@ Routing is the filesystem:
 ```
 src/routes/
 ├─ +layout.svelte                  global CSS import, favicon
+├─ +error.svelte                   what a thrown load or action shows — a 404, or a database still waking up — on the kit, with a way home
 ├─ login/                          phone → HMAC id → signed stay-signed-in cookie (+page.svelte, +page.server.ts)
 ├─ logout/+page.server.ts          POST signs out (CSRF-checked); a GET just redirects
 └─ (app)/                          layout GROUP — every page inside requires the cookie
@@ -640,6 +656,7 @@ src/routes/
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
    │  └─ plan/                      Plan — four practices: switch · goal · rest; the programme (a sheet); how loads move  (/plan)
    │                                 ?/toggle (TogglePractice) · ?/goal (SetGoal) · ?/rest (SetRest) · ?/select (SelectProgramme)
+   │                                 a dial posts 700 ms after the last tap — or at once when its panel folds or the page leaves, so a tap is never lost
    ├─ floor/                        gym floor — covers the tabs  (/floor)
    │                                 load guard → / when nothing is open · ?/logEntry · ?/correctEntry · ?/finish
    ├─ kit/                          every part of the kit in every state — dev only  (/kit)
@@ -647,7 +664,7 @@ src/routes/
 
 src/lib/
 ├─ domain/        the layers of §2 — pure, no I/O; README.md is the contract, __snapshots__/ the freeze
-├─ server/        db.ts (a pg client per request), eventStore.ts, ledger.ts, plans.ts, auth.ts, uid.ts
+├─ server/        db.ts (the connection string), eventStore.ts (a pg client per request), ledger.ts, auth.ts, uid.ts
 ├─ ui/            the kit — twelve parts, props only, no domain imports: Caption, Title, Note, Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot
 ├─ floor/         bell, wake-lock, entry-queue, countdown — the floor's machinery, no markup
 └─ design/        tokens/*.css, rig.ts (the figures; the Slot draws a still until rig v2)
@@ -769,12 +786,20 @@ another; the patterns worth studying:
   as a zero-event no-op, so ambiguous network retries are idempotent, and
   Emmett's `retry: { onVersionConflict: true }` absorbs concurrent appends.
   A set the server rejects stays on the table as a failed row with a Retry
-  — marked, never silently removed — and the floor draws the whole queue as
+  — marked, never silently removed — and so does a set the server never
+  saw: a dead link is retried twice and then fails the row (each POST is
+  `keepalive`, so a tab closed mid-save still lands, and carries a 15 s
+  `AbortSignal.timeout`, so a dead link fails in seconds), and a `redirect`
+  result is `requireUid`'s bounce to `/login`, which means the cookie is
+  gone and nothing was written — a failed row, not a tick (until 2026-09-30
+  it read as success). [entry-queue.test.ts](src/lib/floor/entry-queue.test.ts)
+  scripts a server for each of those paths; the floor draws the whole queue as
   rows of a `SetTable` (done / saving / now / fixing / todo / failed). A correction rides the same queue with `op: 'correct'`:
   `overlay()` lays the queue over the server's entries, a log adding a row
   and a correction replacing a measure, and that merged list is what the
   rest clock reads — so a set that hasn't reached the server yet still
-  starts the clock. Exiting the screen drains the queue, then
+  starts the clock. Exiting the screen drains the queue and, like Finish,
+  refuses to leave a failed row behind; then
   `goto(..., { invalidateAll: true })` restores server truth. The page
   ([floor/+page.svelte](src/routes/(app)/floor/+page.svelte)) keeps only
   what is *its* business: which step you are on, what the rows say, what
@@ -956,12 +981,12 @@ a clock under the next set, the step in the URL.
    exactly that — the symptom is not an error but a HANG ("Worker's code had
    hung and would never generate a response") on the load right after a form
    action. The fix is per-request connection lifecycles:
-   [db.ts](src/lib/server/db.ts) `withClient` and
-   [eventStore.ts](src/lib/server/eventStore.ts) `withEventStore` open a
+   [eventStore.ts](src/lib/server/eventStore.ts) `withEventStore` opens a
    fresh `pg.Client` per unit of work in prod (Emmett takes it via
-   `connectionOptions: { client }`) and close it — awaited — before
-   returning; dev keeps cached singletons because a Node process owns its
-   sockets. A second scar, same shape: the connection string is resolved
+   `connectionOptions: { client }`) and closes it — awaited — before
+   returning; dev keeps a cached singleton because a Node process owns its
+   sockets. Since the programmes became code (2026-09-30) that is the only
+   connection a page load makes. A second scar, same shape: the connection string is resolved
    lazily inside the function, never at module load, because SvelteKit's
    build step imports every server module in an environment with no env
    vars — a module-scope throw broke every CI build until it moved. The

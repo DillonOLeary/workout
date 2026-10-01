@@ -1,17 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
-import { listProgrammes } from '$lib/server/plans';
 import { requireUid } from '$lib/server/auth';
 import type { AfterEntry } from '$lib/domain/commands';
 import { parseWorkout } from '$lib/domain/events';
 import { disciplineOf } from '$lib/domain/plan';
-import { wholePlan } from '$lib/domain/plans';
+import { SHIPPED_PLANS } from '$lib/domain/plans';
 import type { Actions } from './$types';
 
 /** what a routine IS, from the whole programme — so the discipline is stamped at the edge whatever this person switched */
-async function stampDiscipline(plan: string, routine: string) {
-	return disciplineOf((await listProgrammes()).map(wholePlan).find((p) => p.id === plan), routine);
-}
+const stampDiscipline = (plan: string, routine: string) => disciplineOf(SHIPPED_PLANS.find((p) => p.id === plan), routine);
 
 export const actions: Actions = {
 	/** start a live session: the id, the timestamp and the discipline are stamped here at the edge, then the floor */
@@ -21,7 +18,7 @@ export const actions: Actions = {
 		const workout = parseWorkout(form.get('routine'));
 		const plan = String(form.get('plan') ?? '');
 		if (!workout || !plan) return fail(400, { message: 'Missing routine or plan.' });
-		const discipline = await stampDiscipline(plan, workout.routine);
+		const discipline = stampDiscipline(plan, workout.routine);
 		if (!discipline) return fail(400, { message: 'That routine is not on this plan.' });
 		const err = await tryCommand(uid, {
 			type: 'StartSession',
@@ -56,7 +53,7 @@ export const actions: Actions = {
 		const at = String(form.get('at') ?? '');
 		if (!plan || !workout) return fail(400, { message: 'Missing routine or plan.' });
 		if (Number.isNaN(Date.parse(startAt)) || Number.isNaN(Date.parse(at))) return fail(400, { message: 'When did it happen?' });
-		const discipline = await stampDiscipline(plan, workout.routine);
+		const discipline = stampDiscipline(plan, workout.routine);
 		if (!discipline) return fail(400, { message: 'That routine is not on this plan.' });
 		let entries: AfterEntry[];
 		try {

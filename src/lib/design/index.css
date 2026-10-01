@@ -1,4 +1,5 @@
-/* Fonts (Archivo + JetBrains Mono) load via <link> in src/app.html. */
+/* Fonts first: the faces, then the tokens that name them. */
+@import './fonts.css';
 @import './tokens/colors.css';
 @import './tokens/typography.css';
 @import './tokens/spacing.css';

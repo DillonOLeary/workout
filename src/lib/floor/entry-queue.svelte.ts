@@ -105,9 +105,12 @@ export class EntryQueue {
 		const action = p.op === 'log' ? '?/logEntry' : '?/correctEntry';
 		for (let attempt = 0; ; attempt++) {
 			try {
-				const res = await fetch(action, { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' } });
+				// keepalive: the POST outlives a tab closed mid-save; the timeout: a dead link fails in seconds, not the OS's minutes
+				const res = await fetch(action, { method: 'POST', body, headers: { 'x-sveltekit-action': 'true' }, keepalive: true, signal: AbortSignal.timeout(15_000) });
 				const result = deserialize(await res.text());
-				if (result.type === 'success' || result.type === 'redirect') return { ok: true };
+				if (result.type === 'success') return { ok: true };
+				// the only redirect these actions send is requireUid's bounce to /login: the cookie is gone and nothing was written
+				if (result.type === 'redirect') return { ok: false, message: 'Signed out — sign in again, then Retry.' };
 				if (result.type === 'failure')
 					return { ok: false, message: String((result.data as { message?: string })?.message ?? 'Rejected.') };
 				throw new Error('action error');

@@ -5,7 +5,6 @@ import {
 	cooldownFor,
 	cueFor,
 	cycleDisciplines,
-	cycleOf,
 	disciplineOf,
 	disciplinesOf,
 	parsePlan,
@@ -14,7 +13,6 @@ import {
 	progresses,
 	restFor,
 	routineTitle,
-	routinesOf,
 	warmupFor,
 	type Exercise,
 	type Plan
@@ -156,12 +154,8 @@ describe('plan accessors — the defaults live in one place', () => {
 		expect(progresses(plan.routines.S[0])).toBe(false);
 		expect(disciplineOf(plan, 'S')).toBe('mobility');
 		expect(disciplineOf(plan, 'Z')).toBeUndefined();
-		expect(routinesOf(plan, 'lift')).toEqual(['A', 'B']);
-		expect(routinesOf(plan, 'yoga')).toEqual([]);
 		expect(disciplinesOf(plan)).toEqual(['lift', 'mobility']);
 		expect(cycleDisciplines(plan, plan.cycles[2])).toEqual(['lift', 'mobility']);
-		expect(cycleOf(plan, 'S')?.id).toBe('mob');
-		expect(cycleOf(plan, 'Z')).toBeUndefined();
 		expect(planExercises(plan).map((e) => e.name)).toEqual(['Goblet Squat', 'Calf stretch']);
 	});
 });

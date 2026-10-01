@@ -27,17 +27,20 @@ pnpm install
 pnpm dev
 ```
 
-Needs `.env.local` (git-ignored): `DB` (a Neon connection string) and
+Needs `.env.local` (git-ignored): `DB` (a Postgres connection string) and
 `LEDGER_PEPPER` (any random secret — it HMACs phone numbers into account ids and
-signs the cookie). Dev talks to Neon directly. Log in with a phone number — no
+signs the cookie). Dev against a local Postgres, never production: create a
+database, point `DB` at it as `postgres://user:password@localhost:5432/ledger`
+(wrangler's Hyperdrive emulation insists on a user and a password), and the
+first `pnpm dev` creates the event-store schema. Log in with a phone number — no
 password; an empty phone is the shared demo sandbox.
 
 ## Checks
 
 ```sh
-pnpm test     # vitest, one suite per domain layer
-pnpm check    # svelte-check
+pnpm check    # types, tests and the glyph snapshot — the gate a deploy runs
+pnpm test     # vitest alone, one suite per domain layer
 pnpm build    # production build
 ```
 
-Deploy: push to `main` — Cloudflare Workers Builds does the rest.
+Deploy: push to `main` — Cloudflare Workers Builds runs `pnpm check`, then builds.

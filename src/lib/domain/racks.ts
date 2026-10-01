@@ -32,8 +32,3 @@ export function prevRung(weight: number, rack: Rack): number {
 	for (let i = rungs.length - 1; i >= 0; i--) if (rungs[i] < weight) return rungs[i];
 	return rungs[0];
 }
-
-/** "next bell up" — what the plan screen calls a level-up on this rack. */
-export function rungLabel(rack: Rack): string {
-	return rack === 'kettlebell' ? 'next bell up' : rack === 'medball' ? 'next ball up' : 'next dumbbell up';
-}

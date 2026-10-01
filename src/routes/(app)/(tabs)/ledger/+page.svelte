@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Caption, Card, Cell, Note, Row, Stepper, Title } from '$lib/ui';
-	import { cellLegend, disciplineLabel, disciplineLetter, monthLine, paceLine, sessionSummary, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
+	import { cellLegend, disciplineLabel, disciplineLetter, monthLine, paceLine, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
 	import { DISCIPLINES, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { bumpCount, bumpLoad } from '$lib/domain/progression';
-	import { GRID_WEEKS, monthGrid, projectSessions, weekChanges, type DayCell, type SessionView, type WeekChange } from '$lib/domain/projections';
+	import { GRID_WEEKS, monthGrid, projectSessions, sessionSummaryOf, weekChanges, type DayCell, type SessionView, type WeekChange } from '$lib/domain/projections';
 	import { weekTally } from '$lib/domain/week';
 	import type { PageProps } from './$types';
 
@@ -58,13 +58,14 @@
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 	const planName = (id: string) => planById(id)?.name ?? id;
 	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
-	const exByName = (name: string): Exercise | undefined => data.plans.flatMap((p) => Object.values(p.routines).flat()).find((e) => e.name === name);
-	const whenOf = (s: SessionView) => {
-		const sets = s.rows.reduce((n, r) => n + r.sets.length, 0);
-		const holds = sets > 0 && s.rows.every((r) => r.sets.every((m) => m.of === 'hold'));
-		const walked = s.mode === 'live' && s.finishedAt ? Math.round((Date.parse(s.finishedAt) - Date.parse(s.at)) / 60000) : 0;
-		return `${whenLabel(s.at, now)} · ${sessionSummary({ sets, holds, minutes: s.minutes || (walked > 0 && walked <= 240 ? walked : 0) })}${s.mode === 'after' ? ' · after' : ''}`;
-	};
+	// every exercise any plan knows, by name, indexed once (the first plan's wins, as before) — a retired name finds nothing and the row shows its measures bare
+	let exercises = $derived.by(() => {
+		const out = new Map<string, Exercise>();
+		for (const e of data.plans.flatMap((p) => Object.values(p.routines).flat())) if (!out.has(e.name)) out.set(e.name, e);
+		return out;
+	});
+	const exByName = (name: string): Exercise | undefined => exercises.get(name);
+	const whenOf = (s: SessionView) => `${whenLabel(s.at, now)} · ${sessionSummaryOf(s)}${s.mode === 'after' ? ' · after' : ''}`;
 	const changeText = (c: WeekChange) => weekChangeLine({ programme: c.programme, blocks: c.blocks, goals: c.goals }, planName);
 
 	// fixing the latest session: every set of every line as −/+ in place; one CorrectEntry per changed set when Done

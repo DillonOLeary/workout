@@ -9,6 +9,7 @@ import { currentConnectionString } from './db';
 const g = globalThis as typeof globalThis & { __ledgerEventStore?: PostgresEventStore };
 
 // Schema migrations run only in dev (`autoMigration: 'None'` in prod): a new database gets its schema by running the app once in dev.
+// One client per unit of work in prod, closed before the response returns: Workers forbid using a socket opened in another request, and a cached pool HANGS rather than errors.
 export async function withEventStore<T>(
 	fn: (store: PostgresEventStore) => Promise<T>
 ): Promise<T> {

@@ -116,9 +116,6 @@ export const progresses = (ex: Exercise): boolean => ex.progress.of !== 'none';
 /** What a routine IS — undefined for a key the plan doesn't have. */
 export const disciplineOf = (plan: Plan | undefined, routine: string): Discipline | undefined =>
 	plan?.routineInfo[routine]?.discipline;
-/** Every routine of a discipline, in plan order. */
-export const routinesOf = (plan: Plan, discipline: Discipline): string[] =>
-	Object.keys(plan.routines).filter((r) => disciplineOf(plan, r) === discipline);
 /** The disciplines a plan's cycles cover, in cycle order, once each. */
 export function disciplinesOf(plan: Plan): Discipline[] {
 	const out: Discipline[] = [];
@@ -145,9 +142,6 @@ export function routineKeys(plan: Plan): string[] {
 	for (const r of Object.keys(plan.routines)) if (!out.includes(r)) out.push(r);
 	return out;
 }
-/** The first cycle a routine belongs to, if any. */
-export const cycleOf = (plan: Plan, routine: string): Cycle | undefined =>
-	plan.cycles.find((c) => c.routines.includes(routine));
 /** An exercise by name, from any routine of the plan — how a one-off stretch finds its shape. */
 export const exerciseNamed = (plan: Plan | undefined, name: string): Exercise | undefined =>
 	plan && Object.values(plan.routines).flat().find((ex) => ex.name === name);
