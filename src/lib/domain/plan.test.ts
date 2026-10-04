@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR, SHIPPED_PLANS } from './plans';
 import {
+	classKeys,
 	composePlan,
 	cooldownFor,
 	cueFor,
@@ -117,6 +118,17 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: info.A }, [{ id: 'c', title: 'C', routines: ['A'], target: 1 }, { id: 'c', title: 'D', routines: ['A'], target: 1 }]))).toThrow('cycle "c" is listed twice');
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: info.A }, []))).toThrow('cycles must be a non-empty list');
 		expect(parsePlan(raw({ A: [goblet] }, { A: info.A }, [{ id: 'c', title: 'C', routines: ['A'], target: 0 }])).cycles[0].target).toBe(0);
+	});
+	it('keeps a class — named, never written — and never lets a cycle walk one', () => {
+		const studio = { title: 'Yoga class', discipline: 'yoga' };
+		const p = parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio }, [{ id: 'c', title: 'C', routines: ['A'], target: 1 }]));
+		expect(p.routineInfo.studio).toEqual(studio);
+		expect(classKeys(p)).toEqual(['studio']);
+		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio: { title: 'Class' } }, [{ id: 'c', title: 'C', routines: ['A'], target: 1 }]))).toThrow(/routineInfo "studio" needs a discipline/);
+		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio }, [{ id: 'c', title: 'C', routines: ['studio'], target: 1 }]))).toThrow('cycle "c" names a routine the plan doesn\'t have: "studio"');
+		for (const plan of SHIPPED_PLANS) expect(classKeys(plan)).toEqual(['studio']);
+		expect(routineTitle(SHIPPED_PLANS[0], 'studio')).toBe('Yoga class');
+		expect(disciplineOf(SHIPPED_PLANS[0], 'studio')).toBe('yoga');
 	});
 });
 

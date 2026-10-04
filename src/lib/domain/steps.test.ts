@@ -8,7 +8,9 @@ import {
 	routineExercises,
 	runStart,
 	sessionProgress,
+	sessionSections,
 	sessionSteps,
+	stepName,
 	type Entry
 } from './steps';
 import type { Plan } from './plan';
@@ -193,5 +195,34 @@ describe('positionLabel — where you are, the way the crumb says it', () => {
 		expect(positionLabel(9, steps)).toBe('Done');
 		expect(positionLabel(3, sessionSteps(plan, RUN))).toBe('Run');
 		expect(positionLabel(1, sessionSteps(plan, S))).toBe('Hold 2/4');
+	});
+});
+
+describe('sessionSections — the map, and where ‹ / › land', () => {
+	const steps = sessionSteps(plan, A);
+	it('lists the parts in walking order, each landing on its first open step, else its first', () => {
+		const done = sessionProgress(steps, [entry('Warm-up', 1, iso(0)), entry('Warm-up', 2, iso(0)), entry('Goblet Squat', 1, iso(0), { of: 'load', load: 35, reps: 10 })]).done;
+		expect(sessionSections(steps, done)).toEqual([
+			{ name: 'Warm-up', first: 0, land: 0, steps: 2, done: 2 },
+			{ name: 'Goblet Squat', first: 2, land: 3, steps: 3, done: 1 },
+			{ name: 'Plank', first: 5, land: 5, steps: 2, done: 0 },
+			{ name: 'Cooldown', first: 7, land: 7, steps: 2, done: 0 }
+		]);
+	});
+	it('keeps a part whole when a stretch falls between its lines', () => {
+		const split = sessionSteps({ ...plan, cooldown: ['Breathe', plan.routines.S[0], 'Lie down'] }, A);
+		const map = sessionSections(split, new Set([entryKey('Cooldown', 1)]));
+		expect(map.map((s) => s.name)).toEqual(['Warm-up', 'Goblet Squat', 'Plank', 'Cooldown', 'Calf stretch']);
+		expect(map[3]).toEqual({ name: 'Cooldown', first: 7, land: 10, steps: 2, done: 1 });
+	});
+});
+
+describe('stepName — a step the way a sentence says it', () => {
+	it('names a set, a hold, the run and a prep step', () => {
+		const steps = sessionSteps(plan, A);
+		expect(stepName(steps[0])).toBe('warm-up · step 1');
+		expect(stepName(steps[3])).toBe('Goblet Squat · set 2');
+		expect(stepName(steps[5])).toBe('Plank · hold 1');
+		expect(stepName(sessionSteps(plan, RUN)[3])).toBe('the run');
 	});
 });

@@ -2,18 +2,18 @@
 	import { enhance } from '$app/forms';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Caption, Card, Note, Primary, SetTable, Slot, Stepper, Title, type SetRow } from '$lib/ui';
+	import { Caption, Card, Note, Primary, Row, SetTable, Sheet, Slot, Stepper, Title, type SetRow } from '$lib/ui';
 	import { armBell, ringBell } from '$lib/floor/bell';
 	import { holdScreen } from '$lib/floor/wake-lock';
 	import { CountdownClock, type Countdown } from '$lib/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/floor/entry-queue.svelte';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
-	import { disciplineLabel, durationLabel, firstSentence, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
+	import { disciplineLabel, durationLabel, firstSentence, itemDose, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
 	import { cueFor, progresses, restFor, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
 	import { anySetEarned, bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
-	import { estimateMinutes, loggedOutside, restUntil, runStart, sessionProgress, sessionSteps, type Step } from '$lib/domain/steps';
+	import { loggedOutside, restUntil, runStart, sessionProgress, sessionSections, sessionSteps, stepName, type Section, type Step } from '$lib/domain/steps';
 	import { STAND } from '$lib/design/rig';
 	import type { PageProps } from './$types';
 
@@ -68,6 +68,9 @@
 	let reps = $state(0);
 	let editing = $state<string | null>(null);
 	let why = $state(false);
+	// a look somewhere other than the next open step — the map, ‹ / ›, the arrow keys; the order waits where you left it
+	let peek = $state(false);
+	let mapOpen = $state(false);
 	let now = $state(Date.now());
 	let live = $state('');
 
@@ -121,12 +124,13 @@
 		clock.cancel();
 	}
 	preload(initialStep);
-	function goTo(i: number) {
+	function goTo(i: number, look = false) {
 		clock.cancel();
 		editing = null;
 		why = false;
 		if (i < 0 || i >= steps.length) return;
 		stepI = i;
+		peek = look;
 		preload(i);
 		replaceState(`?step=${i}`, {});
 	}
@@ -163,7 +167,7 @@
 		const s = st;
 		push('log', s, measure);
 		const next = stepI + 1;
-		if (next < steps.length && steps[next].section === s.section) goTo(next);
+		if (next < steps.length && steps[next].section === s.section && !progress.done.has(steps[next].key)) goTo(next);
 	}
 	let lastPress = 0;
 	const debounced = () => {
@@ -202,7 +206,7 @@
 		armBell();
 		if (editing) return saveFix();
 		if (allDone) return void finishNow();
-		if (stepDone) return goTo(stepI + 1);
+		if (stepDone) return goTo(progress.current);
 		if (st.kind === 'prep') return enqueue({ of: 'step' });
 		if (st.kind === 'timed') return startOrDone({ kind: 'timed', target: st.seconds });
 		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
@@ -215,6 +219,28 @@
 	};
 	const bumpWeight = (dir: 1 | -1) => {
 		if (dialEx?.kind === 'load') weight = bumpLoad(dialEx, weight, dir);
+	};
+
+	// the map: every part of the session, the one on screen, and the next open step it waits on
+	let sections = $derived(sessionSections(steps, progress.done));
+	let secI = $derived(st ? sections.findIndex((x) => x.name === st.section) : -1);
+	let nowStep = $derived<Step | undefined>(steps[progress.current]);
+	let peeking = $derived(peek && !!nowStep && stepI !== progress.current);
+	function jump(sec: Section) {
+		mapOpen = false;
+		goTo(sec.land, true);
+	}
+	const subOf = (sec: Section) => {
+		const s = steps[sec.first];
+		if (s.kind === 'set' || s.kind === 'run') return itemDose(s.ex, s.kind === 'set' ? plannedWeight(s.ex, 0) : 0);
+		return sec.steps === 1 ? s.text : `${sec.steps} steps`;
+	};
+	const rightOf = (sec: Section) => {
+		const n = `${sec.done} of ${sec.steps}`;
+		if (sec.done === sec.steps) return `✓ ${n}`;
+		if (sec.name === nowStep?.section) return `now · ${n}`;
+		if (sec.name === st?.section) return 'looking ›';
+		return sec.done ? `${n} ›` : '›';
 	};
 
 	// the words on the screen
@@ -264,12 +290,6 @@
 			return { key: s.key, label, text: plannedValue(s.ex, plannedWeight(s.ex, s.index - 1)), state: 'todo' };
 		});
 	});
-	let thenLine = $derived.by(() => {
-		if (!st) return '';
-		const next = steps.slice(stepI + 1).find((s) => s.section !== st.section);
-		return `then: ${next ? next.section : 'done'}`;
-	});
-	let exLine = $derived(ex ? `${exercises.findIndex((e) => e.name === ex.name) + 1} of ${exercises.length} exercises` : `~${estimateMinutes(steps, progress.current)} min left`);
 	let stage = $derived.by((): { value: string; note: string; frac: number } | null => {
 		if (!st || allDone) return null;
 		const r = clock.running;
@@ -281,14 +301,11 @@
 		if (st.kind === 'run') return { value: mmss(runElapsed), note: `Run · of ${st.minutes} min`, frac: Math.max(0, 1 - runElapsed / (st.minutes * 60000)) };
 		return null;
 	});
-	let readyLine = $derived(progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
+	let readyLine = $derived(peeking && !stepDone ? 'Log it here, or head back — the order waits.' : progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
 	let primaryLabel = $derived.by(() => {
 		if (editing) return `Save ${editStep?.kind === 'set' && editStep.ex.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`;
 		if (!st) return `Finish ${noun}`;
-		if (stepDone) {
-			const n = steps[stepI + 1];
-			return !n ? `Finish ${noun}` : n.section === st.section ? 'Next' : `Next: ${n.section}`;
-		}
+		if (stepDone) return !nowStep ? `Finish ${noun}` : nowStep.section === st.section ? 'Next' : `Next: ${nowStep.section}`;
 		if (st.kind === 'prep') return 'Done';
 		if (st.kind === 'timed') return clock.active ? 'Done early' : `Start ${durationLabel(st.seconds)}`;
 		if (st.kind === 'run') return 'Stop here';
@@ -312,13 +329,14 @@
 	});
 
 	function onKey(ev: KeyboardEvent) {
+		if (mapOpen) return;
 		if (ev.key === 'Escape' && editing) return cancelFix();
 		if (ev.key === 'Enter') return primaryAction();
 		if (allDone) return;
 		if (ev.key === 'ArrowUp') (tileLoad && !tileHold ? bumpWeight : bumpReps)(1);
 		else if (ev.key === 'ArrowDown') (tileLoad && !tileHold ? bumpWeight : bumpReps)(-1);
-		else if (ev.key === 'ArrowRight') goTo(Math.min(steps.length - 1, stepI + 1));
-		else if (ev.key === 'ArrowLeft') goTo(Math.max(0, stepI - 1));
+		else if (ev.key === 'ArrowRight') goTo(Math.min(steps.length - 1, stepI + 1), true);
+		else if (ev.key === 'ArrowLeft') goTo(Math.max(0, stepI - 1), true);
 	}
 </script>
 
@@ -328,11 +346,22 @@
 	<div class="fl-inner">
 		<header class="top">
 			<button type="button" class="back" onclick={() => void exitToToday()}>‹ Today</button>
-			<Caption tone="slate">{title} · {pos}</Caption>
+			{#if st && !allDone}
+				<button type="button" class="where" aria-haspopup="dialog" onclick={() => (mapOpen = true)}><Caption tone="slate">{title} · {pos}</Caption><span class="caret" aria-hidden="true">▾</span></button>
+			{:else}
+				<Caption tone="slate">{title} · {pos}</Caption>
+			{/if}
 		</header>
 		<div class="bar"><span style="width: {steps.length ? (progress.current / steps.length) * 100 : 0}%"></span></div>
 
 		{#if st && !allDone}
+			{#if peeking && nowStep}
+				<div class="peek">
+					<span class="peeklbl">{stepI > progress.current ? 'Looking ahead' : 'Looking back'}</span>
+					<button type="button" class="return" onclick={() => goTo(progress.current)}>Back to {stepName(nowStep)} ›</button>
+				</div>
+			{/if}
+
 			<div class="who">
 				<Slot exercise={figure} {phase} size={92} />
 				<div class="words">
@@ -347,7 +376,10 @@
 
 			<div class="table">
 				<SetTable {rows} onfix={fix} onretry={(k) => { const s = steps.find((x) => x.key === k); if (s) queue.retry(s); }} />
-				<div class="under"><Note size="sm" tone="stone">{thenLine}</Note><Note size="sm" tone="stone">{exLine}</Note></div>
+				<div class="under">
+					{#if secI > 0}<Note size="sm" onclick={() => jump(sections[secI - 1])}>‹ {sections[secI - 1].name}</Note>{:else}<span></span>{/if}
+					{#if secI >= 0 && secI < sections.length - 1}<Note size="sm" onclick={() => jump(sections[secI + 1])}>then: {sections[secI + 1].name} ›</Note>{:else}<Note size="sm" tone="stone">then: done</Note>{/if}
+				</div>
 			</div>
 
 			<div class="stage">
@@ -404,6 +436,15 @@
 	</div>
 </div>
 
+<Sheet open={mapOpen} {title} onclose={() => (mapOpen = false)}>
+	<Note>The floor walks it in order. Tap any part to look ahead or fix one you did — the next set waits where you left it.</Note>
+	<div class="map">
+		{#each sections as sec (sec.name)}
+			<Row label={sec.name} sub={subOf(sec)} right={rightOf(sec)} tone={sec.name === nowStep?.section ? 'now' : 'plain'} onclick={() => jump(sec)} />
+		{/each}
+	</div>
+</Sheet>
+
 <!-- finish goes through a real form action; its 303 makes use:enhance run invalidateAll, so Today reloads fresh events; a refusal frees the button -->
 <form bind:this={finishFormEl} method="POST" action="?/finish" use:enhance={() => async ({ result, update }) => { await update(); if (result.type !== 'redirect') finishing = false; }} hidden></form>
 
@@ -415,7 +456,20 @@
 	}
 	.fl-inner { width: 100%; max-width: var(--content-max); margin: 0 auto; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 16px 0; gap: 10px; }
 	.top { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-	.top :global(.caption) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.top :global(.caption) { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.where {
+		min-width: 0; min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; background: none; border: 0; cursor: pointer; touch-action: manipulation;
+		text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--paper-3);
+	}
+	.where:hover { text-decoration-color: var(--ink); }
+	.caret { flex: none; font-size: 12px; color: var(--ink); }
+	.peek { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 6px 6px 12px; background: var(--white); border: 1.5px dashed var(--ink); border-radius: 12px; }
+	.peeklbl { flex: none; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink); }
+	.return {
+		min-width: 0; min-height: 36px; padding: 0 12px; border: 1.5px solid var(--ink); border-radius: var(--radius-pill); background: var(--volt);
+		font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; touch-action: manipulation;
+	}
+	.return:hover { background: var(--volt-deep); }
 	.back {
 		flex: none; min-height: 40px; padding: 0 14px; background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-pill);
 		font-family: var(--font-body); font-weight: 700; font-size: 14px; color: var(--ink); box-shadow: 0 2px 0 var(--ink); cursor: pointer; touch-action: manipulation;
@@ -430,7 +484,9 @@
 	.why { flex: none; background: var(--volt-light); border-radius: 12px; padding: 10px 12px; }
 	.table { flex: none; display: flex; flex-direction: column; gap: 6px; max-height: 42%; }
 	.table :global(.table) { overflow-y: auto; }
-	.under { display: flex; justify-content: space-between; gap: 8px; padding: 0 2px; }
+	.under { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 2px; }
+	.under :global(.note:last-child) { text-align: right; }
+	.map { display: flex; flex-direction: column; }
 	.stage { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 4px 0; }
 	.big { font-family: var(--font-mono); font-weight: 800; font-size: clamp(48px, 20vh, 84px); line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -537,6 +537,12 @@ appends exercises added on the floor (a stretch or a pose from the session
 sheet) as sections after the plan's own (`loggedOutside` finds the ones a
 reload must re-add, the cooldown's holds excepted). `estimateMinutes` prices
 the list — it is where the queue's "minutes" and Today's "~48 min" come from.
+`sessionSections` reads the same list by part — every step of a section
+together, wherever it falls (a cooldown's lines either side of a stretch are
+one part), with how many are done and where a tap lands: the first open step,
+else the first. It is the floor's session map and its ‹ / › jumps. `stepName`
+says one step as a sentence ("Goblet Squat · set 2", "the run"), the words
+Today's "next:" line and the floor's "Back to …" pill share.
 
 `Step` is a discriminated union on `kind`, and each kind carries only what it
 needs — a `prep` step its text, a `timed` one its name and countdown, a `set`
@@ -582,7 +588,12 @@ how every screen asks the plan a question without indexing it by hand.
 
 A programme row is data from outside, exactly like an event row — so
 `parsePlan` is its read boundary, and it runs on *read* as well as on the
-composed plans the tests round-trip. It refuses more than bad types:
+composed plans the tests round-trip. It keeps a **class** — a routine
+the plan names in `routineInfo` but never writes in `routines` (`studio`,
+"Yoga class", in the yoga block): no steps, never on a cycle, so it is never
+dealt and never turns the yoga's A/B, but its discipline is stamped like any
+routine's and it counts toward Yoga. `classKeys` lists them; Log-after offers
+them, and their one entry is a duration. It refuses more than bad types:
 anything the fields can't say about each other — a range upside down (`lo >
 hi`), a per-side movement with an odd set count, a hold that climbs but has
 one length, a mobility routine with a squat on it, a cycle naming a routine
@@ -733,7 +744,7 @@ Things to notice:
 | transitions | `Sheet` flies in with `transition:fly` and fades its scrim; both durations drop to 0 under `prefers-reduced-motion`, read once when the sheet opens |
 | `afterNavigate` | the tab layout resets its inner scroller on every navigation — the document never scrolls, so the browser can't do it for you |
 | `<script module>` | `SetTable` exports its `SetRow` type from a module script, so the floor can type the rows it builds |
-| a shell with a snippet | `ui/Sheet.svelte` is one shape — a scrim, a header with ×, a body that scrolls — and the Programme sheet and Log-after fill its `children`. Two exist; a sheet never opens a sheet |
+| a shell with a snippet | `ui/Sheet.svelte` is one shape — a scrim, a header with ×, a body that scrolls — and the Programme sheet, Log-after and the floor's session map fill its `children`. Log-after also passes a `foot` snippet (declared inside the component's children, so Svelte hands it over as a prop): the summary and Log it stay pinned while the body scrolls on its own. Three exist; a sheet never opens a sheet |
 | `$effect` that returns a release | the floor's `$effect(() => (lit ? holdScreen() : undefined))` — `holdScreen` requests a screen wake lock and returns its release, so the effect's cleanup is the release; `lit` is false on the run, which is long enough to let the screen sleep and trust the bell |
 | callback props | `onstep`, `onfix`, `onretry`, `onclose`, `onclick` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
 | runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
@@ -940,6 +951,35 @@ primary point at that set until you save. Leaving early is a session question,
 so it lives on Today: *Finish here* under the in-progress card, beside *Bin*. Everything underneath survived
 untouched: the entry queue, the countdown, the bell, the wake lock, the rest as
 a clock under the next set, the step in the URL.
+
+### The session map, and Log-after with real sets (2026-10-04)
+
+Losing the session sheet cost the floor any way to see what was left, skip a
+machine that was taken, or go back to a set from an earlier exercise. A first
+answer — a strip of cells and a wall of tiles — was reverted; the one that
+landed came from the `Gym App Workout Notes` design project and is made of
+parts the kit already had. The caption at the top (`Squat & Shove · set 4 of
+25 ▾`) opens the map: a `Sheet` of `Row`s, one per part, saying `✓ 3 of 3`,
+`now · 1 of 3` on the volt-light row where the work is, `looking ›` on the one
+on screen. Under the table, `‹ Goblet Squat` and `then: Lat Pulldown ›` jump a
+part either way. Any jump is a *look*: a dashed banner says **Looking ahead**
+or **Looking back** with a volt `Back to Chest Press · set 1 ›`, and the
+primary on a done step now reads `Next: …` toward the first open step, not
+the step after the one on screen — the order waits where you left it. Log a
+set while looking and you are working there; the banner goes. No event, rule
+or action changed: the decider always took entries in any order within the
+open session.
+
+Log-after grew from "written with the plan's sets" to a sheet you fill in.
+A **When** day, a **Started** time on the quarter hour (it follows the
+routine's length until you touch it) and a **Length**; the summary and *Log
+it* are pinned in the sheet's `foot`. A lift or a floor routine lists every
+exercise with a "did it" `Switch` and opens to its sets — reps, load, `+ set`,
+`×` — so the entries are what you did, not the plan's guess. Yoga and the
+stretch still go in as the plan wrote them (the length is what changes); the
+run's length *is* the run; and the new **Yoga class · studio** is a class
+(above): one duration entry, counted toward Yoga, nothing to tick. Fixing it
+later in the Ledger labels its line *Class*, not *Run*.
 
 ## 5. Exercises
 

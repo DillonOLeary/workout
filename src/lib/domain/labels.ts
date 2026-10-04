@@ -184,6 +184,13 @@ export function durationLabel(seconds: number): string {
 	return seconds % 60 === 0 && seconds >= 60 ? `${seconds / 60} min` : `${seconds}s`;
 }
 
+/** "6:15 pm" · "12:00 am" — a time of day from its minutes since midnight */
+export function clockLabel(minutes: number): string {
+	const m = ((minutes % 1440) + 1440) % 1440;
+	const h = Math.floor(m / 60);
+	return `${h % 12 || 12}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+}
+
 /** "41 min · warm-up and cooldown done." */
 export function receiptLine(minutes: number, warm: boolean, cool: boolean): string {
 	const did = warm && cool ? 'warm-up and cooldown done' : warm ? 'warm-up done' : cool ? 'cooldown done' : null;

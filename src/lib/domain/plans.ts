@@ -365,7 +365,8 @@ export const BLOCKS: Block[] = [
 		id: 'yoga',		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
 		routineInfo: {
 			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'Hip flexors · hamstrings · glutes · a twist', warmup: [CAT_COW, { name: 'Downward Dog', seconds: 45 }, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
-			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE }
+			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
+			studio: { title: 'Yoga class', discipline: 'yoga', desc: 'A class at the studio — just the time' }
 		},
 		routines: {
 			hips: [

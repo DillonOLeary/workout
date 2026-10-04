@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
-	ceilingHint, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
+	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
 	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, standInLine, weekChangeLine, weekHead, weekLine
 } from './labels';
@@ -118,6 +118,7 @@ describe('the plan’s numbers', () => {
 		expect(prepLabel({ name: 'Sun Salutation A', reps: 3 })).toBe('Sun Salutation A × 3');
 		expect(prepLabel({ name: 'Leg swings', reps: 10, each: true })).toBe('Leg swings × 10 each');
 		expect([30, 60, 180, 90].map(durationLabel)).toEqual(['30s', '1 min', '3 min', '90s']);
+		expect([0, 735, 1095, 1440 + 60, -15].map(clockLabel)).toEqual(['12:00 am', '12:15 pm', '6:15 pm', '1:00 am', '11:45 pm']);
 	});
 	it('closes the receipt in one line', () => {
 		expect(receiptLine(41, true, true)).toBe('41 min · warm-up and cooldown done.');

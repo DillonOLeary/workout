@@ -13,7 +13,9 @@ done under a retired plan is still yoga, and a cycle that stands in for another
 (the floor for the lift) pays into that cycle's count. A goal rewrites the target
 before this runs (`composePlan` in [plan.ts](plan.ts)), so "3 a week" is whatever
 the person last asked for. Seven days trailing, not a calendar week, so the strip
-under Today and the sentence in the Ledger always agree.
+under Today and the sentence in the Ledger always agree. A class — a routine the
+plan names but never writes, the yoga class at a studio — counts the same way,
+by the discipline it was stamped with.
 
 ## deal — `queue(events, plan, now)` in [week.ts](week.ts)
 

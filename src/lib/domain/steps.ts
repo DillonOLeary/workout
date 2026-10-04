@@ -167,6 +167,30 @@ export function sessionProgress(steps: Step[], entries: Entry[]): Progress {
 	return { done, current, sets: entries.filter((e) => isSet(e.measure)).length };
 }
 
+/** One part of the session map: where it starts, how many steps it has and how many are behind you, and where a tap lands — its first open step, else its first. */
+export type Section = { name: string; first: number; land: number; steps: number; done: number };
+
+/** The session as its parts in walking order, a part's steps together wherever they fall — what the map lists and ‹ / › jump between. */
+export function sessionSections(steps: Step[], done: Set<string>): Section[] {
+	const out: Section[] = [];
+	steps.forEach((s, i) => {
+		let sec = out.find((x) => x.name === s.section);
+		if (!sec) out.push((sec = { name: s.section, first: i, land: -1, steps: 0, done: 0 }));
+		sec.steps++;
+		if (done.has(s.key)) sec.done++;
+		else if (sec.land < 0) sec.land = i;
+	});
+	for (const sec of out) if (sec.land < 0) sec.land = sec.first;
+	return out;
+}
+
+/** A step as a sentence names it: "Goblet Squat · set 2" · "Plank · hold 1" · "the run" · "warm-up · step 1". */
+export function stepName(s: Step): string {
+	if (s.kind === 'set') return `${s.ex.name} · ${s.ex.kind === 'hold' ? 'hold' : 'set'} ${s.index}`;
+	if (s.kind === 'run') return 'the run';
+	return `${s.section.toLowerCase()} · step ${s.index}`;
+}
+
 /** "Set 4/20" · "Hold 3/9" · "Warm-up 2/3" · "Run" · "Done" — sets count across the session, a prep step within its section. */
 export function positionLabel(i: number, steps: Step[]): string {
 	const s = steps[i];

@@ -3,7 +3,7 @@
 	import { Caption, Card, Cell, Note, Row, Stepper, Title } from '$lib/ui';
 	import { cellLegend, disciplineLabel, disciplineLetter, monthLine, paceLine, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
-	import { DISCIPLINES, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { DISCIPLINES, classKeys, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { bumpCount, bumpLoad } from '$lib/domain/progression';
 	import { GRID_WEEKS, monthGrid, projectSessions, sessionSummaryOf, weekChanges, type DayCell, type SessionView, type WeekChange } from '$lib/domain/projections';
 	import { weekTally } from '$lib/domain/week';
@@ -58,6 +58,8 @@
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 	const planName = (id: string) => planById(id)?.name ?? id;
 	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
+	// a duration is the run's, or a class's length
+	const durationWord = (s: SessionView) => (classKeys(planById(s.plan) ?? plan).includes(s.workout.routine) ? 'Class' : 'Run');
 	// every exercise any plan knows, by name, indexed once (the first plan's wins, as before) — a retired name finds nothing and the row shows its measures bare
 	let exercises = $derived.by(() => {
 		const out = new Map<string, Exercise>();
@@ -151,7 +153,7 @@
 								{#each edit as e, k (`${e.item}#${e.index}`)}
 									{#if k === 0 || edit[k - 1].item !== e.item}<div class="line"><span class="lname">{e.item}</span></div>{/if}
 									<div class="setline">
-										<span class="slbl">{e.of === 'duration' ? 'Run' : e.of === 'hold' ? `Hold ${e.index}` : `Set ${e.index}`}</span>
+										<span class="slbl">{e.of === 'duration' ? durationWord(s) : e.of === 'hold' ? `Hold ${e.index}` : `Set ${e.index}`}</span>
 										<span class="sval">{valueOf(e)}</span>
 										<span class="sctl">
 											{#if e.of === 'load'}<Stepper value="" size="pair" label="weight" onstep={(d) => bumpWeight(edit[k], d)} /><span class="x">×</span>{/if}

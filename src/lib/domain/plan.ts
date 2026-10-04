@@ -87,7 +87,7 @@ export type Plan = {
 	cycles: Cycle[];
 	/** key → the work */
 	routines: Record<string, Exercise[]>;
-	/** key → what it is */
+	/** key → what it is; a key with no `routines` is a class — named, never written, logged by its length alone */
 	routineInfo: Record<string, Routine>;
 	/** seconds between sets, unless the exercise says otherwise; absent = DEFAULT_REST */
 	rest?: number;
@@ -142,6 +142,8 @@ export function routineKeys(plan: Plan): string[] {
 	for (const r of Object.keys(plan.routines)) if (!out.includes(r)) out.push(r);
 	return out;
 }
+/** The classes the plan names — a yoga class at a studio: no steps, never on a cycle, counted by its discipline. */
+export const classKeys = (plan: Plan): string[] => Object.keys(plan.routineInfo).filter((r) => !plan.routines[r]);
 /** An exercise by name, from any routine of the plan — how a one-off stretch finds its shape. */
 export const exerciseNamed = (plan: Plan | undefined, name: string): Exercise | undefined =>
 	plan && Object.values(plan.routines).flat().find((ex) => ex.name === name);
@@ -344,7 +346,7 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 function parseRoutineInfo(v: unknown, keys: string[]): Record<string, Routine> {
 	if (!isObj(v)) throw new Error('routineInfo must be an object with an entry per routine');
 	const out: Record<string, Routine> = {};
-	for (const r of keys) {
+	for (const r of new Set([...keys, ...Object.keys(v)])) {
 		const info = v[r];
 		if (!isObj(info) || typeof info.title !== 'string' || !info.title) throw new Error(`routineInfo "${r}" needs a title`);
 		if (!isDiscipline(info.discipline))

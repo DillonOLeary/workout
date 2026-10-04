@@ -5,6 +5,7 @@
 	let on = $state(true);
 	let open = $state(false);
 	let sheet = $state(false);
+	let footed = $state(false);
 	let fixKey = $state<string | null>(null);
 	let rows = $derived<SetRow[]>([
 		{ key: '1', label: 'Set 1', text: '45 lb × 8', state: fixKey === '1' ? 'fixing' : 'done', right: '✓', fixable: true },
@@ -46,6 +47,7 @@
 	</section>
 
 	<section><Caption>Stepper</Caption><div class="rowx"><Stepper value={n} onstep={(d) => (n += d)} label="sessions" /><Stepper value={90} unit="s" size="sm" onstep={() => {}} /><Stepper value={n} size="pair" onstep={(d) => (n += d)} /><Stepper value={n} disabled onstep={() => {}} /></div>
+		<div class="rowx"><Stepper value="× {n}" size="xs" onstep={(d) => (n += d)} label="reps" /><Stepper value="35 lb" size="xs" onstep={() => {}} label="load" /></div>
 		<div class="tiles"><div class="tile"><Caption>Reps</Caption><Stepper value={n} size="bare" onstep={(d) => (n += d)} /></div><div class="tile dim"><Caption>Load · lb</Caption><Stepper value={45} size="bare" onstep={() => {}} /></div></div>
 	</section>
 
@@ -64,6 +66,12 @@
 
 	<section><Caption>Sheet</Caption><Row label="Open the sheet" right="›" onclick={() => (sheet = true)} />
 		<Sheet open={sheet} title="Programme" onclose={() => (sheet = false)}><Note>One at a time. Switching keeps every set logged.</Note><Card><Title size="md">Open to Work</Title><Note>Full body, A/B, three a week.</Note></Card><Primary onclick={() => (sheet = false)}>Log it</Primary></Sheet>
+		<Row label="Open the sheet with a foot" right="›" onclick={() => (footed = true)} />
+		<Sheet open={footed} title="Log a session I already did" onclose={() => (footed = false)}>
+			<Caption>What</Caption>
+			{#each Array.from({ length: 12 }, (_, i) => i) as i (i)}<Row label="Row {i + 1}" sub="the body scrolls on its own" right="›" />{/each}
+			{#snippet foot()}<Note size="sm">Squat &amp; Shove · 17 sets · ~50 min · today.</Note><Primary onclick={() => (footed = false)}>Log it</Primary>{/snippet}
+		</Sheet>
 	</section>
 
 	<section><Caption>Slot</Caption><div class="rowx"><Slot exercise="Goblet Squat" phase="set" /><Slot exercise="Goblet Squat" phase="ready" /><Slot exercise="Pigeon" phase="still" size={84} /><Slot exercise="Nothing here" size={84} /></div><Note size="sm">92px on the floor, 84px on Done. A still frame of the current rig until rig v2 fills it.</Note></section>
