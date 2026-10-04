@@ -53,6 +53,8 @@ type FigureDef = {
 /** one figure of the library, ready to pose: both keys filled, centred, planted hands pinned, feet locked */
 export type Figure = Omit<FigureDef, 'k0' | 'k1' | 'props' | 'base' | 'yaw' | 'pitch'> & {
 	k0: Key; k1: Key; ctx: Ctx; props: string[]; base: Waypoint; yaw: number; pitch: number; group: string;
+	/** once it only breathes, the figure repeats every `period` seconds: whole breaths, with the sway's two sines (rad/s) tuned to fit */
+	loop: { period: number; w: number[] };
 };
 type Leg = { hip: V3; knee: V3; ank: V3; Rk: M3; heel: V3; toe: V3 };
 type Arm = { E: V3; W: V3; H: V3; T: V3; pole: V3; hd: V3 };
@@ -461,15 +463,24 @@ export function dotAt(R: Grid, i: number, j: number, style: 'halftone' | '1bit')
 	if (k === 1) return v > 0.05 ? { rad: 0.08 + 0.3 * v, c: 'ink' } : { rad: 0.085, c: 'floor' };
 	return { rad: 0.06, c: 'grid' };
 }
-/** paint a sampled grid; style 'halftone' (dot size = shade) or '1bit' (one dot size, dithered) */
+/** paint a sampled grid; style 'halftone' (dot size = shade) or '1bit' (one dot size, dithered) — one fill per colour, since no two dots overlap */
 export function draw(ctx: CanvasRenderingContext2D, size: number, R: Grid, style: 'halftone' | '1bit', col: Inks) {
 	const N = R.N, p = size / N;
 	const inks = { ink: col.ink, gravel: col.gravel || '#A8A18B', grid: col.grid, floor: col.floor };
-	ctx.clearRect(0, 0, size, size);
+	const byInk = new Map<string, number[]>();
 	for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
 		const { rad, c } = dotAt(R, i, j, style), fill = inks[c];
 		if (rad <= 0 || !fill) continue;
-		ctx.fillStyle = fill; ctx.beginPath(); ctx.arc((i + 0.5) * p, (j + 0.5) * p, rad * p, 0, 6.2832); ctx.fill();
+		let dots = byInk.get(fill);
+		if (!dots) byInk.set(fill, (dots = []));
+		dots.push((i + 0.5) * p, (j + 0.5) * p, rad * p);
+	}
+	ctx.clearRect(0, 0, size, size);
+	for (const [fill, d] of byInk) {
+		ctx.fillStyle = fill;
+		ctx.beginPath();
+		for (let k = 0; k < d.length; k += 3) { ctx.moveTo(d[k] + d[k + 2], d[k + 1]); ctx.arc(d[k], d[k + 1], d[k + 2], 0, 6.2832); }
+		ctx.fill();
 	}
 }
 /** the skeleton over the dots: bones, joints, and the dashed targets the hands reach for */
@@ -798,7 +809,19 @@ function prep(def: Partial<FigureDef> & { k0: KeyIn }, group?: string): Figure {
 		g.speed = +(dist / (dph(td.ph, lo.ph) * g.period)).toFixed(2); g.dir = dist ? [-dx / dist, 0, -dz / dist] : [1, 0, 0];
 		g.sub = P0.K!.filter((k) => k.fl === 'TD').length;
 	}
-	return Object.assign({ base: 'stand', yaw: 18, pitch: 10, group }, def, { k0: keys[0], k1: keys[1], ctx, props: def.props || keys[0].props || [] }) as Figure;
+	return Object.assign({ base: 'stand', yaw: 18, pitch: 10, group }, def, { k0: keys[0], k1: keys[1], ctx, props: def.props || keys[0].props || [], loop: loopFor(def) }) as Figure;
+}
+/** the design's sway is 0.83 and 2.1 rad/s; the nearest pair that repeats within a few whole breaths keeps its character and lets a settled figure loop */
+function loopFor(def: Partial<FigureDef>) {
+	const P = (def.kind === 'hold' || def.kind === 'stretch') && def.breath ? def.breath[0] + def.breath[1] : 1.8 + 2.7;
+	let best = { period: P, w: [0.83, 2.1], err: 1e9 };
+	for (let m = 1; m <= 4; m++) {
+		const L = m * P, w = [0.83, 2.1].map((f) => (2 * Math.PI * Math.max(1, Math.round((f * L) / (2 * Math.PI)))) / L);
+		const err = Math.abs(w[0] - 0.83) + Math.abs(w[1] - 2.1);
+		if (err < best.err) best = { period: L, w, err };
+		if (err < 0.2) break;
+	}
+	return { period: best.period, w: best.w };
 }
 /** every figure, in the library's order */
 export const FIGURES: Figure[] = [];
@@ -867,7 +890,7 @@ function poseAt(ex: Figure, tl: Timeline, tlLag: Timeline, t: number): Angles {
 	b.neck = lag.neck; b.head = lag.head;
 	const br = (tl.b - 0.5) * tl.amp;
 	b.chest -= 3 * br; b.spine -= 1.2 * br; b.neck += 1.5 * br;
-	b.pelvis += tl.sway! * (0.5 * Math.sin(t * 0.83) + 0.3 * Math.sin(t * 2.1));
+	b.pelvis += tl.sway! * (0.5 * Math.sin(t * ex.loop.w[0]) + 0.3 * Math.sin(t * ex.loop.w[1]));
 	if (ex.gait && (tl.seg === 0 || tl.seg === 2)) { const l = tl.seg === 0 ? 1 : 0, s = Math.sin(Math.PI * tl.u); b.knee[l] += ex.gait[0] * s; b.hip[l][0] += ex.gait[1] * s; }
 	if (ex.swing) { const s = Math.sin(Math.PI * tl.d); b.knee[ex.swing.leg] += ex.swing.knee * s; b.hip[ex.swing.leg][0] += ex.swing.hip * s; }
 	return b;
@@ -1009,6 +1032,18 @@ function gaitFrame(ex: Figure, mode: Mode, tau: number, t: number, wx: number): 
 		body.hip[i] = [th + body.pelvis, body.hip[i][1], body.hip[i][2]]; body.knee[i] = th - sh; body.foot[i] = legs[i].pitch;
 	}
 	return { tl, body, props: ex.props, lock: null, scene, ground: { o: scl(dir, g.speed! * tl.I), gravel: g.speed! > 0 && mode !== 'still' } };
+}
+/** where a figure is in time — a walk or a run on its stride clock, everything else on its tempo or breath */
+export const clockOf = (ex: Figure, mode: Mode, tau: number): Timeline => (ex.loco ? locoTL(ex, mode, tau) : timeline(ex, mode, tau));
+/** tau from which a figure only breathes, and repeats every loop.period seconds after — null when it never settles (pace) */
+export function settledFrom(ex: Figure, mode: Mode): number | null {
+	if (mode === 'pace') return null;
+	if (mode === 'still' || ex.kind === 'idle') return 0;
+	if (ex.loco) return 0.7 + ex.loco.cycles * ex.loco.period + 0.9;
+	if (ex.kind === 'rep') return 2 * ex.tempo!.reduce((a, b) => a + b, 0);
+	if (ex.kind === 'hold') return 1.2;
+	// a stretch sinks for three breaths, then stays put
+	return 3 * (ex.breath![0] + ex.breath![1]);
 }
 /** one frame of a figure, tau seconds into it at clock time t; wx is where it stands (carried over from the transition that brought it here) */
 export function figureFrame(ex: Figure, mode: Mode, tau: number, t: number, wx?: number): Frame {

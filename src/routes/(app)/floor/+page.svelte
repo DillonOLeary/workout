@@ -7,6 +7,7 @@
 	import { holdScreen } from '$lib/floor/wake-lock';
 	import { CountdownClock, type Countdown } from '$lib/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/floor/entry-queue.svelte';
+	import { watchOnline } from '$lib/net';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { disciplineLabel, durationLabel, firstSentence, itemDose, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
@@ -14,7 +15,6 @@
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
 	import { anySetEarned, bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
 	import { loggedOutside, restUntil, runStart, sessionProgress, sessionSections, sessionSteps, stepName, type Section, type Step } from '$lib/domain/steps';
-	import { STAND } from '$lib/design/rig';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -29,6 +29,7 @@
 	const title = routineTitle(plan, workout.routine) ?? disciplineLabel(session.discipline);
 	const noun = sessionNoun(session.discipline);
 	const queue = new EntryQueue(session.id);
+	$effect(() => () => queue.dispose());
 
 	let serverEntries = $derived(sessionEntries(data.events, session.id));
 	let entries = $derived(queue.overlay(serverEntries));
@@ -54,8 +55,9 @@
 
 	// where you are: the URL keeps the step, so a reload lands back on it
 	const initialStep = (() => {
+		// what the server has, and what this phone kept when the link dropped
 		// svelte-ignore state_referenced_locally
-		const known = sessionEntries(data.events, session.id);
+		const known = queue.overlay(sessionEntries(data.events, session.id));
 		const ss = sessionSteps(plan, workout, loggedOutside(plan, workout, known));
 		// svelte-ignore state_referenced_locally
 		const raw = page.url.searchParams.get('step');
@@ -183,11 +185,42 @@
 	}
 	let finishFormEl = $state<HTMLFormElement>();
 	let finishing = $state(false);
+	// the connection, as the browser and the queue see it: what the strip under the bar says
+	let online = $state(true);
+	$effect(() => watchOnline((on) => {
+		online = on;
+		if (on) queue.wake();
+	}));
+	const entriesWord = (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`;
+	let backOnline = $state(false);
+	let wasOff = false;
+	$effect(() => {
+		const off = !online || queue.offline, left = queue.unsent;
+		if (off) wasOff = true;
+		else if (wasOff && left === 0) {
+			wasOff = false;
+			backOnline = true;
+			const t = setTimeout(() => (backOnline = false), 3000);
+			return () => clearTimeout(t);
+		}
+	});
+	let netLine = $derived.by(() => {
+		const n = queue.unsent;
+		if (!online || queue.offline) return n ? `No connection · ${entriesWord(n)} kept on this phone — they send when you're back` : 'No connection · what you log stays on this phone until you’re back';
+		if (queue.slow) return `Slow connection · sending ${entriesWord(n)}…`;
+		return backOnline ? 'Back online · everything’s saved' : '';
+	});
+	// leaving waits for the queue: a refusal needs Retry; a dead link keeps the entries here until they send
+	function unsaved(leaving: string): boolean {
+		if (queue.anyFailed) queue.error = `An entry didn’t save — Retry it before you ${leaving}.`;
+		else if (queue.unsent) queue.error = `No connection · ${entriesWord(queue.unsent)} still on this phone. They send on their own — ${leaving} once they have.`;
+		else return false;
+		return true;
+	}
 	async function finishNow() {
 		finishing = true;
 		await queue.drain();
-		if (queue.anyFailed) {
-			queue.error = 'An entry didn’t save — Retry it before you finish.';
+		if (unsaved('finish')) {
 			finishing = false;
 			return;
 		}
@@ -195,10 +228,7 @@
 	}
 	async function exitToToday() {
 		await queue.drain();
-		if (queue.anyFailed) {
-			queue.error = 'An entry didn’t save — Retry it before you leave.';
-			return;
-		}
+		if (unsaved('leave')) return;
 		await goto('/', { invalidateAll: true });
 	}
 	function primaryAction() {
@@ -275,15 +305,16 @@
 		if (!st) return [];
 		return steps.filter((s) => s.section === st.section).map((s): SetRow => {
 			const cur = s.key === st.key, e = entryFor(s), lp = queue.latestFor(s);
-			const failed = lp?.status === 'failed', saving = !!lp && (lp.status === 'queued' || lp.status === 'inflight');
+			const failed = lp?.status === 'failed', saving = !!lp && (lp.status === 'queued' || lp.status === 'inflight' || lp.status === 'waiting');
+			const pending = online && !queue.offline ? 'saving…' : 'waiting';
 			const label = s.kind === 'set' ? `${s.ex.kind === 'hold' ? 'Hold' : 'Set'} ${s.index}${s.ex.side === 'sets' ? (s.index % 2 ? ' · L' : ' · R') : ''}` : s.kind === 'run' ? 'Run' : `Step ${s.index}`;
 			const fixedNote = lp?.op === 'correct' && lp.status === 'confirmed' ? '✓ fixed' : '✓';
 			if (s.kind !== 'set') {
 				const text = s.kind === 'run' ? (e?.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`) : s.text;
-				return { key: s.key, label, text, prose: s.kind !== 'run', state: failed ? 'failed' : saving ? 'saving' : e ? 'done' : cur ? 'now' : 'todo', right: failed ? undefined : saving ? 'saving…' : e ? '✓' : cur ? (clock.active ? `${clock.remaining}s` : 'now') : undefined };
+				return { key: s.key, label, text, prose: s.kind !== 'run', state: failed ? 'failed' : saving ? 'saving' : e ? 'done' : cur ? 'now' : 'todo', right: failed ? undefined : saving ? pending : e ? '✓' : cur ? (clock.active ? `${clock.remaining}s` : 'now') : undefined };
 			}
 			if (editing === s.key) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'fixing', right: 'editing' };
-			if (e) return { key: s.key, label, text: setValue(s.ex, loadOf(e.measure), countOf(e.measure)), state: failed ? 'failed' : saving ? 'saving' : 'done', right: failed ? undefined : saving ? 'saving…' : fixedNote, fixable: !failed && !saving };
+			if (e) return { key: s.key, label, text: setValue(s.ex, loadOf(e.measure), countOf(e.measure)), state: failed ? 'failed' : saving ? 'saving' : 'done', right: failed ? undefined : saving ? pending : fixedNote, fixable: !failed && !saving };
 			if (cur && clock.running) return { key: s.key, label, text: `${clock.remaining ?? clock.running.target}s`, state: 'now', right: 'now' };
 			if (cur && resting) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'now', right: `rest ${restLeft}s`, bar: restTotal ? restLeft / restTotal : 0 };
 			if (cur) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'now', right: 'now' };
@@ -315,7 +346,8 @@
 	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && (!!ex && progresses(ex))));
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileLoad = $derived(dialEx?.kind === 'load');
-	let figure = $derived(!st || allDone ? STAND : st.kind === 'set' || st.kind === 'run' ? st.ex.name : st.kind === 'timed' ? st.name : (st.name ?? STAND));
+	// no name: the figure stands
+	let figure = $derived(!st || allDone ? undefined : st.kind === 'set' || st.kind === 'run' ? st.ex.name : st.name);
 
 	// the receipt
 	const receiptSets = (name: string): Measure[] => entries.filter((e) => e.item === name && isSet(e.measure)).sort((a, b) => a.index - b.index).map((e) => e.measure);
@@ -352,6 +384,7 @@
 			{/if}
 		</header>
 		<div class="bar"><span style="width: {steps.length ? (progress.current / steps.length) * 100 : 0}%"></span></div>
+		{#if netLine}<div class="net" class:off={!online || queue.offline} role="status">{netLine}</div>{/if}
 
 		{#if st && !allDone}
 			{#if peeking && nowStep}
@@ -412,7 +445,7 @@
 			<div class="done">
 				<div class="donehead">
 					<Title size="lg" caps>Done</Title>
-					<Slot exercise={STAND} size={84} />
+					<Slot size={84} />
 				</div>
 				<Card pad={false}>
 					<div class="receipt">
@@ -476,6 +509,8 @@
 	.back:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
 	.bar { flex: none; height: 6px; background: var(--ash); border-radius: var(--radius-pill); overflow: hidden; }
 	.bar span { display: block; height: 100%; background: var(--ink); transition: width 300ms; }
+	.net { flex: none; padding: 8px 12px; border-radius: 12px; background: var(--volt-light); font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: var(--ink); }
+	.net.off { background: var(--ash); border: 1.5px dashed var(--stone); }
 	.bar.wide { width: 100%; }
 	.who { flex: none; display: flex; gap: 14px; align-items: center; }
 	.words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }

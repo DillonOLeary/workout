@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
+	import { watchOnline } from '$lib/net';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -15,11 +16,14 @@
 
 	let mainEl = $state<HTMLElement>();
 	afterNavigate(() => mainEl?.scrollTo({ top: 0 }));
+	let online = $state(true);
+	onMount(() => watchOnline((on) => (online = on)));
 </script>
 
 <div class="app-frame">
 	<main class="app-main" bind:this={mainEl}>
 		<div class="shell">
+			{#if !online}<div class="offline" role="status">No connection · changes here need the server; sets you log on the floor wait on the phone</div>{/if}
 			{@render children()}
 		</div>
 	</main>
@@ -88,4 +92,5 @@
 	@media (min-width: 720px) {
 		.shell { padding-top: 24px; gap: 18px; }
 	}
+	.offline { padding: 8px 12px; border-radius: 12px; background: var(--ash); border: 1.5px dashed var(--stone); font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: var(--ink); }
 </style>

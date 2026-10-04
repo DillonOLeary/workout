@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
+import { stampedAt } from '$lib/server/stamp';
 import { parseMeasure } from '$lib/domain/measure';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -15,6 +16,7 @@ async function entryFields(request: Request) {
 	const measure = parseMeasure(form.get('measure'));
 	return {
 		measure,
+		at: stampedAt(form.get('at')),
 		session: String(form.get('session') ?? ''),
 		item: String(form.get('item') ?? ''),
 		index: Number(form.get('index'))
@@ -27,7 +29,7 @@ export const actions: Actions = {
 		const uid = requireUid(locals);
 		const { measure, ...id } = await entryFields(request);
 		if (!measure) return fail(400, { message: 'Malformed entry.' });
-		const err = await tryCommand(uid, { type: 'LogEntry', data: { ...id, at: new Date().toISOString(), measure } });
+		const err = await tryCommand(uid, { type: 'LogEntry', data: { ...id, measure } });
 		if (err) return fail(400, { message: err });
 	},
 
@@ -36,7 +38,7 @@ export const actions: Actions = {
 		const uid = requireUid(locals);
 		const { measure, ...id } = await entryFields(request);
 		if (!measure) return fail(400, { message: 'Malformed entry.' });
-		const err = await tryCommand(uid, { type: 'CorrectEntry', data: { ...id, at: new Date().toISOString(), measure } });
+		const err = await tryCommand(uid, { type: 'CorrectEntry', data: { ...id, measure } });
 		if (err) return fail(400, { message: err });
 	},
 

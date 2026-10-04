@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Note, Primary, Title } from '$lib/ui';
+	import { isNetworkError } from '$lib/net';
 
 	/** A load or an action threw — a database that is waking up, a lost connection — or the URL is nobody's. The stream is untouched either way. */
 	let notFound = $derived(page.status === 404);
+	let offline = $derived(!notFound && isNetworkError(page.error?.message));
 </script>
 
 <div class="wrap">
 	<div class="stack">
-		<Title>{notFound ? 'Nothing here' : 'Something broke'}</Title>
-		<Note>{notFound ? 'That page is not one of the three tabs.' : `${page.status}: ${page.error?.message ?? 'no message'}. Nothing was written; try again in a moment.`}</Note>
+		<Title>{notFound ? 'Nothing here' : offline ? 'No connection' : 'Something broke'}</Title>
+		<Note>{notFound ? 'That page is not one of the three tabs.' : offline ? 'The phone couldn’t reach the server, so nothing was sent. Try again when you’re back online — sets on the floor wait on the phone.' : `${page.status}: ${page.error?.message ?? 'no message'}. Nothing was written; try again in a moment.`}</Note>
 		<!-- a full load, not a client-side goto: the failed request is the one to repeat -->
 		<Primary onclick={() => location.assign('/')}>{notFound ? 'Today' : 'Try again'}</Primary>
 	</div>

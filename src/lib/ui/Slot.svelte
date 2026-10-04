@@ -1,49 +1,57 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { FPS, STAND, draw, figureFor, type Inks } from '$lib/design/rig';
-	import { Stage } from '$lib/design/stage';
+	import type { Stage } from '$lib/design/stage';
 
 	/**
 	 * The figure, live: rig v2 on a 12 fps clock. A new exercise walks the body over from the last, shows two reps at tempo,
 	 * then breathes in the start pose; a tap shows it again. Reduced motion: the key pose, breathing, and a cut between
-	 * exercises. Floor 92px, Done 84px; a name the rig doesn't know stands.
+	 * exercises. Floor 92px, Done 84px; no exercise, or one the rig doesn't know, stands. The rig loads with the first Slot, not with the page.
 	 */
-	let { exercise, size = 92 }: { exercise: string; size?: number } = $props();
+	let { exercise, size = 92 }: { exercise?: string; size?: number } = $props();
 
 	let canvas = $state<HTMLCanvasElement>();
 	let stage: Stage | undefined;
-	const figure = (name: string) => figureFor(name) ?? figureFor(STAND)!;
+	let show: ((name?: string) => void) | undefined;
 	const now = () => performance.now() / 1000;
 
 	$effect(() => {
-		const f = figure(exercise);
-		untrack(() => {
-			if (stage && stage.figure !== f) stage.show(f, now());
-		});
+		const name = exercise;
+		untrack(() => show?.(name));
 	});
 
 	onMount(() => {
-		const motion = matchMedia('(prefers-reduced-motion: reduce)');
-		stage = new Stage(figure(exercise), motion.matches, now());
-		const onMotion = () => stage?.setReduced(motion.matches, now());
-		motion.addEventListener('change', onMotion);
-		const css = getComputedStyle(canvas!);
-		const inks: Inks = { ink: css.getPropertyValue('--ink').trim(), grid: css.getPropertyValue('--dot').trim(), floor: css.getPropertyValue('--dot-floor').trim() };
-		let raf = 0, last = -1;
-		const tick = () => {
-			raf = requestAnimationFrame(tick);
-			const step = Math.floor(now() * FPS), ctx = canvas?.getContext('2d');
-			if (step === last || !stage || !canvas || !ctx) return;
-			last = step;
-			const dpr = Math.min(2.5, window.devicePixelRatio || 1), px = Math.round(size * dpr);
-			if (canvas.width !== px) canvas.width = canvas.height = px;
-			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-			draw(ctx, size, stage.frame(step / FPS).grid, 'halftone', inks);
-		};
-		tick();
+		let raf = 0, live = true, stop = () => {};
+		void Promise.all([import('$lib/design/rig'), import('$lib/design/stage')]).then(([rig, { Stage }]) => {
+			if (!live || !canvas) return;
+			const figure = (name?: string) => (name && rig.figureFor(name)) || rig.figureFor(rig.STAND)!;
+			const motion = matchMedia('(prefers-reduced-motion: reduce)');
+			const s = (stage = new Stage(figure(exercise), motion.matches, now()));
+			show = (name) => {
+				const f = figure(name);
+				if (s.figure !== f) s.show(f, now());
+			};
+			const onMotion = () => s.setReduced(motion.matches, now());
+			motion.addEventListener('change', onMotion);
+			const css = getComputedStyle(canvas);
+			const inks = { ink: css.getPropertyValue('--ink').trim(), grid: css.getPropertyValue('--dot').trim(), floor: css.getPropertyValue('--dot-floor').trim() };
+			let last = -1;
+			const tick = () => {
+				raf = requestAnimationFrame(tick);
+				const step = Math.floor(now() * rig.FPS), ctx = canvas?.getContext('2d');
+				if (step === last || !canvas || !ctx) return;
+				last = step;
+				const dpr = Math.min(2.5, window.devicePixelRatio || 1), px = Math.round(size * dpr);
+				if (canvas.width !== px) canvas.width = canvas.height = px;
+				ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+				rig.draw(ctx, size, s.frame(step / rig.FPS).grid, 'halftone', inks);
+			};
+			tick();
+			stop = () => motion.removeEventListener('change', onMotion);
+		});
 		return () => {
+			live = false;
 			cancelAnimationFrame(raf);
-			motion.removeEventListener('change', onMotion);
+			stop();
 		};
 	});
 </script>

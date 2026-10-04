@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { SHIPPED_PLANS } from '$lib/domain/plans';
 import { planExercises } from '$lib/domain/plan';
-import { FIGURES, GRID, GROUPS, STAND, figureFor, figureFrame, keyGrid, planRoute, snapshot, timeline } from './rig';
+import { FIGURES, FPS, GRID, GROUPS, STAND, cameraFor, dotAt, figureFor, figureFrame, keyGrid, planRoute, render, settledFrom, snapshot, timeline } from './rig';
 import { Stage } from './stage';
 
 const fig = (name: string) => figureFor(name)!;
@@ -108,6 +108,28 @@ describe('the rig', () => {
 		expect(at(r, 20).label).toBe('Ready');
 		r.replay(20);
 		expect(at(r, 20.1).label).toBe('Lower');
+	});
+
+	it('a settled figure repeats exactly: one loop later every dot is where it was', () => {
+		const drawn = (g: ReturnType<typeof render>) => Array.from({ length: GRID * GRID }, (_, k) => dotAt(g, k % GRID, Math.floor(k / GRID), 'halftone').rad.toFixed(4)).join();
+		for (const f of FIGURES) for (const mode of ['ambient', 'still'] as const) {
+			const at = (step: number) => { const t = step / FPS, fr = figureFrame(f, mode, t, t, 0); return drawn(render(fr.scene, cameraFor(f), GRID, fr.ground)); };
+			const s = Math.ceil((settledFrom(f, mode)! + 0.2) * FPS) + 7, n = Math.round(f.loop.period * FPS);
+			expect(n, f.id).toBe(f.loop.period * FPS);
+			expect(at(s + n), `${f.id} ${mode}`).toBe(at(s));
+		}
+	});
+
+	it('the stage draws a settled loop once and replays it', () => {
+		const s = new Stage(fig('Goblet Squat'), false, 0), n = fig('Goblet Squat').loop.period * FPS;
+		const from = Math.ceil((settledFrom(fig('Goblet Squat'), 'ambient')! + 0.2) * FPS) + 1;
+		for (let k = 0; k < from; k += 6) s.frame(k / FPS, 21);
+		const first = s.frame(from / FPS, 21).grid;
+		for (let k = from + 1; k < from + n; k++) s.frame(k / FPS, 21);
+		expect(s.cached).toBe(n);
+		expect(s.frame((from + n) / FPS, 21).grid).toBe(first);
+		s.replay(100);
+		expect(s.cached).toBe(0);
 	});
 
 	it('the reviewed snapshot is what the rig draws', () => {

@@ -803,6 +803,15 @@ frames a second ("on twos"), the floor only ever changes the name, and a tap
 on the figure replays it. A counted warm-up line (Sun Salutation A × 3) now
 carries its name on the step, so it gets its figure too.
 
+Three things keep it cheap on a phone (measured 2026-10-04 with the CPU
+throttled 4×: the floor went from 22 % of the main thread, all the time, to
+under 2 % once the figure settles). A settled figure only breathes, and the
+breath repeats exactly — the sway's two sines are tuned to whole breaths
+(`loop` on every figure, `settledFrom` in the rig) — so the stage renders one
+loop and replays it. `draw` fills every dot of one colour in one path, since
+no two dots overlap. And the `Slot` imports the rig only when it mounts, so
+Today, the Ledger, Plan and the login page never download it.
+
 The snapshot is the check, not the source: `node tools/glyphs/bake.mjs`
 writes every figure's key pose (what reduced motion shows) and start pose to
 `tools/glyphs/glyph-frames.json` as rows of characters — a digit for the
@@ -825,20 +834,32 @@ another; the patterns worth studying:
   as a zero-event no-op, so ambiguous network retries are idempotent, and
   Emmett's `retry: { onVersionConflict: true }` absorbs concurrent appends.
   A set the server rejects stays on the table as a failed row with a Retry
-  — marked, never silently removed — and so does a set the server never
-  saw: a dead link is retried twice and then fails the row (each POST is
-  `keepalive`, so a tab closed mid-save still lands, and carries a 15 s
-  `AbortSignal.timeout`, so a dead link fails in seconds), and a `redirect`
-  result is `requireUid`'s bounce to `/login`, which means the cookie is
-  gone and nothing was written — a failed row, not a tick (until 2026-09-30
-  it read as success). [entry-queue.test.ts](src/lib/floor/entry-queue.test.ts)
+  — marked, never silently removed — and a `redirect` result is
+  `requireUid`'s bounce to `/login`, which means the cookie is gone and
+  nothing was written: a failed row, not a tick. A set the server never
+  *saw* is different, because a gym's signal is spotty (2026-10-04): it is
+  kept on the phone (`localStorage`, one key per session, so a reload or a
+  killed tab finds it and sends it), it carries the moment you tapped (the
+  form action keeps that time if it is plausible — `stampedAt` in
+  [server/stamp.ts](src/lib/server/stamp.ts) — so a set that waited out a
+  dead link isn't stamped minutes late), and after one quick retry it
+  *waits* instead of failing: no error, still on the table, sent again on
+  a backoff (2, 4, 8, 16, then every 30 s) and at once on the browser's
+  `online` event. The floor says so in a strip under the bar — "No
+  connection · 3 entries kept on this phone", "Slow connection · sending…",
+  then "Back online · everything's saved" — and a waiting row reads
+  `waiting` where a sending one reads `saving…`. Each POST is `keepalive`,
+  so a tab closed mid-save still lands, and carries a 10 s
+  `AbortSignal.timeout`. [entry-queue.test.ts](src/lib/floor/entry-queue.test.ts)
   scripts a server for each of those paths; the floor draws the whole queue as
   rows of a `SetTable` (done / saving / now / fixing / todo / failed). A correction rides the same queue with `op: 'correct'`:
   `overlay()` lays the queue over the server's entries, a log adding a row
   and a correction replacing a measure, and that merged list is what the
   rest clock reads — so a set that hasn't reached the server yet still
-  starts the clock. Exiting the screen drains the queue and, like Finish,
-  refuses to leave a failed row behind; then
+  starts the clock. Exiting the screen and Finish drain the queue and
+  refuse to leave a failed or an unsent row behind (Today, too, says when
+  this phone still holds entries for the session, and sends Finish here to
+  the floor first); then
   `goto(..., { invalidateAll: true })` restores server truth. The page
   ([floor/+page.svelte](src/routes/(app)/floor/+page.svelte)) keeps only
   what is *its* business: which step you are on, what the rows say, what

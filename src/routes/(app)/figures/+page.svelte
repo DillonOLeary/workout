@@ -49,7 +49,7 @@
 			const shot = stage.frame(step / FPS);
 			paint(stageEl, (ctx, size) => {
 				draw(ctx, size, shot.grid, 'halftone', inks);
-				if (skeleton) drawRig(ctx, size, shot.grid, shot.scene.J, { ink: inks.ink, bone: v('--volt'), joint: v('--white') });
+				if (skeleton) drawRig(ctx, size, shot.grid, shot.J, { ink: inks.ink, bone: v('--volt'), joint: v('--white') });
 			});
 			const key = JSON.stringify(shot.readout);
 			if (key !== lastKey) {

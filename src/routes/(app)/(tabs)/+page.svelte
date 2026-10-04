@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { unsentFor } from '$lib/floor/entry-queue.svelte';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
 	import { clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, loadShort, setsLine, weekLine } from '$lib/domain/labels';
@@ -48,6 +50,11 @@
 	let liveEntries = $derived(session ? sessionEntries(data.events, session.id) : []);
 	let liveSteps = $derived(session ? sessionSteps(floorPlan, session.workout, loggedOutside(floorPlan, session.workout, liveEntries)) : []);
 	let liveProgress = $derived(sessionProgress(liveSteps, liveEntries));
+	// entries the floor kept on this phone when the connection dropped: the floor sends them, so finishing waits for it
+	let unsent = $state(0);
+	onMount(() => {
+		if (session) unsent = unsentFor(session.id);
+	});
 	let nextLine = $derived(`next: ${liveSteps[liveProgress.current] ? stepName(liveSteps[liveProgress.current]) : 'finish'}`);
 
 	// the moment you need Undo is the moment after Finish: the latest session while it is still today's (a backdated one whatever its day), until the next one starts
@@ -207,7 +214,8 @@
 		<Primary onclick={() => goto('/floor')}>Back to the floor</Primary>
 	</Card>
 	<form method="POST" action="?/finish" use:enhance bind:this={finishForm} hidden></form>
-	<Row label={armed === 'finish' ? 'Finish here?' : 'Finish here'} right="{liveProgress.sets} {liveProgress.sets === 1 ? 'set' : 'sets'} logged ›" onclick={finishTap} />
+	{#if unsent}<Note size="sm">{unsent} {unsent === 1 ? 'entry is' : 'entries are'} still on this phone, not yet saved — open the floor and {unsent === 1 ? 'it sends' : 'they send'}.</Note>{/if}
+	<Row label={armed === 'finish' ? 'Finish here?' : 'Finish here'} right={unsent ? 'open the floor first ›' : `${liveProgress.sets} ${liveProgress.sets === 1 ? 'set' : 'sets'} logged ›`} onclick={unsent ? () => goto('/floor') : finishTap} />
 	<Row label={armed === session.id ? 'Bin it?' : 'Bin this session'} right="nothing is kept ›" tone="signal" onclick={() => removeTap(session.id)} />
 {:else}
 	{#if justLogged}
