@@ -2,7 +2,7 @@
   /* palette */
   --ink: #1A1915;
   --ink-2: #4A4840;
-  --ink-3: #7A776B;
+  --ink-3: #6A675D; /* 4.6:1 or better on every ground it is read on (paper, ash, white, volt-light) — #7A776B was 3.97 on paper */
   --paper: #F4F1E6;
   --paper-2: #ECE8D9;
   --paper-3: #E2DDCB;
