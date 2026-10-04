@@ -303,6 +303,25 @@ export function disciplineLetter(d: Discipline): string {
 	}
 }
 
+/** The fill a discipline gives its day — volt lift · stone yoga · white stretch · ink run · hatched floor; the letter says it without the colour */
+export type DayInk = 'volt' | 'stone' | 'white' | 'ink' | 'hatch';
+export function disciplineInk(d: Discipline): DayInk {
+	switch (d) {
+		case 'lift':
+			return 'volt';
+		case 'yoga':
+			return 'stone';
+		case 'mobility':
+			return 'white';
+		case 'run':
+			return 'ink';
+		case 'bodyweight':
+			return 'hatch';
+	}
+}
+/** A day's sessions as the calendar marks them: each its letter on its ink, in the order they happened */
+export const dayMarks = (did: Discipline[]): { letter: string; ink: DayInk }[] => did.map((d) => ({ letter: disciplineLetter(d), ink: disciplineInk(d) }));
+
 /** "L lift · Y yoga · S stretch · R run · F floor · today outlined" — the cells' legend, for the disciplines shown */
 export const cellLegend = (ds: Discipline[]): string =>
 	[...ds.map((d) => `${disciplineLetter(d)} ${d === 'bodyweight' ? 'floor' : disciplineLabel(d).toLowerCase()}`), 'today outlined'].join(' · ');

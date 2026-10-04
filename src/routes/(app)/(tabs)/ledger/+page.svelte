@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Caption, Card, Cell, Note, Row, Stepper, Title } from '$lib/ui';
-	import { cellLegend, disciplineLabel, disciplineLetter, monthLine, paceLine, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
+	import { cellLegend, dayMarks, disciplineLabel, monthLine, paceLine, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
 	import { DISCIPLINES, classKeys, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { bumpCount, bumpLoad } from '$lib/domain/progression';
@@ -21,7 +21,7 @@
 		for (const s of entries) if (!out.includes(s.discipline)) out.push(s.discipline);
 		return out;
 	});
-	const cellLabel = (c: DayCell) => (c.did.length ? c.did.map(disciplineLetter).join('') : c.future ? '' : '·');
+	const cellLabel = (c: DayCell) => (c.future ? '' : '·');
 
 	// a month is the fold: its line is the monthly view, its items the daily one — the newest month open, the rest one line each
 	let changes = $derived(weekChanges(data.events));
@@ -119,7 +119,7 @@
 
 <Caption>Ledger · last {GRID_WEEKS} weeks</Caption>
 <div class="month" role="list" aria-label={grid.span}>
-	{#each grid.weeks.flat() as c (c.key)}<Cell label={cellLabel(c)} done={c.did.length > 0} today={c.today} future={c.future} title="{c.label}: {c.did.map(disciplineLabel).join(', ') || 'nothing'}" />{/each}
+	{#each grid.weeks.flat() as c (c.key)}<Cell label={cellLabel(c)} marks={dayMarks(c.did)} today={c.today} future={c.future} title="{c.label}: {c.did.map(disciplineLabel).join(', ') || 'nothing'}" />{/each}
 </div>
 <Note size="sm" tone="stone">{cellLegend(legend)}</Note>
 <Title size="md">{paceLine(tally.done, tally.asked, tally.gaps)}</Title>

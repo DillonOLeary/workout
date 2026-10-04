@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { clockLabel, dealCaption, disciplineLabel, disciplineLetter, itemDose, loadShort, setsLine, weekLine } from '$lib/domain/labels';
+	import { clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, loadShort, setsLine, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
 	import { classKeys, cycleDisciplines, disciplineOf, routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
@@ -20,7 +20,7 @@
 	let strip = $derived(weekStrip(data.events, now));
 	let tally = $derived(weekTally(data.events, plan, now));
 	// an empty cell shows its weekday's initial — the first letter of "Sun, Aug 23"
-	const cellLabel = (c: DayCell) => (c.did.length ? c.did.map(disciplineLetter).join('') : c.label[0]);
+	const cellLabel = (c: DayCell) => c.label[0];
 
 	// the deal: one candidate per cycle, the first on the card, the rest one "Something else" away
 	let deck = $derived(queue(data.events, plan, now));
@@ -193,7 +193,7 @@
 	<Note size="sm" onclick={() => goto('/ledger')}>{weekLine(tally.done, tally.asked)} ›</Note>
 </div>
 <div class="strip" role="list" aria-label="The last seven days">
-	{#each strip as c (c.key)}<Cell size="strip" label={cellLabel(c)} done={c.did.length > 0} today={c.today} title={c.label} />{/each}
+	{#each strip as c (c.key)}<Cell size="strip" label={cellLabel(c)} marks={dayMarks(c.did)} today={c.today} title={c.label} />{/each}
 </div>
 
 {#if form?.message}<Note tone="ink"><span class="err">{form.message}</span></Note>{/if}

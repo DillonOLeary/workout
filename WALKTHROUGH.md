@@ -392,7 +392,10 @@ else lives there:
 - `monthGrid` → the last `GRID_WEEKS` (5) weeks as a calendar, one cell per
   local day, each cell saying what every session on it was, in order (`did:
   ['yoga', 'lift']` is a normal Tuesday). A week of cells can only say "this
-  week was quiet"; a month says whether that is the habit
+  week was quiet"; a month says whether that is the habit. `dayMarks` in
+  labels.ts turns `did` into what the kit's `Cell` draws: one mark per
+  session, its letter (`disciplineLetter`) on its fill (`disciplineInk` —
+  volt lift, stone yoga, white stretch, ink run, hatched floor), side by side
 - `weekStrip` → the trailing seven days as the same cells, today last — the
   strip under Today's title, and the door to the month
 - `weekTally` (in week.ts) → this week in one line's worth of numbers: every
@@ -970,6 +973,13 @@ set while looking and you are working there; the banner goes. No event, rule
 or action changed: the decider always took entries in any order within the
 open session.
 
+The calendar got its colour back the same day. v3's `Cell` drew every day
+with something in it as ink with volt letters, which kept the letters (L Y S
+R F — readable without colour) but lost the at-a-glance read the pre-v3
+calendar had from one fill per discipline. The fills are back under the
+letters, each session its own mark on a split day; an empty day is ash so a
+white stretch day stands apart from it.
+
 Log-after grew from "written with the plan's sets" to a sheet you fill in.
 A **When** day, a **Started** time on the quarter hour (it follows the
 routine's length until you touch it) and a **Length**; the summary and *Log
@@ -1005,7 +1015,7 @@ later in the Ledger labels its line *Class*, not *Run*.
 3. **A fifth practice.** Add `'swim'` to `PracticeId` and let the compiler
    walk you: `allPracticesOn`, `practiceLabel`, `WEEK_OF_PLAN` (what did
    choosing an old plan mean for it?), a `Discipline` if it needs one —
-   `disciplineLabel`, `disciplineLetter` for the cells — and the block
+   `disciplineLabel`, `disciplineLetter` and `disciplineInk` for the cells — and the block
    itself in `BLOCKS`. Nothing in a screen should need to change. Then switch it off
    and watch the Ledger's divider say so.
 4. **Retire an upcaster case.** Run forensics query 6 against the store. If a

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	cellLegend, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
+	cellLegend, dayMarks, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
 	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, standInLine, weekChangeLine, weekHead, weekLine
@@ -214,6 +214,8 @@ describe('v3 — the cell, the card, the pace, the when', () => {
 		expect((['lift', 'yoga', 'mobility', 'run', 'bodyweight'] as const).map(disciplineLetter).join('')).toBe('LYSRF');
 		expect(cellLegend(['lift', 'yoga', 'mobility', 'run', 'bodyweight'])).toBe('L lift · Y yoga · S stretch · R run · F floor · today outlined');
 		expect(cellLegend(['lift'])).toBe('L lift · today outlined');
+		expect(dayMarks(['yoga', 'lift'])).toEqual([{ letter: 'Y', ink: 'stone' }, { letter: 'L', ink: 'volt' }]);
+		expect(dayMarks(['mobility', 'run', 'bodyweight']).map((m) => m.ink)).toEqual(['white', 'ink', 'hatch']);
 	});
 	it('captions the card by what is owed, and the floor by what it counts as', () => {
 		expect(dealCaption({ due: true }, 'Lift', 1, 3)).toBe('Due · Lift · 1 of 3 this week');

@@ -17,6 +17,10 @@
 		{ key: '7', label: 'Step 1', text: '3–5 min easy — bike, row or a brisk walk', state: 'todo', prose: true }
 	]);
 	const week = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+	type Mark = { letter: string; ink: 'volt' | 'stone' | 'white' | 'ink' | 'hatch' };
+	const L: Mark = { letter: 'L', ink: 'volt' }, Y: Mark = { letter: 'Y', ink: 'stone' }, S: Mark = { letter: 'S', ink: 'white' }, R: Mark = { letter: 'R', ink: 'ink' }, F: Mark = { letter: 'F', ink: 'hatch' };
+	const stripMarks: Mark[][] = [[], [L], [], [Y, S], [F], [], [R]];
+	const monthMarks: Mark[][] = [[], [], [L], [S], [], [R], [F], [], [Y], [L, S], [L, R, S], [], [], []];
 </script>
 
 <div class="kit">
@@ -54,8 +58,8 @@
 	<section><Caption>Switch</Caption><div class="rowx"><Switch {on} label="Yoga" onclick={() => (on = !on)} /><Switch on={false} label="Run" /><span class="dimrow"><Switch on={false} label="Run" /> the row dims to 50% when off</span></div></section>
 
 	<section><Caption>Cell</Caption>
-		<div class="grid7" role="list">{#each week as w, i (i)}<Cell size="strip" label={i === 1 ? 'L' : i === 3 ? 'YS' : i === 6 ? 'R' : w} done={[1, 3, 6].includes(i)} today={i === 6} />{/each}</div>
-		<div class="grid7" role="list">{#each Array.from({ length: 14 }, (_, i) => i) as i (i)}<Cell label={i === 2 ? 'L' : i === 5 ? 'R' : i === 9 ? 'LS' : i > 10 ? '' : '·'} done={[2, 5, 9].includes(i)} today={i === 10} future={i > 10} />{/each}</div>
+		<div class="grid7" role="list">{#each week as w, i (i)}<Cell size="strip" label={w} marks={stripMarks[i]} today={i === 6} />{/each}</div>
+		<div class="grid7" role="list">{#each Array.from({ length: 14 }, (_, i) => i) as i (i)}<Cell label={i > 11 ? '' : '·'} marks={monthMarks[i]} today={i === 11} future={i > 11} />{/each}</div>
 	</section>
 
 	<section><Caption>Set table</Caption>
