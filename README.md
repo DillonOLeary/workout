@@ -13,7 +13,8 @@ practices and answers "what should I do?" with one button, the **Ledger** is
 the stream made readable (the latest session can be corrected, older history is
 immutable), and the **Plan** is the rules' inputs. The floor covers the tabs
 while a session is walked. Every screen is built from one twelve-part kit in
-`src/lib/ui/` — `/kit` renders every part in every state in dev.
+`src/lib/ui/` — `/kit` renders every part in every state in dev, and `/figures`
+every figure of the dot athlete, live.
 
 **Stack**: SvelteKit (Svelte 5) · [Emmett](https://event-driven-io.github.io/emmett/)
 PostgreSQL event store · Neon · Cloudflare Workers · TypeScript.

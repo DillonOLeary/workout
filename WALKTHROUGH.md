@@ -642,9 +642,11 @@ contradiction it refuses — its accessors, and `composePlan` with its goals),
 `steps.test.ts` (that `restUntil` counts from the local timestamp, that an
 extra appends, that a step carries only what its kind needs),
 `racks.test.ts`, and [rig.test.ts](src/lib/design/rig.test.ts)
-(every exercise has a figure, every stamp prints, a route through the
-waypoints is the hops the design named, and the reviewed snapshot in
-`tools/glyphs` is what the rig draws). Two things make these cheap to write: nothing in the
+(every exercise has a figure, bones keep their length, a planted foot and a
+planted hand stay put, every figure casts its contact shadow, the tempo and
+the breath land where the design says, a route walks the waypoints the
+design named, the stage cuts under reduced motion, and the reviewed snapshot
+in `tools/glyphs` is what the rig draws). Two things make these cheap to write: nothing in the
 domain does I/O, and every fold that needs the time takes `now` as an
 argument — a test builds a history with "15 days ago" arithmetic and never
 touches the clock. The config is a separate
@@ -674,6 +676,7 @@ src/routes/
    ├─ floor/                        gym floor — covers the tabs  (/floor)
    │                                 load guard → / when nothing is open · ?/logEntry · ?/correctEntry · ?/finish
    ├─ kit/                          every part of the kit in every state — dev only  (/kit)
+   ├─ figures/                      the figure lab: every figure live, its tempo, its route, its skeleton — dev only  (/figures)
    └─ export/+server.ts             GET /export: the stream as a JSON download
 
 src/lib/
@@ -681,9 +684,9 @@ src/lib/
 ├─ server/        db.ts (the connection string), eventStore.ts (a pg client per request), ledger.ts, auth.ts, uid.ts
 ├─ ui/            the kit — twelve parts, props only, no domain imports: Caption, Title, Note, Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot
 ├─ floor/         bell, wake-lock, entry-queue, countdown — the floor's machinery, no markup
-└─ design/        tokens/*.css, rig.ts (the figures; the Slot draws a still until rig v2)
+└─ design/        tokens/*.css, rig.ts (rig v2 — the figures as a 3D body), stage.ts (one figure on a clock: the Slot's and the lab's)
 
-tools/glyphs/     bake.mjs snapshots the rig to glyph-frames.json; --check proves the snapshot is what the rig draws
+tools/glyphs/     bake.mjs snapshots every figure's key and start pose to glyph-frames.json; --check proves the snapshot is what the rig draws
 tools/stream/     forensics.sql — read-only queries over the event store
 ```
 
@@ -740,8 +743,8 @@ Things to notice:
 | `bind:this` | the floor's hidden Finish form (submitted from the primary), the Plan's goal and rest forms (submitted once the tapping stops), the tab layout's inner scroller, the Slot's canvas |
 | scoped `<style>` | every component — the design system's tokens are global, layout is local; a kit part exposes nothing but its props, so a screen never reaches into one with `:global` except to size a `Slot` |
 | `use:enhance` with a callback | the Ledger's editor: `use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') editingRow = null; }}` — the row stays open on a refusal, so the message is read where the numbers are |
-| `$effect` | `Slot.svelte` — one effect reads `exercise`, `phase` and `size`, asks the rig for one frame and stamps it on the canvas; nothing animates yet, so there is nothing to tear down. The floor's `$effect` that rings the bell is the other one worth reading |
-| a component that persists | the Slot's contract — `<Slot exercise phase size />` — is fixed now so rig v2 can put a live athlete in it without touching a screen: the floor says where the body is, never "animate" |
+| `$effect` + `untrack` | `Slot.svelte` — the effect reads only `exercise` and tells the stage to walk there inside `untrack`, so the stage's own bookkeeping never re-runs it; the 12 fps loop lives in `onMount`, whose returned function cancels the frame and the reduced-motion listener. The floor's `$effect` that rings the bell is the other one worth reading |
+| a component that persists | the Slot's contract — `<Slot exercise size />` — says where the body is, never "animate": the Slot decides how to get there (walk the route, two reps at tempo, then breathe) and the screen only changes the name |
 | time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived from the entries: a set logged outside the routine grows a section, and every row, label and estimate follows |
 | transitions | `Sheet` flies in with `transition:fly` and fades its scrim; both durations drop to 0 under `prefers-reduced-motion`, read once when the sheet opens |
@@ -760,31 +763,53 @@ once per tap, so a dial to 5 is one `GoalSet`, not three; the rest dial works
 the same way. Knowing when you *don't* want reactivity is part of
 learning it.
 
-The figures live in [rig.ts](src/lib/design/rig.ts), and they are drawn live.
-A pose is a function of depth (`pose(d)`, 0 at the top of the movement, 1 at
-the bottom) over one skeleton — a hip, a torso angle, two ankles and two hands,
-the knees and elbows solved by inverse kinematics — on one world, where the
-ground is `FLOOR` for every exercise so the feet land on the bottom dot row
-whatever the pose. `normalize` fills both legs and both arms so any two poses
-have the same joints, `lerp` walks between them, and `frame` stamps the joints
-onto the 31 × 31 grid as tapered capsules with a dithered light. Fifty-two
-figures, each in one of three GEARS — a `rep`, a `breath` or a `still` — and
-each with a `waypoint` so `route(from, to)` can plan the hops between any two.
-Since v3 only the `Slot` reads it, and it reads one frame: the work frame for a
-set, the top for a rest. The live athlete — the hops, the gears on a clock, the
-figure getting into position ten seconds before the bell — is rig v2, the
-roadmap's phase 5, and it lands inside the Slot's contract without touching a
-screen.
+The figures live in [rig.ts](src/lib/design/rig.ts) — rig v2, the roadmap's
+phase 5, from the `Gym App Workout Notes` design project's Figure Lab
+(2026-10-04), typed from its `rig2.js` and checked dot for dot against it. The
+dot grid stayed; underneath it is a body:
+
+- **Bones, not dots.** A skeleton of fixed-length bones (a 1.78 m adult, about
+  7½ heads) posed by rotating joints — `fk` for the spine and the legs. Hands
+  reach their targets by two-bone IK (`ik2`: the bell at the chest, a palm on
+  the floor), and a foot that is down at both ends of a rep is locked by IK
+  too (`lockFoot`), so it stays rooted while the knee tracks.
+- **Masses, not sticks.** About twenty-five volumes — ribcage, pelvis and
+  head as ellipsoids on a bending spine, tapered capsules for the limbs —
+  smooth-blended into one surface, ray-marched from the camera and lit from
+  the upper left (`render`), then drawn as 41 × 41 dots whose size is the
+  shade (`draw`). Props (the bell, the bar) are inked; furniture (the
+  bench, the wall) is drawn lighter so the body reads first. The ground
+  re-solves every frame, so a contact never floats or sinks, and casts the
+  contact shadow under it.
+- **Tempo is data.** Every lift carries gym tempo notation — lower · pause ·
+  drive · pause — and `timeline` turns it into a depth 0..1 over time, the
+  lowering eased evenly and the drive snappier, the breath following the rep.
+  A hold settles in and breathes 2 s in, 3 s out; a stretch sinks a little on
+  each exhale for about three breaths. A walk, a run or carioca is a
+  treadmill: the body stays put, keyframed foot paths step on a floor whose
+  gravel scrolls past.
+- **Waypoints.** Every figure names the shape it is entered from (`base`:
+  stand, kneel, all fours, the bench…), and `planRoute` walks a `GRAPH` of
+  them, each hop pinned to a contact both ends share, compressed so no switch
+  takes much more than five seconds.
+
+[stage.ts](src/lib/design/stage.ts) is the clock over that: one figure at a
+time, `show` walks the route to the next, `replay` starts the demo over,
+`setReduced` honours the phone's reduced-motion setting (the key pose, a
+faint breath, a cut between figures — the figure is decorative; the name and
+the cue carry the instruction). It is framework-free, so the kit's `Slot` and
+the dev page `/figures` drive the same thing: the Slot paints its grid at 12
+frames a second ("on twos"), the floor only ever changes the name, and a tap
+on the figure replays it. A counted warm-up line (Sun Salutation A × 3) now
+carries its name on the step, so it gets its figure too.
 
 The snapshot is the check, not the source: `node tools/glyphs/bake.mjs`
-writes every stamp of every gear to `tools/glyphs/glyph-frames.json` (Node
-runs the TypeScript rig as-is), and `--check` exits 1 unless the file is what
-the rig draws now — so a nudged pose fails `rig.test.ts` until the new figures
-are re-baked and looked at. Tested like the domain: every plan exercise has a
-figure (the run included), every frame is 31 × 31 and prints, the count
-follows the gear, a rep moves and a breath rises, `lerp` lands exactly on its
-endpoints so a hop ends on the pose, a route is the hops the design named,
-and the snapshot matches.
+writes every figure's key pose (what reduced motion shows) and start pose to
+`tools/glyphs/glyph-frames.json` as rows of characters — a digit for the
+body's ink, a letter for a prop, `:` for the floor's shadow — (Node runs the
+TypeScript rig as-is), and `--check` exits 1 unless the file is what the rig
+draws now, so a nudged pose fails `rig.test.ts` until the new figures are
+re-baked and looked at.
 
 ## 4½. Lessons from the first real workouts
 

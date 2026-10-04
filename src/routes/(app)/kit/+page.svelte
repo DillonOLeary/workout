@@ -78,7 +78,7 @@
 		</Sheet>
 	</section>
 
-	<section><Caption>Slot</Caption><div class="rowx"><Slot exercise="Goblet Squat" phase="set" /><Slot exercise="Goblet Squat" phase="ready" /><Slot exercise="Pigeon" phase="still" size={84} /><Slot exercise="Nothing here" size={84} /></div><Note size="sm">92px on the floor, 84px on Done. A still frame of the current rig until rig v2 fills it.</Note></section>
+	<section><Caption>Slot</Caption><div class="rowx"><Slot exercise="Goblet Squat" /><Slot exercise="Easy run" /><Slot exercise="Pigeon" size={84} /><Slot exercise="Nothing here" size={84} /></div><Note size="sm">92px on the floor, 84px on Done. Two reps at tempo, then a breath; tap to replay. Every figure is on /figures.</Note></section>
 </div>
 
 <style>

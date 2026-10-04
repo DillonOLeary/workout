@@ -101,9 +101,10 @@ describe('sessionSteps', () => {
 		expect(loggedOutside(plan, A, logged), 'the same hold on a plan whose cooldown is prose is an extra').toEqual(['Calf stretch']);
 	});
 
-	it('ticks a counted warm-up line like a sentence', () => {
+	it('ticks a counted warm-up line like a sentence, and keeps its name for the figure', () => {
 		const p: Plan = { ...plan, routineInfo: { ...plan.routineInfo, A: { title: 'A', discipline: 'lift', warmup: [{ name: 'Sun Salutation A', reps: 3 }] } } };
-		expect(sessionSteps(p, A)[0]).toMatchObject({ kind: 'prep', text: 'Sun Salutation A × 3', estimate: 75 });
+		expect(sessionSteps(p, A)[0]).toMatchObject({ kind: 'prep', text: 'Sun Salutation A × 3', name: 'Sun Salutation A', estimate: 75 });
+		expect('name' in sessionSteps(plan, A)[0]).toBe(false);
 	});
 	it('estimates from the steps themselves', () => {
 		// 2×75 + (45 + 105 + 105) + (20 + 50) + 2×60 = 595s ≈ 10 min

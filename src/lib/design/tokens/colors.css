@@ -21,6 +21,10 @@
   --signal: #C43D2B;
   --signal-red: var(--signal);
 
+  /* the figure's grid: the dots behind the body, and the floor it stands on */
+  --dot: #DDD8C6;
+  --dot-floor: #C9C2AB;
+
   /* semantic aliases */
   --text-body: var(--ink);
 

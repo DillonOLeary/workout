@@ -315,8 +315,7 @@
 	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && (!!ex && progresses(ex))));
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileLoad = $derived(dialEx?.kind === 'load');
-	let figure = $derived(!st || allDone ? STAND : st.kind === 'set' ? st.ex.name : st.kind === 'timed' ? st.name : st.kind === 'run' ? st.ex.name : STAND);
-	let phase = $derived<'set' | 'ready' | 'running' | 'still'>(clock.active || st?.kind === 'run' ? 'running' : resting || stepDone ? 'ready' : 'set');
+	let figure = $derived(!st || allDone ? STAND : st.kind === 'set' || st.kind === 'run' ? st.ex.name : st.kind === 'timed' ? st.name : (st.name ?? STAND));
 
 	// the receipt
 	const receiptSets = (name: string): Measure[] => entries.filter((e) => e.item === name && isSet(e.measure)).sort((a, b) => a.index - b.index).map((e) => e.measure);
@@ -363,7 +362,7 @@
 			{/if}
 
 			<div class="who">
-				<Slot exercise={figure} {phase} size={92} />
+				<Slot exercise={figure} size={92} />
 				<div class="words">
 					<Title size="md" caps>{heading}</Title>
 					{#if cue}<span class="cue">{cue}</span>{/if}
@@ -413,7 +412,7 @@
 			<div class="done">
 				<div class="donehead">
 					<Title size="lg" caps>Done</Title>
-					<Slot exercise={STAND} phase="still" size={84} />
+					<Slot exercise={STAND} size={84} />
 				</div>
 				<Card pad={false}>
 					<div class="receipt">

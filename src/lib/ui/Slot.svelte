@@ -1,37 +1,59 @@
 <script lang="ts">
-	import { figureFor, frameFor, motionOf, restDepth, GRID, STAND, MOTIONS } from '$lib/design/rig';
+	import { onMount, untrack } from 'svelte';
+	import { FPS, STAND, draw, figureFor, type Inks } from '$lib/design/rig';
+	import { Stage } from '$lib/design/stage';
 
 	/**
-	 * Where the figure goes. Floor only, 92px; Done, 84px. The contract is fixed here so rig v2 can land without touching a screen:
-	 * `<Slot exercise phase size />`. Until then it stamps one still frame of the current rig — the work frame for a set, the top for the rest.
+	 * The figure, live: rig v2 on a 12 fps clock. A new exercise walks the body over from the last, shows two reps at tempo,
+	 * then breathes in the start pose; a tap shows it again. Reduced motion: the key pose, breathing, and a cut between
+	 * exercises. Floor 92px, Done 84px; a name the rig doesn't know stands.
 	 */
-	let { exercise, phase = 'ready', size = 92 }: { exercise: string; phase?: 'set' | 'ready' | 'running' | 'still'; size?: number } = $props();
+	let { exercise, size = 92 }: { exercise: string; size?: number } = $props();
 
 	let canvas = $state<HTMLCanvasElement>();
+	let stage: Stage | undefined;
+	const figure = (name: string) => figureFor(name) ?? figureFor(STAND)!;
+	const now = () => performance.now() / 1000;
+
 	$effect(() => {
-		const el = canvas, name = exercise, ph = phase, px = size;
-		if (!el) return;
-		const fig = figureFor(name) ?? figureFor(STAND)!;
-		const seq = MOTIONS[motionOf(fig)].seq;
-		const depth = ph === 'set' || ph === 'running' ? seq[Math.max(0, seq.indexOf(1))] : restDepth(fig);
-		const f = frameFor(fig, depth);
-		const dpr = Math.min(2.5, window.devicePixelRatio || 1);
-		el.width = el.height = Math.round(px * dpr);
-		const ctx = el.getContext('2d');
-		if (!ctx) return;
-		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		ctx.clearRect(0, 0, px, px);
-		ctx.fillStyle = getComputedStyle(el).getPropertyValue('--ink').trim() || '#1A1915';
-		const pitch = px / GRID, r = 0.34 * pitch;
-		for (let row = 0; row < GRID; row++)
-			for (let col = 0; col < GRID; col++)
-				if (f[row][col] === '#') { ctx.beginPath(); ctx.arc((col + 0.5) * pitch, (row + 0.5) * pitch, r, 0, Math.PI * 2); ctx.fill(); }
+		const f = figure(exercise);
+		untrack(() => {
+			if (stage && stage.figure !== f) stage.show(f, now());
+		});
+	});
+
+	onMount(() => {
+		const motion = matchMedia('(prefers-reduced-motion: reduce)');
+		stage = new Stage(figure(exercise), motion.matches, now());
+		const onMotion = () => stage?.setReduced(motion.matches, now());
+		motion.addEventListener('change', onMotion);
+		const css = getComputedStyle(canvas!);
+		const inks: Inks = { ink: css.getPropertyValue('--ink').trim(), grid: css.getPropertyValue('--dot').trim(), floor: css.getPropertyValue('--dot-floor').trim() };
+		let raf = 0, last = -1;
+		const tick = () => {
+			raf = requestAnimationFrame(tick);
+			const step = Math.floor(now() * FPS), ctx = canvas?.getContext('2d');
+			if (step === last || !stage || !canvas || !ctx) return;
+			last = step;
+			const dpr = Math.min(2.5, window.devicePixelRatio || 1), px = Math.round(size * dpr);
+			if (canvas.width !== px) canvas.width = canvas.height = px;
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			draw(ctx, size, stage.frame(step / FPS).grid, 'halftone', inks);
+		};
+		tick();
+		return () => {
+			cancelAnimationFrame(raf);
+			motion.removeEventListener('change', onMotion);
+		};
 	});
 </script>
 
-<span class="slot" style="--s: {size}px" aria-hidden="true"><canvas bind:this={canvas}></canvas></span>
+<button type="button" class="slot" style="--s: {size}px" aria-label="Show the movement again" onclick={() => stage?.replay(now())}><canvas bind:this={canvas}></canvas></button>
 
 <style>
-	.slot { display: grid; place-items: center; flex: none; width: var(--s); height: var(--s); background: var(--ash); border-radius: 14px; }
+	.slot {
+		display: grid; place-items: center; flex: none; width: var(--s); height: var(--s); padding: 0; margin: 0;
+		background: var(--ash); border: 0; border-radius: 14px; overflow: hidden; cursor: pointer; touch-action: manipulation;
+	}
 	canvas { width: 100%; height: 100%; display: block; }
 </style>

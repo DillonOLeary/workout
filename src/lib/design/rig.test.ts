@@ -3,13 +3,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { SHIPPED_PLANS } from '$lib/domain/plans';
 import { planExercises } from '$lib/domain/plan';
-import {
-	EXERCISES, GRID, HOP_FRAMES, MOTIONS, STAND, TURN_FRAMES, WAYPOINTS, dissolve, figureFor, frame, frameFor, hopStamps,
-	joints, lerp, normalize, restDepth, route, stand, viewOf, waypointOf, type Frame
-} from './rig';
+import { FIGURES, GRID, GROUPS, STAND, figureFor, figureFrame, keyGrid, planRoute, snapshot, timeline } from './rig';
+import { Stage } from './stage';
 
-const lit = (f: Frame) => f.join('').split('#').length - 1;
 const fig = (name: string) => figureFor(name)!;
+const dist = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const routeOf = (from: string, to: string) => {
+	const a = fig(from), f = figureFrame(a, 'ambient', 0, 0, 0);
+	return planRoute(snapshot(f.body, f.scene.J, f.props), a.base, fig(to), 'ambient');
+};
 
 describe('the rig', () => {
 	it('every exercise and every named warm-up or cooldown line of every shipped plan has a figure — the run included', () => {
@@ -18,92 +20,94 @@ describe('the rig', () => {
 			const lines = [...(plan.warmup ?? []), ...(plan.cooldown ?? []), ...Object.values(plan.routineInfo).flatMap((r) => [...(r.warmup ?? []), ...(r.cooldown ?? [])])];
 			for (const it of lines) if (typeof it !== 'string') expect(figureFor(it.name), it.name).not.toBeNull();
 		}
+		expect(figureFor('Nothing here')).toBeNull();
+		expect(fig(STAND).kind).toBe('idle');
 	});
 
-	it('normalize fills both legs and both arms and places every joint, so any two poses lerp', () => {
-		for (const ex of EXERCISES) {
-			const J = normalize(ex.pose(0));
-			expect(J.legs, ex.id).toHaveLength(2);
-			expect(J.arms, ex.id).toHaveLength(2);
-			for (const l of J.legs) expect(l.knee.every(Number.isFinite) && l.ank.every(Number.isFinite)).toBe(true);
-			for (const a of J.arms) expect(a.el.every(Number.isFinite) && a.hd.every(Number.isFinite)).toBe(true);
+	it('the library: every figure once, in one group, its name and aliases its own; a rep has four tempo beats, a hold a breath', () => {
+		expect(new Set(FIGURES.map((f) => f.id)).size).toBe(FIGURES.length);
+		expect(GROUPS.flatMap(([, ids]) => ids).sort()).toEqual(FIGURES.map((f) => f.id).sort());
+		const names = FIGURES.flatMap((f) => [f.name, ...(f.aliases ?? [])]);
+		expect(new Set(names).size).toBe(names.length);
+		for (const f of FIGURES) {
+			if (f.kind === 'rep') expect([f.tempo?.length, f.labels?.length], f.id).toEqual([4, 4]);
+			if (f.kind === 'hold' || f.kind === 'stretch') expect(f.breath && f.hold, f.id).toBeTruthy();
 		}
-		const one = normalize({ hip: [0, 0.6], legs: [{ ank: [0, 0.06] }], arms: [{ hand: [0.1, 0.5] }] });
-		expect(one.legs[1].ank).toEqual(one.legs[0].ank);
-		expect(one.arms[1].hd).toEqual(one.arms[0].hd);
 	});
 
-	it('lerp is the endpoints at 0 and 1 and halfway between at ½; the view and the world switch halfway', () => {
-		const A = joints(fig('Goblet Squat'), 0), B = joints(fig('Warrior II'), 0);
-		expect(lerp(A, B, 0)).toEqual({ ...A, view: A.view });
-		expect(lerp(A, B, 1)).toEqual(B);
-		const M = lerp(A, B, 0.5);
-		expect(M.hip[1]).toBeCloseTo((A.hip[1] + B.hip[1]) / 2);
-		expect(lerp(A, B, 0.49).view).toBe('side');
-		expect(M.view).toBe('front');
-		expect(lerp(A, B, 0.49).world).toBe(A.world);
-	});
-
-	it('every stamp is 31 rows of 31 dots, on or off, and prints; a rep moves, a breath rises, a still is one frame', () => {
-		for (const ex of EXERCISES) {
-			const motion = ex.motion ?? 'rep';
-			const frames = MOTIONS[motion].seq.map((d) => frameFor(ex, d));
-			for (const [k, f] of frames.entries()) {
-				expect(f.length, `${ex.id}@${k} rows`).toBe(GRID);
-				for (const row of f) expect(row, `${ex.id}@${k}`).toMatch(/^[#.]{31}$/);
-				expect(lit(f), `${ex.id}@${k} dots`).toBeGreaterThan(40);
+	it('bones keep their length whatever the pose — the knee and the elbow are solved, never stretched', () => {
+		for (const f of FIGURES) for (const tau of [0, 0.7, 1.9, 3.3]) {
+			const J = figureFrame(f, 'ambient', tau, tau, 0).scene.J;
+			for (let i = 0; i < 2; i++) {
+				expect(dist(J.legs[i].hip, J.legs[i].knee), f.id).toBeCloseTo(0.44, 3);
+				expect(dist(J.legs[i].knee, J.legs[i].ank), f.id).toBeCloseTo(0.43, 3);
+				expect(dist(J.sh[i], J.arms[i].E), f.id).toBeCloseTo(0.29, 3);
+				expect(dist(J.arms[i].E, J.arms[i].W), f.id).toBeCloseTo(0.27, 3);
 			}
-			if (motion === 'still') expect(frames, ex.id).toHaveLength(1);
-			else expect(frames[MOTIONS[motion].seq.indexOf(1)], ex.id).not.toEqual(frames[0]);
 		}
 	});
 
-	it('the figures stand on one floor: feet on the bottom rows whatever the pose', () => {
-		for (const name of ['Goblet Squat', 'Calf stretch', 'Low Lunge', 'Warrior II', 'Easy jog', STAND]) {
-			const f = frameFor(fig(name), restDepth(fig(name)));
-			expect(f.slice(-2).some((row) => row.includes('#')), name).toBe(true);
+	it('contacts hold: a foot down for the whole rep stays where it was planted, a planted hand never moves', () => {
+		const toes = [0.5, 1.5, 2.5, 3.5].map((t) => figureFrame(fig('Goblet Squat'), 'ambient', t, t, 0).scene.J.legs[1].toe);
+		for (const t of toes) expect(dist(t, toes[0])).toBeLessThan(0.002);
+		const hands = [0, 1, 2].map((t) => figureFrame(fig('Push-up'), 'ambient', t, t, 0).scene.J.arms[0].T);
+		for (const h of hands) expect(h).toEqual(hands[0]);
+	});
+
+	it('every figure stands on its floor: the key pose casts a contact shadow', () => {
+		for (const f of FIGURES) {
+			const g = keyGrid(f);
+			expect(g.N).toBe(GRID);
+			let shadow = 0, body = 0;
+			for (let i = 0; i < g.kind.length; i++) {
+				if (g.kind[i] === 1) shadow = Math.max(shadow, g.val[i]);
+				if (g.kind[i] === 2) body++;
+			}
+			expect(shadow, f.id).toBeGreaterThan(0.5);
+			expect(body, f.id).toBeGreaterThan(60);
 		}
 	});
 
-	it('a waypoint is declared or stand; the waypoint poses and both stands are drawable', () => {
-		for (const ex of EXERCISES) expect(['stand', 'kneel', 'sit', 'back']).toContain(waypointOf(ex));
-		expect(waypointOf(fig('Low Lunge'))).toBe('kneel');
-		expect(waypointOf(fig('Seated Forward Fold'))).toBe('sit');
-		expect(waypointOf(fig('Savasana'))).toBe('back');
-		expect(waypointOf(fig('Goblet Squat'))).toBe('stand');
-		for (const P of [...Object.values(WAYPOINTS), stand('side'), stand('front')]) expect(lit(frame(normalize(P)))).toBeGreaterThan(40);
+	it('time: two demo reps at tempo then the start pose, breathing; a hold settles into its pose; reduced motion is the key pose', () => {
+		const g = fig('Goblet Squat'), T = g.tempo!.reduce((a, b) => a + b, 0);
+		expect(timeline(g, 'ambient', 0.1)).toMatchObject({ seg: 0, label: 'Lower', sub: 'rep 1 of 2' });
+		expect(timeline(g, 'ambient', 3.5)).toMatchObject({ d: 1, label: 'Pause' });
+		expect(timeline(g, 'ambient', T + 0.1).sub).toBe('rep 2 of 2');
+		expect(timeline(g, 'ambient', 2 * T + 0.1)).toMatchObject({ d: 0, label: 'Ready', settled: true });
+		expect(timeline(g, 'still', 1)).toMatchObject({ d: 1, label: 'Still' });
+		const plank = fig('Long-Lever Plank');
+		expect(timeline(plank, 'ambient', 0).d).toBe(0);
+		expect(timeline(plank, 'ambient', 1.2).d).toBe(1);
+		const pigeon = fig('Pigeon');
+		expect(timeline(pigeon, 'ambient', 0).d).toBeCloseTo(0.3);
+		expect(timeline(pigeon, 'ambient', 30).d).toBe(1);
 	});
 
-	it('the route: EXIT to the waypoint and the stand, TURN when the view changes, ENTER through the new waypoint', () => {
-		const labels = (a: string, b: string) => route(fig(a), fig(b)).map((h) => h.label);
-		expect(labels(STAND, 'Goblet Squat')).toEqual(['ENTER · → Goblet Squat']);
-		expect(labels('Goblet Squat', STAND)).toEqual(['EXIT · → stand']);
-		expect(labels(STAND, STAND)).toEqual([]);
-		expect(labels('Low Lunge', 'Half Splits')).toEqual(['EXIT · Low Lunge → kneel', 'ENTER · → Half Splits']);
-		expect(labels('Low Lunge', 'Savasana')).toEqual(['EXIT · Low Lunge → kneel', 'EXIT · → stand', 'ENTER · stand → back', 'ENTER · → Savasana']);
-		expect(labels('Low Lunge', 'Warrior II')).toEqual(['EXIT · Low Lunge → kneel', 'EXIT · → stand', 'TURN', 'ENTER · → Warrior II']);
-		expect(viewOf(fig('Warrior II'))).toBe('front');
-		expect(route(fig('Warrior II'), fig('Cow-Face Arms')).map((h) => h.label)).toEqual(['EXIT · → stand', 'ENTER · → Cow-Face Arms']);
+	it('a route walks the waypoints and never takes much more than five seconds', () => {
+		const names = (a: string, b: string) => routeOf(a, b).hops.map((h) => h.B.name);
+		expect(names('Goblet Squat', 'Savasana')).toEqual(['Half-kneel', 'Sit back', 'Sit', 'Lie back', 'Savasana']);
+		expect(names('Goblet Squat', 'Push-up')).toEqual(['Half-kneel', 'Sit back', 'All fours', 'Push-up']);
+		expect(names('Goblet Squat', 'Chest Press')).toEqual(['Bench', 'Chest Press']);
+		expect(names('Goblet Squat', 'Warrior II')).toEqual(['Warrior II']);
+		for (const f of FIGURES) expect(routeOf('Savasana', f.name).total, f.id).toBeLessThanOrEqual(5.5 + 1e-9);
 	});
 
-	it('a route starts from wherever the body is, and a hop is six stamps ending on the pose', () => {
-		const mid = lerp(joints(fig('Goblet Squat'), 0), joints(fig('Goblet Squat'), 1), 0.5);
-		const hops = route(fig('Goblet Squat'), fig(STAND), mid);
-		expect(hops[0].a).toBe(mid);
-		const stamps = hopStamps(hops[0]);
-		expect(stamps).toHaveLength(HOP_FRAMES);
-		expect(stamps[HOP_FRAMES - 1].J).toEqual(hops[0].b);
-		expect(stamps[HOP_FRAMES - 1].frame()).toEqual(frame(hops[0].b));
-	});
-
-	it('a turn dissolves one frame into the other over four stamps, the same way every time', () => {
-		const turn = route(fig(STAND), fig('Warrior II')).find((h) => h.turn)!;
-		const stamps = hopStamps(turn);
-		expect(stamps).toHaveLength(TURN_FRAMES);
-		const a = frame(turn.a), b = frame(turn.b);
-		expect(dissolve(a, b, 0)).toEqual(a);
-		expect(dissolve(a, b, 1)).toEqual(b);
-		expect(stamps[1].frame()).toEqual(stamps[1].frame());
+	it('the stage: a new figure is walked to and then played; reduced motion cuts; a tap replays', () => {
+		const at = (s: Stage, t: number) => s.frame(t, 21).readout;
+		const s = new Stage(fig('Goblet Squat'), false, 0);
+		at(s, 0);
+		s.show(fig('Low Lunge'), 1);
+		expect(at(s, 1.5)).toMatchObject({ label: 'Moving', sub: '→ Low Lunge' });
+		expect(s.figure).toBe(fig('Low Lunge'));
+		expect(at(s, 10).label).not.toBe('Moving');
+		const still = new Stage(fig('Goblet Squat'), true, 0);
+		at(still, 0);
+		still.show(fig('Savasana'), 1);
+		expect(at(still, 1.1)).toMatchObject({ label: 'Inhale', sub: 'reduced motion' });
+		const r = new Stage(fig('Goblet Squat'), false, 0);
+		expect(at(r, 20).label).toBe('Ready');
+		r.replay(20);
+		expect(at(r, 20.1).label).toBe('Lower');
 	});
 
 	it('the reviewed snapshot is what the rig draws', () => {
@@ -111,3 +115,4 @@ describe('the rig', () => {
 		expect(() => execFileSync(process.execPath, [bake, '--check'], { stdio: 'pipe' })).not.toThrow();
 	});
 });
+

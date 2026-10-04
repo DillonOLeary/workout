@@ -37,7 +37,7 @@ type StepBase = {
 /** One step the floor walks; each kind carries only what it needs, so switch on `kind`. */
 export type Step = StepBase &
 	(
-		| { kind: 'prep'; text: string }
+		| { kind: 'prep'; text: string; name?: string }
 		| { kind: 'timed'; text: string; name: string; seconds: number }
 		| { kind: 'set'; ex: Exercise }
 		| { kind: 'run'; minutes: number; ex: RunEx }
@@ -60,7 +60,7 @@ function prepSteps(plan: Plan, items: PrepItem[], section: string, item: string,
 			n++;
 			out.push({
 				key: entryKey(item, n), kind: 'prep', section, item, index: n,
-				label: `STEP ${n}`, text: prepLabel(it), estimate: proseSeconds
+				label: `STEP ${n}`, text: prepLabel(it), estimate: proseSeconds, ...(typeof it === 'string' ? {} : { name: it.name })
 			});
 			continue;
 		}
