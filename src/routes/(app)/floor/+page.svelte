@@ -486,7 +486,8 @@
 		background: var(--paper); display: flex; flex-direction: column; overflow: hidden; user-select: none;
 		padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 	}
-	.fl-inner { width: 100%; max-width: var(--content-max); margin: 0 auto; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 16px 0; gap: 10px; }
+	/* a short screen (an SE, landscape, both banners up) scrolls the floor rather than cutting it off; the primary stays pinned at the foot */
+	.fl-inner { width: 100%; max-width: var(--content-max); margin: 0 auto; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: 10px 16px 0; gap: 10px; }
 	.top { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 	.top :global(.caption) { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.where {
@@ -524,7 +525,7 @@
 	.stage { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 4px 0; }
 	.big { font-family: var(--font-mono); font-weight: 800; font-size: clamp(48px, 20vh, 84px); line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-	.bottom { flex: none; display: flex; flex-direction: column; gap: 10px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+	.bottom { flex: none; position: sticky; bottom: 0; z-index: 1; background: var(--paper); display: flex; flex-direction: column; gap: 10px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 	.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 	.tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; background: var(--white); border: 1px solid var(--paper-3); border-radius: 14px; }
 	.tile.dim { opacity: 0.35; }
