@@ -373,7 +373,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="fl">
+<main class="fl">
 	<div class="fl-inner">
 		<header class="top">
 			<button type="button" class="back" onclick={() => void exitToToday()}>‹ Today</button>
@@ -397,7 +397,7 @@
 			<div class="who">
 				<Slot exercise={figure} size={92} />
 				<div class="words">
-					<Title size="md" caps>{heading}</Title>
+					<Title size="md" caps as="h1">{heading}</Title>
 					{#if cue}<span class="cue">{cue}</span>{/if}
 					{#if ex}
 						{#if loadLine.endsWith('why?')}<Note size="sm" onclick={() => (why = !why)}>{loadLine}</Note>{:else}<Note size="sm">{loadLine}</Note>{/if}
@@ -444,7 +444,7 @@
 		{:else}
 			<div class="done">
 				<div class="donehead">
-					<Title size="lg" caps>Done</Title>
+					<Title size="lg" caps as="h1">Done</Title>
 					<Slot size={84} />
 				</div>
 				<Card pad={false}>
@@ -466,7 +466,7 @@
 			</div>
 		{/if}
 	</div>
-</div>
+</main>
 
 <Sheet open={mapOpen} {title} onclose={() => (mapOpen = false)}>
 	<Note>The floor walks it in order. Tap any part to look ahead or fix one you did — the next set waits where you left it.</Note>

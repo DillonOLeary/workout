@@ -6,7 +6,7 @@
 <div class="login">
 	<div class="stack">
 		<div>
-			<div class="wordmark">LEDGER</div>
+			<h1 class="wordmark">LEDGER</h1>
 			<div class="underline"></div>
 			<p class="tagline">Show up. Write it down.</p>
 		</div>
@@ -25,7 +25,7 @@
 	.login { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 20px; padding-top: clamp(48px, 14vh, 140px); }
 	.stack { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 32px; text-align: center; }
 	.stack :global(.note) { text-align: center; }
-	.wordmark { font-family: var(--font-display); font-weight: var(--weight-black); font-size: 64px; line-height: 1; letter-spacing: var(--tracking-tightish); text-align: left; }
+	.wordmark { margin: 0; font-family: var(--font-display); font-weight: var(--weight-black); font-size: 64px; line-height: 1; letter-spacing: var(--tracking-tightish); text-align: left; }
 	.underline { height: 10px; width: 140px; background: var(--volt); border: var(--border-w) solid var(--ink); margin-top: 8px; }
 	.tagline { margin: 20px 0 0; font-size: 17px; color: var(--slate); text-align: left; }
 	form { display: flex; flex-direction: column; gap: 24px; }

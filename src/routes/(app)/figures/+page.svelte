@@ -65,7 +65,7 @@
 <div class="lab">
 	<header class="head">
 		<Caption>Rig v2 · figure lab · {FIGURES.length} figures</Caption>
-		<Title caps>The dot athlete, rebuilt as a body</Title>
+		<Title caps as="h1">The dot athlete, rebuilt as a body</Title>
 		<p>Same dot grid. Underneath it's now a 3D skeleton with fixed-length bones, real volumes and light, timed to each exercise's tempo. Every figure in the plans is here.</p>
 	</header>
 

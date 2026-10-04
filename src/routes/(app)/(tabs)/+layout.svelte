@@ -23,6 +23,8 @@
 <div class="app-frame">
 	<main class="app-main" bind:this={mainEl}>
 		<div class="shell">
+			<!-- the page's name for a screen reader; the tab bar already says it to the eye -->
+			<h1 class="sr">{tabs.find((t) => active(t.href))?.label ?? 'LEDGER'}</h1>
 			{#if !online}<div class="offline" role="status">No connection · changes here need the server; sets you log on the floor wait on the phone</div>{/if}
 			{@render children()}
 		</div>
@@ -93,4 +95,5 @@
 		.shell { padding-top: 24px; gap: 18px; }
 	}
 	.offline { padding: 8px 12px; border-radius: 12px; background: var(--ash); border: 1.5px dashed var(--stone); font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: var(--ink); }
+	.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 </style>

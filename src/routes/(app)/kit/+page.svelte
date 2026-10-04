@@ -24,7 +24,7 @@
 </script>
 
 <div class="kit">
-	<div class="head"><Title>The kit</Title><Note>Twelve parts, every state. Props only, no domain imports. This replaces /glyphs as the place you look.</Note></div>
+	<div class="head"><Title as="h1">The kit</Title><Note>Twelve parts, every state. Props only, no domain imports. This replaces /glyphs as the place you look.</Note></div>
 
 	<section><Caption>Caption</Caption><div class="rowx"><Caption>Today · Thu 21</Caption><span class="ground now"><Caption tone="slate">In progress · set 4 of 12</Caption></span></div></section>
 	<section><Caption>Title</Caption><Title>Hinge &amp; Haul</Title><Title size="md">Goblet Squat</Title><Title size="sm">Programme</Title><Title size="md" caps>Goblet Squat</Title></section>

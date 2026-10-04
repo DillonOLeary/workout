@@ -1,15 +1,16 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	/** Archivo 900. One per surface: `lg` is the surface's, `md` a card's or a row's, `sm` a sheet's. */
-	let { size = 'lg', caps = false, children }: { size?: 'lg' | 'md' | 'sm'; caps?: boolean; children: Snippet } = $props();
+	/** Archivo 900. One per surface: `lg` is the surface's, `md` a card's or a row's, `sm` a sheet's. `as="h1"` when it is the page's heading — it looks the same. */
+	let { size = 'lg', caps = false, as = 'span', children }: { size?: 'lg' | 'md' | 'sm'; caps?: boolean; as?: 'span' | 'h1'; children: Snippet } = $props();
 </script>
 
-<span class="title {size}" class:caps>{@render children()}</span>
+<svelte:element this={as} class="title {size}" class:caps>{@render children()}</svelte:element>
 
 <style>
 	.title {
 		display: block;
+		margin: 0;
 		font-family: var(--font-display);
 		font-weight: var(--weight-black);
 		letter-spacing: var(--tracking-tightish);
