@@ -3,7 +3,7 @@
 	import { fade, fly } from 'svelte/transition';
 
 	/**
-	 * Bottom, ink border, × and tap-out. Three exist: Programme, Log-after, the floor's session map. A sheet never opens a sheet. Esc closes it.
+	 * Bottom, ink border, × and tap-out. Four exist: Programme and Sign-in on Plan, Log-after, the floor's session map. A sheet never opens a sheet. Esc closes it.
 	 * `foot` pins a footer under a body that scrolls on its own, and the sheet stands at 88% whatever the body holds (Log-after).
 	 */
 	let { open, title, onclose, children, foot }: { open: boolean; title: string; onclose: () => void; children: Snippet; foot?: Snippet } = $props();

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { Caption, Card, Note, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
+	import { invalidateAll } from '$app/navigation';
+	import { Caption, Card, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
+	import { passkey, passkeysLeft } from '$lib/passkey';
 	import { goalHint, weekHead, weekLine } from '$lib/domain/labels';
 	import { GOAL_MINUTES, GOAL_SESSIONS, REST_SECONDS, restFor, routineTitle, type Cycle, type Plan, type PracticeId } from '$lib/domain/plan';
 	import { BLOCKS, DEFAULT_PROGRAMMES } from '$lib/domain/plans';
@@ -90,7 +92,26 @@
 
 	let whyOpen = $state(false);
 	let sheet = $state(false);
+
+	// how you get in: the passkeys on this ledger, and the way out
+	let signin = $state(false);
+	let keyBusy = $state(false);
+	let keyMessage = $state<string | null>(null);
 	let signout = $state<HTMLFormElement>();
+	let keys = $derived(data.passkeys.length);
+	const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+	async function addKey(securityKey: boolean) {
+		keyBusy = true;
+		keyMessage = null;
+		const r = await passkey('add', securityKey);
+		if (r.ok) await invalidateAll();
+		else keyMessage = r.message;
+		keyBusy = false;
+	}
+	function signOut() {
+		if (!keys && !confirm('There is no passkey on this ledger yet, so once you sign out you can’t get back in. Sign out anyway?')) return;
+		signout?.requestSubmit();
+	}
 	const liftLine = (p: Plan) => {
 		const lift = p.cycles.find((c) => c.id === 'lift') ?? p.cycles[0];
 		return `${lift.target} a week · ${lift.routines.map((r) => p.routineInfo[r].title).join(' / ')}${p.rest ? ` · ${p.rest} s rest` : ''}`;
@@ -155,8 +176,7 @@
 		<p class="why">Hit the top of the range on set 1 and that exercise goes up one rack size next time. Miss the bottom twice and it backs off one. Two weeks away, everything comes back one lighter. Nothing to set — it reads the ledger.</p>
 	{/if}
 	<Row label="Export the ledger" right="JSON ›" href="/export" />
-	<Row label="Sign out" right="›" onclick={() => signout?.requestSubmit()} />
-	<form method="POST" action="/logout" bind:this={signout} hidden></form>
+	<Row label="Sign-in" right={keys ? `${keys} ${keys === 1 ? 'passkey' : 'passkeys'} ›` : 'add a passkey ›'} tone={keys ? 'plain' : 'signal'} onclick={() => ((keyMessage = null), (signin = true))} />
 </div>
 
 <Sheet open={sheet} title="Programme" onclose={() => (sheet = false)}>
@@ -179,6 +199,33 @@
 			{#if p.description}<span class="desc">{p.description}</span>{/if}
 		</Card>
 	{/each}
+</Sheet>
+
+<Sheet open={signin} title="Sign-in" onclose={() => (signin = false)}>
+	<Note size="sm">A passkey opens this ledger: Face ID or a fingerprint on your phone or computer, or a security key you tap or plug in. Keep two, in case one goes missing.</Note>
+	{#if keys}
+		<div class="keys">
+			{#each data.passkeys as k (k.id)}
+				<Row label={k.label} sub="added {day(k.createdAt)}{k.usedAt ? ` · last used ${day(k.usedAt)}` : ''}">
+					{#if keys > 1}
+						<form method="POST" action="?/removePasskey" use:enhance={() => async ({ result, update }) => { await update(); if (result.type === 'success') void passkeysLeft(data.uid, data.passkeys.map((p) => p.id)); }}>
+							<input type="hidden" name="id" value={k.id} />
+							<button type="submit" class="badge" aria-label="Remove {k.label}">Remove</button>
+						</form>
+					{/if}
+				</Row>
+			{/each}
+		</div>
+	{:else}
+		<Note tone="ink"><span class="err">No passkey yet. Add one now — it is the only way to sign back in.</span></Note>
+	{/if}
+	{#if keyMessage ?? form?.passkeyMessage}<Note tone="ink"><span class="err" role="alert">{keyMessage ?? form?.passkeyMessage}</span></Note>{/if}
+	<Primary type="button" disabled={keyBusy} onclick={() => addKey(false)}>Add a passkey</Primary>
+	<Note size="sm" onclick={keyBusy ? undefined : () => addKey(true)}>Or add a security key, like a YubiKey</Note>
+	<div class="leave">
+		<Note size="sm" tone="stone" onclick={signOut}>Sign out of this device</Note>
+		<form method="POST" action="/logout" bind:this={signout} hidden></form>
+	</div>
 </Sheet>
 
 <style>
@@ -204,4 +251,6 @@
 	}
 	.badge.on { background: var(--volt); cursor: default; }
 	.desc { font-size: 14px; line-height: 1.45; color: var(--slate); }
+	.keys { display: flex; flex-direction: column; }
+	.leave { border-top: 1px solid var(--paper-3); padding-top: 6px; }
 </style>

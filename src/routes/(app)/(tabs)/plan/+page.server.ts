@@ -1,8 +1,12 @@
 import { fail } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
+import { listPasskeys, removePasskey } from '$lib/server/passkeys';
 import { isPractice } from '$lib/domain/plan';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
+
+/** the passkeys that open this ledger, for the Sign-in sheet */
+export const load: PageServerLoad = async ({ locals }) => ({ passkeys: await listPasskeys(requireUid(locals)) });
 
 export const actions: Actions = {
 	/** a practice switched on or off: one BlockToggled, a fact with a date */
@@ -47,5 +51,12 @@ export const actions: Actions = {
 		if (!programme) return fail(400, { message: 'Missing programme id.' });
 		const err = await tryCommand(uid, { type: 'SelectProgramme', data: { programme, at: new Date().toISOString() } });
 		if (err) return fail(400, { message: err });
+	},
+
+	/** a passkey off this ledger — not an event: how you get in is not workout history */
+	removePasskey: async ({ request, locals }) => {
+		const uid = requireUid(locals);
+		const err = await removePasskey(uid, String((await request.formData()).get('id') ?? ''));
+		if (err) return fail(400, { passkeyMessage: err });
 	}
 };

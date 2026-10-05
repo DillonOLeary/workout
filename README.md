@@ -29,12 +29,13 @@ pnpm dev
 ```
 
 Needs `.env.local` (git-ignored): `DB` (a Postgres connection string) and
-`LEDGER_PEPPER` (any random secret — it HMACs phone numbers into account ids and
-signs the cookie). Dev against a local Postgres, never production: create a
-database, point `DB` at it as `postgres://user:password@localhost:5432/ledger`
-(wrangler's Hyperdrive emulation insists on a user and a password), and the
-first `pnpm dev` creates the event-store schema. Log in with a phone number — no
-password; an empty phone is the shared demo sandbox.
+`LEDGER_PEPPER` (any random secret — it signs the cookies). Dev against a local
+Postgres, never production: create a database, point `DB` at it as
+`postgres://user:password@localhost:5432/ledger` (wrangler's Hyperdrive emulation
+insists on a user and a password), and the first `pnpm dev` creates the
+event-store schema; the passkeys table makes itself on first use. Sign in with a
+passkey — `localhost` is a secure origin, so Touch ID or a security key works in
+dev; "New here?" starts a fresh ledger.
 
 ## Checks
 

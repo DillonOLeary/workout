@@ -38,9 +38,11 @@ Secrets live in `.env.local` (git-ignored), read at runtime via
 `$env/dynamic/private`:
 
 - `DB` — your Neon connection string
-- `LEDGER_PEPPER` — HMAC secret that turns phone numbers into account ids
-  ([src/lib/server/uid.ts](src/lib/server/uid.ts)) and signs the
-  stay-signed-in cookie ([src/lib/server/auth.ts](src/lib/server/auth.ts))
+- `LEDGER_PEPPER` — HMAC secret that signs the stay-signed-in cookie and the
+  passkey ceremony's cookie ([src/lib/server/auth.ts](src/lib/server/auth.ts)).
+  Until 2026-10-04 it also turned phone numbers into account ids; those ids are
+  kept, but nothing derives from it now, so changing it only signs everyone out
+  and a passkey signs them back in (§3)
 
 Run it: `pnpm dev` → http://localhost:5173. Check it: `pnpm check` — types
 (svelte-check), tests (vitest, `src/**/*.test.ts`) and the glyph snapshot, the
@@ -661,7 +663,8 @@ Routing is the filesystem:
 src/routes/
 ├─ +layout.svelte                  global CSS import, favicon
 ├─ +error.svelte                   what a thrown load or action shows — a 404, or a database still waking up — on the kit, with a way home
-├─ login/                          phone → HMAC id → signed stay-signed-in cookie (+page.svelte, +page.server.ts)
+├─ login/                          Sign in with a passkey · New here? Start a ledger with one — both run against /passkey
+├─ passkey/+server.ts              POST JSON: both halves of a passkey ceremony (signin · signup · add), the one endpoint that is not a form action
 ├─ logout/+page.server.ts          POST signs out (CSRF-checked); a GET just redirects
 └─ (app)/                          layout GROUP — every page inside requires the cookie
    ├─ +layout.server.ts            ONE load for all pages: programmes composed with this person's practices, goals and rest, plus the stream
@@ -670,8 +673,8 @@ src/routes/
    │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/finish (FinishSession, from Today) · ?/logAfter (LogAfter)
    │  ├─ ledger/                    Ledger — five weeks of cells, the pace, every session by month; the latest one fixable  (/ledger)
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
-   │  └─ plan/                      Plan — four practices: switch · goal · rest; the programme (a sheet); how loads move  (/plan)
-   │                                 ?/toggle (TogglePractice) · ?/goal (SetGoal) · ?/rest (SetRest) · ?/select (SelectProgramme)
+   │  └─ plan/                      Plan — four practices: switch · goal · rest; the programme (a sheet); how loads move; Sign-in (a sheet: passkeys, sign out)  (/plan)
+   │                                 ?/toggle (TogglePractice) · ?/goal (SetGoal) · ?/rest (SetRest) · ?/select (SelectProgramme) · ?/removePasskey (not an event)
    │                                 a dial posts 700 ms after the last tap — or at once when its panel folds or the page leaves, so a tap is never lost
    ├─ floor/                        gym floor — covers the tabs  (/floor)
    │                                 load guard → / when nothing is open · ?/logEntry · ?/correctEntry · ?/finish
@@ -681,7 +684,8 @@ src/routes/
 
 src/lib/
 ├─ domain/        the layers of §2 — pure, no I/O; README.md is the contract, __snapshots__/ the freeze
-├─ server/        db.ts (the connection string), eventStore.ts (a pg client per request), ledger.ts, auth.ts, uid.ts
+├─ server/        db.ts (the connection string, plain SQL), eventStore.ts (a pg client per request), ledger.ts, auth.ts (the cookies), passkeys.ts, uid.ts
+├─ passkey.ts     a ceremony from the browser's side: challenge, prompt, check — the WebAuthn library loads only when one runs
 ├─ ui/            the kit — twelve parts, props only, no domain imports: Caption, Title, Note, Card, Primary, Row, Stepper, Switch, Cell, SetTable, Sheet, Slot
 ├─ floor/         bell, wake-lock, entry-queue, countdown — the floor's machinery, no markup
 └─ design/        tokens/*.css, rig.ts (rig v2 — the figures as a 3D body), stage.ts (one figure on a clock: the Slot's and the lab's)
@@ -701,6 +705,39 @@ onto the same step); and since v3 (2026-09-22) `/week`, everything under it,
 `/why`, `/plan/why`, `/plan/change` and `/plan/programme` → `/plan`, and
 `/log/after` → `/`.
 
+**Signing in is a passkey** (since 2026-10-04; a phone number before). A
+passkey is a key pair the phone or a security key makes for this site: the
+private half never leaves the device and is unlocked by Face ID, a fingerprint
+or the key's PIN; the server keeps the public half and checks a signature.
+iCloud Keychain, Google Password Manager and a YubiKey all speak the same
+protocol (WebAuthn), so one code path covers all three, with
+[@simplewebauthn/server](https://simplewebauthn.dev) doing the cryptography on
+the Worker. A ceremony is two round trips with the device's prompt between
+them — `options` hands the browser a random challenge, `verify` checks what
+the device signed — which is why [passkey/+server.ts](src/routes/passkey/+server.ts)
+is a JSON endpoint and not a form action. The challenge waits between the two
+in a signed, HttpOnly, five-minute cookie scoped to `/passkey`, read once, so
+the Worker keeps no state; for a new passkey the same cookie carries the
+ledger it joins, and the signature stops anyone rewriting it. The passkeys are
+discoverable (stored on the device with the account), so signing in asks for
+nothing — the phone lists its passkeys for the site, and the credential id it
+answers with finds the ledger.
+
+They live in a table, `ledger_passkeys`, not in the stream: how you get in is
+not workout history, a sign-in has to find a credential before it knows whose
+ledger to read, and every sign-in moves the key's counter. It is the one table
+beside the event store, and [passkeys.ts](src/lib/server/passkeys.ts) creates
+it on first use in dev and prod alike (`create table if not exists`, once per
+isolate), so a deploy needs no migration step. A ledger's id never came from
+the passkey: accounts from the phone era keep theirs (an HMAC of the number),
+and a new one gets ten random hex digits in the same shape. Moving across
+was therefore just adding a passkey while still signed in — Plan → Sign-in →
+Add a passkey puts it on the ledger the cookie names. The sheet refuses to
+remove the last passkey, and Sign out asks first when there is none, because
+either would leave a ledger nobody can open. Removing one, or signing in with
+one the server no longer knows, tells the browser through the WebAuthn Signal
+API, where it is supported, so its prompt stops offering the dead entry.
+
 Things to notice:
 
 - **`+page.server.ts` runs only on the server.** So do all of `$lib/server/*`
@@ -710,7 +747,7 @@ Things to notice:
   plans, events, activePlanId, practicesOn, goals, rest, activeSession, latestSession }` once;
   every child page receives it as `data` and picks its plan with
   `data.plans.find((p) => p.id === data.activePlanId)`.
-- **Form actions are the only mutations.** No API routes, no fetch handlers —
+- **Form actions are the only mutations** but one: `/passkey` (above). No API routes, no fetch handlers —
   `<form method="POST" action="?/start">` works with JS disabled, and
   `use:enhance` upgrades it to a fetch that re-runs `load` and updates `data`
   in place. The kit's `Primary` and `Switch` take `type="submit"`, so a
@@ -750,7 +787,7 @@ Things to notice:
 | transitions | `Sheet` flies in with `transition:fly` and fades its scrim; both durations drop to 0 under `prefers-reduced-motion`, read once when the sheet opens |
 | `afterNavigate` | the tab layout resets its inner scroller on every navigation — the document never scrolls, so the browser can't do it for you |
 | `<script module>` | `SetTable` exports its `SetRow` type from a module script, so the floor can type the rows it builds |
-| a shell with a snippet | `ui/Sheet.svelte` is one shape — a scrim, a header with ×, a body that scrolls — and the Programme sheet, Log-after and the floor's session map fill its `children`. Log-after also passes a `foot` snippet (declared inside the component's children, so Svelte hands it over as a prop): the summary and Log it stay pinned while the body scrolls on its own. Three exist; a sheet never opens a sheet |
+| a shell with a snippet | `ui/Sheet.svelte` is one shape — a scrim, a header with ×, a body that scrolls — and the Programme and Sign-in sheets, Log-after and the floor's session map fill its `children`. Log-after also passes a `foot` snippet (declared inside the component's children, so Svelte hands it over as a prop): the summary and Log it stay pinned while the body scrolls on its own. Four exist; a sheet never opens a sheet |
 | `$effect` that returns a release | the floor's `$effect(() => (lit ? holdScreen() : undefined))` — `holdScreen` requests a screen wake lock and returns its release, so the effect's cleanup is the release; `lit` is false on the run, which is long enough to let the screen sleep and trust the bell |
 | callback props | `onstep`, `onfix`, `onretry`, `onclose`, `onclick` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
 | runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
