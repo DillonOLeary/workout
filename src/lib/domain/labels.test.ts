@@ -137,6 +137,13 @@ describe('a set', () => {
 		expect(setValue(press, 45, null)).toBe('45 lb × —');
 		expect(setValue(copenhagen, 0, null)).toBe('—');
 	});
+	it('says when the count is each side’s, kept together on a wrap', () => {
+		const bug: Exercise = { ...copenhagen, name: 'Dead Bug', side: 'reps' };
+		expect(setValue(lunge, 20, 10)).toBe('20 /hand ×\u00a010\u00a0/side');
+		expect(setValue(bug, 0, 10)).toBe('10\u00a0/side');
+		expect(plannedValue(lunge, 20)).toBe('20 /hand ×\u00a06–12\u00a0/side');
+		expect(plannedValue(bug, 0)).toBe('5–15\u00a0/side');
+	});
 	it('describes a set that hasn’t happened yet', () => {
 		expect(plannedValue(goblet, 35)).toBe('35 lb × 6–12');
 		expect(plannedValue(rdl, 40)).toBe('40 /hand × 6–12');

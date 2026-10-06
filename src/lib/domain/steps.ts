@@ -133,7 +133,7 @@ export function loggedOutside(plan: Plan | undefined, w: Workout, entries: Entry
 	return out;
 }
 
-/** Where a session stands: the step keys behind you, the index of the first step that isn't, and how many sets have landed. */
+/** Where a session stands: the step keys behind you, the index of the first step that is neither logged nor skipped, and how many sets have landed. */
 export type Progress = {
 	done: Set<string>;
 	current: number;
@@ -157,27 +157,28 @@ export function runStart(steps: Step[], i: number, entries: Entry[], sessionAt: 
 	return Date.parse(sessionAt);
 }
 
-/** Where a session stands, from its entries. */
-export function sessionProgress(steps: Step[], entries: Entry[]): Progress {
+/** Where a session stands, from its entries — `skipped` are step keys you passed over on the floor: nothing is written for them, the order just walks on. */
+export function sessionProgress(steps: Step[], entries: Entry[], skipped: ReadonlySet<string> = new Set()): Progress {
 	const logged = new Set(entries.map((e) => entryKey(e.item, e.index)));
 	const done = new Set<string>();
 	for (const s of steps) if (logged.has(s.key)) done.add(s.key);
-	let current = steps.findIndex((s) => !done.has(s.key));
+	let current = steps.findIndex((s) => !done.has(s.key) && !skipped.has(s.key));
 	if (current < 0) current = steps.length;
 	return { done, current, sets: entries.filter((e) => isSet(e.measure)).length };
 }
 
-/** One part of the session map: where it starts, how many steps it has and how many are behind you, and where a tap lands — its first open step, else its first. */
-export type Section = { name: string; first: number; land: number; steps: number; done: number };
+/** One part of the session map: where it starts, how many steps it has, how many are behind you and how many you skipped, and where a tap lands — its first open step, else its first. */
+export type Section = { name: string; first: number; land: number; steps: number; done: number; skipped: number };
 
 /** The session as its parts in walking order, a part's steps together wherever they fall — what the map lists and ‹ / › jump between. */
-export function sessionSections(steps: Step[], done: Set<string>): Section[] {
+export function sessionSections(steps: Step[], done: Set<string>, skipped: ReadonlySet<string> = new Set()): Section[] {
 	const out: Section[] = [];
 	steps.forEach((s, i) => {
 		let sec = out.find((x) => x.name === s.section);
-		if (!sec) out.push((sec = { name: s.section, first: i, land: -1, steps: 0, done: 0 }));
+		if (!sec) out.push((sec = { name: s.section, first: i, land: -1, steps: 0, done: 0, skipped: 0 }));
 		sec.steps++;
 		if (done.has(s.key)) sec.done++;
+		else if (skipped.has(s.key)) sec.skipped++;
 		else if (sec.land < 0) sec.land = i;
 	});
 	for (const sec of out) if (sec.land < 0) sec.land = sec.first;

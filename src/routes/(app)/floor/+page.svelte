@@ -2,11 +2,12 @@
 	import { enhance } from '$app/forms';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Caption, Card, Note, Primary, Row, SetTable, Sheet, Slot, Stepper, Title, type SetRow } from '$lib/ui';
+	import { Caption, Card, Note, Primary, Row, SetTable, Sheet, Slot, Stepper, Title, type SetRow, type SetRowPill } from '$lib/ui';
 	import { armBell, ringBell } from '$lib/floor/bell';
 	import { holdScreen } from '$lib/floor/wake-lock';
 	import { CountdownClock, type Countdown } from '$lib/floor/countdown.svelte';
 	import { EntryQueue, type QueueOp } from '$lib/floor/entry-queue.svelte';
+	import { loadSkips, saveSkips } from '$lib/floor/skips';
 	import { watchOnline } from '$lib/net';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { disciplineLabel, durationLabel, firstSentence, itemDose, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
@@ -34,12 +35,16 @@
 	let serverEntries = $derived(sessionEntries(data.events, session.id));
 	let entries = $derived(queue.overlay(serverEntries));
 	let steps = $derived(sessionSteps(plan, workout, loggedOutside(plan, workout, entries)));
+	// the steps you passed over: nothing is written for them, the order walks on
+	const keptSkips = loadSkips(session.id);
+	let skipList = $state(keptSkips);
+	let skipped = $derived(new Set(skipList));
 	let exercises = $derived.by(() => {
 		const out: Exercise[] = [];
 		for (const s of steps) if (s.kind === 'set' && !out.some((e) => e.name === s.ex.name)) out.push(s.ex);
 		return out;
 	});
-	let progress = $derived(sessionProgress(steps, entries));
+	let progress = $derived(sessionProgress(steps, entries, skipped));
 	let allDone = $derived(progress.current >= steps.length);
 
 	const loads = new Map<string, Suggestion>();
@@ -63,7 +68,7 @@
 		const raw = page.url.searchParams.get('step');
 		const n = raw === null ? NaN : Number(raw);
 		if (Number.isInteger(n) && n >= 0 && n < ss.length) return n;
-		return Math.min(sessionProgress(ss, known).current, Math.max(0, ss.length - 1));
+		return Math.min(sessionProgress(ss, known, new Set(keptSkips)).current, Math.max(0, ss.length - 1));
 	})();
 	let stepI = $state(initialStep);
 	let weight = $state(0);
@@ -79,6 +84,7 @@
 	let st = $derived<Step | undefined>(steps[stepI]);
 	let ex = $derived<Exercise | undefined>(st?.kind === 'set' ? st.ex : undefined);
 	let stepDone = $derived(!!st && progress.done.has(st.key));
+	let stepSkipped = $derived(!!st && !stepDone && skipped.has(st.key));
 	const entryFor = (s: Step) => entries.find((e) => e.item === s.item && e.index === s.index);
 	let editStep = $derived(editing ? steps.find((s) => s.key === editing) : undefined);
 	let dialEx = $derived(editStep?.kind === 'set' ? editStep.ex : ex);
@@ -89,10 +95,14 @@
 		live = 'Done';
 		enqueue(done.kind === 'hold' ? measureFor(done.ex, { load: 0, count: done.target, target: done.target }) : { of: 'step' });
 	});
-	let restEnd = $derived(st?.kind === 'set' && !stepDone ? restUntil(st, entries, plan) : null);
+	let restEnd = $derived(st?.kind === 'set' && !stepDone && !stepSkipped ? restUntil(st, entries, plan) : null);
 	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
 	let resting = $derived(restEnd !== null && restLeft > 0 && !clock.active);
 	let restTotal = $derived(st?.kind === 'set' ? restFor(plan, st.ex) : 0);
+	// the clock's ring: 56px at the least, with 16px around it once a short stage puts the caption beside it; with less room the row says the rest
+	const RING_ROOM = 56 + 16;
+	let stageH = $state(0);
+	let ringFits = $derived(stageH >= RING_ROOM);
 	let counting: number | null = null;
 	$effect(() => {
 		if (clock.active) counting = null;
@@ -169,7 +179,31 @@
 		const s = st;
 		push('log', s, measure);
 		const next = stepI + 1;
-		if (next < steps.length && steps[next].section === s.section && !progress.done.has(steps[next].key)) goTo(next);
+		if (next < steps.length && steps[next].section === s.section && !progress.done.has(steps[next].key) && !skipped.has(steps[next].key)) goTo(next);
+	}
+	function setSkips(keys: string[]) {
+		skipList = [...new Set(keys)];
+		saveSkips(session.id, skipList);
+	}
+	// skip = what's left of this part from the step you're on; undo = that step and the rest of its part, back in the order
+	function skipFrom(i: number) {
+		const s = steps[i];
+		if (!s || clock.active) return;
+		setSkips([...skipList, ...steps.filter((x, k) => k >= i && x.section === s.section && !progress.done.has(x.key)).map((x) => x.key)]);
+		live = 'Skipped';
+	}
+	function unskipFrom(i: number) {
+		const s = steps[i];
+		if (!s) return;
+		const back = new Set(steps.filter((x, k) => k >= i && x.section === s.section).map((x) => x.key));
+		setSkips(skipList.filter((k) => !back.has(k)));
+		if (i !== stepI) goTo(i, true);
+	}
+	function onpill(key: string, pill: SetRowPill) {
+		const i = steps.findIndex((x) => x.key === key);
+		if (pill === 'fix') fix(key);
+		else if (pill === 'skip') skipFrom(i);
+		else unskipFrom(i);
 	}
 	let lastPress = 0;
 	const debounced = () => {
@@ -236,7 +270,7 @@
 		armBell();
 		if (editing) return saveFix();
 		if (allDone) return void finishNow();
-		if (stepDone) return goTo(progress.current);
+		if (stepDone || stepSkipped) return goTo(progress.current);
 		if (st.kind === 'prep') return enqueue({ of: 'step' });
 		if (st.kind === 'timed') return startOrDone({ kind: 'timed', target: st.seconds });
 		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
@@ -252,7 +286,7 @@
 	};
 
 	// the map: every part of the session, the one on screen, and the next open step it waits on
-	let sections = $derived(sessionSections(steps, progress.done));
+	let sections = $derived(sessionSections(steps, progress.done, skipped));
 	let secI = $derived(st ? sections.findIndex((x) => x.name === st.section) : -1);
 	let nowStep = $derived<Step | undefined>(steps[progress.current]);
 	let peeking = $derived(peek && !!nowStep && stepI !== progress.current);
@@ -267,7 +301,7 @@
 	};
 	const rightOf = (sec: Section) => {
 		const n = `${sec.done} of ${sec.steps}`;
-		if (sec.done === sec.steps) return `✓ ${n}`;
+		if (sec.done + sec.skipped === sec.steps) return sec.done ? `✓ ${n}` : 'skipped';
 		if (sec.name === nowStep?.section) return `now · ${n}`;
 		if (sec.name === st?.section) return 'looking ›';
 		return sec.done ? `${n} ›` : '›';
@@ -307,17 +341,22 @@
 			const cur = s.key === st.key, e = entryFor(s), lp = queue.latestFor(s);
 			const failed = lp?.status === 'failed', saving = !!lp && (lp.status === 'queued' || lp.status === 'inflight' || lp.status === 'waiting');
 			const pending = online && !queue.offline ? 'saving…' : 'waiting';
-			const label = s.kind === 'set' ? `${s.ex.kind === 'hold' ? 'Hold' : 'Set'} ${s.index}${s.ex.side === 'sets' ? (s.index % 2 ? ' · L' : ' · R') : ''}` : s.kind === 'run' ? 'Run' : `Step ${s.index}`;
+			const label = s.label;
 			const fixedNote = lp?.op === 'correct' && lp.status === 'confirmed' ? '✓ fixed' : '✓';
+			const passed = !e && skipped.has(s.key);
+			const skip: SetRowPill | undefined = cur && !e && !passed && !clock.active && s.kind !== 'run' ? 'skip' : undefined;
 			if (s.kind !== 'set') {
 				const text = s.kind === 'run' ? (e?.measure.of === 'duration' ? `${e.measure.minutes} min` : `${s.minutes} min`) : s.text;
-				return { key: s.key, label, text, prose: s.kind !== 'run', state: failed ? 'failed' : saving ? 'saving' : e ? 'done' : cur ? 'now' : 'todo', right: failed ? undefined : saving ? pending : e ? '✓' : cur ? (clock.active ? `${clock.remaining}s` : 'now') : undefined };
+				if (passed) return { key: s.key, label, text, prose: true, state: 'skipped', right: 'skipped', pill: 'undo' };
+				return { key: s.key, label, text, prose: s.kind !== 'run', state: failed ? 'failed' : saving ? 'saving' : e ? 'done' : cur ? 'now' : 'todo', right: failed ? undefined : saving ? pending : e ? '✓' : cur && clock.active ? `${clock.remaining}s` : undefined, pill: skip };
 			}
 			if (editing === s.key) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'fixing', right: 'editing' };
-			if (e) return { key: s.key, label, text: setValue(s.ex, loadOf(e.measure), countOf(e.measure)), state: failed ? 'failed' : saving ? 'saving' : 'done', right: failed ? undefined : saving ? pending : fixedNote, fixable: !failed && !saving };
-			if (cur && clock.running) return { key: s.key, label, text: `${clock.remaining ?? clock.running.target}s`, state: 'now', right: 'now' };
-			if (cur && resting) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'now', right: `rest ${restLeft}s`, bar: restTotal ? restLeft / restTotal : 0 };
-			if (cur) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'now', right: 'now' };
+			if (e) return { key: s.key, label, text: setValue(s.ex, loadOf(e.measure), countOf(e.measure)), state: failed ? 'failed' : saving ? 'saving' : 'done', right: failed ? undefined : saving ? pending : fixedNote, pill: !failed && !saving ? 'fix' : undefined };
+			if (passed) return { key: s.key, label, text: plannedValue(s.ex, plannedWeight(s.ex, s.index - 1)), state: 'skipped', right: 'skipped', pill: 'undo' };
+			if (cur && clock.running) return { key: s.key, label, text: `${clock.remaining ?? clock.running.target}s`, state: 'now' };
+			// the ring is the rest; the row says it only when the ring has no room
+			if (cur && resting) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'now', right: ringFits ? undefined : `rest ${restLeft}s`, pill: skip };
+			if (cur) return { key: s.key, label, text: setValue(s.ex, weight, reps), state: 'now', pill: skip };
 			return { key: s.key, label, text: plannedValue(s.ex, plannedWeight(s.ex, s.index - 1)), state: 'todo' };
 		});
 	});
@@ -332,18 +371,18 @@
 		if (st.kind === 'run') return { value: mmss(runElapsed), note: `Run · of ${st.minutes} min`, frac: Math.max(0, 1 - runElapsed / (st.minutes * 60000)) };
 		return null;
 	});
-	let readyLine = $derived(peeking && !stepDone ? 'Log it here, or head back — the order waits.' : progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
+	let readyLine = $derived(stepSkipped ? 'Skipped — nothing goes in the ledger for it.' : peeking && !stepDone ? 'Log it here, or head back — the order waits.' : progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
 	let primaryLabel = $derived.by(() => {
 		if (editing) return `Save ${editStep?.kind === 'set' && editStep.ex.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`;
 		if (!st) return `Finish ${noun}`;
-		if (stepDone) return !nowStep ? `Finish ${noun}` : nowStep.section === st.section ? 'Next' : `Next: ${nowStep.section}`;
+		if (stepDone || stepSkipped) return !nowStep ? `Finish ${noun}` : nowStep.section === st.section ? 'Next' : `Next: ${nowStep.section}`;
 		if (st.kind === 'prep') return 'Done';
 		if (st.kind === 'timed') return clock.active ? 'Done early' : `Start ${durationLabel(st.seconds)}`;
 		if (st.kind === 'run') return 'Stop here';
 		if (st.ex.kind === 'hold') return clock.active ? 'Done early' : `Start ${reps}s`;
 		return `Log set ${st.index}`;
 	});
-	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && (!!ex && progresses(ex))));
+	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && !stepSkipped && (!!ex && progresses(ex))));
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileLoad = $derived(dialEx?.kind === 'load');
 	// no name: the figure stands
@@ -351,11 +390,12 @@
 
 	// the receipt
 	const receiptSets = (name: string): Measure[] => entries.filter((e) => e.item === name && isSet(e.measure)).sort((a, b) => a.index - b.index).map((e) => e.measure);
+	const passedOver = (name: string) => steps.some((s) => s.section === name && skipped.has(s.key));
 	let runMinutes = $derived(entries.reduce((n, e) => n + (e.measure.of === 'duration' ? e.measure.minutes : 0), 0));
 	let sessionMinutes = $derived(Math.max(1, Math.round(((entries.reduce((m, e) => Math.max(m, Date.parse(e.at)), 0) || now) - Date.parse(session.at)) / 60000)));
 	let doneNote = $derived.by(() => {
 		const up = exercises.filter((e) => e.kind === 'load' && anySetEarned(receiptSets(e.name), e)).map((e) => e.name);
-		const count = `${progress.sets} ${holdsOnly ? 'holds' : 'sets'}${runMinutes ? ` · ${runMinutes} min` : ''}.`;
+		const count = `${progress.sets} ${holdsOnly ? 'hold' : 'set'}${progress.sets === 1 ? '' : 's'}${runMinutes ? ` · ${runMinutes} min` : ''}.`;
 		return `${count} ${up.length ? `${up.join(', ')} ${up.length === 1 ? 'goes' : 'go'} up next time.` : ''} ${receiptLine(sessionMinutes, entries.some((e) => e.item === WARMUP_ITEM), entries.some((e) => e.item === COOLDOWN_ITEM))}`;
 	});
 
@@ -407,18 +447,27 @@
 			{#if why && whyText}<div class="why"><Note tone="ink">{whyText} Change it with −/+ if the rack disagrees.</Note></div>{/if}
 
 			<div class="table">
-				<SetTable {rows} onfix={fix} onretry={(k) => { const s = steps.find((x) => x.key === k); if (s) queue.retry(s); }} />
+				<SetTable {rows} {onpill} onretry={(k) => { const s = steps.find((x) => x.key === k); if (s) queue.retry(s); }} />
 				<div class="under">
 					{#if secI > 0}<Note size="sm" onclick={() => jump(sections[secI - 1])}>‹ {sections[secI - 1].name}</Note>{:else}<span></span>{/if}
 					{#if secI >= 0 && secI < sections.length - 1}<Note size="sm" onclick={() => jump(sections[secI + 1])}>then: {sections[secI + 1].name} ›</Note>{:else}<Note size="sm" tone="stone">then: done</Note>{/if}
 				</div>
 			</div>
 
-			<div class="stage">
+			<div class="stage" bind:clientHeight={stageH}>
 				{#if stage}
-					<span class="big">{stage.value}</span>
-					<Caption>{stage.note}</Caption>
-					<div class="bar wide"><span style="width: {Math.max(0, Math.min(1, stage.frac)) * 100}%"></span></div>
+					{#if ringFits}
+						<div class="clock" role="timer" aria-label="{stage.value} · {stage.note}">
+							<div class="ring">
+								<svg viewBox="0 0 100 100" aria-hidden="true">
+									<circle class="track" cx="50" cy="50" r="46" />
+									<circle class="left" cx="50" cy="50" r="46" pathLength="100" stroke-dasharray="100" stroke-dashoffset={100 - Math.max(0, Math.min(1, stage.frac)) * 100} />
+								</svg>
+								<span class="big" class:long={stage.value.length > 3}>{stage.value}</span>
+							</div>
+							<Caption>{stage.note}</Caption>
+						</div>
+					{/if}
 				{:else}
 					<Note size="md" tone="stone">{editing ? 'Fix it, then save.' : readyLine}</Note>
 				{/if}
@@ -429,7 +478,7 @@
 				{#if showTiles && dialEx}
 					<div class="tiles">
 						<div class="tile">
-							<Caption>{tileHold ? (editing ? 'Held' : 'Seconds') : 'Reps'}</Caption>
+							<Caption>{tileHold ? (editing ? 'Held' : 'Seconds') : dialEx.side === 'reps' ? 'Reps · per side' : 'Reps'}</Caption>
 							<Stepper value={reps} size="bare" disabled={clock.active} label={tileHold ? 'seconds' : 'reps'} onstep={bumpReps} />
 						</div>
 						<div class="tile" class:dim={!tileLoad}>
@@ -439,7 +488,7 @@
 					</div>
 				{/if}
 				{#if queue.error ?? form?.message}<p class="err">{queue.error ?? form?.message}</p>{/if}
-				<Primary size="lg" tone={stepDone && !editing ? 'ink' : 'volt'} disabled={finishing} onclick={primaryAction}>{primaryLabel}</Primary>
+				<Primary size="lg" tone={(stepDone || stepSkipped) && !editing ? 'ink' : 'volt'} disabled={finishing} onclick={primaryAction}>{primaryLabel}</Primary>
 			</div>
 		{:else}
 			<div class="done">
@@ -452,7 +501,7 @@
 						{#if runMinutes}<div class="rrow"><span class="rname">{title}</span><span class="rval">{runMinutes} min</span></div>{/if}
 						{#each exercises as e (e.name)}
 							{@const done = receiptSets(e.name)}
-							<div class="rrow"><span class="rname">{e.name}</span><span class="rval">{done.length ? setsLine(done, e) : '—'}</span></div>
+							<div class="rrow"><span class="rname">{e.name}</span><span class="rval">{done.length ? setsLine(done, e) : passedOver(e.name) ? 'skipped' : '—'}</span></div>
 						{/each}
 					</div>
 				</Card>
@@ -512,7 +561,6 @@
 	.bar span { display: block; height: 100%; background: var(--ink); transition: width 300ms; }
 	.net { flex: none; padding: 8px 12px; border-radius: 12px; background: var(--volt-light); font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: var(--ink); }
 	.net.off { background: var(--ash); border: 1.5px dashed var(--stone); }
-	.bar.wide { width: 100%; }
 	.who { flex: none; display: flex; gap: 14px; align-items: center; }
 	.words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 	.cue { font-size: 13px; line-height: 1.4; color: var(--slate); }
@@ -522,8 +570,20 @@
 	.under { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 2px; }
 	.under :global(.note:last-child) { text-align: right; }
 	.map { display: flex; flex-direction: column; }
-	.stage { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 4px 0; }
-	.big { font-family: var(--font-mono); font-weight: 800; font-size: clamp(48px, 20vh, 84px); line-height: 0.9; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+	/* the stage takes the room the rest leaves, and the ring is sized from it (cqh), so a long table shrinks the ring instead of overrunning it */
+	.stage { flex: 1 1 0; min-height: 0; container-type: size; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; padding: 4px 0; }
+	.clock { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+	.ring { position: relative; flex: none; width: min(200px, calc(100cqh - 24px), 100cqw); aspect-ratio: 1; container-type: inline-size; display: grid; place-items: center; }
+	@container (max-height: 150px) {
+		.clock { flex-direction: row; gap: 14px; }
+		.ring { width: calc(100cqh - 8px); }
+	}
+	.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+	.ring circle { fill: none; stroke-width: 5; }
+	.track { stroke: var(--ash); }
+	.left { stroke: var(--ink); transition: stroke-dashoffset 200ms linear; }
+	.big { font-family: var(--font-mono); font-weight: 800; font-size: 38cqw; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+	.big.long { font-size: 24cqw; }
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 	.bottom { flex: none; position: sticky; bottom: 0; z-index: 1; background: var(--paper); display: flex; flex-direction: column; gap: 10px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 	.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -543,5 +603,5 @@
 		.who :global(.slot) { --s: 72px; }
 		.table { max-height: 38%; }
 	}
-	@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+	@media (prefers-reduced-motion: reduce) { .bar span, .left { transition: none; } }
 </style>

@@ -197,32 +197,36 @@ export function receiptLine(minutes: number, warm: boolean, cool: boolean): stri
 	return `${minutes} min${did ? ` · ${did}` : ''}.`;
 }
 
-/** "45 lb × 12" · "50 /hand × 10" · "30s" · "12 reps" · "32 min" · "45 lb × —" */
+/** a count that is each side's, not the set's — no break before it, so a wrapped row keeps "× 10 /side" together */
+const perSide = (ex: Exercise) => (ex.side === 'reps' ? '\u00a0/side' : '');
+const times = (ex: Exercise) => (ex.side === 'reps' ? ' ×\u00a0' : ' × ');
+
+/** "45 lb × 12" · "50 /hand × 10" · "20 /hand × 10 /side" · "30s" · "12 reps" · "10 /side" · "32 min" · "45 lb × —" */
 export function setValue(ex: Exercise, weight: number, count: number | null): string {
 	if (count === null) return ex.kind === 'load' ? `${loadShort(weight, ex)} × —` : '—';
 	switch (ex.kind) {
 		case 'load':
-			return `${loadShort(weight, ex)} × ${count}`;
+			return `${loadShort(weight, ex)}${times(ex)}${count}${perSide(ex)}`;
 		case 'hold':
-			return `${count}s`;
+			return `${count}s${perSide(ex)}`;
 		case 'run':
 			return `${count} min`;
 		case 'reps':
-			return `${count} reps`;
+			return perSide(ex) ? `${count}${perSide(ex)}` : `${count} reps`;
 	}
 }
 
-/** "35 lb × 6–12" · "10–20s" · "45s" · "5–15" · "30 min" */
+/** "35 lb × 6–12" · "20 /hand × 8–12 /side" · "10–20s" · "45s" · "5–15" · "8–12 /side" · "30 min" */
 export function plannedValue(ex: Exercise, weight: number): string {
 	switch (ex.kind) {
 		case 'load':
-			return `${loadShort(weight, ex)} × ${range(ex)}`;
+			return `${loadShort(weight, ex)}${times(ex)}${range(ex)}${perSide(ex)}`;
 		case 'hold':
-			return `${range(ex)}s`;
+			return `${range(ex)}s${perSide(ex)}`;
 		case 'run':
 			return `${range(ex)} min`;
 		case 'reps':
-			return range(ex);
+			return `${range(ex)}${perSide(ex)}`;
 	}
 }
 

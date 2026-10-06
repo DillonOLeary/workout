@@ -8,12 +8,13 @@
 	let footed = $state(false);
 	let fixKey = $state<string | null>(null);
 	let rows = $derived<SetRow[]>([
-		{ key: '1', label: 'Set 1', text: '45 lb × 8', state: fixKey === '1' ? 'fixing' : 'done', right: '✓', fixable: true },
-		{ key: '2', label: 'Set 2', text: '45 lb × 8', state: 'now', right: 'now' },
+		{ key: '1', label: 'Set 1', text: '45 lb × 8', state: fixKey === '1' ? 'fixing' : 'done', right: '✓', pill: 'fix' },
+		{ key: '2', label: 'Set 2', text: '45 lb × 8', state: 'now', pill: 'skip' },
 		{ key: '3', label: 'Set 3', text: '45 lb × 6–12', state: 'todo' },
 		{ key: '4', label: 'Set 4', text: '45 lb × 8', state: 'saving', right: 'saving…' },
 		{ key: '5', label: 'Set 5', text: '45 lb × 8', state: 'failed' },
-		{ key: '6', label: 'Set 6', text: '45 lb × 8', state: 'now', right: 'rest 42s', bar: 0.6 },
+		{ key: '6', label: 'Set 6', text: '20 /hand ×\u00a010\u00a0/side', state: 'now', right: 'rest 42s', pill: 'skip' },
+		{ key: '8', label: 'Set 7', text: '45 lb × 6–12', state: 'skipped', right: 'skipped', pill: 'undo' },
 		{ key: '7', label: 'Step 1', text: '3–5 min easy — bike, row or a brisk walk', state: 'todo', prose: true }
 	]);
 	const week = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -63,7 +64,7 @@
 	</section>
 
 	<section><Caption>Set table</Caption>
-		<SetTable {rows} onfix={(k) => (fixKey = k)} onretry={() => {}}>
+		<SetTable {rows} onpill={(k, pill) => { if (pill === 'fix') fixKey = k; }} onretry={() => {}}>
 			{#snippet fixing(r)}<Stepper value={r.text} size="pair" onstep={() => (fixKey = null)} />{/snippet}
 		</SetTable>
 	</section>

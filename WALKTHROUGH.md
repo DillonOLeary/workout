@@ -782,14 +782,14 @@ Things to notice:
 | `use:enhance` with a callback | the Ledger's editor: `use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') editingRow = null; }}` — the row stays open on a refusal, so the message is read where the numbers are |
 | `$effect` + `untrack` | `Slot.svelte` — the effect reads only `exercise` and tells the stage to walk there inside `untrack`, so the stage's own bookkeeping never re-runs it; the 12 fps loop lives in `onMount`, whose returned function cancels the frame and the reduced-motion listener. The floor's `$effect` that rings the bell is the other one worth reading |
 | a component that persists | the Slot's contract — `<Slot exercise size />` — says where the body is, never "animate": the Slot decides how to get there (walk the route, two reps at tempo, then breathe) and the screen only changes the name |
-| time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest bar, the run clock and the bell are pure functions of the entries and the time |
+| time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest ring, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived from the entries: a set logged outside the routine grows a section, and every row, label and estimate follows |
 | transitions | `Sheet` flies in with `transition:fly` and fades its scrim; both durations drop to 0 under `prefers-reduced-motion`, read once when the sheet opens |
 | `afterNavigate` | the tab layout resets its inner scroller on every navigation — the document never scrolls, so the browser can't do it for you |
 | `<script module>` | `SetTable` exports its `SetRow` type from a module script, so the floor can type the rows it builds |
 | a shell with a snippet | `ui/Sheet.svelte` is one shape — a scrim, a header with ×, a body that scrolls — and the Programme and Sign-in sheets, Log-after and the floor's session map fill its `children`. Log-after also passes a `foot` snippet (declared inside the component's children, so Svelte hands it over as a prop): the summary and Log it stay pinned while the body scrolls on its own. Four exist; a sheet never opens a sheet |
 | `$effect` that returns a release | the floor's `$effect(() => (lit ? holdScreen() : undefined))` — `holdScreen` requests a screen wake lock and returns its release, so the effect's cleanup is the release; `lit` is false on the run, which is long enough to let the screen sleep and trust the bell |
-| callback props | `onstep`, `onfix`, `onretry`, `onclose`, `onclick` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
+| callback props | `onstep`, `onpill`, `onretry`, `onclose`, `onclick` — a function prop instead of an event dispatcher; the child calls it, the parent owns the state |
 | runes in a `.svelte.ts` module | [floor/entry-queue.svelte.ts](src/lib/floor/entry-queue.svelte.ts) and [floor/countdown.svelte.ts](src/lib/floor/countdown.svelte.ts) — classes with `$state` fields and getters, constructed during the page's init so the `$effect` in the countdown's constructor belongs to the page. The page reads `queue.anyFailed` and `clock.remaining` like any other state; the queue and the clock know nothing about steps, rows or buttons |
 
 One deliberate subtlety: the gym floor snapshots `session` with a plain `const`
@@ -1074,6 +1074,53 @@ run's length *is* the run; and the new **Yoga class · studio** is a class
 (above): one duration entry, counted toward Yoga, nothing to tick. Fixing it
 later in the Ledger labels its line *Class*, not *Run*.
 
+### Notes from the floor: one clock, skip, per side (2026-10-06)
+
+Notes from a session, all of them visible on Hinge & Carry, whose Side Plank
+has six sets. **The rest was drawn three times**: an ink line along the next set's row, a
+big number with its own bar on the stage, and the session's progress bar at
+the top, the same 6 px ink on ash as the rest bar under it. With six rows
+the table took the stage's room and the number climbed over the
+"then: …" link. Now the stage draws **one ring** — an SVG circle whose
+`stroke-dashoffset` drains with the clock, the number inside, the caption
+under it — and the row says nothing about the rest. The ring is sized from
+the stage itself: the stage is a size container (`container-type: size`), so
+the ring is `min(200px, 100cqh − 24px)` and the number inside is a share of
+the ring's own width (`38cqw`, the ring being an inline-size container too).
+A short stage puts the caption beside the ring; under 72 px the ring drops
+and the row says `rest 43s` instead. The set table keeps the current row in
+view, so hold 6 of 6 is never under the fold.
+
+**Skip** is a pill on the current row, the way `fix` is a pill on a done one
+(the kit's `SetRow` has one `pill: 'fix' | 'skip' | 'undo'` and one
+`onpill`). It skips what is left of that part from the step you are on —
+on set 1 the whole exercise, on set 3 the last set — and the rows go struck
+through with `undo`. Nothing is written: a skip is not something you did,
+so it is not an event. `sessionProgress` and `sessionSections` take the
+skipped keys and walk past them, the primary reads `Next: …` as it does after
+a logged set, and when everything left is logged or skipped the floor is
+Done, the receipt saying *skipped* where nothing landed. The keys live on
+the phone, beside the entry queue ([floor/skips.ts](src/lib/floor/skips.ts)),
+so a reload or a *Resume* from Today still walks past them.
+
+**Per side** was in the plan all along — `side: 'reps'` means the range is
+each side's, one set covering both — but the floor said `8 reps`, and the
+lunge's cue said "All 8–12 on one leg, then switch", which reads as a
+question: is that 16–24 a set, and should it be two rows? It is 8–12 a leg,
+the ordinary dose for single-leg work, so the screen now says so:
+`20 /hand × 8 /side`, `8–12 /side`, the tile `Reps · per side`. One row per
+set stays — two would double the table, put a rest between the legs, and
+change what every lunge already logged means — and the count you log is the
+weaker leg's, which is what the set's progression should climb on. The
+warm-up rows also carry the side they already had in the step model
+(`STEP 3 · L`), where the floor had been writing its own "Step 3".
+
+**The notes** were rewritten so the first sentence — the one line the floor
+shows (`firstSentence`) — is how to do it: the yoga notes opened with
+anatomy ("The front of the hip, shortened all day by a chair…"), a few
+opened with setup only ("Soft knees, set once."), two carried a starting
+load that stops being true the day it climbs ("35 is the whole load").
+
 ## 5. Exercises
 
 1. **Corrections, the event-sourced way — done.** `EntryCorrected` is the
@@ -1090,11 +1137,12 @@ later in the Ledger labels its line *Class*, not *Run*.
 2. **Rest timer — done, and then removed as a screen.** The first version
    made every rest its own step with a "Go now" button; thirteen of a
    routine's thirty-nine steps were that screen. Now a rest is `restUntil`: a
-   clock under the *next* set, drawn as an ink bar along its row and a big
-   number on the stage, with the bell at zero. Read the floor's `$effect`
-   that rings it — it fires once, for the rest that was counting, and not
-   when you simply walk away from one — and try adding a "skip the rest"
-   gesture without adding a step.
+   clock under the *next* set, drawn as one draining ring on the stage, with
+   the bell at zero. Read the floor's `$effect` that rings it — it fires
+   once, for the rest that was counting, and not when you simply walk away
+   from one — and try adding a "skip the rest" gesture without adding a
+   step. (Skipping a *set* is already there; see §4, *Notes from the
+   floor*.)
 3. **A fifth practice.** Add `'swim'` to `PracticeId` and let the compiler
    walk you: `allPracticesOn`, `practiceLabel`, `WEEK_OF_PLAN` (what did
    choosing an old plan mean for it?), a `Discipline` if it needs one —

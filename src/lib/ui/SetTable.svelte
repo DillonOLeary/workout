@@ -1,6 +1,8 @@
 <script module lang="ts">
-	/** todo grey · now volt-light · done ink + fix · fixing = steppers in the row · saving · failed (Retry) */
-	export type SetRowState = 'todo' | 'now' | 'done' | 'fixing' | 'saving' | 'failed';
+	/** todo grey · now volt-light · done ink · fixing = steppers in the row · saving · failed (Retry) · skipped struck through */
+	export type SetRowState = 'todo' | 'now' | 'done' | 'fixing' | 'saving' | 'failed' | 'skipped';
+	/** the one pill a row may carry: fix a done set, skip from the current one, undo a skip */
+	export type SetRowPill = 'fix' | 'skip' | 'undo';
 	export type SetRow = {
 		key: string;
 		/** 'Set 1' · 'Hold 2 · L' · 'Step 3' */
@@ -8,33 +10,31 @@
 		/** '45 lb × 8' · '45s' · a warm-up sentence */
 		text: string;
 		state: SetRowState;
-		/** 'now' · '✓' · '✓ fixed' · 'rest 62s' */
+		/** '✓' · '✓ fixed' · 'rest 62s' · 'skipped' */
 		right?: string;
-		/** a done set you can fix in place */
-		fixable?: boolean;
+		pill?: SetRowPill;
 		/** a sentence, not a number */
 		prose?: boolean;
-		/** 0..1 — the rest still to run before this set, an ink line along the row's foot */
-		bar?: number;
 	};
 </script>
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	/** Three kinds of row — todo, now, done — in one white table with an ink border. Only the floor has one. `fixing` is the row's inline editor. */
-	let {
-		rows,
-		onfix,
-		onretry,
-		fixing
-	}: { rows: SetRow[]; onfix?: (key: string) => void; onretry?: (key: string) => void; fixing?: Snippet<[SetRow]> } = $props();
+	/** Three kinds of row — todo, now, done — in one white table with an ink border, the now row kept in view. Only the floor has one. `fixing` is the row's inline editor. */
+	let { rows, onpill, onretry, fixing }: { rows: SetRow[]; onpill?: (key: string, pill: SetRowPill) => void; onretry?: (key: string) => void; fixing?: Snippet<[SetRow]> } = $props();
+
+	let table = $state<HTMLDivElement>();
+	let nowKey = $derived(rows.find((r) => r.state === 'now' || r.state === 'fixing')?.key);
+	$effect(() => {
+		const row = nowKey !== undefined ? table?.querySelector<HTMLElement>(`[data-key="${CSS.escape(nowKey)}"]`) : null;
+		if (table && row) table.scrollTop = Math.min(row.offsetTop, Math.max(table.scrollTop, row.offsetTop + row.offsetHeight - table.clientHeight));
+	});
 </script>
 
-<div class="table" role="list">
+<div class="table" role="list" bind:this={table}>
 	{#each rows as r (r.key)}
-		<div class="row {r.state}" role="listitem">
-			{#if r.bar !== undefined}<span class="bar" style="width: {Math.max(0, Math.min(1, r.bar)) * 100}%"></span>{/if}
+		<div class="row {r.state}" role="listitem" data-key={r.key}>
 			<span class="lbl">{r.label}</span>
 			<span class="text" class:prose={r.prose}>{r.text}</span>
 			<span class="right">
@@ -42,7 +42,7 @@
 				{:else if r.state === 'failed'}<button type="button" class="pill signal" onclick={() => onretry?.(r.key)}>Retry</button>
 				{:else}
 					{#if r.right}<span class="note">{r.right}</span>{/if}
-					{#if r.fixable && onfix}<button type="button" class="pill" onclick={() => onfix(r.key)} aria-label="Fix {r.label}">fix</button>{/if}
+					{#if r.pill && onpill}{@const pill = r.pill}<button type="button" class="pill" onclick={() => onpill(r.key, pill)} aria-label="{pill} {r.label}">{pill}</button>{/if}
 				{/if}
 			</span>
 		</div>
@@ -50,7 +50,7 @@
 </div>
 
 <style>
-	.table { background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-lg); overflow: hidden auto; overscroll-behavior: contain; }
+	.table { position: relative; background: var(--white); border: var(--border-w) solid var(--ink); border-radius: var(--radius-lg); overflow: hidden auto; overscroll-behavior: contain; }
 	.row {
 		position: relative; display: grid; grid-template-columns: minmax(56px, auto) 1fr auto; gap: 10px; align-items: center;
 		min-height: 52px; padding: 0 14px; border-top: 1px solid var(--paper-2); color: var(--stone);
@@ -65,12 +65,13 @@
 	.row.done, .row.saving { color: var(--ink); }
 	.row.saving .note { color: var(--stone); }
 	.row.failed { color: var(--signal); border-left: 4px solid var(--signal); padding-left: 10px; }
+	.row.skipped .text { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+	.row.skipped .note { color: var(--stone); }
 	.pill {
 		min-height: 32px; padding: 0 10px; border: 1.5px solid var(--ink); border-radius: var(--radius-pill); background: var(--white);
 		font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink); cursor: pointer; touch-action: manipulation;
 	}
 	.pill:hover { background: var(--volt-light); }
 	.pill.signal { border-color: var(--signal); color: var(--signal); text-transform: uppercase; letter-spacing: var(--tracking-caps); }
-	.bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--ink); transition: width 200ms linear; }
 	@media (max-height: 640px) { .row { min-height: 46px; } .text { font-size: 16px; } }
 </style>

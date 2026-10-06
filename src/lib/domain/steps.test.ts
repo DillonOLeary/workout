@@ -156,6 +156,14 @@ describe('sessionProgress', () => {
 		expect(sessionProgress(steps, set1).current).toBe(3); // SET 2
 		expect(sessionProgress(steps, set1).sets).toBe(1);
 	});
+	it('walks past a skipped step, and is finished when every step is logged or skipped', () => {
+		const skipped = new Set(steps.filter((s) => s.section === 'Goblet Squat').map((s) => s.key));
+		expect(sessionProgress(steps, [], skipped).current).toBe(0);
+		const warm = [entry('Warm-up', 1, iso(0)), entry('Warm-up', 2, iso(0))];
+		expect(sessionProgress(steps, warm, skipped).current).toBe(5); // Plank, hold 1
+		expect(sessionProgress(steps, warm, new Set(steps.slice(2).map((s) => s.key))).current).toBe(steps.length);
+		expect(sessionProgress(steps, warm, skipped).done.size).toBe(2);
+	});
 	it('is finished when every step is', () => {
 		const all: Entry[] = steps.map((s) =>
 			entry(s.item, s.index, iso(0), s.kind === 'set' ? (s.ex.kind === 'hold' ? { of: 'hold', seconds: 10 } : { of: 'load', load: 35, reps: 10 }) : { of: 'step' })
@@ -204,17 +212,21 @@ describe('sessionSections — the map, and where ‹ / › land', () => {
 	it('lists the parts in walking order, each landing on its first open step, else its first', () => {
 		const done = sessionProgress(steps, [entry('Warm-up', 1, iso(0)), entry('Warm-up', 2, iso(0)), entry('Goblet Squat', 1, iso(0), { of: 'load', load: 35, reps: 10 })]).done;
 		expect(sessionSections(steps, done)).toEqual([
-			{ name: 'Warm-up', first: 0, land: 0, steps: 2, done: 2 },
-			{ name: 'Goblet Squat', first: 2, land: 3, steps: 3, done: 1 },
-			{ name: 'Plank', first: 5, land: 5, steps: 2, done: 0 },
-			{ name: 'Cooldown', first: 7, land: 7, steps: 2, done: 0 }
+			{ name: 'Warm-up', first: 0, land: 0, steps: 2, done: 2, skipped: 0 },
+			{ name: 'Goblet Squat', first: 2, land: 3, steps: 3, done: 1, skipped: 0 },
+			{ name: 'Plank', first: 5, land: 5, steps: 2, done: 0, skipped: 0 },
+			{ name: 'Cooldown', first: 7, land: 7, steps: 2, done: 0, skipped: 0 }
 		]);
 	});
 	it('keeps a part whole when a stretch falls between its lines', () => {
 		const split = sessionSteps({ ...plan, cooldown: ['Breathe', plan.routines.S[0], 'Lie down'] }, A);
 		const map = sessionSections(split, new Set([entryKey('Cooldown', 1)]));
 		expect(map.map((s) => s.name)).toEqual(['Warm-up', 'Goblet Squat', 'Plank', 'Cooldown', 'Calf stretch']);
-		expect(map[3]).toEqual({ name: 'Cooldown', first: 7, land: 10, steps: 2, done: 1 });
+		expect(map[3]).toEqual({ name: 'Cooldown', first: 7, land: 10, steps: 2, done: 1, skipped: 0 });
+	});
+	it('counts a skipped step apart from a done one, and lands past it', () => {
+		const map = sessionSections(steps, new Set([entryKey('Goblet Squat', 1)]), new Set([entryKey('Goblet Squat', 2)]));
+		expect(map[1]).toEqual({ name: 'Goblet Squat', first: 2, land: 4, steps: 3, done: 1, skipped: 1 });
 	});
 });
 

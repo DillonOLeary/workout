@@ -8,6 +8,6 @@ export { default as Row } from './Row.svelte';
 export { default as Stepper } from './Stepper.svelte';
 export { default as Switch } from './Switch.svelte';
 export { default as Cell } from './Cell.svelte';
-export { default as SetTable, type SetRow, type SetRowState } from './SetTable.svelte';
+export { default as SetTable, type SetRow, type SetRowPill, type SetRowState } from './SetTable.svelte';
 export { default as Sheet } from './Sheet.svelte';
 export { default as Slot } from './Slot.svelte';
