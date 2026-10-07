@@ -1,4 +1,4 @@
-import { PRACTICES, composePlan, type Block, type Exercise, type Plan, type PrepItem, type Routines } from './plan';
+import { MAX_REPS, PRACTICES, composePlan, type Block, type Exercise, type Plan, type PrepItem, type Routines } from './plan';
 
 /** One sentence per exercise on why it is in the plan — the floor-level cousin of The Plan › why; shown on the About sheet. */
 const WHY: Record<string, string> = {
@@ -19,19 +19,10 @@ const WHY: Record<string, string> = {
 	'Copenhagen Plank': 'The adductor exercise with an injury-prevention trial behind it; the top of the side plank\'s ladder.',
 	'Dead Bug': 'Core against extension while the limbs move — the low back learns to stay down while the legs work.',
 	'Side Plank': 'The core from the side, one side at a time; its ladder ends at the Copenhagen plank.',
-	'Push-up': 'The floor\'s horizontal push — at matched effort it builds the same upper body as a bench press.',
-	'Split Squat': 'The floor\'s squat, made hard by putting it on one leg — with no weight to add, the variant is the progression.',
-	'Bodyweight Squat': 'The squat pattern, kept in the week when there is no gym; reps and tempo do the work of load.',
-	'Reverse Lunge': 'The lunge without the bell — the same front-leg work, kept in the week.',
-	'Step-up': 'Single-leg drive through the whole foot — the closest a floor gets to loaded hip extension.',
+	'Band Row': 'The floor\'s horizontal pull, wherever a band goes — the cable row\'s job, done seated with the band round the feet.',
 	'Single-leg RDL Reach': 'The hinge on one leg: hamstrings, balance and the foot\'s small muscles at once.',
 	'Single-leg Hip Bridge': 'Glutes one side at a time; the floor\'s version of the dumbbell bridge.',
-	'Single-leg Calf Raise': 'The calf raise without the machine — one leg is the load.',
-	'Bear Crawl': 'Shoulders and core under movement — the closest thing a floor has to a carry.',
-	'Superman Hold': 'The only pull for the back of the body a floor allows; honest about being weak.',
 	'Hollow Hold': 'Core against extension with the legs long — the position every other hold borrows.',
-	'Reverse Crunch': 'The lower abdominals curling the pelvis, not the neck.',
-	'Plank': 'The core hold everything else is a version of; it gets harder, never longer.',
 	'Calf stretch': 'The run and the calf raise both shorten the calves; this is the length back.',
 	'Hip flexor stretch': 'Sitting and running both keep the hip flexors short; a long one is what lets the glute finish a stride.',
 	'Hamstring stretch': 'The hinge and the run both load the hamstrings; the stretch keeps the bottom of the hinge honest.',
@@ -197,48 +188,10 @@ const ladder = (name: string, equip: string, tag: string, sets: number, lo: numb
 	rest: BW_REST,
 	note
 });
-const PUSHUP = ladder('Push-up', 'Floor', 'Horiz. push', 3, 8, 15, ['Incline push-up', 'Push-up', 'Decline push-up', 'Archer push-up'],
-	'Hands under the shoulders, body in one line, chest to a fist off the floor. Start with the hands on a step or a counter; the floor is the second rung.');
-const SPLIT_SQUAT = ladder('Split Squat', 'Floor', 'Squat', 3, 8, 12, ['Split squat', 'Rear-foot-elevated split squat', 'Paused split squat', '1½-rep split squat'],
-	'Long stance, front shin upright, rear knee to a fist off the floor. All the reps on one leg, then the other — weaker leg first, and log its count.', true);
-const BW_SQUAT = ladder('Bodyweight Squat', 'Floor', 'Squat', 3, 12, 20, ['Bodyweight squat', 'Paused squat', '3-0-3 tempo squat'],
-	'Hands at the chest; sit between the knees, chest tall. As deep as the back stays flat.');
-const REVERSE_LUNGE = ladder('Reverse Lunge', 'Floor', 'Lunge', 3, 10, 12, ['Reverse lunge', 'Deficit reverse lunge', 'Walking lunge'],
-	'Long step back, front shin upright, drive up through the front heel. All the reps on one leg, then the other — weaker leg first, and log its count.', true);
-const STEP_UP = ladder('Step-up', 'A stair or a chair', 'Lunge', 3, 8, 12, ['Step-up', 'Higher step-up', 'Slow-lower step-up'],
-	'Whole foot on the step; drive through the heel, no push off the back leg. Lower under control. All the reps on one leg, then the other — weaker leg first, and log its count.', true);
 const SL_RDL = ladder('Single-leg RDL Reach', 'Floor', 'Hinge', 3, 8, 12, ['Single-leg RDL reach', 'Eyes-closed single-leg RDL', 'Paused single-leg RDL'],
 	'Soft knee, hips back, free leg reaching behind, hand toward the floor. Stop when the hamstring pulls. All the reps on one leg, then the other — weaker leg first, and log its count.', true);
 const SL_BRIDGE = ladder('Single-leg Hip Bridge', 'Floor', 'Hip ext.', 3, 10, 15, ['Single-leg hip bridge', 'Paused single-leg bridge', 'Feet-up single-leg bridge'],
 	'One foot flat, the other leg long; drive to level hips, squeeze, lower. All the reps on one leg, then the other — weaker leg first, and log its count.', true);
-const SL_CALF = ladder('Single-leg Calf Raise', 'A stair', 'Calves', 3, 12, 20, ['Single-leg calf raise', 'Paused single-leg calf raise', 'Slow-lower single-leg calf raise'],
-	'Ball of the foot on a step; heel low, then up, pause, slowly down. A hand on the wall for balance. All the reps on one leg, then the other — weaker leg first, and log its count.', true);
-const BEAR_CRAWL: Exercise = {
-	name: 'Bear Crawl',
-	...why('Bear Crawl'),
-	equip: 'Floor',
-	tag: 'Carry',
-	kind: 'hold',
-	sets: 3,
-	lo: 40,
-	hi: 40,
-	progress: { of: 'none' },
-	rest: BW_REST,
-	note: 'Knees an inch off the floor; move the opposite hand and foot together. Hands under the shoulders, back flat. Easy at 40 s? Slower, then backwards.'
-};
-const SUPERMAN: Exercise = {
-	name: 'Superman Hold',
-	...why('Superman Hold'),
-	equip: 'Floor',
-	tag: 'Back',
-	kind: 'hold',
-	sets: 3,
-	lo: 20,
-	hi: 40,
-	progress: { of: 'time', inc: 5 },
-	rest: BW_REST,
-	note: 'Face down, lift the arms and legs off the floor, chin tucked. Squeeze the glutes and breathe. At 40 s: arms straight overhead, then lift opposite arm and leg in turn.'
-};
 const HOLLOW: Exercise = {
 	name: 'Hollow Hold',
 	...why('Hollow Hold'),
@@ -251,21 +204,6 @@ const HOLLOW: Exercise = {
 	progress: { of: 'time', inc: 5 },
 	rest: BW_REST,
 	note: 'Low back pressed into the floor, shoulders and legs off it. Knees bent if the back lifts. At 40 s: arms overhead, then rocking.'
-};
-const REVERSE_CRUNCH = ladder('Reverse Crunch', 'Floor', 'Core', 3, 10, 15, ['Reverse crunch', 'Slow-lower reverse crunch', 'Straight-leg reverse crunch'],
-	'On your back, knees bent at 90°; curl the hips off the floor toward the ribs. Lower slowly.');
-const PLANK: Exercise = {
-	name: 'Plank',
-	...why('Plank'),
-	equip: 'Floor',
-	tag: 'Core',
-	kind: 'hold',
-	sets: 3,
-	lo: 30,
-	hi: 60,
-	progress: { of: 'time', inc: 5 },
-	rest: BW_REST,
-	note: 'Elbows under the shoulders, glutes squeezed, ribs down. At 60 s: elbows a palm forward (long-lever), then one foot up.'
 };
 const DEAD_BUG: Exercise = {
 	name: 'Dead Bug',
@@ -280,6 +218,79 @@ const DEAD_BUG: Exercise = {
 	side: 'reps',
 	note: 'Low back pressed down; lower the opposite arm and leg slowly, breathing out. Alternate sides — the count is each side’s. Too hard? Tap the heels down. Easy at 12? Take 3 seconds to lower.'
 };
+const BAND_FACE_PULL: Exercise = {
+	name: 'Band Face Pull',
+	...why('Band Face Pull'),
+	equip: 'Tube band, anchored',
+	tag: 'Rear delt / ER',
+	kind: 'reps',
+	sets: 2,
+	lo: 12,
+	hi: 20,
+	progress: { of: 'count' },
+	note: 'Pull the band to your ears, elbows high and wide, thumbs back. Anchor the tube at face height (a post, or the door anchor) and step back until it’s taut with the arms straight. At 20 clean: a step back, or a heavier tube.'
+};
+const BAND_ROW: Exercise = {
+	name: 'Band Row',
+	...why('Band Row'),
+	equip: 'Tube band',
+	tag: 'Horiz. pull',
+	kind: 'reps',
+	sets: 3,
+	lo: 12,
+	hi: 20,
+	progress: { of: 'count' },
+	rest: BW_REST,
+	note: 'Sit tall, legs long, the band round the soles; row the handles to the ribs, elbows close, and squeeze. No band today? Skip it — the rest of the session stands without it. At 20 clean: hold the band shorter, or a heavier one.'
+};
+
+// Invicta, Orc, Back in Action and The Giant are DAREBEE workouts (darebee.com/workouts/<name>-workout.html, CC BY-NC-ND 4.0),
+// written down as the cards have them — stations, counts, order, levels and rest — and credited on the Plan tab. The cues are ours.
+const CARD_REST = 120;
+/** One station of a card at its count as written: reps, a hold's seconds, or max — `sets` is Level I; a circuit deals its own. */
+const station = (name: string, equip: string, tag: string, count: number | 'max', note: string, kind: 'reps' | 'hold' = 'reps'): Exercise =>
+	count === 'max'
+		? { name, equip, tag, kind: 'reps', sets: 3, lo: 1, hi: MAX_REPS, max: true, progress: { of: 'count' }, note }
+		: { name, equip, tag, kind, sets: 3, lo: count, hi: count, progress: { of: 'none' }, note };
+const SQUATS = station('Squats', 'Floor', 'Squat', 20, 'To parallel, chest up, weight in the heels; the arms reach forward as you sit.');
+const LUNGES = station('Lunges', 'Floor', 'Lunge', 20, 'Alternate legs, 10 each; the back knee drops close to the floor, the front knee stays over the foot.');
+const PUSH_UPS = station('Push-ups', 'Floor', 'Horiz. push', 10, 'Full range, the body one line from head to heels.');
+const INVICTA = [
+	SQUATS,
+	LUNGES,
+	PUSH_UPS,
+	station('Pike Push-ups', 'Floor', 'Vert. push', 10, 'Hips high in an upside-down V; bend the elbows and lower the top of the head toward the floor between the hands.'),
+	station('Superman', 'Floor', 'Back', 10, 'Face down; lift the arms and the legs together, then lower them with control.'),
+	station('Bridges', 'Floor', 'Hip ext.', 20, 'On the back, feet flat; drive the hips up and squeeze at the top.'),
+	station('V Hold', 'Floor', 'Core', 20, 'Sit back on the tailbone, legs raised, arms out to the sides; hold for a slow count of 20 and breathe.', 'hold')
+];
+const ORC = [
+	station('Split Squats', 'Two chairs', 'Squat', 20, 'Rear foot up on a chair, 10 a leg; the front knee stays over the foot. Chairs against a wall, tested first.'),
+	station('Pike Shoulder Presses', 'A chair', 'Vert. push', 6, 'Feet up on a chair, hips high; lower the head toward the floor between the hands, elbows back, and press up.'),
+	PUSH_UPS,
+	station('Wide Grip Push-ups', 'Floor', 'Horiz. push', 4, 'Hands wider than the shoulders — the chest takes more of it.'),
+	station('Close Grip Push-ups', 'Floor', 'Horiz. push', 4, 'Hands under the chest, elbows along the ribs — the arms take more of it.'),
+	station('Leg Hold', 'Two chairs', 'Core', 20, 'Sit between two chairs, hands on the seats, arms locked; lift the feet and hold, shoulders away from the ears.', 'hold'),
+	station('Towel Bicep Curls', 'A towel and a door', 'Pull', 20, 'A towel knotted round the handle of a closed, latched door; feet against the door, lean back on straight arms and curl yourself up. No towel? A sheet folded lengthways.')
+];
+const BACK_IN_ACTION = [
+	station('Body Rows', 'A broom and two chairs', 'Horiz. pull', 'max', 'Under a broom handle laid across two sturdy chairs, heels down, body straight; pull the chest to the pole. No chairs? Under a sturdy table. Stop at the last clean rep.'),
+	station('Twists', 'Standing', 'Spine', 10, 'Hands on the hips; turn the upper body side to side.'),
+	station('Chest Expansions', 'Standing', 'Chest', 10, 'Arms open wide, then cross in front of the chest.'),
+	station('Shoulder Stretch', 'Standing', 'Shoulders', 10, 'Hands on the hips, then both arms overhead, fingers laced, palms pushed up.'),
+	station('Shoulder Presses', 'A chair', 'Vert. push', 'max', 'Feet on a chair seat, hands on the floor, hips high; lower the head toward the floor and press back. Stop at the last clean rep.'),
+	station('Back Rotations', 'Floor', 'Spine', 10, 'On all fours, one hand behind the head; turn the elbow down under the body, then up to the ceiling. Half each side.')
+];
+const GIANT_SET_REST = 20;
+const GIANT = [
+	LUNGES,
+	SQUATS,
+	station('Push-ups to Failure', 'Floor', 'Horiz. push', 'max', 'The last rep is the last one with the body in one line — when the hips sag, the set is over.'),
+	station('Elbow Plank', 'Floor', 'Core', 30, 'Elbows under the shoulders, one line from ear to heel; breathe.', 'hold'),
+	station('Reverse Angels', 'Floor', 'Back', 10, 'Face down, arms and chest off the floor; sweep the arms from overhead to the hips and back.'),
+	station('Leg Raises', 'Floor', 'Core', 20, 'On the back, the low back pressed down; straight legs from the floor to vertical and back.')
+].map((ex) => ({ ...ex, rest: GIANT_SET_REST }));
+
 const BW_WARMUP: PrepItem[] = [
 	{ name: 'March in place', seconds: 60 },
 	{ name: 'Leg swings', reps: 10, each: true },
@@ -306,7 +317,7 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 			A: [
 				{ name: 'Goblet Squat', ...why('Goblet Squat'), equip: 'Kettlebell / Dumbbell', tag: 'Squat', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 35, inc: 5, rack: 'dumbbell' }, note: 'Bell at the chest, elbows down; sit between the knees, chest tall. As deep as the back stays flat, knees out over the toes. Stand by pushing the floor away.' },
 				{ name: 'Chest Press', ...why('Chest Press'), equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 45, inc: 5 }, note: 'Handles at mid-chest, shoulder blades back; press to nearly straight. Lower until the handles reach the chest, blades on the pad. Set the seat so they start level with mid-chest.' },
-				{ name: 'Band Face Pull', ...why('Band Face Pull'), equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Pull the band to your ears, elbows high and wide, thumbs back. Anchor the tube at face height (a post, or the door anchor) and step back until it’s taut with the arms straight. At 20 clean: a step back, or a heavier tube.' },
+				BAND_FACE_PULL,
 				{ name: 'Lat Pulldown', ...why('Lat Pulldown'), equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 12, progress: { of: 'size', start: 65, inc: 10 }, note: 'Chest up, drive the elbows down, bar to the upper chest. A slight lean back; the bar passes in front of the face. Let it rise slowly to a full stretch.' },
 				{ name: 'Romanian Deadlift', ...why('Romanian Deadlift'), equip: 'Dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 6, hi: 12, progress: { of: 'size', start: 40, inc: 5, rack: 'dumbbell', each: true }, note: 'Push the hips back with soft knees; the bells slide down the thighs. Bend the knees once at the start and keep them there. Stop when the hamstrings pull or the back would round.' },
 				CALF_RAISE,
@@ -343,7 +354,7 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 				{ name: 'Romanian Deadlift', ...why('Romanian Deadlift'), equip: 'Two dumbbells', tag: 'Hinge', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 15, inc: 5, rack: 'dumbbell', each: true }, note: 'Push the hips back with soft knees; the bells slide down the thighs. Bend the knees once at the start and keep them there. Stop when the hamstrings pull or the back would round.' },
 				{ name: 'Chest Press', ...why('Chest Press'), equip: 'Chest press machine (on a multi-press: arm flat)', tag: 'Horiz. push', kind: 'load', sets: 3, lo: 6, hi: 15, progress: { of: 'size', start: 20, inc: 5 }, note: 'Handles at mid-chest, shoulder blades back; press to nearly straight. Lower until the handles reach the chest. Feet flat — on a step if they don’t reach the floor.' },
 				{ name: 'Lat Pulldown', ...why('Lat Pulldown'), equip: 'Pulldown machine', tag: 'Vert. pull', kind: 'load', sets: 3, lo: 8, hi: 15, progress: { of: 'size', start: 40, inc: 5 }, note: 'Chest up, drive the elbows down, bar to the upper chest. Thigh pad snug so the hips can’t lift; the bar passes in front of the face. Let it rise slowly to a full stretch.' },
-				{ name: 'Band Face Pull', ...why('Band Face Pull'), equip: 'Tube band, anchored', tag: 'Rear delt / ER', kind: 'reps', sets: 2, lo: 12, hi: 20, progress: { of: 'count' }, note: 'Pull the band to your ears, elbows high and wide, thumbs back. Anchor the tube at face height (a post, or the door anchor) and step back until it’s taut with the arms straight. At 20 clean: a step back, or a heavier tube.' },
+				BAND_FACE_PULL,
 				DEAD_BUG
 			],
 			'2': [
@@ -410,22 +421,23 @@ export const BLOCKS: Block[] = [
 	}
 ];
 
-/** The lift's fallback: five floor sessions at target 0, always one "Something else" away, each counting as a lift. Never switched — it goes wherever the lift goes. */
+/** The lift's fallback, at target 0 — always one "Something else" away, each session counting as a lift: four Darebee cards and a band day, and any other card logged by its length. Never switched — it goes wherever the lift goes. */
 export const FLOOR: Routines = {
-	cycle: { id: 'floor', title: 'Floor', routines: ['bw1', 'bw2', 'bw4', 'bw5', 'bw6'], target: 0, standsInFor: 'lift' },
+	cycle: { id: 'floor', title: 'Floor', routines: ['invicta', 'back-in-action', 'giant', 'bands', 'orc'], target: 0, standsInFor: 'lift' },
 	routineInfo: {
-		bw1: { title: 'Push & Squat', discipline: 'bodyweight', desc: 'Push · split squat · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-		bw2: { title: 'Hinge & Carry', discipline: 'bodyweight', desc: 'Hinge · lunge · crawl · side plank', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-		bw4: { title: 'Push & Squat II', discipline: 'bodyweight', desc: 'Tempo push · squat · step-up · dead bug', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-		bw5: { title: 'Back & Core', discipline: 'bodyweight', desc: 'Superman · reverse crunch · plank · bridge', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-		bw6: { title: 'Legs', discipline: 'bodyweight', desc: 'Split squat · hinge · lunge · calves', warmup: BW_WARMUP, cooldown: BW_COOLDOWN }
+		invicta: { title: 'Invicta', discipline: 'bodyweight', desc: 'Squats · lunges · push-ups · pike push-ups · superman · bridges · V hold', levels: [3, 5, 7], rest: CARD_REST, warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		'back-in-action': { title: 'Back in Action', discipline: 'bodyweight', desc: 'Body rows · twists · chest · shoulders · pike presses · rotations', levels: [3, 5, 7], rest: CARD_REST, warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		giant: { title: 'The Giant', discipline: 'bodyweight', desc: 'Lunges · squats · push-ups · plank · reverse angels · leg raises', rest: CARD_REST, warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		bands: { title: 'Band & Hinge', discipline: 'bodyweight', desc: 'Band row · face pull · single-leg hinge · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		orc: { title: 'Orc', discipline: 'bodyweight', desc: 'Split squats · pike presses · three push-ups · leg hold · towel curls', levels: [3, 5, 7], rest: CARD_REST, warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
+		darebee: { title: 'Darebee workout', discipline: 'bodyweight', desc: 'Any other card from darebee.com, logged by its length' }
 	},
 	routines: {
-		bw1: [PUSHUP, SPLIT_SQUAT, SL_BRIDGE, HOLLOW],
-		bw2: [SL_RDL, REVERSE_LUNGE, BEAR_CRAWL, { ...SIDE_PLANK, equip: 'Floor', sets: 6, rest: BW_REST }],
-		bw4: [{ ...PUSHUP, note: 'Three seconds down, a pause at the bottom, then up. Body in one line; same ladder as Push & Squat — the tempo is this routine’s extra.' }, BW_SQUAT, STEP_UP, DEAD_BUG],
-		bw5: [SUPERMAN, REVERSE_CRUNCH, PLANK, SL_BRIDGE],
-		bw6: [SPLIT_SQUAT, SL_RDL, REVERSE_LUNGE, SL_CALF]
+		invicta: INVICTA,
+		'back-in-action': BACK_IN_ACTION,
+		giant: GIANT,
+		bands: [BAND_ROW, { ...BAND_FACE_PULL, rest: BW_REST }, SL_RDL, SL_BRIDGE, HOLLOW],
+		orc: ORC
 	}
 };
 

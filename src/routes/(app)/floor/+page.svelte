@@ -10,12 +10,12 @@
 	import { loadSkips, saveSkips } from '$lib/floor/skips';
 	import { watchOnline } from '$lib/net';
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
-	import { disciplineLabel, durationLabel, firstSentence, itemDose, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
+	import { disciplineLabel, durationLabel, firstSentence, itemDose, levelNote, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
-	import { cueFor, progresses, restFor, routineTitle, type Exercise } from '$lib/domain/plan';
+	import { cueFor, levelsOf, progresses, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
-	import { anySetEarned, bumpCount, bumpLoad, nextSet, suggest, type Suggestion } from '$lib/domain/progression';
-	import { loggedOutside, restUntil, runStart, sessionProgress, sessionSections, sessionSteps, stepName, type Section, type Step } from '$lib/domain/steps';
+	import { anySetEarned, bumpCount, bumpLoad, nextSet, roundsDone, suggest, type Suggestion } from '$lib/domain/progression';
+	import { loggedOutside, restUntil, roundsOf, routineExercises, runStart, sessionProgress, sessionSections, sessionSteps, stepName, type Section, type Step } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -95,10 +95,10 @@
 		live = 'Done';
 		enqueue(done.kind === 'hold' ? measureFor(done.ex, { load: 0, count: done.target, target: done.target }) : { of: 'step' });
 	});
-	let restEnd = $derived(st?.kind === 'set' && !stepDone && !stepSkipped ? restUntil(st, entries, plan) : null);
+	let restEnd = $derived(st?.kind === 'set' && !stepDone && !stepSkipped ? restUntil(st, entries) : null);
 	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
 	let resting = $derived(restEnd !== null && restLeft > 0 && !clock.active);
-	let restTotal = $derived(st?.kind === 'set' ? restFor(plan, st.ex) : 0);
+	let restTotal = $derived(st?.kind === 'set' ? (st.rest?.seconds ?? 0) : 0);
 	// the clock's ring: 56px at the least, with 16px around it once a short stage puts the caption beside it; with less room the row says the rest
 	const RING_ROOM = 56 + 16;
 	let stageH = $state(0);
@@ -296,6 +296,7 @@
 	}
 	const subOf = (sec: Section) => {
 		const s = steps[sec.first];
+		if (s.kind === 'set' && s.round) return `${sec.steps} exercises`;
 		if (s.kind === 'set' || s.kind === 'run') return itemDose(s.ex, s.kind === 'set' ? plannedWeight(s.ex, 0) : 0);
 		return sec.steps === 1 ? s.text : `${sec.steps} steps`;
 	};
@@ -309,9 +310,11 @@
 
 	// the words on the screen
 	let sets = $derived(steps.filter((s) => s.kind === 'set'));
+	const rounds = roundsOf(plan, workout);
 	let holdsOnly = $derived(sets.every((s) => s.kind === 'set' && s.ex.kind === 'hold'));
 	let pos = $derived.by(() => {
 		if (!st || allDone) return 'done';
+		if (st.kind === 'set' && st.round) return `round ${st.round} of ${rounds}`;
 		if (st.kind === 'set') return `${holdsOnly ? 'hold' : 'set'} ${sets.indexOf(st) + 1} of ${sets.length}`;
 		if (st.kind === 'run') return 'run';
 		const peers = steps.filter((s) => s.section === st.section);
@@ -380,9 +383,9 @@
 		if (st.kind === 'timed') return clock.active ? 'Done early' : `Start ${durationLabel(st.seconds)}`;
 		if (st.kind === 'run') return 'Stop here';
 		if (st.ex.kind === 'hold') return clock.active ? 'Done early' : `Start ${reps}s`;
-		return `Log set ${st.index}`;
+		return st.round ? `Log ${st.ex.name.toLowerCase()}` : `Log set ${st.index}`;
 	});
-	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && !stepSkipped && (!!ex && progresses(ex))));
+	let showTiles = $derived(!!editing || (st?.kind === 'set' && !stepDone && !stepSkipped && !!ex && (progresses(ex) || ex.kind === 'reps')));
 	let tileHold = $derived(dialEx?.kind === 'hold');
 	let tileLoad = $derived(dialEx?.kind === 'load');
 	// no name: the figure stands
@@ -396,7 +399,9 @@
 	let doneNote = $derived.by(() => {
 		const up = exercises.filter((e) => e.kind === 'load' && anySetEarned(receiptSets(e.name), e)).map((e) => e.name);
 		const count = `${progress.sets} ${holdsOnly ? 'hold' : 'set'}${progress.sets === 1 ? '' : 's'}${runMinutes ? ` · ${runMinutes} min` : ''}.`;
-		return `${count} ${up.length ? `${up.join(', ')} ${up.length === 1 ? 'goes' : 'go'} up next time.` : ''} ${receiptLine(sessionMinutes, entries.some((e) => e.item === WARMUP_ITEM), entries.some((e) => e.item === COOLDOWN_ITEM))}`;
+		const levels = levelsOf(plan, workout.routine);
+		const level = levels && rounds ? `${levelNote(levels, rounds, roundsDone(routineExercises(plan, workout), rounds, entries))} ` : '';
+		return `${count} ${level}${up.length ? `${up.join(', ')} ${up.length === 1 ? 'goes' : 'go'} up next time.` : ''} ${receiptLine(sessionMinutes, entries.some((e) => e.item === WARMUP_ITEM), entries.some((e) => e.item === COOLDOWN_ITEM))}`;
 	});
 
 	function onKey(ev: KeyboardEvent) {

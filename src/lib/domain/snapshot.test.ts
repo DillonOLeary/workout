@@ -5,7 +5,7 @@ import { composePlan, planExercises, progresses } from './plan';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from './plans';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, queue, staleness, weekProgress, weekTally } from './week';
+import { nextInCycle, queue, roundsFor, staleness, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 /**
@@ -86,6 +86,13 @@ function fullStream(): StoredEvent[] {
 	live(20, 'B', 'lift', [['Warm-up', 1, { of: 'step' }], ['KB Deadlift', 1, L(62, 8)], ['KB Deadlift', 2, L(62, 7)], ['KB Deadlift', 3, L(62, 6)], ['Shoulder Press', 1, L(30, 12)], ['Shoulder Press', 2, L(30, 11)], ['Shoulder Press', 3, L(30, 9)], ['Copenhagen Plank', 1, R(8)], ['Copenhagen Plank', 2, R(8)], ['Calf stretch', 1, H(45)], ['Calf stretch', 2, H(45)]]);
 	row('BlockToggled', { block: 'yoga', on: false, at: at(19) });
 	row('GoalSet', { practice: 'run', sessions: 2, minutes: 35, at: at(19) });
+	// a circuit stamped with the rounds it was dealt, every station of every round at its count
+	const card = id();
+	row('SessionStarted', { session: card, plan: 'ab-fullbody-v1', routine: 'invicta', discipline: 'bodyweight', mode: 'live', rounds: 3, at: at(12, 18) });
+	for (let r = 1; r <= 3; r++)
+		for (const [item, measure] of [['Squats', R(20)], ['Lunges', R(20)], ['Push-ups', R(10)], ['Pike Push-ups', R(10)], ['Superman', R(10)], ['Bridges', R(20)], ['V Hold', H(20)]] as const)
+			row('EntryLogged', { session: card, item, index: r, at: at(12, 18 + r * 0.2), measure });
+	row('SessionFinished', { session: card, at: at(12, 18.9) });
 	const fixed = live(9, 'A', 'lift', [['Goblet Squat', 1, L(40, 12)], ['Goblet Squat', 2, L(40, 12)], ['Goblet Squat', 3, L(40, 12)], ['Chest Press', 1, L(50, 5)], ['Chest Press', 2, L(50, 8)], ['Chest Press', 3, L(50, 8)], ['Band Face Pull', 1, R(20)], ['Band Face Pull', 2, R(18)], ['Long-Lever Plank', 1, H(20)], ['Long-Lever Plank', 2, H(20)], ['Long-Lever Plank', 3, H(15, 20)]]);
 	row('EntryCorrected', { session: fixed, item: 'Chest Press', index: 1, at: at(9, 9), measure: L(50, 7) });
 	live(8, 'run', 'run', [['Warm-up', 1, { of: 'step' }], ['Easy run', 1, { of: 'duration', minutes: 35 }], ['Cooldown', 1, { of: 'step' }]]);
@@ -141,6 +148,7 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 			week: { programme: programme.id, practicesOn: on, goals: asked, rest: plan.rest ?? null, cycles: plan.cycles },
 			owed: plan.cycles.map((c) => ({ cycle: c.id, ...weekProgress(events, plan, c, NOW) })),
 			next: plan.cycles.map((c) => ({ cycle: c.id, routine: nextInCycle(events, plan, c) })),
+			rounds: FLOOR.cycle.routines.map((r) => ({ routine: r, rounds: roundsFor(events, plan, r) ?? null })),
 			staleness: staleness(events, plan, NOW).map((s) => ({ ...s, daysSince: s.daysSince === null ? null : Math.round(s.daysSince * 100) / 100 })),
 			deal: queue(events, plan, NOW),
 			tally: weekTally(events, plan, NOW),

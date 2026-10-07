@@ -161,7 +161,7 @@
 									<Stepper value={restShown} unit="s" size="sm" label="rest" onstep={dialRest} />
 								</form>
 							</Row>
-							<Row label="No gym? Floor 1 / 2 stand in and count" right="always" />
+							<Row label="No gym? A floor workout stands in and counts" right="always" />
 						</div>
 					{/if}
 				</div>
@@ -178,6 +178,7 @@
 	<Row label="Export the ledger" right="JSON ›" href="/export" />
 	<Row label="Sign-in" right={keys ? `${keys} ${keys === 1 ? 'passkey' : 'passkeys'} ›` : 'add a passkey ›'} tone={keys ? 'plain' : 'signal'} onclick={() => ((keyMessage = null), (signin = true))} />
 </div>
+<div class="credit"><Note size="sm" tone="stone">Invicta, Orc, Back in Action and The Giant are workouts by <a href="https://darebee.com" target="_blank" rel="noopener">Darebee</a>, free at darebee.com.</Note></div>
 
 <Sheet open={sheet} title="Programme" onclose={() => (sheet = false)}>
 	<Note size="sm">One at a time. Switching keeps every set logged; the rule picks up where each exercise left off.</Note>
@@ -253,4 +254,6 @@
 	.desc { font-size: 14px; line-height: 1.45; color: var(--slate); }
 	.keys { display: flex; flex-direction: column; }
 	.leave { border-top: 1px solid var(--paper-3); padding-top: 6px; }
+	.credit { padding-top: 8px; }
+	.credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 </style>

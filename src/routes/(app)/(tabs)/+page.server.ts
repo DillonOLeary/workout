@@ -2,24 +2,33 @@ import { fail, redirect } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
 import { requireUid } from '$lib/server/auth';
 import type { AfterEntry } from '$lib/domain/commands';
-import { parseWorkout } from '$lib/domain/events';
-import { disciplineOf } from '$lib/domain/plan';
+import { parseWorkout, type Workout } from '$lib/domain/events';
+import { disciplineOf, levelsOf } from '$lib/domain/plan';
 import { SHIPPED_PLANS } from '$lib/domain/plans';
 import type { Actions } from './$types';
 
 /** what a routine IS, from the whole programme — so the discipline is stamped at the edge whatever this person switched */
 const stampDiscipline = (plan: string, routine: string) => disciplineOf(SHIPPED_PLANS.find((p) => p.id === plan), routine);
+/** a circuit's rounds, one of its levels — Level I when none was posted; straight sets take none */
+function stampRounds(plan: string, w: Workout): Workout | null {
+	const levels = levelsOf(SHIPPED_PLANS.find((p) => p.id === plan), w.routine);
+	if (!levels) return w.rounds === undefined ? w : null;
+	if (w.rounds === undefined) return { ...w, rounds: levels[0] };
+	return levels.includes(w.rounds) ? w : null;
+}
 
 export const actions: Actions = {
 	/** start a live session: the id, the timestamp and the discipline are stamped here at the edge, then the floor */
 	start: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();
-		const workout = parseWorkout(form.get('routine'));
+		const posted = parseWorkout(form.get('routine'), form.get('rounds'));
 		const plan = String(form.get('plan') ?? '');
-		if (!workout || !plan) return fail(400, { message: 'Missing routine or plan.' });
-		const discipline = stampDiscipline(plan, workout.routine);
+		if (!posted || !plan) return fail(400, { message: 'Missing routine or plan.' });
+		const discipline = stampDiscipline(plan, posted.routine);
 		if (!discipline) return fail(400, { message: 'That routine is not on this plan.' });
+		const workout = stampRounds(plan, posted);
+		if (!workout) return fail(400, { message: 'That level is not on this routine.' });
 		const err = await tryCommand(uid, {
 			type: 'StartSession',
 			data: { session: crypto.randomUUID(), plan, at: new Date().toISOString(), discipline, ...workout }
@@ -48,13 +57,15 @@ export const actions: Actions = {
 		const uid = requireUid(locals);
 		const form = await request.formData();
 		const plan = String(form.get('plan') ?? '');
-		const workout = parseWorkout(form.get('routine'));
+		const posted = parseWorkout(form.get('routine'), form.get('rounds'));
 		const startAt = String(form.get('startAt') ?? '');
 		const at = String(form.get('at') ?? '');
-		if (!plan || !workout) return fail(400, { message: 'Missing routine or plan.' });
+		if (!plan || !posted) return fail(400, { message: 'Missing routine or plan.' });
 		if (Number.isNaN(Date.parse(startAt)) || Number.isNaN(Date.parse(at))) return fail(400, { message: 'When did it happen?' });
-		const discipline = stampDiscipline(plan, workout.routine);
+		const discipline = stampDiscipline(plan, posted.routine);
 		if (!discipline) return fail(400, { message: 'That routine is not on this plan.' });
+		const workout = stampRounds(plan, posted);
+		if (!workout) return fail(400, { message: 'That level is not on this routine.' });
 		let entries: AfterEntry[];
 		try {
 			const parsed = JSON.parse(String(form.get('entries') ?? '')) as unknown;

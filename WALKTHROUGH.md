@@ -183,8 +183,9 @@ yoga, the morning stretch, the run — each on or off, each at a cadence:
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week), `mob` "Stretch" (the morning stretch — 3) and `run` (the easy run
   — 3).
-- The **floor** (`FLOOR`) is the lift's fallback, not a practice: five
-  bodyweight routines in a cycle at target 0 with `standsInFor: 'lift'`. It
+- The **floor** (`FLOOR`) is the lift's fallback, not a practice: four
+  Darebee workouts and a band day in a cycle at target 0 with
+  `standsInFor: 'lift'`, and a class for any other Darebee card. It
   is never switched and never owed on its own — Today deals it last, one
   "Something else" away — and a floor session **counts as a lift**: the
   lift's "2 of 3 this week" includes it (`countedBy` folds a cycle's stand-ins
@@ -477,8 +478,17 @@ writes:
   ladder, reps back to the bottom. The rung is DERIVED from the stream like a
   rack walk: count the sessions that earned a promotion. With no weight to
   add, the variant *is* the progression
-- `none` — the dose is the dose (a stretch, a yoga hold, the run); the rule
-  returns early
+- `none` — the dose is the dose (a stretch, a yoga hold, the run, a
+  Darebee card's 20 squats); the rule returns early
+
+A **circuit** progresses one level up from its exercises: its *rounds*.
+`roundsFor(events, plan, routine)` in [week.ts](src/lib/domain/week.ts) reads
+the routine's last finished session: every exercise at its count in every
+round (`roundsDone`) → the next level's rounds (`nextRounds`), else the same
+again; never done → Level I. It is derived like the cycle's pointer, and the
+session *stamps* what it was dealt (`rounds` on `SessionStarted`), the way it
+stamps its discipline — so a session in progress keeps its rounds whatever
+happens meanwhile, and the Ledger can say "Invicta · Level II".
 
 The answer's *shape follows the progress* — a `Suggestion` is weights and
 reps per set, each with its `Reason` (`start` · `increase` · `hold` ·
@@ -521,8 +531,10 @@ and stretches. Steps are **derived from the plan, never stored**, and this file
 is the only one that knows what a session *is*: the floor renders steps, it
 never invents one. Which steps are done is read from the session's entries
 (`sessionProgress`, `positionLabel` "Set 4 of 20"). A **rest is not a
-step** — it is a clock that runs under the next set (`restUntil`: the
-previous set's timestamp plus the exercise's rest), never written, which is
+step** — it is a clock that runs under the next set, never written: each
+set step carries its `rest` (which entry it counts from, and for how long —
+the set before and the exercise's rest, or, before a new part, the last set
+of the part before and the routine's `rest`), and `restUntil` adds them up. That is
 why a reload lands back on the same countdown and why a set that hasn't
 reached the server yet still starts one. A warm-up line is a `prep` step
 you tick, or a `timed` one the floor counts down for you (a three-minute
@@ -581,7 +593,14 @@ progresses by size, a hold by time or not at all, reps by count, by variant
 or not at all, the run not at all), so every consumer switches and the
 compiler checks the switch. A stretch is `hold + none` with one length
 (`lo === hi`): nothing to dial — Start 45s, the bell, the other side. A yoga
-routine contains both kinds of hold, which is the honest granularity.
+routine contains both kinds of hold, which is the honest granularity. A
+card's "max body rows" is `reps + count` with `max: true` — `lo` 1, `hi` only
+the dial's ceiling (`MAX_REPS`) — so it reads *max* wherever a range would,
+and preloads last time's count. A routine can say it is a **circuit**
+(`levels`, the rounds at each level, rising) and how long to rest **between
+its parts** (`rest`: between rounds of a circuit, between exercises
+otherwise); a circuit refuses an exercise that can't go once a round (a run,
+a side-`sets` hold).
 Warm-ups and cooldowns are lists of `PrepItem`s — a string you tick, a timed
 item (`{ name, seconds, each? }`, `{ name, minutes }`) the floor counts down,
 or a counted one (`{ name, reps, each? }` — "Sun Salutation A × 3") you
@@ -625,7 +644,7 @@ per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/sn
 builds a full stream in every stored shape the upcaster reads, folds it through
 every rule at one fixed `now`, and compares the JSON to the committed
 `__snapshots__/` — the domain's contract for the v3 UI rebuild, written down as
-five rules in [src/lib/domain/README.md](src/lib/domain/README.md). The layers: `decider.test.ts` (the write-side rules — including that a
+six rules in [src/lib/domain/README.md](src/lib/domain/README.md). The layers: `decider.test.ts` (the write-side rules — including that a
 correction on anything but the latest session fails, that one changing a
 set's variant fails, that a removal on an older one does not, that a
 practice the week has not got is refused and a switch to where it already is
@@ -782,7 +801,7 @@ Things to notice:
 | `use:enhance` with a callback | the Ledger's editor: `use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') editingRow = null; }}` — the row stays open on a refusal, so the message is read where the numbers are |
 | `$effect` + `untrack` | `Slot.svelte` — the effect reads only `exercise` and tells the stage to walk there inside `untrack`, so the stage's own bookkeeping never re-runs it; the 12 fps loop lives in `onMount`, whose returned function cancels the frame and the reduced-motion listener. The floor's `$effect` that rings the bell is the other one worth reading |
 | a component that persists | the Slot's contract — `<Slot exercise size />` — says where the body is, never "animate": the Slot decides how to get there (walk the route, two reps at tempo, then breathe) and the screen only changes the name |
-| time as input | `restUntil(step, entries, plan)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest ring, the run clock and the bell are pure functions of the entries and the time |
+| time as input | `restUntil(step, entries)` and `runStart(...)` — the floor passes `now` from a 200 ms ticker that only runs while something is counting, so the rest ring, the run clock and the bell are pure functions of the entries and the time |
 | `$derived` over `$state` | the floor's `steps` are derived from the entries: a set logged outside the routine grows a section, and every row, label and estimate follows |
 | transitions | `Sheet` flies in with `transition:fly` and fades its scrim; both durations drop to 0 under `prefers-reduced-motion`, read once when the sheet opens |
 | `afterNavigate` | the tab layout resets its inner scroller on every navigation — the document never scrolls, so the browser can't do it for you |
@@ -838,7 +857,13 @@ the cue carry the instruction). It is framework-free, so the kit's `Slot` and
 the dev page `/figures` drive the same thing: the Slot paints its grid at 12
 frames a second ("on twos"), the floor only ever changes the name, and a tap
 on the figure replays it. A counted warm-up line (Sun Salutation A × 3) now
-carries its name on the step, so it gets its figure too.
+carries its name on the step, so it gets its figure too. The Darebee stations
+(2026-10-07) are thirteen more in a *Floor cards* group, and the rest of a
+card's names are aliases of figures that already did the movement (*Push-ups*
+is the push-up). They brought two pieces of furniture — `chairs`, a seat under
+each hand for the leg hold, and `door`, a door at the toes with the towel
+inked from the hands — and a twist that mirrors, so *Twists* and *Back
+Rotations* turn the other way on the other side.
 
 Three things keep it cheap on a phone (measured 2026-10-04 with the CPU
 throttled 4×: the floor went from 22 % of the main thread, all the time, to
@@ -1120,6 +1145,47 @@ shows (`firstSentence`) — is how to do it: the yoga notes opened with
 anatomy ("The front of the hip, shortened all day by a chair…"), a few
 opened with setup only ("Soft knees, set once."), two carried a starting
 load that stops being true the day it climbs ("35 is the whole load").
+
+### Darebee on the floor: circuits, levels and max (2026-10-07)
+
+The floor was five routines of variant ladders, written as a fallback for a
+missed gym day: no pull and no overhead press, and three-rung ladders a
+trained lifter tops in weeks. What it is for now is a day of something
+different, on and off, for as long as there is a gym the rest of the week, and
+sometimes with a band. So it became four **Darebee** workouts — Invicta,
+Back in Action, The Giant, Orc — and *Band & Hinge*, the floor's own: a band
+row and the gym's face pull (skipped on a day without the band), the
+single-leg hinge and bridge ladders, the hollow hold. A fifth entry,
+*Darebee workout*, is a class: any other card, logged by its length, counted
+as a lift. Darebee's material is CC BY-NC-ND, so the cards are written down as
+the cards have them — stations, counts, order, levels, rest, nothing
+"improved" — the cues are ours, and the Plan tab says whose they are. The
+retired ladder routines' sessions stay in the stream; their keys are gone
+from code, so the Ledger titles them by their discipline, the way Hold
+Steady's read as yoga.
+
+A Darebee card is a **circuit**: every station once, straight through, rest up
+to two minutes, again — three rounds at Level I, five at II, seven at III. Two
+things in the domain had to learn that.
+
+- **The order.** `sessionSteps` used to walk an exercise's sets, then the next
+  exercise's. A circuit walks the round: `Round 1` is a section, its steps the
+  stations, each keyed `item#round` — so an entry is exactly the entry
+  straight sets would have written for the same work (*Squats, set 2*), and
+  nothing in the stream knows the order changed. The rest moved onto the
+  step for the same reason: a circuit's rest is before a round, counted from
+  the last station of the round before, and a classic card like The Giant has
+  20 s between sets and two minutes between exercises — one rule for both is
+  "a step says what it waits on".
+- **The level.** Darebee lets you choose it. This app reads the ledger
+  instead, as it does for loads: finish every station of every round at the
+  card's count and the next session is dealt the next level (`roundsFor`);
+  fall short or skip and it is the same level again. So the card's numbers
+  never move — "unchanged" is the licence's condition and the card's design —
+  and what you earn is volume, the way Darebee's own programmes ramp, sets
+  first. A station's count is something you *say*, so the reps tiles now show
+  for any reps exercise, not only one the rule moves: 18 squats is a short
+  round, and a short round holds the level.
 
 ## 5. Exercises
 

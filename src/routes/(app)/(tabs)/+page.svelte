@@ -5,11 +5,11 @@
 	import { unsentFor } from '$lib/floor/entry-queue.svelte';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, loadShort, setsLine, weekLine } from '$lib/domain/labels';
+	import { clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, levelLine, loadShort, setsLine, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
-	import { classKeys, cycleDisciplines, disciplineOf, routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
+	import { classKeys, cycleDisciplines, disciplineOf, levelsOf, routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
-	import { queue, weekProgress, weekTally } from '$lib/domain/week';
+	import { queue, roundsFor, weekProgress, weekTally } from '$lib/domain/week';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps, stepName } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
@@ -103,8 +103,9 @@
 	let keys = $derived(routineKeys(plan));
 	let classes = $derived(classKeys(plan));
 	let routine = $derived(what ?? card?.workout.routine ?? keys[0]);
+	let afterRounds = $derived(roundsFor(data.events, plan, routine));
 	let afterTitle = $derived(routineTitle(plan, routine) ?? routine);
-	let afterEx = $derived(plan.routines[routine] ?? []);
+	let afterEx = $derived(routineExercises(plan, { routine, ...(afterRounds !== undefined ? { rounds: afterRounds } : {}) }));
 	let isClass = $derived(classes.includes(routine));
 	let isRun = $derived(afterEx.some((e) => e.kind === 'run'));
 	// a lift or the floor is sets you change; yoga and the stretch go in as the plan wrote them; a run and a class are their length
@@ -133,9 +134,11 @@
 	function choose(r: string) {
 		what = r;
 		openEx = null;
-		afterSets = Object.fromEntries((plan.routines[r] ?? []).map((ex) => [ex.name, { did: true, sets: planned(ex) }]));
+		const rounds = roundsFor(data.events, plan, r);
+		const w = { routine: r, ...(rounds !== undefined ? { rounds } : {}) };
+		afterSets = Object.fromEntries(routineExercises(plan, w).map((ex) => [ex.name, { did: true, sets: planned(ex) }]));
 		const run = (plan.routines[r] ?? []).find((e) => e.kind === 'run');
-		len = classes.includes(r) ? CLASS_MINUTES : run ? run.hi : Math.max(5, Math.round(estimateMinutes(sessionSteps(plan, { routine: r })) / 5) * 5);
+		len = classes.includes(r) ? CLASS_MINUTES : run ? run.hi : Math.max(5, Math.round(estimateMinutes(sessionSteps(plan, w)) / 5) * 5);
 		// until you set it, it began about its length ago, on the quarter hour
 		if (!startSet) {
 			const n = new Date();
@@ -182,7 +185,8 @@
 	// a class counts toward the cycle of its discipline — Yoga, whichever of its routines it isn't
 	let countsToward = $derived.by(() => {
 		const d = disciplineOf(plan, routine);
-		const c = plan.cycles.find((x) => !x.standsInFor && !!d && cycleDisciplines(plan, x).includes(d));
+		const own = plan.cycles.find((x) => !!d && cycleDisciplines(plan, x).includes(d));
+		const c = own?.standsInFor ? plan.cycles.find((x) => x.id === own.standsInFor) : own;
 		return c ? ` Counts toward ${c.title} · ${weekLine(progressOf(c.id).done, progressOf(c.id).target)}.` : '';
 	});
 	let afterSummary = $derived.by(() => {
@@ -231,6 +235,7 @@
 			</div>
 			<form method="POST" action="?/start" use:enhance>
 				<input type="hidden" name="routine" value={card.workout.routine} />
+				{#if card.workout.rounds !== undefined}<input type="hidden" name="rounds" value={card.workout.rounds} />{/if}
 				<input type="hidden" name="plan" value={plan.id} />
 				<Primary type="submit">Start <small>~{card.minutes} min</small></Primary>
 			</form>
@@ -266,7 +271,7 @@
 			<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)}</button>
 		{/each}
 		{#each classes as k (k)}
-			<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)} · studio</button>
+			<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)}</button>
 		{/each}
 	</div>
 	<Caption>When</Caption>
@@ -285,9 +290,9 @@
 	</div>
 
 	{#if isClass}
-		<div class="say"><Note tone="ink">{plan.routineInfo[routine]?.desc ?? afterTitle}.{countsToward} No poses to tick.</Note></div>
+		<div class="say"><Note tone="ink">{plan.routineInfo[routine]?.desc ?? afterTitle}.{countsToward} No {disciplineOf(plan, routine) === 'yoga' ? 'poses' : 'sets'} to tick.</Note></div>
 	{:else if editable}
-		<div class="setshead"><Caption>Sets · from the plan, change any</Caption><span class="count">{didCount} of {afterEx.length} done</span></div>
+		<div class="setshead"><Caption>{afterRounds !== undefined ? `${levelLine(levelsOf(plan, routine) ?? [], afterRounds)} · change any` : 'Sets · from the plan, change any'}</Caption><span class="count">{didCount} of {afterEx.length} done</span></div>
 		<div class="exs">
 			{#each afterEx as ex (ex.name)}
 				{@const a = afterSets[ex.name]}
@@ -330,6 +335,7 @@
 		<form method="POST" action="?/logAfter" use:enhance={() => async ({ result, update }) => { afterError = result.type === 'failure' ? String(result.data?.message ?? 'That didn’t save.') : ''; await update(); }}>
 			<input type="hidden" name="plan" value={plan.id} />
 			<input type="hidden" name="routine" value={routine} />
+			{#if afterRounds !== undefined}<input type="hidden" name="rounds" value={afterRounds} />{/if}
 			<input type="hidden" name="startAt" value={startAt.toISOString()} />
 			<input type="hidden" name="at" value={endAt.toISOString()} />
 			<input type="hidden" name="entries" value={JSON.stringify(entries)} />

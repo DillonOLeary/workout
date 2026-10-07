@@ -149,7 +149,7 @@ function lerpBody(A: Angles, B: Angles, t: number): Angles {
 	return o;
 }
 function mirrorBody(b: Angles): Angles {
-	return Object.assign({}, b, { hip: [b.hip[1], b.hip[0]], knee: [b.knee[1], b.knee[0]], foot: [b.foot[1], b.foot[0]] });
+	return Object.assign({}, b, { twist: -(b.twist || 0), hip: [b.hip[1], b.hip[0]], knee: [b.knee[1], b.knee[0]], foot: [b.foot[1], b.foot[0]] });
 }
 const mirrorHand = (h: Hand): Hand => (h.s === 'world' ? Object.assign({}, h, { p: [h.p[0], h.p[1], -h.p[2]], pole: h.pole && [h.pole[0], h.pole[1], -h.pole[2]] }) : h);
 const MIRROR_ANCHOR: Partial<Record<Anchor, Anchor>> = { footR: 'footL', footL: 'footR', kneeR: 'kneeL', kneeL: 'kneeR' };
@@ -332,6 +332,8 @@ export function solve(body: Angles, hA: Hand[], hB: Hand[], t: number, cA: Ctx, 
 	if (P.includes('bar')) { const u = nrm(sub(W1, W0)); cap(add(W0, scl(u, -0.25)), add(W1, scl(u, 0.25)), 0.015); }
 	if (P.includes('cableF')) cap(mid, add(mid, [0.95, 0.04, 0]), 0.007);
 	if (P.includes('cableUp')) cap(mid, [mid[0] + 0.04, 2.3, mid[2]], 0.007);
+	if (P.includes('chairs')) for (const a of J.arms) { const top = a.W[1] - 0.04, zs = Math.sign(a.W[2]) || 1; if (top > 0.05) box([a.W[0], top / 2, a.W[2] + zs * 0.16], [0.18, top / 2, 0.18]); }
+	if (P.includes('door')) { const x = Math.max(J.legs[0].toe[0], J.legs[1].toe[0]) + 0.05; box([x + 0.025, 1, 0], [0.025, 1, 0.45]); cap(mid, [x, 0.95, 0], 0.02); }
 	if (P.includes('wall')) box([Math.max(W0[0], W1[0]) + 0.07, 1.05, 0], [0.035, 1.05, 0.55]);
 	if (P.includes('postL')) cap([W0[0] + 0.03, 0, W0[2]], [W0[0] + 0.03, 1.9, W0[2]], 0.025);
 	if (P.includes('frame')) cap([W1[0] + 0.03, 0, W1[2]], [W1[0] + 0.03, 2.1, W1[2]], 0.03);
@@ -528,10 +530,11 @@ const FOURS: KeyIn = { pelvis: 80, head: 8, hip: two(Lg(80)), knee: [90, 90], fo
 const RUNARMS: Hand[] = [C(-0.12, -0.12, 0.2, [-1, 0, 0.3]), C(0.18, -0.04, 0.18, [-1, 0, 0.3])];
 const TARM = C(0, 0.2, 0.74, [0, 1, 0]);
 const X = (o: KeyIn, p: KeyIn): KeyIn => Object.assign({}, o, p);
+const HIPS: Hand = { s: 'pelvis', p: [0, 0.05, 0.19], pole: [-0.3, 0, 1], hd: [0.6, -0.5, 0] };
 
 const LIB: [string, FigureDef[]][] = [
 	['Lifts', [
-		{ id: 'goblet', name: 'Goblet Squat', aliases: ['Bodyweight Squat', 'Bodyweight squats'], kind: 'rep', tempo: [3, 1, 1, 0], labels: ['Lower', 'Pause', 'Drive', 'Top'], ecc: true, props: ['kb'],
+		{ id: 'goblet', name: 'Goblet Squat', kind: 'rep', tempo: [3, 1, 1, 0], labels: ['Lower', 'Pause', 'Drive', 'Top'], ecc: true, props: ['kb'],
 			cue: 'hips drop between the heels, knees forward, torso tips just enough to keep the bell over mid-foot',
 			k0: { neck: -2, hip: two(Lg(4, 12, 18)), knee: [4, 4], hand: two(GOB) },
 			k1: { pelvis: 40, spine: -8, chest: -6, neck: -14, head: -4, hip: two(Lg(114, 20, 20)), knee: [115, 115], hand: two(GOB) } },
@@ -546,11 +549,11 @@ const LIB: [string, FigureDef[]][] = [
 		{ id: 'ohp', name: 'Shoulder Press', base: 'bench', kind: 'rep', tempo: [1, 0, 2, 1], labels: ['Press', 'Lockout', 'Lower', 'Reset'], ecc: false, props: ['bench', 'bar'], yaw: 72,
 			cue: 'seated, front view: bar from the collarbones to lockout overhead, elbows travel under the bar',
 			k0: X(SEAT, { hand: two(C(0.08, 0.17, 0.24, [-0.1, -0.4, 1])) }), k1: X(SEAT, { hand: two(C(0.03, 0.66, 0.15, [-0.1, -0.2, 1])) }) },
-		{ id: 'row', name: 'Seated Row', base: 'bench', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Pull', 'Squeeze', 'Return', 'Reach'], ecc: false, props: ['bench', 'cableF'],
+		{ id: 'row', name: 'Seated Row', aliases: ['Band Row'], base: 'bench', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Pull', 'Squeeze', 'Return', 'Reach'], ecc: false, props: ['bench', 'cableF'],
 			cue: 'seated, feet braced, torso still; the handle comes to the ribs and the elbow passes behind',
 			k0: { pelvis: 10, spine: 4, hip: two(Lg(80, 8, 4)), knee: [70, 70], hand: two(C(0.52, 0.05, 0.12, [-1, -0.3, 0.4])), anchor: 'pelvis' },
 			k1: { pelvis: -6, spine: -4, chest: -4, hip: two(Lg(80, 8, 4)), knee: [70, 70], hand: two(C(0.12, -0.02, 0.17, [-1, -0.2, 0.5])), anchor: 'pelvis' } },
-		{ id: 'plank', name: 'Long-Lever Plank', aliases: ['Plank', 'Forearm Plank'], base: 'floor', kind: 'hold', hold: 45, breath: [2, 3], plantRef: 1,
+		{ id: 'plank', name: 'Long-Lever Plank', aliases: ['Plank', 'Forearm Plank', 'Elbow Plank'], base: 'floor', kind: 'hold', hold: 45, breath: [2, 3], plantRef: 1,
 			cue: 'a hold: elbows well ahead of the shoulders, one straight line from ear to heel. No pulse — just a breath',
 			k0: { pelvis: 79, head: 6, hip: two(Lg(2, 3)), knee: [2, 2], foot: [-78, -78], hand: two(PL(0.36, 0.03, -0.075, [-0.3, -1, 0.2])), anchor: 'toes' },
 			k1: { pelvis: 84, head: 6, hip: two(Lg(0, 3)), knee: [0, 0], foot: [-78, -78], hand: two(PL(0.36, 0.03, -0.075, [-0.3, -1, 0.2])), anchor: 'toes' } },
@@ -566,7 +569,7 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'seated under the cable; the bar is pulled from full stretch to the collarbones, chest up',
 			k0: X(SEAT, { pelvis: -4, hand: two(C(0.12, 0.8, 0.3, [-0.2, -0.3, 1])) }),
 			k1: X(SEAT, { pelvis: -10, spine: -4, chest: -6, hand: two(C(0.16, 0.24, 0.3, [-0.3, -1, 0.8])) }) },
-		{ id: 'bridge', name: 'DB Glute Bridge', base: 'back', lock: [true, true], kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Drive', 'Squeeze', 'Lower', 'Floor'], ecc: false, pitch: 16,
+		{ id: 'bridge', name: 'DB Glute Bridge', aliases: ['Bridges'], base: 'back', lock: [true, true], kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Drive', 'Squeeze', 'Lower', 'Floor'], ecc: false, pitch: 16,
 			cue: 'shoulders on the floor, feet flat and close; the hips drive up until hip and knee are in line',
 			k0: X(BACK, { anchor: 'shoulders', ground: 'torso' }), k1: X(BACK, { pelvis: -115, hip: two(Lg(0, 6)), knee: [118, 118], anchor: 'shoulders', ground: 'torso' }) },
 		{ id: 'calf', name: 'Standing Calf Raise', aliases: ['Single-leg Calf Raise'], kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Rise', 'Squeeze', 'Lower', 'Floor'], ecc: false,
@@ -662,7 +665,7 @@ const LIB: [string, FigureDef[]][] = [
 		{ id: 'askip', loco: { speed: 1.2, period: 0.8, duty: 0.45, lift: 0.48, kneeFwd: 0.2, bob: 0.06, run: true, toes: true, lean: 4, arm: 'run', armAmp: 0.18, width: 0.11, cycles: 5, hipH: 0.97 }, name: 'A-skips', kind: 'rep', tempo: [0.32, 0, 0.32, 0], labels: ['Skip', '—', 'Land', '—'], ecc: false, alt: true,
 			cue: 'a skip with a knee drive: the whole body hops off the toes as the knee comes up',
 			k0: { chest: 2, hand: RUNARMS } },
-		{ id: 'walklunge', name: 'Walking lunges', kind: 'rep', tempo: [1, 0, 1, 0], labels: ['Lunge', 'Bottom', 'Rise', 'Top'], ecc: true, alt: true, yaw: 25, swing: { leg: 0, knee: 40, hip: 18 },
+		{ id: 'walklunge', name: 'Walking lunges', aliases: ['Lunges'], kind: 'rep', tempo: [1, 0, 1, 0], labels: ['Lunge', 'Bottom', 'Rise', 'Top'], ecc: true, alt: true, yaw: 25, swing: { leg: 0, knee: 40, hip: 18 },
 			cue: 'a long stride; the rear knee drops toward the floor under the hip, front shin vertical',
 			k0: { chest: 2, hip: two(Lg(0, 4, 4)), knee: [3, 3], anchor: 'footR' },
 			k1: { pelvis: 4, neck: -4, hip: [Lg(-6), Lg(84)], knee: [100, 90], foot: [-55, 0], hand: two(H(0.08, -0.48, 0.06)), anchor: 'footR' } }
@@ -729,11 +732,11 @@ const LIB: [string, FigureDef[]][] = [
 			k1: { pelvis: -90, hip: two(Lg(0, 6, 6)), knee: [0, 0], foot: [90, 90], hand: two(PL(0.35, 0.035, 0.12, [0, -1, 0.3])), anchor: 'pelvis' } }
 	]],
 	['Bodyweight', [
-		{ id: 'pushup', name: 'Push-up', base: 'floor', kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Press', 'Top'], ecc: true, plantRef: 0,
+		{ id: 'pushup', name: 'Push-up', aliases: ['Push-ups', 'Wide Grip Push-ups', 'Close Grip Push-ups', 'Push-ups to Failure'], base: 'floor', kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Press', 'Top'], ecc: true, plantRef: 0,
 			cue: 'hands under the shoulders, one line from ear to heel; the chest drops to a fist off the floor and presses back',
 			k0: { pelvis: 73, chest: -2, neck: -4, head: 4, hip: two(Lg(0, 3)), knee: [0, 0], foot: [-75, -75], hand: two(PL(0.03, 0.035, 0.025, [-0.7, 0, 0.7])), anchor: 'toes' },
 			k1: { pelvis: 85, chest: -2, neck: -4, head: 4, hip: two(Lg(0, 3)), knee: [0, 0], foot: [-75, -75], hand: two(PL(0.03, 0.035, 0.025, [-0.7, 0, 0.7])), anchor: 'toes' } },
-		{ id: 'splitsquat', name: 'Split Squat', kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Drive', 'Top'], ecc: true, yaw: 25,
+		{ id: 'splitsquat', name: 'Split Squat', aliases: ['Split Squats'], kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Drive', 'Top'], ecc: true, yaw: 25,
 			cue: 'a long stance, the rear heel up; the hips drop straight down until the rear knee is a fist off the floor',
 			k0: { pelvis: 4, hip: [Lg(-18), Lg(22)], knee: [15, 10], foot: [-50, 0], hand: two(HANG), anchor: 'footR' },
 			k1: { pelvis: 4, hip: [Lg(-8), Lg(85)], knee: [100, 95], foot: [-50, 0], hand: two(H(0.08, -0.5, 0.06)), anchor: 'footR' } },
@@ -753,7 +756,7 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'hands under the shoulders, knees an inch off the floor; opposite hand and foot step together',
 			k0: { pelvis: 88, head: 8, hip: two(Lg(88, 6)), knee: [85, 85], foot: [-75, -75], hand: two(PLANT0), anchor: 'toes' },
 			k1: { pelvis: 88, head: 8, hip: [Lg(88, 6), Lg(108, 6)], knee: [85, 105], foot: [-75, -75], hand: [PL(0.15, 0.035, -0.015, [-1, 0, 0.3]), PLANT0], anchor: 'toes' } },
-		{ id: 'supermanhold', name: 'Superman Hold', base: 'prone', kind: 'hold', hold: 30, breath: [2, 3], pitch: 14,
+		{ id: 'supermanhold', name: 'Superman Hold', aliases: ['Superman'], base: 'prone', kind: 'hold', hold: 30, breath: [2, 3], pitch: 14,
 			cue: 'prone: arms and legs lifted off the floor, chin down',
 			k0: { pelvis: 86, hip: two(Lg(-8)), knee: [0, 0], foot: [180, 180], hand: two(C(-0.06, 0.72, 0.12, [0, 0, 1])), anchor: 'pelvis' },
 			k1: { pelvis: 80, chest: -4, hip: two(Lg(-16)), knee: [0, 0], foot: [180, 180], hand: two(C(-0.1, 0.72, 0.12, [0, 0, 1])), anchor: 'pelvis' } },
@@ -765,6 +768,60 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'on the back, knees at ninety; the hips curl up off the floor and lower slowly, the low back kept down',
 			k0: { pelvis: -90, hip: two(Lg(90, 6)), knee: [90, 90], hand: two(ARMS_SIDE), anchor: 'pelvis' },
 			k1: { pelvis: -118, spine: 28, hip: two(Lg(84, 6)), knee: [95, 95], hand: two(ARMS_SIDE), anchor: 'pelvis' } }
+	]],
+	['Floor cards', [
+		{ id: 'squat', name: 'Squats', aliases: ['Bodyweight Squat', 'Bodyweight squats'], kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Stand', 'Top'], ecc: true,
+			cue: 'feet flat; the hips sit back and down past the knees while both arms reach straight forward',
+			k0: { neck: -2, hip: two(Lg(4, 12, 18)), knee: [4, 4], hand: two(HANG) },
+			k1: { pelvis: 40, spine: -8, chest: -6, neck: -14, head: -4, hip: two(Lg(114, 20, 20)), knee: [115, 115], hand: two(H(0.6, 0, -0.02, [0, -1, 0.2])) } },
+		{ id: 'pikepush', name: 'Pike Push-ups', base: 'floor', kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Press', 'Top'], ecc: true,
+			cue: 'hips high in an upside-down V; the elbows bend and the top of the head lowers toward the floor just ahead of the hands',
+			k0: { pelvis: 135, neck: 4, hip: two(Lg(100)), knee: [0, 0], foot: [-30, -30], hand: two(PL(0.12, 0.035, -0.01, [-0.7, 0.3, 0.6])), anchor: 'toes' },
+			k1: { pelvis: 155, neck: 10, hip: two(Lg(115)), knee: [0, 0], foot: [-30, -30], hand: two(PL(0.12, 0.035, -0.01, [-0.7, 0.3, 0.6])), anchor: 'toes' } },
+		{ id: 'pikepress', name: 'Pike Shoulder Presses', aliases: ['Shoulder Presses'], base: 'floor', kind: 'rep', tempo: [2, 0, 1, 0], labels: ['Lower', 'Bottom', 'Press', 'Top'], ecc: true, props: ['step'],
+			cue: 'feet up on a chair, hips high over the shoulders; the elbows bend and the head lowers toward the floor, then presses back up',
+			k0: { pelvis: 160, lift: 0.27, hip: two(Lg(105)), knee: [0, 0], foot: [-20, -20], hand: two(PL(0, 0.035, -0.01, [-0.7, 0.3, 0.6])), anchor: 'toes' },
+			k1: { pelvis: 178, lift: 0.03, hip: two(Lg(109)), knee: [0, 0], foot: [-20, -20], hand: two(PL(0, 0.035, -0.01, [-0.7, 0.3, 0.6])), anchor: 'toes' } },
+		{ id: 'vhold', name: 'V Hold', base: 'sit', kind: 'hold', hold: 20, breath: [2, 3], yaw: 35, pitch: 14,
+			cue: 'balanced on the tailbone, legs straight and raised, torso leaning back to meet them, arms out to the sides. A breath, no pulse',
+			k0: { pelvis: -40, hip: two(Lg(80, 4)), knee: [0, 0], foot: [40, 40], hand: two(C(-0.05, 0.2, 0.72, [0, 1, 0])), anchor: 'pelvis' },
+			k1: { pelvis: -44, hip: two(Lg(84, 4)), knee: [0, 0], foot: [40, 40], hand: two(C(-0.08, 0.2, 0.72, [0, 1, 0])), anchor: 'pelvis' } },
+		{ id: 'legraise', name: 'Leg Raises', base: 'back', kind: 'rep', tempo: [1, 0, 2, 0], labels: ['Raise', 'Top', 'Lower', 'Floor'], ecc: false, pitch: 16,
+			cue: 'on the back, the low back pressed down; the straight legs rise together to vertical and lower slowly to just off the floor',
+			k0: { pelvis: -90, hip: two(Lg(6, 4)), knee: [0, 0], foot: [60, 60], hand: two(ARMS_SIDE), anchor: 'pelvis' },
+			k1: { pelvis: -90, hip: two(Lg(90, 4)), knee: [0, 0], foot: [0, 0], hand: two(ARMS_SIDE), anchor: 'pelvis' } },
+		{ id: 'revangel', name: 'Reverse Angels', base: 'prone', kind: 'rep', tempo: [2, 1, 2, 0], labels: ['Sweep', 'Squeeze', 'Return', 'Reach'], ecc: false, pitch: 28,
+			cue: 'face down, chest and straight arms just off the floor; the arms sweep wide from overhead down to the hips and back',
+			k0: { pelvis: 80, chest: -4, hip: two(Lg(-6)), knee: [0, 0], foot: [180, 180], hand: two(C(-0.08, 0.72, 0.14, [0, 0, 1])), anchor: 'pelvis' },
+			k1: { pelvis: 80, chest: -4, hip: two(Lg(-6)), knee: [0, 0], foot: [180, 180], hand: two(C(-0.12, -0.3, 0.3, [0, 0, 1], null, 'side')), anchor: 'pelvis' } },
+		{ id: 'leghold', name: 'Leg Hold', base: 'sit', kind: 'hold', hold: 20, breath: [2, 3], props: ['chairs'], yaw: 55, pitch: 16,
+			cue: 'hands on two chair seats beside the hips, arms locked, shoulders down; the knees pull up and the feet stay off the floor. A breath, no pulse',
+			k0: { pelvis: -4, lift: 0.15, hip: two(Lg(115, 8)), knee: [105, 105], foot: [-20, -20], hand: two(H(0, -0.55, 0.08, [-1, 0, 0], [1, -0.2, 0])), anchor: 'pelvis' },
+			k1: { pelvis: -6, lift: 0.17, hip: two(Lg(120, 8)), knee: [105, 105], foot: [-20, -20], hand: two(H(0, -0.55, 0.08, [-1, 0, 0], [1, -0.2, 0])), anchor: 'pelvis' } },
+		{ id: 'towelcurl', name: 'Towel Bicep Curls', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Curl', 'Hold', 'Lower', 'Reach'], ecc: false, props: ['door'],
+			cue: 'sitting low, feet against the door, leaning back on straight arms; the elbows bend and curl the body up toward the handle',
+			k0: { pelvis: -40, hip: two(Lg(85, 10)), knee: [110, 110], foot: [0, 0], hand: two(PL(0.44, 0.85, -0.08, [0, -1, 0.3])), anchor: 'toes' },
+			k1: { pelvis: -15, hip: two(Lg(120, 10)), knee: [135, 135], foot: [0, 0], hand: two(PL(0.44, 0.85, -0.08, [0, -1, 0.3])), anchor: 'toes' } },
+		{ id: 'bodyrow', name: 'Body Rows', base: 'back', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Pull', 'Squeeze', 'Lower', 'Hang'], ecc: false, props: ['bar'], yaw: 35, pitch: 16,
+			cue: 'under a pole across two chairs, heels down, body straight; the chest pulls up to the pole and lowers to straight arms',
+			k0: { pelvis: -73, hip: two(Lg(0, 4)), knee: [0, 0], foot: [80, 80], hand: two(PL(0.36, 0.85, 0.05, [-0.3, -1, 0.6])), anchor: 'feet' },
+			k1: { pelvis: -55, hip: two(Lg(0, 4)), knee: [0, 0], foot: [80, 80], hand: two(PL(0.36, 0.85, 0.05, [-0.3, -1, 0.6])), anchor: 'feet' } },
+		{ id: 'twist', name: 'Twists', kind: 'rep', tempo: [1, 0, 1, 0], labels: ['Turn', '—', 'Return', '—'], ecc: false, alt: true, yaw: 55, pitch: 22,
+			cue: 'hands on the hips, hips square; the upper body turns to one side and back, then to the other',
+			k0: { chest: 2, neck: -2, hip: two(Lg(0, 8)), hand: two(HIPS) },
+			k1: { chest: 2, neck: -2, twist: 60, hip: two(Lg(0, 8)), hand: two(HIPS) } },
+		{ id: 'chestexp', name: 'Chest Expansions', kind: 'rep', tempo: [1, 1, 1, 0], labels: ['Open', 'Squeeze', 'Cross', '—'], ecc: false, yaw: 78,
+			cue: 'front view: the arms open from crossed in front of the chest to a wide T, the chest lifting, then cross again',
+			k0: { hip: two(Lg(0, 8)), hand: [C(0.34, 0.2, -0.1, [0, 0, 1]), C(0.38, 0.12, -0.1, [0, 0, 1])] },
+			k1: { chest: -4, hip: two(Lg(0, 8)), hand: two(TARM) } },
+		{ id: 'shoulderstretch', name: 'Shoulder Stretch', kind: 'rep', tempo: [1, 2, 1, 0], labels: ['Reach', 'Hold', 'Lower', '—'], ecc: false, yaw: 78,
+			cue: 'front view: hands on the hips, then both arms reach straight overhead, fingers laced and palms pushed to the ceiling',
+			k0: { hip: two(Lg(0, 8)), hand: two(HIPS) },
+			k1: { chest: -2, hip: two(Lg(0, 8)), hand: [C(0.02, 0.76, 0.05, [0, 0, 1], [0, 0.4, 1]), C(0.02, 0.76, 0.05, [0, 0, 1], [0, 0.4, -1])] } },
+		{ id: 'backrot', name: 'Back Rotations', base: 'floor', kind: 'rep', tempo: [1, 1, 1, 0], labels: ['Open', 'Hold', 'Close', 'Under'], ecc: false, alt: true, yaw: 35, pitch: 20,
+			cue: 'on all fours, one hand behind the head; the elbow turns down under the chest, then up to the ceiling as the chest opens',
+			k0: X(FOURS, { pelvis: 92, twist: 30, hip: two(Lg(92)), hand: [PLANT0, C(-0.08, 0.4, 0.1, [1, 0, -0.3])] }),
+			k1: X(FOURS, { pelvis: 72, twist: -50, hip: two(Lg(72)), hand: [PLANT0, C(-0.08, 0.4, 0.1, [0, 0.2, 1])] }) }
 	]],
 	['Rest', [
 		{ id: 'stand', name: 'Stand', aliases: ['Rest'], kind: 'idle', cue: 'standing by, breathing', k0: { chest: 2, neck: -2 } }

@@ -29,6 +29,8 @@ type ExerciseBase = {
 	why?: string;
 	/** seconds between this exercise's sets; absent = the plan's `rest` */
 	rest?: number;
+	/** as many as you can: `lo` is the least that counts, `hi` only the dial's ceiling — reps that progress by count */
+	max?: boolean;
 };
 
 /** The legal kind/progress pairings, and only these — anything else fails parsePlan. */
@@ -63,6 +65,10 @@ export type Routine = {
 	cooldown?: PrepItem[];
 	/** one line shown under every prep step (the breathing cue, say) */
 	cue?: string;
+	/** a circuit: every exercise once a round, this many rounds at each level, Level I first — the level is earned (`roundsFor`) */
+	levels?: number[];
+	/** seconds between parts — the rounds of a circuit, the exercises otherwise; absent = no clock between them */
+	rest?: number;
 };
 
 /** Routines you work through, in order, at a cadence; position is never stored — it is the routine after the last one of this cycle you finished. */
@@ -108,6 +114,12 @@ export const cooldownFor = (plan: Plan | undefined, routine: string): PrepItem[]
 export const cueFor = (plan: Plan | undefined, routine: string): string | undefined =>
 	plan?.routineInfo[routine]?.cue ?? plan?.cue;
 export const restFor = (plan: Plan | undefined, ex: Exercise): number => ex.rest ?? plan?.rest ?? DEFAULT_REST;
+/** A circuit's rounds at each level, Level I first — undefined for straight sets. */
+export const levelsOf = (plan: Plan | undefined, routine: string): number[] | undefined => plan?.routineInfo[routine]?.levels;
+/** Seconds between a routine's parts — undefined when nothing times them. */
+export const partRestFor = (plan: Plan | undefined, routine: string): number | undefined => plan?.routineInfo[routine]?.rest;
+/** Sets for a reps count of "max" are as many as you can: the bumps stop here. */
+export const MAX_REPS = 100;
 /** Display title for a routine — undefined for a key the plan doesn't have. */
 export const routineTitle = (plan: Plan | undefined, routine: string): string | undefined =>
 	plan?.routineInfo[routine]?.title;
@@ -300,6 +312,7 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 	if (e.note !== undefined && typeof e.note !== 'string') throw new Error(`"${name}" note must be a string`);
 	if (e.why !== undefined && typeof e.why !== 'string') throw new Error(`"${name}" why must be a string`);
 	if (e.rest !== undefined && !positive(e.rest)) throw new Error(`"${name}" rest must be a positive number of seconds`);
+	if (e.max !== undefined && e.max !== true) throw new Error(`"${name}" max is true or absent`);
 	const base: ExerciseBase = {
 		name,
 		equip: typeof e.equip === 'string' ? e.equip : '',
@@ -310,12 +323,15 @@ function parseExercise(raw: unknown, routine: string): Exercise {
 		...(e.side !== undefined ? { side: e.side as 'reps' | 'sets' } : {}),
 		...(e.note !== undefined ? { note: e.note as string } : {}),
 		...(e.why !== undefined ? { why: e.why as string } : {}),
-		...(e.rest !== undefined ? { rest: e.rest as number } : {})
+		...(e.rest !== undefined ? { rest: e.rest as number } : {}),
+		...(e.max ? { max: true } : {})
 	};
 	if (base.lo > base.hi) throw new Error(`"${name}" lo must not exceed hi`);
 	if (base.side === 'sets' && base.sets % 2 !== 0)
 		throw new Error(`"${name}" side "sets" needs an even number of sets — one per side`);
 	const progress = parseProgress(e, name);
+	if (base.max && (e.kind !== 'reps' || progress.of !== 'count'))
+		throw new Error(`"${name}" is max: as many reps as you can, so it is reps that progress by count`);
 	const pairing = `${String(e.kind)} + ${progress.of}`;
 	switch (e.kind) {
 		case 'load':
@@ -353,6 +369,13 @@ function parseRoutineInfo(v: unknown, keys: string[]): Record<string, Routine> {
 			throw new Error(`routineInfo "${r}" needs a discipline: ${DISCIPLINES.join(', ')}`);
 		if (info.desc !== undefined && typeof info.desc !== 'string') throw new Error(`routineInfo "${r}" desc must be a string`);
 		if (info.cue !== undefined && typeof info.cue !== 'string') throw new Error(`routineInfo "${r}" cue must be a string`);
+		if (info.rest !== undefined && !positive(info.rest)) throw new Error(`routineInfo "${r}" rest must be a positive number of seconds`);
+		const levels = info.levels;
+		if (
+			levels !== undefined &&
+			(!Array.isArray(levels) || !levels.length || !levels.every((n, i) => Number.isInteger(n) && n > 0 && (i === 0 || n > (levels[i - 1] as number))))
+		)
+			throw new Error(`routineInfo "${r}" levels must be rounds a level, rising: [3, 5, 7]`);
 		const warmup = stepList(info.warmup, `routineInfo "${r}" warmup`);
 		const cooldown = stepList(info.cooldown, `routineInfo "${r}" cooldown`);
 		out[r] = {
@@ -361,7 +384,9 @@ function parseRoutineInfo(v: unknown, keys: string[]): Record<string, Routine> {
 			...(info.desc !== undefined ? { desc: info.desc as string } : {}),
 			...(warmup ? { warmup } : {}),
 			...(cooldown ? { cooldown } : {}),
-			...(info.cue !== undefined ? { cue: info.cue as string } : {})
+			...(info.cue !== undefined ? { cue: info.cue as string } : {}),
+			...(levels !== undefined ? { levels: [...(levels as number[])] } : {}),
+			...(info.rest !== undefined ? { rest: info.rest as number } : {})
 		};
 	}
 	return out;
@@ -419,6 +444,8 @@ export function parsePlan(raw: unknown): Plan {
 		const runs = routines[r].filter((ex) => ex.kind === 'run').length;
 		if (discipline === 'run' && runs !== 1) throw new Error(`routine "${r}" is a run: it needs exactly one run exercise`);
 		if (discipline !== 'run' && runs) throw new Error(`routine "${r}" has a run in it but is not a run`);
+		if (routineInfo[r].levels && routines[r].some((ex) => ex.kind === 'run' || ex.side === 'sets'))
+			throw new Error(`routine "${r}" is a circuit: each exercise goes once a round, so no run and no side "sets"`);
 	}
 	return {
 		id: p.id,

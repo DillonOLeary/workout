@@ -9,7 +9,10 @@ import {
 	bumpCount,
 	bumpLoad,
 	daysUntilReentry,
+	levelIndex,
+	nextRounds,
 	nextSet,
+	roundsDone,
 	suggest,
 	type History
 } from './progression';
@@ -292,5 +295,35 @@ describe('nextSet — what the tiles show inside a session', () => {
 	it('carries a count from the set before', () => {
 		const c = suggest(one(2, reps(8), reps(8)), copenhagen, NOW);
 		expect(nextSet(c, copenhagen, [{ index: 1, measure: reps(11) }], 1)).toEqual({ weight: 0, count: 11 });
+	});
+});
+
+describe('a circuit’s level — earned by every round in full', () => {
+	const squats: Exercise = { name: 'Squats', equip: '', tag: '', kind: 'reps', sets: 3, lo: 20, hi: 20, progress: { of: 'none' } };
+	const vhold: Exercise = { name: 'V Hold', equip: '', tag: '', kind: 'hold', sets: 3, lo: 20, hi: 20, progress: { of: 'none' } };
+	const rows: Exercise = { name: 'Body Rows', equip: '', tag: '', kind: 'reps', sets: 3, lo: 1, hi: 100, max: true, progress: { of: 'count' } };
+	const at = (item: string, index: number, measure: Measure) => ({ item, index, measure });
+	const full = (rounds: number) =>
+		Array.from({ length: rounds }, (_, k) => [at('Squats', k + 1, reps(20)), at('V Hold', k + 1, hold(20, 20)), at('Body Rows', k + 1, reps(4))]).flat();
+
+	it('is done when every exercise reached its count in every round', () => {
+		expect(roundsDone([squats, vhold, rows], 3, full(3))).toBe(true);
+		expect(roundsDone([squats, vhold, rows], 5, full(3))).toBe(false);
+		expect(roundsDone([squats, vhold], 3, full(3).map((e) => (e.item === 'Squats' && e.index === 2 ? { ...e, measure: reps(18) } : e)))).toBe(false);
+		expect(roundsDone([squats, vhold], 3, full(3).map((e) => (e.item === 'V Hold' && e.index === 3 ? { ...e, measure: hold(14, 20) } : e)))).toBe(false);
+		expect(roundsDone([squats, vhold], 3, full(3).filter((e) => !(e.item === 'V Hold' && e.index === 3)))).toBe(false);
+	});
+	it('counts any rep as a max station’s', () => {
+		expect(roundsDone([rows], 3, full(3).map((e) => (e.item === 'Body Rows' ? { ...e, measure: reps(1) } : e)))).toBe(true);
+	});
+	it('climbs one level when done in full, stays when not, and stops at the top', () => {
+		const levels = [3, 5, 7];
+		expect(nextRounds(levels, 3, true)).toBe(5);
+		expect(nextRounds(levels, 3, false)).toBe(3);
+		expect(nextRounds(levels, 5, true)).toBe(7);
+		expect(nextRounds(levels, 7, true)).toBe(7);
+		expect(nextRounds(levels, 4, true)).toBe(5);
+		expect(levelIndex(levels, 2)).toBe(0);
+		expect(levelIndex(levels, 9)).toBe(2);
 	});
 });

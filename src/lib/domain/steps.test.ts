@@ -184,13 +184,13 @@ describe('restUntil — the clock under the next set', () => {
 	const steps = sessionSteps(plan, A);
 	it('counts from the previous set’s own timestamp, local or not', () => {
 		const set1 = [entry('Goblet Squat', 1, iso(10000), { of: 'load', load: 35, reps: 10 })];
-		expect(restUntil(steps[3], set1, plan)).toBe(NOW - 10000 + 60000); // SET 2: 60s from set 1
-		expect(restUntil(steps[6], [entry('Plank', 1, iso(0), { of: 'hold', seconds: 10 })], plan)).toBe(NOW + 30000);
+		expect(restUntil(steps[3], set1)).toBe(NOW - 10000 + 60000); // SET 2: 60s from set 1
+		expect(restUntil(steps[6], [entry('Plank', 1, iso(0), { of: 'hold', seconds: 10 })])).toBe(NOW + 30000);
 	});
 	it('has nothing to wait for on set 1, or when the set before never landed', () => {
-		expect(restUntil(steps[2], [], plan)).toBeNull();
-		expect(restUntil(steps[3], [], plan)).toBeNull();
-		expect(restUntil(steps[0], [], plan)).toBeNull();
+		expect(restUntil(steps[2], [])).toBeNull();
+		expect(restUntil(steps[3], [])).toBeNull();
+		expect(restUntil(steps[0], [])).toBeNull();
 	});
 });
 
@@ -237,5 +237,51 @@ describe('stepName — a step the way a sentence says it', () => {
 		expect(stepName(steps[3])).toBe('Goblet Squat · set 2');
 		expect(stepName(steps[5])).toBe('Plank · hold 1');
 		expect(stepName(sessionSteps(plan, RUN)[3])).toBe('the run');
+	});
+});
+
+describe('a circuit — every exercise once a round, the rest between rounds', () => {
+	const squats = { name: 'Squats', equip: 'Floor', tag: 'Squat', kind: 'reps', sets: 3, lo: 20, hi: 20, progress: { of: 'none' } } as const;
+	const vhold = { name: 'V Hold', equip: 'Floor', tag: 'Core', kind: 'hold', sets: 3, lo: 20, hi: 20, progress: { of: 'none' } } as const;
+	const lunges = { name: 'Lunges', equip: 'Floor', tag: 'Lunge', kind: 'reps', sets: 3, lo: 20, hi: 20, progress: { of: 'none' }, rest: 20 } as const;
+	const card: Plan = {
+		id: 'c', name: 'C', schedule: '', rest: 90,
+		cycles: [{ id: 'floor', title: 'Floor', routines: ['circuit', 'classic'], target: 0 }],
+		routineInfo: {
+			circuit: { title: 'Invicta', discipline: 'bodyweight', levels: [3, 5, 7], rest: 120, warmup: [], cooldown: [] },
+			classic: { title: 'The Giant', discipline: 'bodyweight', rest: 120, warmup: [], cooldown: [] }
+		},
+		routines: { circuit: [squats, vhold], classic: [lunges, squats] }
+	};
+
+	it('goes round by round at the rounds it was dealt, Level I when it was dealt none', () => {
+		const steps = sessionSteps(card, { routine: 'circuit', rounds: 5 });
+		expect(steps.map((s) => s.key)).toEqual(
+			[1, 2, 3, 4, 5].flatMap((r) => [entryKey('Squats', r), entryKey('V Hold', r)])
+		);
+		expect(steps.map((s) => s.section).slice(0, 4)).toEqual(['Round 1', 'Round 1', 'Round 2', 'Round 2']);
+		expect(steps[0].label).toBe('Squats');
+		expect(sessionSteps(card, { routine: 'circuit' })).toHaveLength(6);
+		expect(routineExercises(card, { routine: 'circuit', rounds: 7 }).map((ex) => ex.sets)).toEqual([7, 7]);
+	});
+	it('rests only before a new round, from the last station of the one before', () => {
+		const steps = sessionSteps(card, { routine: 'circuit', rounds: 3 });
+		const held = [entry('V Hold', 1, iso(5000), { of: 'hold', seconds: 20, target: 20 })];
+		expect(restUntil(steps[1], held)).toBeNull();
+		expect(restUntil(steps[2], held)).toBe(NOW - 5000 + 120000);
+		expect(steps.map((s) => s.estimate)).toEqual([45, 20, 165, 20, 165, 20]);
+	});
+	it('says where you are by the round', () => {
+		const steps = sessionSteps(card, { routine: 'circuit', rounds: 5 });
+		expect(positionLabel(2, steps)).toBe('Round 2/5');
+		expect(stepName(steps[3])).toBe('V Hold · round 2');
+	});
+	it('times the part rest between exercises of straight sets, the exercise’s own between its sets', () => {
+		const steps = sessionSteps(card, { routine: 'classic' });
+		expect(steps.map((s) => s.label)).toEqual(['SET 1', 'SET 2', 'SET 3', 'SET 1', 'SET 2', 'SET 3']);
+		const third = [entry('Lunges', 3, iso(0), { of: 'reps', reps: 20 })];
+		expect(restUntil(steps[3], third)).toBe(NOW + 120000);
+		expect(restUntil(steps[2], [entry('Lunges', 2, iso(0), { of: 'reps', reps: 20 })])).toBe(NOW + 20000);
+		expect(sessionSteps(card, { routine: 'classic', rounds: 5 })).toHaveLength(6);
 	});
 });

@@ -1,5 +1,5 @@
-import { countOf, loadOf, type Measure } from './measure';
-import { progresses, type Counted, type Exercise, type Loaded } from './plan';
+import { countOf, isSet, loadOf, type Measure } from './measure';
+import { MAX_REPS, progresses, type Counted, type Exercise, type Loaded } from './plan';
 import { nextRung, prevRung, snapToRack } from './racks';
 
 /** One session's sets for one exercise — what the rule reads. */
@@ -38,7 +38,7 @@ export function bumpCount(ex: Exercise, count: number, dir: 1 | -1): number {
 		return Math.min(ex.hi, Math.max(ex.lo, count + dir * inc));
 	}
 	if (ex.kind === 'run') return Math.min(240, Math.max(5, count + dir * 5));
-	return Math.min(100, Math.max(1, count + dir));
+	return Math.min(MAX_REPS, Math.max(1, count + dir));
 }
 
 /** A set that reached the top of the range. */
@@ -283,4 +283,31 @@ export function nextSet(s: Suggestion, ex: Exercise, prior: PriorSet[], k: numbe
 	if (!last) return { weight: 0, count: s.sets[at].count };
 	const target = last.measure.of === 'hold' ? last.measure.target : undefined;
 	return { weight: 0, count: Math.min(ex.hi, target ?? countOf(last.measure)) };
+}
+
+/** One entry as the level rule reads it: which exercise, which round, what it measured. */
+export type RoundEntry = { item: string; index: number; measure: Measure };
+
+/** Every exercise reached its count in every round — what moves a circuit up a level; a skipped or short station holds it. */
+export function roundsDone(exercises: Exercise[], rounds: number, entries: RoundEntry[]): boolean {
+	return exercises.every((ex) => {
+		for (let r = 1; r <= rounds; r++) {
+			const e = entries.find((x) => x.item === ex.name && x.index === r);
+			if (!e || !isSet(e.measure) || countOf(e.measure) < ex.lo) return false;
+		}
+		return true;
+	});
+}
+
+/** The level `rounds` stands at: the highest whose rounds it reached, Level I at the least. */
+export function levelIndex(levels: number[], rounds: number): number {
+	let i = 0;
+	for (let k = 0; k < levels.length; k++) if (levels[k] <= rounds) i = k;
+	return i;
+}
+
+/** The rounds after a session at `rounds`: the next level when it was done in full, else the same level; never above the top. */
+export function nextRounds(levels: number[], rounds: number, done: boolean): number {
+	const i = levelIndex(levels, rounds);
+	return levels[done ? Math.min(i + 1, levels.length - 1) : i];
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dayMarks, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
-	goalHint, goalLabel, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	goalHint, goalLabel, levelLine, levelNote, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, standInLine, weekChangeLine, weekHead, weekLine
 } from './labels';
 import type { Measure } from './measure';
@@ -245,5 +245,21 @@ describe('v3 — the cell, the card, the pace, the when', () => {
 		expect(itemDose(rdl, 40)).toBe('40 /hand · 3 × 6–12');
 		expect(itemDose(plank, 0)).toBe('3 × 10–20s');
 		expect(itemDose(run, 0)).toBe('30 min');
+	});
+});
+
+describe('a circuit’s words — max, and the level', () => {
+	const rows: Exercise = { name: 'Body Rows', equip: '', tag: '', kind: 'reps', sets: 5, lo: 1, hi: 100, max: true, progress: { of: 'count' } };
+	it('says max where a card says max', () => {
+		expect(doseLabel(rows)).toBe('5 × max');
+		expect(plannedValue(rows, 0)).toBe('max');
+		expect(setValue(rows, 0, 9)).toBe('9 reps');
+	});
+	it('names the level as the card does, and what the receipt says about the next', () => {
+		expect(levelLine([3, 5, 7], 3)).toBe('Level I · 3 rounds');
+		expect(levelLine([3, 5, 7], 7)).toBe('Level III · 7 rounds');
+		expect(levelNote([3, 5, 7], 3, true)).toBe('Every round in full — Level II next time, 5 rounds.');
+		expect(levelNote([3, 5, 7], 5, false)).toBe('Level II again next time — every round in full moves it up.');
+		expect(levelNote([3, 5, 7], 7, true)).toBe('Every round in full at Level III, the top.');
 	});
 });

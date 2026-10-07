@@ -1,6 +1,6 @@
 import { countOf, loadOf, uniformLoad, type Measure } from './measure';
 import type { Discipline, Exercise, Goal, PracticeId, PrepItem } from './plan';
-import type { Reason, Suggestion } from './progression';
+import { levelIndex, type Reason, type Suggestion } from './progression';
 
 /** The words: every phrase a screen shows about a set, a load, a range or a week, written once and tested as a string. */
 
@@ -153,9 +153,22 @@ export function sessionSummary(p: { sets: number; holds?: boolean; minutes: numb
 	return parts.join(' · ') || 'nothing logged';
 }
 
-const range = (ex: Exercise) => (ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`);
+const range = (ex: Exercise) => (ex.max ? 'max' : ex.lo === ex.hi ? String(ex.lo) : `${ex.lo}–${ex.hi}`);
 
-/** "3 × 6–12" · "3 × 10–20s" · "2 × 45s · L/R" · "3 × 8–12 · per side" · "30 min" */
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+/** "Level II" — a circuit's level, as the card names it */
+export const levelName = (levels: number[], rounds: number): string => `Level ${ROMAN[levelIndex(levels, rounds)]}`;
+/** "Level II · 5 rounds" */
+export const levelLine = (levels: number[], rounds: number): string => `${levelName(levels, rounds)} · ${rounds} rounds`;
+/** "Every round in full — Level III next time, 7 rounds." · "Level I again next time — every round in full moves it up." — the receipt's word on the level */
+export function levelNote(levels: number[], rounds: number, done: boolean): string {
+	const i = levelIndex(levels, rounds);
+	if (!done) return `Level ${ROMAN[i]} again next time — every round in full moves it up.`;
+	if (i === levels.length - 1) return `Every round in full at Level ${ROMAN[i]}, the top.`;
+	return `Every round in full — Level ${ROMAN[i + 1]} next time, ${levels[i + 1]} rounds.`;
+}
+
+/** "3 × 6–12" · "3 × 10–20s" · "2 × 45s · L/R" · "3 × 8–12 · per side" · "3 × max" · "30 min" */
 export function doseLabel(ex: Exercise): string {
 	if (ex.kind === 'run') return `${range(ex)} min`;
 	return (
@@ -216,7 +229,7 @@ export function setValue(ex: Exercise, weight: number, count: number | null): st
 	}
 }
 
-/** "35 lb × 6–12" · "20 /hand × 8–12 /side" · "10–20s" · "45s" · "5–15" · "8–12 /side" · "30 min" */
+/** "35 lb × 6–12" · "20 /hand × 8–12 /side" · "10–20s" · "45s" · "5–15" · "max" · "8–12 /side" · "30 min" */
 export function plannedValue(ex: Exercise, weight: number): string {
 	switch (ex.kind) {
 		case 'load':

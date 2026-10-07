@@ -5,6 +5,8 @@ import {
 	cooldownFor,
 	exerciseNamed,
 	isStretchLine,
+	levelsOf,
+	partRestFor,
 	prepSeconds,
 	restFor,
 	warmupFor,
@@ -39,13 +41,28 @@ export type Step = StepBase &
 	(
 		| { kind: 'prep'; text: string; name?: string }
 		| { kind: 'timed'; text: string; name: string; seconds: number }
-		| { kind: 'set'; ex: Exercise }
+		| {
+				kind: 'set';
+				ex: Exercise;
+				/** a circuit's round, from 1 */
+				round?: number;
+				/** the clock before this set: from when the entry `after` landed, for `seconds` */
+				rest?: { after: string; seconds: number };
+		  }
 		| { kind: 'run'; minutes: number; ex: RunEx }
 	);
 
-/** The routine's exercises; nothing for a routine the plan doesn't have. */
+/** A circuit's rounds for this workout — what it was dealt, else Level I; null for straight sets. */
+export function roundsOf(plan: Plan | undefined, w: Workout): number | null {
+	const levels = levelsOf(plan, w.routine);
+	return levels ? (w.rounds ?? levels[0]) : null;
+}
+
+/** The routine's exercises, a circuit's each set once a round; nothing for a routine the plan doesn't have. */
 export function routineExercises(plan: Plan | undefined, w: Workout): Exercise[] {
-	return plan?.routines[w.routine] ?? [];
+	const list = plan?.routines[w.routine] ?? [];
+	const rounds = roundsOf(plan, w);
+	return rounds === null ? list : list.map((ex) => ({ ...ex, sets: rounds }));
 }
 
 function prepSteps(plan: Plan, items: PrepItem[], section: string, item: string, proseSeconds: number): Step[] {
@@ -78,20 +95,38 @@ function prepSteps(plan: Plan, items: PrepItem[], section: string, item: string,
 	return out;
 }
 
-function exerciseSteps(plan: Plan, ex: Exercise): Step[] {
+const workSeconds = (ex: Exercise) => (ex.kind === 'hold' ? ex.hi : SET_SECONDS);
+
+/** Straight sets of one exercise; `between` is the clock before set 1, from the part before it. */
+function exerciseSteps(plan: Plan, ex: Exercise, between?: { after: string; seconds: number }): Step[] {
 	if (ex.kind === 'run')
 		return [{
 			key: entryKey(ex.name, 1), kind: 'run', section: ex.name, item: ex.name, index: 1,
 			label: 'RUN', minutes: ex.hi, ex, estimate: ex.hi * 60
 		}];
-	const hold = ex.kind === 'hold';
-	const rest = restFor(plan, ex);
 	const out: Step[] = [];
-	for (let s = 1; s <= ex.sets; s++)
+	for (let s = 1; s <= ex.sets; s++) {
+		const rest = s > 1 ? { after: entryKey(ex.name, s - 1), seconds: restFor(plan, ex) } : between;
 		out.push({
 			key: entryKey(ex.name, s), kind: 'set', section: ex.name, item: ex.name, index: s,
-			label: `${hold ? 'HOLD' : 'SET'} ${s}${ex.side === 'sets' ? (s % 2 === 1 ? ' · L' : ' · R') : ''}`,
-			ex, estimate: (hold ? ex.hi : SET_SECONDS) + (s > 1 ? rest : 0)
+			label: `${ex.kind === 'hold' ? 'HOLD' : 'SET'} ${s}${ex.side === 'sets' ? (s % 2 === 1 ? ' · L' : ' · R') : ''}`,
+			ex, estimate: workSeconds(ex) + (rest?.seconds ?? 0), ...(rest ? { rest } : {})
+		});
+	}
+	return out;
+}
+
+/** A circuit, round by round: every exercise once, straight through, and the part's rest before the next round. */
+function circuitSteps(exercises: Exercise[], rounds: number, rest: number | undefined): Step[] {
+	const out: Step[] = [];
+	const last = exercises[exercises.length - 1];
+	for (let r = 1; r <= rounds; r++)
+		exercises.forEach((ex, k) => {
+			const before = k === 0 && r > 1 && rest ? { after: entryKey(last.name, r - 1), seconds: rest } : undefined;
+			out.push({
+				key: entryKey(ex.name, r), kind: 'set', section: `Round ${r}`, item: ex.name, index: r, round: r,
+				label: ex.name, ex, estimate: workSeconds(ex) + (before?.seconds ?? 0), ...(before ? { rest: before } : {})
+			});
 		});
 	return out;
 }
@@ -100,7 +135,16 @@ function exerciseSteps(plan: Plan, ex: Exercise): Step[] {
 export function sessionSteps(plan: Plan | undefined, w: Workout, extra: string[] = []): Step[] {
 	if (!plan || !plan.routines[w.routine]) return [];
 	const out: Step[] = prepSteps(plan, warmupFor(plan, w.routine), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
-	for (const ex of plan.routines[w.routine]) out.push(...exerciseSteps(plan, ex));
+	const exercises = routineExercises(plan, w);
+	const rounds = roundsOf(plan, w);
+	const between = partRestFor(plan, w.routine);
+	if (rounds !== null) out.push(...circuitSteps(exercises, rounds, between));
+	else
+		exercises.forEach((ex, k) => {
+			const prev = exercises[k - 1];
+			const after = prev && prev.kind !== 'run' && between ? { after: entryKey(prev.name, prev.sets), seconds: between } : undefined;
+			out.push(...exerciseSteps(plan, ex, after));
+		});
 	out.push(...prepSteps(plan, cooldownFor(plan, w.routine), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
 	const have = new Set(out.map((s) => s.section));
 	for (const name of extra) {
@@ -140,11 +184,12 @@ export type Progress = {
 	sets: number;
 };
 
-/** When the rest before this set ends, from the previous set's local timestamp; null for set 1 or when the set before was never logged. */
-export function restUntil(step: Step, entries: Entry[], plan: Plan | undefined): number | null {
-	if (step.kind !== 'set' || step.index === 1) return null;
-	const prev = entries.find((e) => e.item === step.item && e.index === step.index - 1);
-	return prev ? Date.parse(prev.at) + restFor(plan, step.ex) * 1000 : null;
+/** When the rest before this set ends, from the local timestamp of the entry it counts from; null when nothing times it or that entry was never logged. */
+export function restUntil(step: Step, entries: Entry[]): number | null {
+	if (step.kind !== 'set' || !step.rest) return null;
+	const { after, seconds } = step.rest;
+	const prev = entries.find((e) => entryKey(e.item, e.index) === after);
+	return prev ? Date.parse(prev.at) + seconds * 1000 : null;
 }
 
 /** When a run's clock started: the previous step's entry, else the session itself. */
@@ -185,18 +230,22 @@ export function sessionSections(steps: Step[], done: Set<string>, skipped: Reado
 	return out;
 }
 
-/** A step as a sentence names it: "Goblet Squat · set 2" · "Plank · hold 1" · "the run" · "warm-up · step 1". */
+/** A step as a sentence names it: "Goblet Squat · set 2" · "Plank · hold 1" · "Squats · round 2" · "the run" · "warm-up · step 1". */
 export function stepName(s: Step): string {
-	if (s.kind === 'set') return `${s.ex.name} · ${s.ex.kind === 'hold' ? 'hold' : 'set'} ${s.index}`;
+	if (s.kind === 'set') return `${s.ex.name} · ${s.round ? 'round' : s.ex.kind === 'hold' ? 'hold' : 'set'} ${s.index}`;
 	if (s.kind === 'run') return 'the run';
 	return `${s.section.toLowerCase()} · step ${s.index}`;
 }
 
-/** "Set 4/20" · "Hold 3/9" · "Warm-up 2/3" · "Run" · "Done" — sets count across the session, a prep step within its section. */
+/** A circuit's rounds, from its steps; 0 for straight sets. */
+export const roundCount = (steps: Step[]): number => steps.reduce((n, s) => (s.kind === 'set' && s.round ? Math.max(n, s.round) : n), 0);
+
+/** "Set 4/20" · "Hold 3/9" · "Round 2/5" · "Warm-up 2/3" · "Run" · "Done" — sets count across the session, a round of a circuit, a prep step within its section. */
 export function positionLabel(i: number, steps: Step[]): string {
 	const s = steps[i];
 	if (!s) return 'Done';
 	if (s.kind === 'run') return 'Run';
+	if (s.kind === 'set' && s.round) return `Round ${s.round}/${roundCount(steps)}`;
 	if (s.kind === 'set') {
 		const sets = steps.filter((x) => x.kind === 'set');
 		const word = sets.every((x) => x.kind === 'set' && x.ex.kind === 'hold') ? 'Hold' : 'Set';

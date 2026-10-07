@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Caption, Card, Cell, Note, Row, Stepper, Title } from '$lib/ui';
-	import { cellLegend, dayMarks, disciplineLabel, monthLine, paceLine, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
+	import { cellLegend, dayMarks, disciplineLabel, levelName, monthLine, paceLine, setValue, setsLine, weekChangeLine, whenLabel } from '$lib/domain/labels';
 	import { countOf, loadOf, type Measure } from '$lib/domain/measure';
-	import { DISCIPLINES, classKeys, disciplinesOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { DISCIPLINES, classKeys, disciplinesOf, levelsOf, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { bumpCount, bumpLoad } from '$lib/domain/progression';
 	import { GRID_WEEKS, monthGrid, projectSessions, sessionSummaryOf, weekChanges, type DayCell, type SessionView, type WeekChange } from '$lib/domain/projections';
 	import { weekTally } from '$lib/domain/week';
@@ -57,7 +57,11 @@
 
 	const planById = (id: string) => data.plans.find((x) => x.id === id);
 	const planName = (id: string) => planById(id)?.name ?? id;
-	const titleOf = (s: SessionView) => routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
+	const titleOf = (s: SessionView) => {
+		const title = routineTitle(planById(s.plan), s.workout.routine) ?? disciplineLabel(s.discipline);
+		const levels = levelsOf(planById(s.plan), s.workout.routine);
+		return levels && s.workout.rounds ? `${title} · ${levelName(levels, s.workout.rounds)}` : title;
+	};
 	// a duration is the run's, or a class's length
 	const durationWord = (s: SessionView) => (classKeys(planById(s.plan) ?? plan).includes(s.workout.routine) ? 'Class' : 'Run');
 	// every exercise any plan knows, by name, indexed once (the first plan's wins, as before) — a retired name finds nothing and the row shows its measures bare

@@ -1,8 +1,8 @@
 {
 	"now": "2026-09-22T12:00:00.000Z",
 	"state": {
-		"activeSession": "s018",
-		"latestSession": "s018",
+		"activeSession": "s019",
+		"latestSession": "s019",
 		"activeProgramme": "ab-fullbody-v1",
 		"practices": {
 			"lift": true,
@@ -52,11 +52,11 @@
 				"id": "floor",
 				"title": "Floor",
 				"routines": [
-					"bw1",
-					"bw2",
-					"bw4",
-					"bw5",
-					"bw6"
+					"invicta",
+					"back-in-action",
+					"giant",
+					"bands",
+					"orc"
 				],
 				"target": 0,
 				"standsInFor": "lift"
@@ -108,7 +108,7 @@
 		},
 		{
 			"cycle": "floor",
-			"routine": "bw2"
+			"routine": "back-in-action"
 		},
 		{
 			"cycle": "mob",
@@ -117,6 +117,28 @@
 		{
 			"cycle": "run",
 			"routine": "run"
+		}
+	],
+	"rounds": [
+		{
+			"routine": "invicta",
+			"rounds": 5
+		},
+		{
+			"routine": "back-in-action",
+			"rounds": 3
+		},
+		{
+			"routine": "giant",
+			"rounds": null
+		},
+		{
+			"routine": "bands",
+			"rounds": null
+		},
+		{
+			"routine": "orc",
+			"rounds": 3
 		}
 	],
 	"staleness": [
@@ -177,13 +199,14 @@
 		{
 			"cycle": "floor",
 			"workout": {
-				"routine": "bw2"
+				"routine": "back-in-action",
+				"rounds": 3
 			},
 			"discipline": "bodyweight",
-			"title": "Hinge & Carry",
-			"why": "Stands in for Squat & Shove · counts toward 4 lifts a week",
-			"minutes": 27,
-			"score": 972,
+			"title": "Back in Action",
+			"why": "Level I · 3 rounds · Stands in for Squat & Shove · counts toward 4 lifts a week",
+			"minutes": 26,
+			"score": 973,
 			"due": false,
 			"standsInFor": "lift"
 		}
@@ -567,55 +590,115 @@
 			}
 		},
 		{
-			"exercise": "Push-up",
+			"exercise": "Body Rows",
 			"suggestion": {
 				"kind": "count",
 				"sets": [
 					{
-						"count": 8,
-						"reason": "increase"
+						"count": 1,
+						"reason": "start"
 					},
 					{
-						"count": 8,
-						"reason": "increase"
+						"count": 1,
+						"reason": "start"
 					},
 					{
-						"count": 8,
-						"reason": "increase"
+						"count": 1,
+						"reason": "start"
 					}
 				],
 				"ceiling": false,
-				"daysSince": 5.208333333333333,
-				"variant": {
-					"name": "Push-up",
-					"rung": 1,
-					"promoted": true,
-					"top": false
-				}
+				"daysSince": null
 			}
 		},
 		{
-			"exercise": "Split Squat",
+			"exercise": "Shoulder Presses",
 			"suggestion": {
 				"kind": "count",
 				"sets": [
 					{
-						"count": 10,
-						"reason": "hold"
+						"count": 1,
+						"reason": "start"
 					},
 					{
-						"count": 9,
-						"reason": "hold"
+						"count": 1,
+						"reason": "start"
 					},
 					{
-						"count": 8,
-						"reason": "hold"
+						"count": 1,
+						"reason": "start"
 					}
 				],
 				"ceiling": false,
-				"daysSince": 5.208333333333333,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Push-ups to Failure",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 1,
+						"reason": "start"
+					},
+					{
+						"count": 1,
+						"reason": "start"
+					},
+					{
+						"count": 1,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Band Row",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 12,
+						"reason": "start"
+					},
+					{
+						"count": 12,
+						"reason": "start"
+					},
+					{
+						"count": 12,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
+		},
+		{
+			"exercise": "Single-leg RDL Reach",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 8,
+						"reason": "start"
+					},
+					{
+						"count": 8,
+						"reason": "start"
+					},
+					{
+						"count": 8,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null,
 				"variant": {
-					"name": "Split squat",
+					"name": "Single-leg RDL reach",
 					"rung": 0,
 					"promoted": false,
 					"top": false
@@ -670,274 +753,6 @@
 				],
 				"ceiling": false,
 				"daysSince": 5.208333333333333
-			}
-		},
-		{
-			"exercise": "Single-leg RDL Reach",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 8,
-						"reason": "start"
-					},
-					{
-						"count": 8,
-						"reason": "start"
-					},
-					{
-						"count": 8,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null,
-				"variant": {
-					"name": "Single-leg RDL reach",
-					"rung": 0,
-					"promoted": false,
-					"top": false
-				}
-			}
-		},
-		{
-			"exercise": "Reverse Lunge",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 10,
-						"reason": "start"
-					},
-					{
-						"count": 10,
-						"reason": "start"
-					},
-					{
-						"count": 10,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null,
-				"variant": {
-					"name": "Reverse lunge",
-					"rung": 0,
-					"promoted": false,
-					"top": false
-				}
-			}
-		},
-		{
-			"exercise": "Side Plank",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null
-			}
-		},
-		{
-			"exercise": "Bodyweight Squat",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 12,
-						"reason": "start"
-					},
-					{
-						"count": 12,
-						"reason": "start"
-					},
-					{
-						"count": 12,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null,
-				"variant": {
-					"name": "Bodyweight squat",
-					"rung": 0,
-					"promoted": false,
-					"top": false
-				}
-			}
-		},
-		{
-			"exercise": "Step-up",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 8,
-						"reason": "start"
-					},
-					{
-						"count": 8,
-						"reason": "start"
-					},
-					{
-						"count": 8,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null,
-				"variant": {
-					"name": "Step-up",
-					"rung": 0,
-					"promoted": false,
-					"top": false
-				}
-			}
-		},
-		{
-			"exercise": "Dead Bug",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 8,
-						"reason": "hold"
-					},
-					{
-						"count": 8,
-						"reason": "hold"
-					},
-					{
-						"count": 8,
-						"reason": "hold"
-					}
-				],
-				"ceiling": false,
-				"daysSince": 44.208333333333336
-			}
-		},
-		{
-			"exercise": "Superman Hold",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					},
-					{
-						"count": 20,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null
-			}
-		},
-		{
-			"exercise": "Reverse Crunch",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 10,
-						"reason": "start"
-					},
-					{
-						"count": 10,
-						"reason": "start"
-					},
-					{
-						"count": 10,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null,
-				"variant": {
-					"name": "Reverse crunch",
-					"rung": 0,
-					"promoted": false,
-					"top": false
-				}
-			}
-		},
-		{
-			"exercise": "Plank",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 30,
-						"reason": "start"
-					},
-					{
-						"count": 30,
-						"reason": "start"
-					},
-					{
-						"count": 30,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null
-			}
-		},
-		{
-			"exercise": "Single-leg Calf Raise",
-			"suggestion": {
-				"kind": "count",
-				"sets": [
-					{
-						"count": 12,
-						"reason": "start"
-					},
-					{
-						"count": 12,
-						"reason": "start"
-					},
-					{
-						"count": 12,
-						"reason": "start"
-					}
-				],
-				"ceiling": false,
-				"daysSince": null,
-				"variant": {
-					"name": "Single-leg calf raise",
-					"rung": 0,
-					"promoted": false,
-					"top": false
-				}
 			}
 		},
 		{
@@ -1021,11 +836,29 @@
 				"ceiling": false,
 				"daysSince": null
 			}
+		},
+		{
+			"exercise": "Side Plank",
+			"suggestion": {
+				"kind": "count",
+				"sets": [
+					{
+						"count": 20,
+						"reason": "start"
+					},
+					{
+						"count": 20,
+						"reason": "start"
+					}
+				],
+				"ceiling": false,
+				"daysSince": null
+			}
 		}
 	],
 	"sessions": [
 		{
-			"id": "s018",
+			"id": "s019",
 			"workout": {
 				"routine": "A"
 			},
@@ -1062,7 +895,7 @@
 			"entries": 3
 		},
 		{
-			"id": "s017",
+			"id": "s018",
 			"workout": {
 				"routine": "S"
 			},
@@ -1100,7 +933,7 @@
 			"finishedAt": "2026-09-21T07:54:00.000Z"
 		},
 		{
-			"id": "s016",
+			"id": "s017",
 			"workout": {
 				"routine": "run"
 			},
@@ -1124,7 +957,7 @@
 			"finishedAt": "2026-09-20T07:54:00.000Z"
 		},
 		{
-			"id": "s015",
+			"id": "s016",
 			"workout": {
 				"routine": "B"
 			},
@@ -1218,7 +1051,7 @@
 			"finishedAt": "2026-09-19T07:54:00.000Z"
 		},
 		{
-			"id": "s013",
+			"id": "s014",
 			"workout": {
 				"routine": "bw1"
 			},
@@ -1306,7 +1139,7 @@
 			"finishedAt": "2026-09-17T07:54:00.000Z"
 		},
 		{
-			"id": "s012",
+			"id": "s013",
 			"workout": {
 				"routine": "S"
 			},
@@ -1363,7 +1196,7 @@
 			"finishedAt": "2026-09-16T07:54:00.000Z"
 		},
 		{
-			"id": "s011",
+			"id": "s012",
 			"workout": {
 				"routine": "run"
 			},
@@ -1387,7 +1220,7 @@
 			"finishedAt": "2026-09-14T07:54:00.000Z"
 		},
 		{
-			"id": "s010",
+			"id": "s011",
 			"workout": {
 				"routine": "A"
 			},
@@ -1496,6 +1329,183 @@
 			"prep": 0,
 			"entries": 11,
 			"finishedAt": "2026-09-13T07:54:00.000Z"
+		},
+		{
+			"id": "s010",
+			"workout": {
+				"routine": "invicta",
+				"rounds": 3
+			},
+			"discipline": "bodyweight",
+			"plan": "ab-fullbody-v1",
+			"at": "2026-09-10T18:00:00.000Z",
+			"dateLabel": "Thu, Sep 10",
+			"finished": true,
+			"mode": "live",
+			"rows": [
+				{
+					"item": "Squats",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 20
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Lunges",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 20
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Push-ups",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 10
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Pike Push-ups",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 10
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Superman",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 10
+						},
+						{
+							"of": "reps",
+							"reps": 10
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "Bridges",
+					"sets": [
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 20
+						},
+						{
+							"of": "reps",
+							"reps": 20
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"item": "V Hold",
+					"sets": [
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						},
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						},
+						{
+							"of": "hold",
+							"seconds": 20,
+							"target": 20
+						}
+					],
+					"indices": [
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"minutes": 0,
+			"durations": [],
+			"prep": 0,
+			"entries": 21,
+			"finishedAt": "2026-09-10T18:54:00.000Z"
 		},
 		{
 			"id": "s009",
@@ -2104,7 +2114,7 @@
 	],
 	"openSession": [
 		{
-			"session": "s018",
+			"session": "s019",
 			"item": "Warm-up",
 			"index": 1,
 			"at": "2026-09-22T11:06:00.000Z",
@@ -2113,7 +2123,7 @@
 			}
 		},
 		{
-			"session": "s018",
+			"session": "s019",
 			"item": "Goblet Squat",
 			"index": 1,
 			"at": "2026-09-22T11:18:00.000Z",
@@ -2124,7 +2134,7 @@
 			}
 		},
 		{
-			"session": "s018",
+			"session": "s019",
 			"item": "Goblet Squat",
 			"index": 2,
 			"at": "2026-09-22T11:24:00.000Z",
@@ -2472,7 +2482,9 @@
 					"key": 20260910,
 					"date": 10,
 					"label": "Thu, Sep 10",
-					"did": [],
+					"did": [
+						"bodyweight"
+					],
 					"today": false,
 					"future": false
 				},

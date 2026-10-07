@@ -1,12 +1,12 @@
 import type { LedgerEvent, Workout } from './events';
-import { disciplineLabel, setsPhrase, standInLine, weekLine } from './labels';
-import { cycleDisciplines, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
-import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry, suggest } from './progression';
-import { historyFor, projectSessions, type SessionView } from './projections';
+import { disciplineLabel, levelLine, setsPhrase, standInLine, weekLine } from './labels';
+import { cycleDisciplines, levelsOf, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
+import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry, nextRounds, roundsDone, suggest } from './progression';
+import { historyFor, projectSessions, sessionEntries, type SessionView } from './projections';
 import { estimateMinutes, sessionSteps } from './steps';
 
 /**
- * The week's three rules over the read model: owed (`weekProgress`), next (`nextInCycle`) and the deal (`queue`) —
+ * The week's rules over the read model: owed (`weekProgress`), next (`nextInCycle`), a circuit's level (`roundsFor`) and the deal (`queue`) —
  * with the stand-in folded into how a cycle counts (`countedBy`). Pure folds; `now` is an argument. README.md is the contract.
  */
 
@@ -30,6 +30,19 @@ export function nextInCycle(events: LedgerEvent[], plan: Plan, cycle: Cycle): st
 	if (!last) return cycle.routines[0];
 	const i = cycle.routines.indexOf(last.workout.routine);
 	return cycle.routines[(i + 1) % cycle.routines.length];
+}
+
+/**
+ * The rounds a circuit is dealt: one level up after its last finished session reached every count in every round, else that
+ * session's level again; Level I when there is none. Derived, never stored — the session stamps what it was dealt. Undefined for straight sets.
+ */
+export function roundsFor(events: LedgerEvent[], plan: Plan, routine: string): number | undefined {
+	const levels = levelsOf(plan, routine);
+	if (!levels) return undefined;
+	const last = projectSessions(events).find((s) => s.finished && s.workout.routine === routine);
+	if (!last) return levels[0];
+	const rounds = last.workout.rounds ?? levels[0];
+	return nextRounds(levels, rounds, roundsDone(plan.routines[routine] ?? [], rounds, sessionEntries(events, last.id)));
 }
 
 /** Sessions of this cycle in the trailing seven days, against its target. An unfinished one today counts. */
@@ -92,18 +105,23 @@ export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate
 		const shortfall = Math.max(0, target - done);
 		const lastIn = lastCounted(sessions, plan, cycle);
 		const stale = staleTier(lastIn ? (now - Date.parse(lastIn.at)) / DAY : null, target);
-		const workout = { routine };
+		const rounds = roundsFor(events, plan, routine);
+		const workout = rounds === undefined ? { routine } : { routine, rounds };
 		const minutes = estimateMinutes(sessionSteps(plan, workout));
 		const standIn = cycle.standsInFor ? plan.cycles.find((c) => c.id === cycle.standsInFor) : undefined;
 		const why = standIn
 			? standInLine(routineTitle(plan, nextInCycle(events, plan, standIn)) ?? standIn.title, standIn.target)
 			: whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target);
+		const levels = levelsOf(plan, routine);
 		// bands that cannot touch: owed 1e8 > shortfall·1e6 > stale·1e3 + shorter (≤ 999,009)
 		const owed = cycle.target > 0;
 		const shorter = 999 - Math.min(999, minutes);
 		const score = (owed ? 1e8 : 0) + shortfall * 1e6 + stale * 1e3 + shorter;
 		scored.push({
-			c: { cycle: cycle.id, workout, discipline, title, why, minutes, score, due: shortfall > 0, ...(standIn ? { standsInFor: standIn.id } : {}) },
+			c: {
+				cycle: cycle.id, workout, discipline, title, why: levels && rounds ? `${levelLine(levels, rounds)} · ${why}` : why,
+				minutes, score, due: shortfall > 0, ...(standIn ? { standsInFor: standIn.id } : {})
+			},
 			order
 		});
 	}

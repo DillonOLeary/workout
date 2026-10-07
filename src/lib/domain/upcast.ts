@@ -31,12 +31,12 @@ type RunLoggedV1 = { type: 'RunLogged'; data: { minutes: number; at: string } };
 type RunRemovedV1 = { type: 'RunRemoved'; data: { run: string; at: string } };
 /** SessionRemoved under its first name. */
 type SessionStruckV1 = { type: 'SessionStruck'; data: { session: string; at: string } };
-/** SessionStarted as first written: no `mode` until 2026-08-25; a run as day: 'run', then kind: 'run'; the routine as `day`; no `discipline` before 2026-09-14. */
+/** SessionStarted as first written: no `mode` until 2026-08-25; a run as day: 'run', then kind: 'run'; the routine as `day`; no `discipline` before 2026-09-14; a circuit's `rounds` from 2026-10-07. */
 type SessionStartedV1 = {
 	type: 'SessionStarted';
 	data: {
 		session: string; plan: string; at: string;
-		day?: string; kind?: 'lift' | 'run'; routine?: string; mode?: 'live' | 'after'; discipline?: Discipline;
+		day?: string; kind?: 'lift' | 'run'; routine?: string; mode?: 'live' | 'after'; discipline?: Discipline; rounds?: number;
 	};
 };
 /** EntryLogged as first written: carrying plan/day nobody read. */
@@ -87,7 +87,8 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			const routine = isRun ? 'run' : (d.routine ?? d.day ?? '');
 			const discipline: Discipline =
 				d.discipline ?? (isRun ? 'run' : (DISCIPLINE_BEFORE_2026_09_14[d.plan]?.[routine] ?? 'lift'));
-			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', discipline, routine } }];
+			const rounds = Number.isInteger(d.rounds) && d.rounds! > 0 ? { rounds: d.rounds } : {};
+			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', discipline, routine, ...rounds } }];
 		}
 		case 'EntryLogged': {
 			// rebuilt, not passed through: the first rows carried plan/day, and four days of them wrote bodyweight sets as load 0

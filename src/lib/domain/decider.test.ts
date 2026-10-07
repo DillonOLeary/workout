@@ -27,6 +27,12 @@ describe('decide — sessions', () => {
 			decide({ type: 'StartSession', data: { session: 's1', plan: 'p', discipline: 'stretch' as never, routine: 'S', at: AT } }, initialState())
 		).toThrow(ValidationError);
 	});
+	it('stamps a circuit’s rounds as the session’s own, and refuses rounds that aren’t a whole count', () => {
+		const [e] = decide({ type: 'StartSession', data: { session: 's1', plan: 'p', discipline: 'bodyweight', routine: 'invicta', rounds: 5, at: AT } }, initialState());
+		expect(e).toMatchObject({ type: 'SessionStarted', data: { routine: 'invicta', rounds: 5 } });
+		for (const rounds of [0, 2.5])
+			expect(() => decide({ type: 'StartSession', data: { session: 's1', plan: 'p', discipline: 'bodyweight', routine: 'invicta', rounds, at: AT } }, initialState())).toThrow(ValidationError);
+	});
 	it('refuses an entry with no session in progress', () => {
 		expect(() => decide(set(), initialState())).toThrow(IllegalStateError);
 	});

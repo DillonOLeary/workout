@@ -2,13 +2,16 @@ import type { Event } from '@event-driven-io/emmett';
 import type { Measure } from './measure';
 import type { Goal, PracticeId, Discipline } from './plan';
 
-/** What a session is: the routine it ran — the whole address. */
-export type Workout = { routine: string };
+/** What a session is: the routine it ran — the whole address — and, for a circuit, the rounds it was dealt. */
+export type Workout = { routine: string; rounds?: number };
 /** Just the workout, from anything that carries one (an event's data, a command's). */
-export const workoutOf = (w: Workout): Workout => ({ routine: w.routine });
-/** A workout from a form: the routine key, or nothing. */
-export function parseWorkout(routine: unknown): Workout | null {
-	return typeof routine === 'string' && routine ? { routine } : null;
+export const workoutOf = (w: Workout): Workout => ({ routine: w.routine, ...(w.rounds !== undefined ? { rounds: w.rounds } : {}) });
+/** A workout from a form: the routine key and the rounds if posted, or nothing — a malformed rounds is nothing too. */
+export function parseWorkout(routine: unknown, rounds?: unknown): Workout | null {
+	if (typeof routine !== 'string' || !routine) return null;
+	if (rounds === null || rounds === undefined || rounds === '') return { routine };
+	const n = Number(rounds);
+	return Number.isInteger(n) && n > 0 ? { routine, rounds: n } : null;
 }
 
 export type SessionStarted = Event<

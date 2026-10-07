@@ -4,7 +4,7 @@ import { countOf } from './measure';
 import type { Discipline, Exercise, Plan } from './plan';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, queue, staleness, weekProgress, weekTally } from './week';
+import { nextInCycle, queue, roundsFor, staleness, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -385,5 +385,44 @@ describe('runs as sessions', () => {
 			{ item: 'Goblet Squat', sets: [{ of: 'load', load: 35, reps: 10 }], indices: [1] },
 			{ item: 'Plank', sets: [{ of: 'hold', seconds: 20, target: 20 }], indices: [1] }
 		]);
+	});
+});
+
+describe('roundsFor — a circuit’s level, from its last finished session', () => {
+	const squats: Exercise = { name: 'Squats', equip: '', tag: '', kind: 'reps', sets: 3, lo: 20, hi: 20, progress: { of: 'none' } };
+	const card: Plan = {
+		id: 'p', name: 'P', schedule: '',
+		cycles: [{ id: 'lift', title: 'Lift', routines: ['A'], target: 3 }, { id: 'floor', title: 'Floor', routines: ['C'], target: 0, standsInFor: 'lift' }],
+		routineInfo: { A: { title: 'Day A', discipline: 'lift' }, C: { title: 'Card', discipline: 'bodyweight', levels: [3, 5, 7], rest: 120 } },
+		routines: { A: [goblet], C: [squats] }
+	};
+	const circuit = (session: string, daysAgo: number, rounds: number | undefined, counts: number[], finished = true): LedgerEvent[] => {
+		const at = new Date(NOW - daysAgo * DAY).toISOString();
+		return [
+			{ type: 'SessionStarted', data: { session, plan: 'p', discipline: 'bodyweight', routine: 'C', at, mode: 'live', ...(rounds ? { rounds } : {}) } },
+			...counts.map((n, k): LedgerEvent => ({ type: 'EntryLogged', data: { session, item: 'Squats', index: k + 1, at, measure: { of: 'reps', reps: n } } })),
+			...(finished ? [{ type: 'SessionFinished', data: { session, at } } as LedgerEvent] : [])
+		];
+	};
+
+	it('deals Level I to a circuit never done, and nothing to straight sets', () => {
+		expect(roundsFor([], card, 'C')).toBe(3);
+		expect(roundsFor([], card, 'A')).toBeUndefined();
+	});
+	it('goes up a level after every round in full, and stays after a short one', () => {
+		expect(roundsFor(circuit('c1', 3, 3, [20, 20, 20]), card, 'C')).toBe(5);
+		expect(roundsFor(circuit('c1', 3, 3, [20, 18, 20]), card, 'C')).toBe(3);
+		expect(roundsFor([...circuit('c1', 6, 3, [20, 20, 20]), ...circuit('c2', 3, 5, [20, 20, 20])], card, 'C')).toBe(5);
+		expect(roundsFor([...circuit('c1', 6, 5, [20, 20, 20, 20, 20]), ...circuit('c2', 3, 7, [20, 20, 20, 20, 20, 20, 20])], card, 'C')).toBe(7);
+	});
+	it('reads a session stamped with no rounds as Level I, and waits for a session to finish', () => {
+		expect(roundsFor(circuit('c1', 3, undefined, [20, 20, 20]), card, 'C')).toBe(5);
+		expect(roundsFor(circuit('c1', 0, 3, [20, 20, 20], false), card, 'C')).toBe(3);
+	});
+	it('is what the deal offers: the rounds on the workout and the level in the line', () => {
+		const c = queue(circuit('c1', 3, 3, [20, 20, 20]), card, NOW).find((x) => x.cycle === 'floor')!;
+		expect(c.workout).toEqual({ routine: 'C', rounds: 5 });
+		expect(c.why.startsWith('Level II · 5 rounds · Stands in for Day A')).toBe(true);
+		expect(queue([], card, NOW).find((x) => x.cycle === 'lift')!.workout).toEqual({ routine: 'A' });
 	});
 });

@@ -1,4 +1,4 @@
-# The domain — five rules, and the boundary they read through
+# The domain — six rules, and the boundary they read through
 
 Everything under `src/lib/domain/` is pure ([projections.ts](projections.ts) is the read model — sessions, entries, the switches, the calendar — and [week.ts](week.ts) the three rules over it): no I/O, `now` is always an argument, and
 the only input is the event stream read through the upcaster. A screen never
@@ -36,6 +36,17 @@ Do B twice and the pointer sits after B; a removed session does not turn it; a
 session in progress does not either. A floor session counts toward the lift but
 does not turn the lift's A/B.
 
+## level — `roundsFor(events, plan, routine)` in [week.ts](week.ts)
+
+A circuit (a routine with `levels`) is dealt rounds, not sets. They are the
+level after its last **finished** session: every exercise at its count in every
+round (`roundsDone`) → the next level up (`nextRounds`), never past the top;
+anything short or skipped → the same level; never done → Level I. Derived, never
+stored — but the session stamps the rounds it was dealt (`rounds` on
+`SessionStarted`), so a session in progress keeps them, and the step list walks
+them round by round. The deal carries the rounds on the workout and says the
+level first in its line.
+
 ## load — `suggest(history, exercise, now)` in [progression.ts](progression.ts)
 
 Set by set. For a loaded lift (`progress.of === 'size'`): a set that hit the top
@@ -50,7 +61,7 @@ session in progress left out. `nextSet` is the same rule inside a session.
 
 ## stand-in — `FLOOR` in [plans.ts](plans.ts), read by `countedBy` in [week.ts](week.ts)
 
-Five bodyweight routines in a cycle at target 0 with `standsInFor: 'lift'`. Target
+Four Darebee cards and a band day in a cycle at target 0 with `standsInFor: 'lift'`. Target
 0 means never owed on its own, so the deal puts it last; `standsInFor` means its
 sessions are counted by the lift (`countedBy` folds a cycle's stand-ins into its
 count). It follows the lift's switch and is never switched itself.

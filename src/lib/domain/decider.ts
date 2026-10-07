@@ -91,6 +91,9 @@ export const evolve = (state: LedgerState, event: StoredEvent): LedgerState =>
 	upcast(event).reduce(evolveOne, state);
 
 const isInt = (n: unknown): n is number => Number.isInteger(n);
+const checkRounds = (rounds: number | undefined) => {
+	if (rounds !== undefined && (!isInt(rounds) || rounds < 1)) throw new ValidationError('A circuit is a whole number of rounds.');
+};
 
 /** Which new facts a request produces, or throws — every "no" lives here; zero events is a valid answer. */
 export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[] => {
@@ -100,6 +103,7 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 				throw new IllegalStateError('A session is already in progress — finish it first.');
 			const { session, plan, at, discipline } = command.data;
 			if (!isDiscipline(discipline)) throw new ValidationError('A session says what it is: lift, yoga, bodyweight, mobility or run.');
+			checkRounds(command.data.rounds);
 			return [{ type: 'SessionStarted', data: { session, plan, at, mode: 'live', discipline, ...workoutOf(command.data) } }];
 		}
 
@@ -132,6 +136,7 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 			if (!isDiscipline(discipline)) throw new ValidationError('A session says what it is: lift, yoga, bodyweight, mobility or run.');
 			if (state.started.includes(session)) throw new IllegalStateError('That session is already in the ledger.');
 			if (Date.parse(startAt) > Date.parse(at)) throw new ValidationError('A session cannot end before it starts.');
+			checkRounds(command.data.rounds);
 			const seen = new Set<string>();
 			for (const en of entries) {
 				if (!en.item || !isInt(en.index) || en.index < 1) throw new ValidationError('Entry has no identity.');

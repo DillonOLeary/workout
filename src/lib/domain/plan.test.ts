@@ -119,6 +119,25 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: info.A }, []))).toThrow('cycles must be a non-empty list');
 		expect(parsePlan(raw({ A: [goblet] }, { A: info.A }, [{ id: 'c', title: 'C', routines: ['A'], target: 0 }])).cycles[0].target).toBe(0);
 	});
+	it('reads a circuit: rounds a level, rising, and the rest between parts — and no exercise that cannot go once a round', () => {
+		const card = (info: Record<string, unknown>, list: unknown[] = [pushup, plank]) =>
+			parsePlan(raw({ C: list }, { C: { title: 'Card', discipline: 'bodyweight', ...info } }, [{ id: 'c', title: 'C', routines: ['C'], target: 0 }]));
+		expect(card({ levels: [3, 5, 7], rest: 120 }).routineInfo.C).toMatchObject({ levels: [3, 5, 7], rest: 120 });
+		expect(card({ rest: 120 }).routineInfo.C.levels).toBeUndefined();
+		expect(() => card({ levels: [5, 3] })).toThrow(/levels must be rounds a level, rising/);
+		expect(() => card({ levels: [] })).toThrow(/levels must be rounds a level, rising/);
+		expect(() => card({ levels: [3, 4.5] })).toThrow(/levels must be rounds a level, rising/);
+		expect(() => card({ rest: 0 })).toThrow('routineInfo "C" rest must be a positive number of seconds');
+		expect(() => card({ levels: [3, 5] }, [stretch])).toThrow('routine "C" is a circuit: each exercise goes once a round, so no run and no side "sets"');
+	});
+	it('reads max as reps that progress by count, and nothing else', () => {
+		const rows = { name: 'Body Rows', kind: 'reps', sets: 3, lo: 1, hi: 100, max: true, progress: { of: 'count' } };
+		expect(one(rows)).toMatchObject({ max: true, lo: 1 });
+		expect(one({ ...rows, max: undefined })).not.toHaveProperty('max');
+		expect(() => one({ ...rows, max: false })).toThrow('"Body Rows" max is true or absent');
+		expect(() => one({ ...rows, progress: { of: 'none' } })).toThrow(/is max: as many reps as you can/);
+		expect(() => one({ ...plank, max: true })).toThrow(/is max: as many reps as you can/);
+	});
 	it('keeps a class — named, never written — and never lets a cycle walk one', () => {
 		const studio = { title: 'Yoga class', discipline: 'yoga' };
 		const p = parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio }, [{ id: 'c', title: 'C', routines: ['A'], target: 1 }]));
@@ -126,7 +145,7 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(classKeys(p)).toEqual(['studio']);
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio: { title: 'Class' } }, [{ id: 'c', title: 'C', routines: ['A'], target: 1 }]))).toThrow(/routineInfo "studio" needs a discipline/);
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio }, [{ id: 'c', title: 'C', routines: ['studio'], target: 1 }]))).toThrow('cycle "c" names a routine the plan doesn\'t have: "studio"');
-		for (const plan of SHIPPED_PLANS) expect(classKeys(plan)).toEqual(['studio']);
+		for (const plan of SHIPPED_PLANS) expect(classKeys(plan)).toEqual(['darebee', 'studio']);
 		expect(routineTitle(SHIPPED_PLANS[0], 'studio')).toBe('Yoga class');
 		expect(disciplineOf(SHIPPED_PLANS[0], 'studio')).toBe('yoga');
 	});
@@ -184,7 +203,7 @@ describe('composePlan — the week is one programme, its floor, and the practice
 		const off = composePlan(programme, BLOCKS, FLOOR, []);
 		expect(off.cycles).toEqual([]);
 		expect(routineTitle(off, 'hips')).toBe('Hips & Hamstrings');
-		expect(routineTitle(off, 'bw1')).toBe('Push & Squat');
+		expect(routineTitle(off, 'invicta')).toBe('Invicta');
 		expect(routineTitle(off, 'A')).toBe('Squat & Shove');
 		expect(disciplineOf(off, 'run')).toBe('run');
 		const on = composePlan(programme, BLOCKS, FLOOR, ['lift', 'run']);

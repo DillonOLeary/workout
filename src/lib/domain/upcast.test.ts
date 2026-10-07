@@ -6,6 +6,12 @@ const AT = '2026-08-23T18:00:00.000Z';
 const row = (type: string, data: unknown): StoredEvent => ({ type, data });
 
 describe('the read boundary — old rows read back in the current vocabulary', () => {
+	it('keeps a circuit’s rounds, and reads a rounds that is no whole count as none', () => {
+		const at = (rounds: unknown) => upcast(row('SessionStarted', { session: 's1', plan: 'p', routine: 'invicta', discipline: 'bodyweight', mode: 'live', at: AT, rounds }));
+		expect(at(5)).toEqual([{ type: 'SessionStarted', data: { session: 's1', plan: 'p', at: AT, mode: 'live', discipline: 'bodyweight', routine: 'invicta', rounds: 5 } }]);
+		expect(at(0)[0].data).not.toHaveProperty('rounds');
+		expect(at('5')[0].data).not.toHaveProperty('rounds');
+	});
 	it('fills mode and discipline on a SessionStarted written before they existed, and strips what entries never needed', () => {
 		expect(upcast(row('SessionStarted', { session: 's1', plan: 'p', day: 'A', at: AT }))).toEqual([
 			{ type: 'SessionStarted', data: { session: 's1', plan: 'p', at: AT, mode: 'live', discipline: 'lift', routine: 'A' } }
