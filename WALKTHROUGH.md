@@ -860,10 +860,13 @@ on the figure replays it. A counted warm-up line (Sun Salutation A × 3) now
 carries its name on the step, so it gets its figure too. The Darebee stations
 (2026-10-07) are thirteen more in a *Floor cards* group, and the rest of a
 card's names are aliases of figures that already did the movement (*Push-ups*
-is the push-up). They brought two pieces of furniture — `chairs`, a seat under
-each hand for the leg hold, and `door`, a door at the toes with the towel
-inked from the hands — and a twist that mirrors, so *Twists* and *Back
-Rotations* turn the other way on the other side.
+is the push-up). They brought three pieces of furniture — `chairs`, a seat
+under each hand for the leg hold; `door`, a door at the toes with the towel
+inked from the hands; `pole`, the broom handle the body rows hang from — and a
+twist that mirrors, so *Twists* and *Back Rotations* turn the other way on the
+other side. Each was looked at as an image, not only as the snapshot's
+characters: a figure on the floor or turning about its spine reads only from
+the right camera, so most of them carry their own `yaw` and `pitch`.
 
 Three things keep it cheap on a phone (measured 2026-10-04 with the CPU
 throttled 4×: the floor went from 22 % of the main thread, all the time, to

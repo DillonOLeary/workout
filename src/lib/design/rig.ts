@@ -133,6 +133,7 @@ const THIGH = 0.44, SHIN = 0.43, UARM = 0.29, FARM = 0.27;
 const H = (x: number, y: number, z: number, pole?: V3, hd?: V3 | null): Hand => ({ s: 'hang', p: [x, y, z], pole, hd });
 const C = (x: number, y: number, z: number, pole?: V3, hd?: V3 | null, via?: 'side'): Hand => ({ s: 'chest', p: [x, y, z], pole, hd, via });
 const PL = (dx: number, y: number, dz: number, pole: V3, hd?: V3): Hand => ({ s: 'plant', p: [dx, y, dz], pole, hd: hd || [1, 0, 0] });
+const PV = (x: number, y: number, z: number, pole?: V3): Hand => ({ s: 'pelvis', p: [x, y, z], pole });
 const two = <T>(h: T): T[] => [h, h];
 const Lg = (fl: number, ab = 4, tw = 0) => [fl, ab, tw];
 const HANG = H(0.03, -0.52, 0.05, [-1, 0, 0.25]);
@@ -330,6 +331,7 @@ export function solve(body: Angles, hA: Hand[], hB: Hand[], t: number, cA: Ctx, 
 		for (const z of [-1, 1]) cap(add(c, [0, 0, z * 0.06]), add(c, [0, 0, z * 0.11]), 0.05);
 	}
 	if (P.includes('bar')) { const u = nrm(sub(W1, W0)); cap(add(W0, scl(u, -0.25)), add(W1, scl(u, 0.25)), 0.015); }
+	if (P.includes('pole')) cap([mid[0], mid[1] - 0.03, -0.75], [mid[0], mid[1] - 0.03, 0.75], 0.025);
 	if (P.includes('cableF')) cap(mid, add(mid, [0.95, 0.04, 0]), 0.007);
 	if (P.includes('cableUp')) cap(mid, [mid[0] + 0.04, 2.3, mid[2]], 0.007);
 	if (P.includes('chairs')) for (const a of J.arms) { const top = a.W[1] - 0.04, zs = Math.sign(a.W[2]) || 1; if (top > 0.05) box([a.W[0], top / 2, a.W[2] + zs * 0.16], [0.18, top / 2, 0.18]); }
@@ -613,10 +615,10 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'heel up on a box, toes up, leg straight; the hinge comes from the hips, back flat',
 			k0: { pelvis: 10, hip: [Lg(10), Lg(75)], knee: [3, 0], foot: [0, 70], hand: two(C(0.32, -0.28, 0.15)), anchor: 'footL' },
 			k1: { pelvis: 48, spine: 6, chest: 4, neck: -8, hip: [Lg(48), Lg(113)], knee: [3, 0], foot: [0, 70], hand: two(C(0.42, -0.2, 0.12)), anchor: 'footL' } },
-		{ id: 'figure4', name: 'Figure-4 stretch', base: 'bench', kind: 'stretch', hold: 45, breath: [3, 5], props: ['bench'], yaw: 40,
-			cue: 'seated, ankle on the opposite knee; the torso folds forward over the shin',
-			k0: { hip: [Lg(86, 10, 6), Lg(70, 35, 55)], knee: [88, 100], hand: two(C(0.35, -0.25, 0.12)), anchor: 'pelvis' },
-			k1: { pelvis: 30, spine: 8, chest: 6, hip: [Lg(116, 10, 6), Lg(100, 35, 55)], knee: [88, 100], hand: two(C(0.35, -0.25, 0.12)), anchor: 'pelvis' } },
+		{ id: 'figure4', name: 'Figure-4 stretch', base: 'back', kind: 'stretch', hold: 45, breath: [3, 5], yaw: -20, pitch: 42,
+			cue: 'on the back, one ankle crossed over the other knee; the hands draw that bottom thigh in toward the chest',
+			k0: { pelvis: -90, hip: [Lg(68, 6), Lg(74, 38, 90)], knee: [95, 92], hand: [PV(0.31, -0.12, 0.14, [0, 1, 1]), PV(0.31, -0.12, -0.04, [0, 1, 1])], anchor: 'pelvis' },
+			k1: { pelvis: -90, hip: [Lg(90, 6), Lg(96, 38, 90)], knee: [95, 92], hand: [PV(0.31, 0, 0.14, [0, 1, 1]), PV(0.31, 0, -0.04, [0, 1, 1])], anchor: 'pelvis' } },
 		{ id: 'doorway', name: 'Doorway chest stretch', kind: 'stretch', hold: 45, breath: [3, 5], props: ['frame'], yaw: 50,
 			cue: 'forearm on the frame behind you; step through and let the chest lead',
 			k0: { pelvis: 2, hip: [Lg(-12), Lg(18)], knee: [0, 12], hand: [HANG, C(-0.12, 0.42, 0.42, [0, 0.4, 1])] },
@@ -790,26 +792,26 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'on the back, the low back pressed down; the straight legs rise together to vertical and lower slowly to just off the floor',
 			k0: { pelvis: -90, hip: two(Lg(6, 4)), knee: [0, 0], foot: [60, 60], hand: two(ARMS_SIDE), anchor: 'pelvis' },
 			k1: { pelvis: -90, hip: two(Lg(90, 4)), knee: [0, 0], foot: [0, 0], hand: two(ARMS_SIDE), anchor: 'pelvis' } },
-		{ id: 'revangel', name: 'Reverse Angels', base: 'prone', kind: 'rep', tempo: [2, 1, 2, 0], labels: ['Sweep', 'Squeeze', 'Return', 'Reach'], ecc: false, pitch: 28,
+		{ id: 'revangel', name: 'Reverse Angels', base: 'prone', kind: 'rep', tempo: [2, 1, 2, 0], labels: ['Sweep', 'Squeeze', 'Return', 'Reach'], ecc: false, yaw: -50, pitch: 20,
 			cue: 'face down, chest and straight arms just off the floor; the arms sweep wide from overhead down to the hips and back',
 			k0: { pelvis: 80, chest: -4, hip: two(Lg(-6)), knee: [0, 0], foot: [180, 180], hand: two(C(-0.08, 0.72, 0.14, [0, 0, 1])), anchor: 'pelvis' },
 			k1: { pelvis: 80, chest: -4, hip: two(Lg(-6)), knee: [0, 0], foot: [180, 180], hand: two(C(-0.12, -0.3, 0.3, [0, 0, 1], null, 'side')), anchor: 'pelvis' } },
-		{ id: 'leghold', name: 'Leg Hold', base: 'sit', kind: 'hold', hold: 20, breath: [2, 3], props: ['chairs'], yaw: 55, pitch: 16,
+		{ id: 'leghold', name: 'Leg Hold', base: 'sit', kind: 'hold', hold: 20, breath: [2, 3], props: ['chairs'], yaw: 80, pitch: 10,
 			cue: 'hands on two chair seats beside the hips, arms locked, shoulders down; the knees pull up and the feet stay off the floor. A breath, no pulse',
-			k0: { pelvis: -4, lift: 0.15, hip: two(Lg(115, 8)), knee: [105, 105], foot: [-20, -20], hand: two(H(0, -0.55, 0.08, [-1, 0, 0], [1, -0.2, 0])), anchor: 'pelvis' },
-			k1: { pelvis: -6, lift: 0.17, hip: two(Lg(120, 8)), knee: [105, 105], foot: [-20, -20], hand: two(H(0, -0.55, 0.08, [-1, 0, 0], [1, -0.2, 0])), anchor: 'pelvis' } },
-		{ id: 'towelcurl', name: 'Towel Bicep Curls', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Curl', 'Hold', 'Lower', 'Reach'], ecc: false, props: ['door'],
+			k0: { pelvis: -6, lift: 0.34, hip: two(Lg(112, 10)), knee: [118, 118], foot: [-20, -20], hand: two(H(0, -0.55, 0.1, [-1, 0, 0], [1, -0.2, 0])), anchor: 'pelvis' },
+			k1: { pelvis: -8, lift: 0.36, hip: two(Lg(118, 10)), knee: [122, 122], foot: [-20, -20], hand: two(H(0, -0.55, 0.1, [-1, 0, 0], [1, -0.2, 0])), anchor: 'pelvis' } },
+		{ id: 'towelcurl', name: 'Towel Bicep Curls', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Curl', 'Hold', 'Lower', 'Reach'], ecc: false, props: ['door'], yaw: 4, pitch: 12,
 			cue: 'sitting low, feet against the door, leaning back on straight arms; the elbows bend and curl the body up toward the handle',
 			k0: { pelvis: -40, hip: two(Lg(85, 10)), knee: [110, 110], foot: [0, 0], hand: two(PL(0.44, 0.85, -0.08, [0, -1, 0.3])), anchor: 'toes' },
 			k1: { pelvis: -15, hip: two(Lg(120, 10)), knee: [135, 135], foot: [0, 0], hand: two(PL(0.44, 0.85, -0.08, [0, -1, 0.3])), anchor: 'toes' } },
-		{ id: 'bodyrow', name: 'Body Rows', base: 'back', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Pull', 'Squeeze', 'Lower', 'Hang'], ecc: false, props: ['bar'], yaw: 35, pitch: 16,
+		{ id: 'bodyrow', name: 'Body Rows', base: 'back', kind: 'rep', tempo: [1, 1, 2, 0], labels: ['Pull', 'Squeeze', 'Lower', 'Hang'], ecc: false, props: ['pole'], yaw: 30, pitch: 18,
 			cue: 'under a pole across two chairs, heels down, body straight; the chest pulls up to the pole and lowers to straight arms',
-			k0: { pelvis: -73, hip: two(Lg(0, 4)), knee: [0, 0], foot: [80, 80], hand: two(PL(0.36, 0.85, 0.05, [-0.3, -1, 0.6])), anchor: 'feet' },
-			k1: { pelvis: -55, hip: two(Lg(0, 4)), knee: [0, 0], foot: [80, 80], hand: two(PL(0.36, 0.85, 0.05, [-0.3, -1, 0.6])), anchor: 'feet' } },
-		{ id: 'twist', name: 'Twists', kind: 'rep', tempo: [1, 0, 1, 0], labels: ['Turn', '—', 'Return', '—'], ecc: false, alt: true, yaw: 55, pitch: 22,
+			k0: { pelvis: -74, hip: two(Lg(0, 4)), knee: [0, 0], foot: [80, 80], hand: two(PL(0.36, 0.75, 0.05, [-0.3, -1, 0.6])), anchor: 'feet' },
+			k1: { pelvis: -58, hip: two(Lg(0, 4)), knee: [0, 0], foot: [80, 80], hand: two(PL(0.36, 0.75, 0.05, [-0.3, -1, 0.6])), anchor: 'feet' } },
+		{ id: 'twist', name: 'Twists', kind: 'rep', tempo: [1, 0, 1, 0], labels: ['Turn', '—', 'Return', '—'], ecc: false, alt: true, yaw: 85, pitch: 24,
 			cue: 'hands on the hips, hips square; the upper body turns to one side and back, then to the other',
 			k0: { chest: 2, neck: -2, hip: two(Lg(0, 8)), hand: two(HIPS) },
-			k1: { chest: 2, neck: -2, twist: 60, hip: two(Lg(0, 8)), hand: two(HIPS) } },
+			k1: { chest: 2, neck: -2, twist: 75, hip: two(Lg(0, 8)), hand: two(HIPS) } },
 		{ id: 'chestexp', name: 'Chest Expansions', kind: 'rep', tempo: [1, 1, 1, 0], labels: ['Open', 'Squeeze', 'Cross', '—'], ecc: false, yaw: 78,
 			cue: 'front view: the arms open from crossed in front of the chest to a wide T, the chest lifting, then cross again',
 			k0: { hip: two(Lg(0, 8)), hand: [C(0.34, 0.2, -0.1, [0, 0, 1]), C(0.38, 0.12, -0.1, [0, 0, 1])] },
@@ -818,7 +820,7 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'front view: hands on the hips, then both arms reach straight overhead, fingers laced and palms pushed to the ceiling',
 			k0: { hip: two(Lg(0, 8)), hand: two(HIPS) },
 			k1: { chest: -2, hip: two(Lg(0, 8)), hand: [C(0.02, 0.76, 0.05, [0, 0, 1], [0, 0.4, 1]), C(0.02, 0.76, 0.05, [0, 0, 1], [0, 0.4, -1])] } },
-		{ id: 'backrot', name: 'Back Rotations', base: 'floor', kind: 'rep', tempo: [1, 1, 1, 0], labels: ['Open', 'Hold', 'Close', 'Under'], ecc: false, alt: true, yaw: 35, pitch: 20,
+		{ id: 'backrot', name: 'Back Rotations', base: 'floor', kind: 'rep', tempo: [1, 1, 1, 0], labels: ['Open', 'Hold', 'Close', 'Under'], ecc: false, alt: true, yaw: -40, pitch: 30,
 			cue: 'on all fours, one hand behind the head; the elbow turns down under the chest, then up to the ceiling as the chest opens',
 			k0: X(FOURS, { pelvis: 92, twist: 30, hip: two(Lg(92)), hand: [PLANT0, C(-0.08, 0.4, 0.1, [1, 0, -0.3])] }),
 			k1: X(FOURS, { pelvis: 72, twist: -50, hip: two(Lg(72)), hand: [PLANT0, C(-0.08, 0.4, 0.1, [0, 0.2, 1])] }) }

@@ -108,7 +108,7 @@ export const STRETCHES: Record<string, Exercise> = {
 	'Calf stretch': HOLD45('Calf stretch', 'Back heel down, back knee straight, lean into the wall.'),
 	'Hip flexor stretch': HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
 	'Hamstring stretch': HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
-	'Figure-4 stretch': HOLD45('Figure-4 stretch', 'Ankle over the knee, sit back until the glute pulls.'),
+	'Figure-4 stretch': HOLD45('Figure-4 stretch', 'On your back, one ankle over the other knee; pull that thigh in until the glute pulls.'),
 	'Doorway chest stretch': HOLD45('Doorway chest stretch', 'Forearms on the frame at shoulder height; step through until the chest opens.', false)
 };
 /** a stretch as a cooldown line: the catalogue's entry, held this long — it walks as holds and logs like one */
