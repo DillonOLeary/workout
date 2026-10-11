@@ -4,7 +4,7 @@ import { countOf } from './measure';
 import type { Discipline, Exercise, Plan } from './plan';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, queue, roundsFor, staleness, weekProgress, weekTally } from './week';
+import { nextInCycle, poolOf, queue, roundsFor, staleness, turnOf, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -173,16 +173,16 @@ describe('cycles — where each one is turned to, and how far behind', () => {
 		expect(weekProgress(ev, plan, LIFT, NOW)).toEqual({ done: 2, target: 3 });
 		expect(weekProgress(ev, plan, MOB, NOW)).toEqual({ done: 1, target: 3 });
 		expect(weekProgress(ev, plan, RUN, NOW)).toEqual({ done: 1, target: 3 });
-		expect(weekProgress(ev, plan, FLOOR, NOW)).toEqual({ done: 0, target: 0 });
+		expect(weekProgress(ev, plan, FLOOR, NOW)).toEqual({ done: 2, target: 3 });
 		expect(staleness(ev, plan, NOW).map((s) => [s.cycle, s.daysSince === null ? null : Math.round(s.daysSince)])).toEqual([
-			['lift', 1], ['mob', 3], ['run', 2], ['floor', null]
+			['lift', 1], ['mob', 3], ['run', 2], ['floor', 1]
 		]);
 		expect(staleness([], plan, NOW).every((s) => s.daysSince === null)).toBe(true);
 	});
-	it('counts a floor session as a lift — the floor stands in, the lift’s pointer stays put', () => {
+	it('counts a floor session and a lift as one week — the two pool, and each keeps its own pointer', () => {
 		const ev = [...ledger('Goblet Squat', [{ daysAgo: 6, sets: [[35, 10]] }]), ...did('f', 'bw1', 'bodyweight', 1)];
 		expect(weekProgress(ev, plan, LIFT, NOW)).toEqual({ done: 2, target: 3 });
-		expect(weekProgress(ev, plan, FLOOR, NOW)).toEqual({ done: 1, target: 0 });
+		expect(weekProgress(ev, plan, FLOOR, NOW)).toEqual({ done: 2, target: 3 });
 		expect(nextInCycle(ev, plan, LIFT)).toBe('B');
 		expect(staleness(ev, plan, NOW).map((s) => [s.cycle, s.daysSince === null ? null : Math.round(s.daysSince)])).toEqual([
 			['lift', 1], ['mob', null], ['run', null], ['floor', 1]
@@ -246,7 +246,9 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(q.map((c) => c.workout.routine)).toEqual(['S', 'A', 'run', 'bw1']);
 		expect(q.map((c) => c.discipline)).toEqual(['mobility', 'lift', 'run', 'bodyweight']);
 		expect(q[1]).toMatchObject({ title: 'Squat & Shove', why: 'First session · 0 of 3 this week', due: true });
-		expect(q[3]).toMatchObject({ title: 'Push & Squat', why: 'Stands in for Squat & Shove · counts toward 3 lifts a week', due: false, standsInFor: 'lift' });
+		expect(q[1]).toMatchObject({ week: 'lift', turn: true });
+		expect(q[3]).toMatchObject({ title: 'Push & Squat', why: 'First session · 0 of 3 this week', due: true, week: 'lift', turn: false });
+		expect(q[0]).toMatchObject({ week: 'mob', turn: true });
 		expect(q.every((c) => c.why.length > 0 && c.minutes > 0)).toBe(true);
 	});
 	it('leads with what is owed, then what is stalest, then what is shortest', () => {
@@ -258,10 +260,10 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(queue(ev, plan, NOW).map((c) => c.cycle)).toEqual(['mob', 'run', 'lift', 'floor']);
 		expect(queue(even, plan, NOW).map((c) => c.cycle)).toEqual(['run', 'mob', 'lift', 'floor']);
 	});
-	it('keeps the floor in the deck, last — never above anything owed — and lets it pay the lift’s debt', () => {
+	it('keeps a floor with no share in the deck, last — never above anything owed — and lets it pay the same week', () => {
 		const q = queue(busy, plan, NOW);
 		expect(q.map((c) => c.cycle)).toEqual(['mob', 'run', 'lift', 'floor']);
-		expect(q[3]).toMatchObject({ due: false, standsInFor: 'lift' });
+		expect(q[3]).toMatchObject({ due: false, week: 'lift', turn: false });
 		const paid = [...ledger('Goblet Squat', [{ daysAgo: 6, sets: [[35, 10]] }]), ...did('f1', 'bw1', 'bodyweight', 1), ...did('f2', 'bw1', 'bodyweight', 3)];
 		const lift = queue(paid, plan, NOW).find((c) => c.cycle === 'lift')!;
 		expect(lift).toMatchObject({ workout: { routine: 'B' }, due: false, why: '1 day since Push & Squat · 3 of 3 this week' });
@@ -422,7 +424,51 @@ describe('roundsFor — a circuit’s level, from its last finished session', ()
 	it('is what the deal offers: the rounds on the workout and the level in the line', () => {
 		const c = queue(circuit('c1', 3, 3, [20, 20, 20]), card, NOW).find((x) => x.cycle === 'floor')!;
 		expect(c.workout).toEqual({ routine: 'C', rounds: 5 });
-		expect(c.why.startsWith('Level II · 5 rounds · Stands in for Day A')).toBe(true);
+		expect(c.why).toBe('Level II · 5 rounds · 3 days since Card');
 		expect(queue([], card, NOW).find((x) => x.cycle === 'lift')!.workout).toEqual({ routine: 'A' });
+	});
+});
+
+describe('the split — strength at the gym and on the floor, one week between them', () => {
+	const split = (gym: number, floor: number): Plan => ({
+		...plan,
+		cycles: plan.cycles.map((c) => (c.id === 'lift' ? { ...c, target: gym } : c.id === 'floor' ? { ...c, target: floor } : c))
+	});
+	const two = split(2, 1);
+	const [gymC, , , floorC] = two.cycles;
+	const gym = (session: string, daysAgo: number) => did(session, 'A', 'lift', daysAgo);
+	const floor = (session: string, daysAgo: number) => did(session, 'bw1', 'bodyweight', daysAgo);
+	const turn = (ev: LedgerEvent[], p = two) => turnOf(ev, p, p.cycles[0], NOW).id;
+
+	it('pools the two: one count, the shares added up, whichever cycle you ask', () => {
+		const ev = [...gym('g', 1), ...floor('f', 2)];
+		expect(poolOf(two, floorC).map((c) => c.id)).toEqual(['lift', 'floor']);
+		expect(poolOf(two, two.cycles[1]).map((c) => c.id)).toEqual(['mob']);
+		expect(weekProgress(ev, two, gymC, NOW)).toEqual({ done: 2, target: 3 });
+		expect(weekProgress(ev, two, floorC, NOW)).toEqual({ done: 2, target: 3 });
+	});
+	it('gives the turn to whichever is furthest behind its own share, and a tie to the one done longer ago', () => {
+		expect(turn([])).toBe('lift');
+		expect(turn(gym('g1', 1))).toBe('floor');
+		expect(turn([...gym('g1', 2), ...floor('f1', 1)])).toBe('lift');
+		expect(turn([...gym('g1', 3), ...gym('g2', 1)])).toBe('floor');
+		expect(turn([...floor('f1', 3), ...floor('f2', 1)])).toBe('lift');
+		expect(turnOf(gym('g1', 1), two, floorC, NOW).id).toBe('floor');
+	});
+	it('never gives the turn to a share of none — all at the gym, or all on the floor', () => {
+		expect(turn([...gym('g1', 1), ...gym('g2', 2), ...gym('g3', 3)], plan)).toBe('lift');
+		expect(turn([], split(0, 3))).toBe('floor');
+		expect(turn([...floor('f1', 1), ...floor('f2', 2), ...floor('f3', 3)], split(0, 3))).toBe('floor');
+	});
+	it('ranks only the turn as owed; the other way to pay the week is dealt last, still due', () => {
+		const q = queue(gym('g1', 1), two, NOW);
+		expect(q.map((c) => c.cycle)).toEqual(['mob', 'run', 'floor', 'lift']);
+		expect(q[2]).toMatchObject({ title: 'Push & Squat', due: true, week: 'lift', turn: true, why: '1 day since Squat & Shove · 1 of 3 this week' });
+		expect(q[3]).toMatchObject({ due: true, week: 'lift', turn: false });
+		expect(queue([], split(0, 3), NOW).map((c) => c.cycle).slice(-1)).toEqual(['lift']);
+	});
+	it('says strength is behind once, however it splits', () => {
+		expect(weekTally([], two, NOW)).toEqual({ done: 0, asked: 9, gaps: ['lift', 'stretch', 'run'] });
+		expect(weekTally([], split(0, 3), NOW).gaps).toEqual(['stretch', 'run', 'lift']);
 	});
 });

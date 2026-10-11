@@ -77,9 +77,9 @@ export type Cycle = {
 	title: string;
 	/** ordered routine keys */
 	routines: string[];
-	/** sessions a week. Always sessions. 0 = never owed on its own: dealt after everything owed, one "Something else" away */
+	/** sessions a week — its own share of its pool's. 0 = never its pool's turn: dealt after everything owed */
 	target: number;
-	/** its sessions count toward that cycle's target (the floor stands in for the lift) */
+	/** it pools with that cycle: one weekly count between them, either's sessions paying it (the floor and the gym are strength) */
 	standsInFor?: string;
 };
 
@@ -182,8 +182,10 @@ export const allPracticesOn = (): Record<PracticeId, boolean> =>
 /** The practices that are shared blocks in code — every practice but the lift, which is the programme's. */
 export type BlockId = Exclude<PracticeId, 'lift'>;
 
-/** What you asked of a practice: sessions a week, and for the run its minutes — over the programme's own cadence. */
-export type Goal = { sessions: number; minutes?: number };
+/** What you asked of a practice: sessions a week, for the run its minutes, for strength how many of them are on the floor — over the programme's own cadence. */
+export type Goal = { sessions: number; minutes?: number; floor?: number };
+/** A goal as it is kept: its own fields and nothing else, and no floor share of none. */
+export const goalOf = (g: Goal): Goal => ({ sessions: g.sessions, ...(g.minutes !== undefined ? { minutes: g.minutes } : {}), ...(g.floor ? { floor: g.floor } : {}) });
 export type Goals = Partial<Record<PracticeId, Goal>>;
 /** Sessions a week a goal may ask. */
 export const GOAL_SESSIONS = { min: 1, max: 7 } as const;
@@ -202,8 +204,9 @@ export type Routines = {
 export type Block = Routines & { id: BlockId };
 
 /**
- * The week as one Plan: the programme's lifting (while the lift is on), the floor that stands in for it, and every block that is on;
- * a goal rewrites a cycle's target, and the run's minutes; a rest setting rewrites the programme's rest (an exercise's own stays).
+ * The week as one Plan: the programme's lifting and the floor that pools with it (while strength is on), and every block that is on;
+ * a goal rewrites a cycle's target, the run's minutes and how strength splits — the floor's share is its target, the gym's the rest;
+ * a rest setting rewrites the programme's rest (an exercise's own stays).
  * Every block's routines are known whether or not it is on, so a session of something you switched off still has a title.
  */
 export function composePlan(programme: Plan, blocks: readonly Block[], floor: Routines, on: readonly PracticeId[], goals: Goals = {}, rest?: number | null): Plan {
@@ -211,7 +214,12 @@ export function composePlan(programme: Plan, blocks: readonly Block[], floor: Ro
 	const routineInfo: Record<string, Routine> = { ...programme.routineInfo, ...floor.routineInfo };
 	const cycles: Cycle[] = [];
 	if (on.includes('lift')) {
-		cycles.push(...programme.cycles.map((c) => (c.id === 'lift' ? withGoal(c, goals.lift) : c)), floor.cycle);
+		const lift = programme.cycles.find((c) => c.id === floor.cycle.standsInFor);
+		const onFloor = Math.min(goals.lift?.floor ?? 0, goals.lift?.sessions ?? lift?.target ?? 0);
+		cycles.push(
+			...programme.cycles.map((c) => (c === lift ? { ...c, target: (goals.lift?.sessions ?? c.target) - onFloor } : c)),
+			{ ...floor.cycle, target: onFloor }
+		);
 	}
 	for (const b of blocks) {
 		Object.assign(routines, b.routines);

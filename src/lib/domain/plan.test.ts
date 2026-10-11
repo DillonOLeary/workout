@@ -216,6 +216,16 @@ describe('composePlan — the week is one programme, its floor, and the practice
 		expect(composePlan(programme, BLOCKS, FLOOR, ['run'], { run: { sessions: 3 } }).routines.run[0]).toMatchObject({ lo: 30, hi: 30 });
 		expect(parsePlan(JSON.stringify(week))).toEqual(week);
 	});
+	it('splits strength by its goal: the floor’s share is its target, the gym’s the rest, and the two still add up', () => {
+		const targets = (goals: Parameters<typeof composePlan>[4]) =>
+			composePlan(programme, BLOCKS, FLOOR, ['lift'], goals).cycles.map((c) => [c.id, c.target]);
+		expect(targets({})).toEqual([['lift', 3], ['floor', 0]]);
+		expect(targets({ lift: { sessions: 3, floor: 1 } })).toEqual([['lift', 2], ['floor', 1]]);
+		expect(targets({ lift: { sessions: 4, floor: 4 } })).toEqual([['lift', 0], ['floor', 4]]);
+		expect(targets({ lift: { sessions: 2, floor: 5 } })).toEqual([['lift', 0], ['floor', 2]]);
+		const week = composePlan(programme, BLOCKS, FLOOR, ['lift', 'run'], { lift: { sessions: 3, floor: 1 } });
+		expect(parsePlan(JSON.stringify(week))).toEqual(week);
+	});
 	it('lets a rest setting rewrite the programme’s rest, and an exercise’s own stand', () => {
 		const p = composePlan(DEFAULT_PROGRAMMES[0], BLOCKS, FLOOR, ['lift', 'yoga', 'mob', 'run'], {}, 120);
 		expect(p.rest).toBe(120);

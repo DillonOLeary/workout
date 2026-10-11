@@ -48,7 +48,7 @@ export type SelectProgramme = Command<'SelectProgramme', { programme: string; at
 /** Switch a practice of the week on or off. */
 export type TogglePractice = Command<'TogglePractice', { practice: PracticeId; on: boolean; at: string }>;
 
-/** Ask a practice for so many sessions a week — and the run for so many minutes. */
+/** Ask a practice for so many sessions a week — the run for so many minutes, strength for so many of them on the floor. */
 export type SetGoal = Command<'SetGoal', { practice: PracticeId; at: string } & Goal>;
 
 /** Set the rest between sets, in seconds, on the dial the Plan offers. */

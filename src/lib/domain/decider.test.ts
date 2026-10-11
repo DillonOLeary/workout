@@ -249,6 +249,25 @@ describe('decide — idempotent removes, selects, switches and goals', () => {
 		expect(() => decide(goal('run', 2, 95), state)).toThrow(ValidationError);
 		expect(() => decide(goal('swim', 2), state)).toThrow(ValidationError);
 	});
+	it('lets strength put some of its sessions on the floor — none, some or all, and nothing else may', () => {
+		const goal = (practice: string, sessions: number, floor?: number): LedgerCommand => ({
+			type: 'SetGoal',
+			data: { practice: practice as never, at: AT, sessions, ...(floor !== undefined ? { floor } : {}) }
+		});
+		const [e] = decide(goal('lift', 3, 1), initialState());
+		expect(e).toEqual({ type: 'GoalSet', data: { practice: 'lift', at: AT, sessions: 3, floor: 1 } });
+		const state = evolve(initialState(), e);
+		expect(state.goals).toEqual({ lift: { sessions: 3, floor: 1 } });
+		expect(decide(goal('lift', 3, 1), state)).toEqual([]);
+		expect(decide(goal('lift', 3, 3), state)).toHaveLength(1);
+		const [back] = decide(goal('lift', 3, 0), state);
+		expect(back).toEqual({ type: 'GoalSet', data: { practice: 'lift', at: AT, sessions: 3 } }); // a share of none is not kept
+		expect(decide(goal('lift', 3), evolve(state, back))).toEqual([]);
+		expect(() => decide(goal('lift', 3, 4), state)).toThrow(ValidationError);
+		expect(() => decide(goal('lift', 3, -1), state)).toThrow(ValidationError);
+		expect(() => decide(goal('lift', 3, 1.5), state)).toThrow(ValidationError);
+		expect(() => decide(goal('run', 3, 1), state)).toThrow(ValidationError);
+	});
 });
 
 describe('the fold reads raw history', () => {

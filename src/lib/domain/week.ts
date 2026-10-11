@@ -1,21 +1,34 @@
 import type { LedgerEvent, Workout } from './events';
-import { disciplineLabel, levelLine, setsPhrase, standInLine, weekLine } from './labels';
+import { disciplineLabel, levelLine, setsPhrase, weekLine } from './labels';
 import { cycleDisciplines, levelsOf, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
 import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry, nextRounds, roundsDone, suggest } from './progression';
 import { historyFor, projectSessions, sessionEntries, type SessionView } from './projections';
 import { estimateMinutes, sessionSteps } from './steps';
 
 /**
- * The week's rules over the read model: owed (`weekProgress`), next (`nextInCycle`), a circuit's level (`roundsFor`) and the deal (`queue`) —
- * with the stand-in folded into how a cycle counts (`countedBy`). Pure folds; `now` is an argument. README.md is the contract.
+ * The week's rules over the read model: owed (`weekProgress`), next (`nextInCycle`), a circuit's level (`roundsFor`), a pool's turn (`turnOf`)
+ * and the deal (`queue`). Pure folds; `now` is an argument. README.md is the contract.
  */
 
 const DAY = 86400000;
 
-/** The sessions this cycle counts: those of its disciplines — and of any cycle standing in for it — whatever plan offered them, newest first. */
-const countedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => {
-	const ds = plan.cycles.filter((c) => c === cycle || c.standsInFor === cycle.id).flatMap((c) => cycleDisciplines(plan, c));
+/** The cycles that share one weekly count — a cycle and whatever pools with it, in plan order; alone, itself. */
+export const poolOf = (plan: Plan, cycle: Cycle): Cycle[] => {
+	const root = cycle.standsInFor ?? cycle.id;
+	return plan.cycles.filter((c) => c.id === root || c.standsInFor === root);
+};
+/** The cycle a pool is named for: the one the others stand in for; alone, itself. */
+export const poolRoot = (plan: Plan, cycle: Cycle): Cycle => plan.cycles.find((c) => c.id === cycle.standsInFor) ?? cycle;
+
+const ofDisciplines = (sessions: SessionView[], plan: Plan, cycles: Cycle[]): SessionView[] => {
+	const ds = cycles.flatMap((c) => cycleDisciplines(plan, c));
 	return sessions.filter((s) => ds.includes(s.discipline));
+};
+/** The sessions this cycle's week counts: those of its pool's disciplines, whatever plan offered them, newest first. */
+const countedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] => ofDisciplines(sessions, plan, poolOf(plan, cycle));
+const inWeek = (s: SessionView, now: number): boolean => {
+	const t = Date.parse(s.at);
+	return t > now - 7 * DAY && t <= now;
 };
 /** The sessions that turned this cycle: finished, this plan, a routine on its list — newest first. */
 const turnedBy = (sessions: SessionView[], plan: Plan, cycle: Cycle): SessionView[] =>
@@ -45,14 +58,27 @@ export function roundsFor(events: LedgerEvent[], plan: Plan, routine: string): n
 	return nextRounds(levels, rounds, roundsDone(plan.routines[routine] ?? [], rounds, sessionEntries(events, last.id)));
 }
 
-/** Sessions of this cycle in the trailing seven days, against its target. An unfinished one today counts. */
+/** Sessions of this cycle's pool in the trailing seven days, against the pool's target — the shares added up. An unfinished one today counts. */
 export function weekProgress(events: LedgerEvent[], plan: Plan, cycle: Cycle, now: number): { done: number; target: number } {
-	const cutoff = now - 7 * DAY;
-	const done = countedBy(projectSessions(events), plan, cycle).filter((s) => {
-		const t = Date.parse(s.at);
-		return t > cutoff && t <= now;
-	}).length;
-	return { done, target: cycle.target };
+	const done = countedBy(projectSessions(events), plan, cycle).filter((s) => inWeek(s, now)).length;
+	return { done, target: poolOf(plan, cycle).reduce((n, c) => n + c.target, 0) };
+}
+
+/**
+ * Whose turn it is in this cycle's pool: of the cycles with a share, the one furthest behind its own this week — level, the one done
+ * longer ago, then plan order. A share of none never has the turn; alone, a cycle always does.
+ */
+export function turnOf(events: LedgerEvent[], plan: Plan, cycle: Cycle, now: number): Cycle {
+	const pool = poolOf(plan, cycle);
+	const sharing = pool.filter((c) => c.target > 0);
+	if (sharing.length < 2) return sharing[0] ?? pool[0];
+	const sessions = projectSessions(events);
+	const ranked = sharing.map((c, order) => {
+		const own = ofDisciplines(sessions, plan, [c]);
+		const last = own.find((s) => s.finished);
+		return { c, order, behind: c.target - own.filter((s) => inWeek(s, now)).length, last: last ? Date.parse(last.at) : -Infinity };
+	});
+	return ranked.sort((a, b) => b.behind - a.behind || a.last - b.last || a.order - b.order)[0].c;
 }
 
 /** Days since each cycle last turned — null when it never has. */
@@ -76,10 +102,12 @@ export type Candidate = {
 	minutes: number;
 	/** ordering only; never shown */
 	score: number;
-	/** under its cycle's weekly target — what "due" means */
+	/** its week is under target — what "due" means; true of both ways to pay a pool */
 	due: boolean;
-	/** the cycle this one's sessions count toward — the floor stands in for the lift */
-	standsInFor?: string;
+	/** the cycle whose week this pays: its pool's root — itself, alone */
+	week: string;
+	/** its pool's pick right now — always, alone; only a turn is ranked as owed */
+	turn: boolean;
 };
 
 /** Cadences overdue, in whole tiers; never done counts as very. */
@@ -91,7 +119,7 @@ function staleTier(daysSince: number | null, target: number): number {
 
 /**
  * One candidate per cycle, ranked: owed → shortfall → staleness → minutes → plan order.
- * A target-0 cycle is always dealt and never above anything owed — the floor is one "Something else" away.
+ * In a pool only the turn carries what is owed; the other way to pay it is always dealt and never above anything owed.
  */
 export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate[] {
 	const sessions = projectSessions(events);
@@ -108,19 +136,16 @@ export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate
 		const rounds = roundsFor(events, plan, routine);
 		const workout = rounds === undefined ? { routine } : { routine, rounds };
 		const minutes = estimateMinutes(sessionSteps(plan, workout));
-		const standIn = cycle.standsInFor ? plan.cycles.find((c) => c.id === cycle.standsInFor) : undefined;
-		const why = standIn
-			? standInLine(routineTitle(plan, nextInCycle(events, plan, standIn)) ?? standIn.title, standIn.target)
-			: whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target);
 		const levels = levelsOf(plan, routine);
+		const why = whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, levels && rounds ? levelLine(levels, rounds) : undefined);
+		const turn = turnOf(events, plan, cycle, now).id === cycle.id;
 		// bands that cannot touch: owed 1e8 > shortfall·1e6 > stale·1e3 + shorter (≤ 999,009)
-		const owed = cycle.target > 0;
 		const shorter = 999 - Math.min(999, minutes);
-		const score = (owed ? 1e8 : 0) + shortfall * 1e6 + stale * 1e3 + shorter;
+		const score = (turn && target > 0 ? 1e8 : 0) + (turn ? shortfall : 0) * 1e6 + stale * 1e3 + shorter;
 		scored.push({
 			c: {
-				cycle: cycle.id, workout, discipline, title, why: levels && rounds ? `${levelLine(levels, rounds)} · ${why}` : why,
-				minutes, score, due: shortfall > 0, ...(standIn ? { standsInFor: standIn.id } : {})
+				cycle: cycle.id, workout, discipline, title, why,
+				minutes, score, due: shortfall > 0, week: poolRoot(plan, cycle).id, turn
 			},
 			order
 		});
@@ -137,11 +162,15 @@ export function weekTally(events: LedgerEvent[], plan: Plan, now: number): { don
 	}).length;
 	const owed = plan.cycles.filter((c) => c.target > 0);
 	const asked = owed.reduce((n, c) => n + c.target, 0);
-	const gaps = owed.filter((c) => weekProgress(events, plan, c, now).done < c.target).map((c) => c.title.toLowerCase());
+	const short = owed.filter((c) => {
+		const week = weekProgress(events, plan, c, now);
+		return week.done < week.target;
+	});
+	const gaps = [...new Set(short.map((c) => poolRoot(plan, c).title.toLowerCase()))];
 	return { done, asked, gaps };
 }
 
-/** The mono line under a candidate: re-entry warning, days since the cycle last turned, then what the rule moves next — or where the week stands. */
+/** The mono line under a candidate: re-entry warning, days since the cycle last turned, then what the rule moves next — or where the week stands. A circuit says its `level` first, and leaves the week to the caption. */
 function whyLine(
 	events: LedgerEvent[],
 	sessions: SessionView[],
@@ -151,7 +180,8 @@ function whyLine(
 	lastIn: SessionView | undefined,
 	now: number,
 	done: number,
-	target: number
+	target: number,
+	level?: string
 ): string {
 	const exercises: Exercise[] = plan.routines[routine];
 	const moved = exercises
@@ -179,5 +209,5 @@ function whyLine(
 		sinceLine = lastAge === 0 ? `${title} today` : `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${title}`;
 	}
 	const week = target > 0 ? weekLine(done, target) : cycle.title;
-	return [warn, sinceLine, movedLine ?? week].filter(Boolean).join(' · ');
+	return [warn, level, sinceLine, movedLine ?? (level ? null : week)].filter(Boolean).join(' · ');
 }

@@ -2,7 +2,7 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
-import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, REST_SECONDS, allPracticesOn, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
+import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, REST_SECONDS, allPracticesOn, goalOf, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
 import { upcast } from './upcast';
 
 /** What the rules need and nothing a screen does — rebuilt from events on every command, never stored. */
@@ -83,8 +83,7 @@ function evolveOne(state: LedgerState, event: LedgerEvent): LedgerState {
 	}
 }
 
-const goalOf = (g: Goal): Goal => ({ sessions: g.sessions, ...(g.minutes !== undefined ? { minutes: g.minutes } : {}) });
-const sameGoal = (a: Goal | undefined, b: Goal): boolean => !!a && a.sessions === b.sessions && a.minutes === b.minutes;
+const sameGoal = (a: Goal | undefined, b: Goal): boolean => !!a && a.sessions === b.sessions && a.minutes === b.minutes && (a.floor ?? 0) === (b.floor ?? 0);
 
 /** One stored row folded as the facts it reads as today — the upcaster runs here, before any rule sees the event. */
 export const evolve = (state: LedgerState, event: StoredEvent): LedgerState =>
@@ -184,16 +183,20 @@ export const decide = (command: LedgerCommand, state: LedgerState): LedgerEvent[
 		}
 
 		case 'SetGoal': {
-			const { practice, at, sessions, minutes } = command.data;
+			const { practice, at, sessions, minutes, floor } = command.data;
 			if (!isPractice(practice)) throw new ValidationError(`No such practice — the week has ${PRACTICES.join(', ')}.`);
 			if (!isInt(sessions) || sessions < GOAL_SESSIONS.min || sessions > GOAL_SESSIONS.max)
 				throw new ValidationError(`A goal is ${GOAL_SESSIONS.min} to ${GOAL_SESSIONS.max} sessions a week.`);
+			if (floor !== undefined) {
+				if (practice !== 'lift') throw new ValidationError('Only strength splits with the floor.');
+				if (!isInt(floor) || floor < 0 || floor > sessions) throw new ValidationError('The floor takes none, some or all of the sessions — no more.');
+			}
 			if (minutes !== undefined) {
 				if (practice !== 'run') throw new ValidationError('Only the run has minutes.');
 				if (!isInt(minutes) || minutes < GOAL_MINUTES.min || minutes > GOAL_MINUTES.max)
 					throw new ValidationError(`A run is ${GOAL_MINUTES.min} to ${GOAL_MINUTES.max} minutes.`);
 			}
-			const goal = goalOf({ sessions, minutes });
+			const goal = goalOf({ sessions, minutes, floor });
 			if (sameGoal(state.goals[practice], goal)) return [];
 			return [{ type: 'GoalSet', data: { practice, at, ...goal } }];
 		}

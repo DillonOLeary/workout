@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dayMarks, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
-	goalHint, goalLabel, levelLine, levelNote, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
-	setValue, setsLine, sessionSummary, spanLabel, standInLine, weekChangeLine, weekHead, weekLine
+	goalHint, goalLabel, levelLine, levelNote, loadHint, loadLabel, loadShort, placeLabel, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	setValue, setsLine, sessionSummary, spanLabel, splitLine, weekChangeLine, weekHead, weekLine
 } from './labels';
 import type { Measure } from './measure';
 import type { Exercise } from './plan';
@@ -55,10 +55,12 @@ describe('disciplines, in words', () => {
 		expect(disciplineNoun('run', 1.04)).toBe('run');
 		expect(disciplineNoun('bodyweight', 3)).toBe('floor sessions');
 	});
-	it('says the week, the cadence and what stands in', () => {
+	it('says the week, the cadence and how strength splits', () => {
 		expect(weekLine(1, 3)).toBe('1 of 3 this week');
-		expect(standInLine('Hinge & Haul', 3)).toBe('Stands in for Hinge & Haul · counts toward 3 lifts a week');
-		expect(standInLine('Get Low', 1)).toBe('Stands in for Get Low · counts toward 1 lift a week');
+		expect(['lift', 'bodyweight', 'run'].map((d) => placeLabel(d as never))).toEqual(['at the gym', 'on the floor', '']);
+		expect(splitLine(3, 0)).toBe('All at the gym. A floor workout still counts — it is one tap away on Today.');
+		expect(splitLine(3, 1)).toBe('2 at the gym, 1 on the floor. Either counts; Today deals whichever is behind.');
+		expect(splitLine(3, 3)).toBe('All on the floor. A gym session still counts — it is one tap away on Today.');
 	});
 });
 
@@ -85,14 +87,15 @@ describe('rates — the running average in words', () => {
 			'switched to Open to Work · yoga, stretch, run on'
 		);
 		expect(weekChangeLine({ blocks: [{ block: 'run', on: false }] }, name)).toBe('run off');
-		expect(weekChangeLine({ blocks: [{ block: 'lift', on: false }] }, name)).toBe('lift off');
-		expect(weekChangeLine({ blocks: [{ block: 'run', on: true }, { block: 'lift', on: true }] }, name)).toBe('run, lift on');
-		expect(weekChangeLine({ blocks: [], goals: [{ practice: 'lift', sessions: 4 }, { practice: 'run', sessions: 3, minutes: 35 }] }, name)).toBe('lift 4 a week · run 3 a week · 35 min');
+		expect(weekChangeLine({ blocks: [{ block: 'lift', on: false }] }, name)).toBe('strength off');
+		expect(weekChangeLine({ blocks: [{ block: 'run', on: true }, { block: 'lift', on: true }] }, name)).toBe('run, strength on');
+		expect(weekChangeLine({ blocks: [], goals: [{ practice: 'lift', sessions: 4 }, { practice: 'run', sessions: 3, minutes: 35 }] }, name)).toBe('strength 4 a week · run 3 a week · 35 min');
+		expect(weekChangeLine({ blocks: [], goals: [{ practice: 'lift', sessions: 3, floor: 1 }] }, name)).toBe('strength 3 a week · 1 on the floor');
 		expect(weekChangeLine({ blocks: [{ block: 'yoga', on: false }], goals: [{ practice: 'mob', sessions: 5 }] }, name)).toBe('yoga off · stretch 5 a week');
 		expect(goalLabel({ sessions: 2 })).toBe('2 a week');
 		expect(goalHint(3, 3)).toBe('The programme’s cadence. Change it and Today follows your number.');
 		expect(goalHint(3, 4)).toBe('The programme says 3 a week — your goal is 4.');
-		expect(['lift', 'yoga', 'mob', 'run'].map((p) => practiceLabel(p as never))).toEqual(['lift', 'yoga', 'stretch', 'run']);
+		expect(['lift', 'yoga', 'mob', 'run'].map((p) => practiceLabel(p as never))).toEqual(['strength', 'yoga', 'stretch', 'run']);
 		expect(weekChangeLine({ programme: 'her-12-v1', blocks: [{ block: 'yoga', on: false }, { block: 'run', on: true }] }, name)).toBe('switched to her-12-v1 · run on · yoga off');
 		expect(weekHead(11, 340)).toBe('11 sessions a week · about 5.5 h');
 		expect(weekHead(2, 80)).toBe('2 sessions a week · about 80 min');
@@ -224,10 +227,9 @@ describe('v3 — the cell, the card, the pace, the when', () => {
 		expect(dayMarks(['yoga', 'lift'])).toEqual([{ letter: 'Y', ink: 'stone' }, { letter: 'L', ink: 'volt' }]);
 		expect(dayMarks(['mobility', 'run', 'bodyweight']).map((m) => m.ink)).toEqual(['white', 'ink', 'hatch']);
 	});
-	it('captions the card by what is owed, and the floor by what it counts as', () => {
-		expect(dealCaption({ due: true }, 'Lift', 1, 3)).toBe('Due · Lift · 1 of 3 this week');
+	it('captions the card by the week it pays', () => {
+		expect(dealCaption({ due: true }, 'Strength', 1, 3)).toBe('Due · Strength · 1 of 3 this week');
 		expect(dealCaption({ due: false }, 'Run', 3, 3)).toBe('Extra · Run · 3 of 3 this week');
-		expect(dealCaption({ due: false, standsInFor: 'lift' }, 'Floor', 0, 0)).toBe('Floor · counts as the lift');
 	});
 	it('says the pace of the week in one line', () => {
 		expect(paceLine(6, 9, ['lift', 'run'])).toBe('6 of 9 this week — lift, run still owed.');

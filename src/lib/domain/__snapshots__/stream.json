@@ -1850,6 +1850,15 @@
 		}
 	},
 	{
+		"type": "GoalSet",
+		"data": {
+			"practice": "lift",
+			"sessions": 4,
+			"floor": 1,
+			"at": "2026-09-20T06:00:00.000Z"
+		}
+	},
+	{
 		"type": "SessionStarted",
 		"data": {
 			"session": "s017",

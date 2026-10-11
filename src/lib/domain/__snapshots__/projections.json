@@ -16,7 +16,8 @@
 				"minutes": 35
 			},
 			"lift": {
-				"sessions": 4
+				"sessions": 4,
+				"floor": 1
 			}
 		},
 		"rest": 120
@@ -34,19 +35,20 @@
 				"minutes": 35
 			},
 			"lift": {
-				"sessions": 4
+				"sessions": 4,
+				"floor": 1
 			}
 		},
 		"rest": 120,
 		"cycles": [
 			{
 				"id": "lift",
-				"title": "Lift",
+				"title": "Strength",
 				"routines": [
 					"A",
 					"B"
 				],
-				"target": 4
+				"target": 3
 			},
 			{
 				"id": "floor",
@@ -58,7 +60,7 @@
 					"bands",
 					"orc"
 				],
-				"target": 0,
+				"target": 1,
 				"standsInFor": "lift"
 			},
 			{
@@ -87,8 +89,8 @@
 		},
 		{
 			"cycle": "floor",
-			"done": 1,
-			"target": 0
+			"done": 3,
+			"target": 4
 		},
 		{
 			"cycle": "mob",
@@ -148,7 +150,7 @@
 		},
 		{
 			"cycle": "floor",
-			"daysSince": 5.21
+			"daysSince": 3.21
 		},
 		{
 			"cycle": "mob",
@@ -170,7 +172,9 @@
 			"why": "3 days since Hinge & Haul · 3 of 4 this week",
 			"minutes": 48,
 			"score": 101001951,
-			"due": true
+			"due": true,
+			"week": "lift",
+			"turn": true
 		},
 		{
 			"cycle": "mob",
@@ -182,7 +186,9 @@
 			"why": "1 day since Morning stretch · 2 of 3 this week",
 			"minutes": 7,
 			"score": 101000992,
-			"due": true
+			"due": true,
+			"week": "mob",
+			"turn": true
 		},
 		{
 			"cycle": "run",
@@ -194,7 +200,9 @@
 			"why": "2 days since Easy run · 1 of 2 this week",
 			"minutes": 50,
 			"score": 101000949,
-			"due": true
+			"due": true,
+			"week": "run",
+			"turn": true
 		},
 		{
 			"cycle": "floor",
@@ -204,18 +212,19 @@
 			},
 			"discipline": "bodyweight",
 			"title": "Back in Action",
-			"why": "Level I · 3 rounds · Stands in for Squat & Shove · counts toward 4 lifts a week",
+			"why": "Level I · 3 rounds · 3 days since Hinge & Haul",
 			"minutes": 26,
-			"score": 973,
-			"due": false,
-			"standsInFor": "lift"
+			"score": 1973,
+			"due": true,
+			"week": "lift",
+			"turn": false
 		}
 	],
 	"tally": {
 		"done": 6,
 		"asked": 9,
 		"gaps": [
-			"lift",
+			"strength",
 			"stretch",
 			"run"
 		]
@@ -2146,6 +2155,18 @@
 		}
 	],
 	"weekChanges": [
+		{
+			"at": "2026-09-20T06:00:00.000Z",
+			"dateLabel": "Sun, Sep 20",
+			"blocks": [],
+			"goals": [
+				{
+					"practice": "lift",
+					"sessions": 4,
+					"floor": 1
+				}
+			]
+		},
 		{
 			"at": "2026-09-19T07:00:00.000Z",
 			"dateLabel": "Sat, Sep 19",

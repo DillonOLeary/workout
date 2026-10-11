@@ -20,7 +20,7 @@ export const actions: Actions = {
 		if (err) return fail(400, { message: err });
 	},
 
-	/** a goal dialled: sessions a week, and the run's minutes — one GoalSet, no-op when it says what the last one said */
+	/** a goal dialled: sessions a week, the run's minutes, strength's share on the floor — one GoalSet, no-op when it says what the last one said */
 	goal: async ({ request, locals }) => {
 		const uid = requireUid(locals);
 		const form = await request.formData();
@@ -28,10 +28,12 @@ export const actions: Actions = {
 		const sessions = Number(form.get('sessions'));
 		const rawMinutes = form.get('minutes');
 		const minutes = rawMinutes === null || rawMinutes === '' ? undefined : Number(rawMinutes);
+		const rawFloor = form.get('floor');
+		const floor = rawFloor === null || rawFloor === '' ? undefined : Number(rawFloor);
 		if (!isPractice(practice)) return fail(400, { message: 'No such practice.' });
 		const err = await tryCommand(uid, {
 			type: 'SetGoal',
-			data: { practice, sessions, ...(minutes !== undefined ? { minutes } : {}), at: new Date().toISOString() }
+			data: { practice, sessions, ...(minutes !== undefined ? { minutes } : {}), ...(floor !== undefined ? { floor } : {}), at: new Date().toISOString() }
 		});
 		if (err) return fail(400, { message: err });
 	},

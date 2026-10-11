@@ -4,9 +4,9 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Caption, Card, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import { passkey, passkeysLeft } from '$lib/passkey';
-	import { goalHint, weekHead, weekLine } from '$lib/domain/labels';
+	import { goalHint, splitLine, weekHead, weekLine } from '$lib/domain/labels';
 	import { GOAL_MINUTES, GOAL_SESSIONS, REST_SECONDS, restFor, routineTitle, type Cycle, type Plan, type PracticeId } from '$lib/domain/plan';
-	import { BLOCKS, DEFAULT_PROGRAMMES } from '$lib/domain/plans';
+	import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from '$lib/domain/plans';
 	import { weekProgress } from '$lib/domain/week';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
@@ -17,42 +17,48 @@
 	let plan = $derived(data.plans.find((p) => p.id === data.activePlanId) ?? data.plans[0]);
 	let programme = $derived(DEFAULT_PROGRAMMES.find((p) => p.id === plan.id) ?? DEFAULT_PROGRAMMES[0]);
 
-	type Practice = { id: PracticeId; name: string; sub: string; cycle: Cycle; programmeTarget: number; on: boolean; done: number; minutes: number; runMinutes?: number };
+	/** one row of the week: `target` is what it asks in all, `floor` how many of strength's are on the floor, `weekMinutes` the time that comes to */
+	type Practice = { id: PracticeId; name: string; sub: string; cycle: Cycle; programmeTarget: number; target: number; floor?: number; on: boolean; done: number; minutes: number; weekMinutes: number; runMinutes?: number };
+	const minutesOf = (routines: string[]) => Math.round(routines.reduce((n, k) => n + estimateMinutes(sessionSteps(plan, { routine: k })), 0) / routines.length);
 	let practices = $derived.by((): Practice[] => {
 		const raw: { id: PracticeId; name: string; cycle: Cycle }[] = [
-			{ id: 'lift', name: 'Lift', cycle: programme.cycles.find((c) => c.id === 'lift') ?? programme.cycles[0] },
+			{ id: 'lift', name: 'Strength', cycle: programme.cycles.find((c) => c.id === 'lift') ?? programme.cycles[0] },
 			...BLOCKS.map((b) => ({ id: b.id, name: b.cycle.title, cycle: b.cycle }))
 		];
 		return raw.map((r) => {
 			const goal = data.goals[r.id];
-			const cycle = plan.cycles.find((c) => c.id === r.cycle.id) ?? (goal ? { ...r.cycle, target: goal.sessions } : r.cycle);
-			const minutes = Math.round(cycle.routines.reduce((n, k) => n + estimateMinutes(sessionSteps(plan, { routine: k })), 0) / cycle.routines.length);
+			const cycle = plan.cycles.find((c) => c.id === r.cycle.id) ?? r.cycle;
+			const target = goal?.sessions ?? r.cycle.target;
+			const minutes = minutesOf(cycle.routines);
 			const runEx = r.id === 'run' ? plan.routines[cycle.routines[0]].find((e) => e.kind === 'run') : undefined;
+			const base = { ...r, cycle, programmeTarget: r.cycle.target, target, on: data.practicesOn.includes(r.id), done: weekProgress(data.events, plan, cycle, now).done, minutes };
+			if (r.id === 'lift') {
+				const floor = Math.min(goal?.floor ?? 0, target);
+				const sub = floor === 0 ? programme.name : floor === target ? 'All on the floor' : `${target - floor} gym · ${floor} floor`;
+				return { ...base, floor, sub, weekMinutes: (target - floor) * minutes + floor * minutesOf(FLOOR.cycle.routines) };
+			}
 			const titles = cycle.routines.map((k) => routineTitle(plan, k)).join(' · ');
-			return {
-				...r, cycle, programmeTarget: r.cycle.target, on: data.practicesOn.includes(r.id), done: weekProgress(data.events, plan, cycle, now).done, minutes,
-				sub: r.id === 'lift' ? `${programme.name} · ${titles}` : `${titles} · ~${minutes} min`,
-				...(runEx ? { runMinutes: runEx.hi } : {})
-			};
+			return { ...base, sub: `${titles} · ~${minutes} min`, weekMinutes: target * minutes, ...(runEx ? { runMinutes: runEx.hi } : {}) };
 		});
 	});
 	let weekSessions = $derived(plan.cycles.reduce((n, c) => n + c.target, 0));
-	let weekMinutes = $derived(practices.filter((p) => p.on).reduce((n, p) => n + p.cycle.target * p.minutes, 0));
+	let weekMinutes = $derived(practices.filter((p) => p.on).reduce((n, p) => n + p.weekMinutes, 0));
 
 	// one practice open at a time; its goal is a draft the dial edits, posted once the tapping stops
 	let open = $state<PracticeId | null>(null);
-	let draft = $state<{ sessions: number; minutes?: number }>({ sessions: 0 });
+	let draft = $state<{ sessions: number; minutes?: number; floor?: number }>({ sessions: 0 });
 	let goalForm = $state<HTMLFormElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function toggleOpen(p: Practice) {
 		flush();
 		if (open === p.id) return (open = null);
-		draft = { sessions: p.cycle.target, ...(p.runMinutes !== undefined ? { minutes: p.runMinutes } : {}) };
+		draft = { sessions: p.target, ...(p.runMinutes !== undefined ? { minutes: p.runMinutes } : {}), ...(p.floor !== undefined ? { floor: p.floor } : {}) };
 		open = p.id;
 	}
 	const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-	function dial(sessions: number, minutes?: number) {
-		draft = { sessions, ...(minutes !== undefined ? { minutes } : {}) };
+	// the floor's share never outgrows the sessions it is a share of
+	function dial(sessions: number, minutes?: number, floor?: number) {
+		draft = { sessions, ...(minutes !== undefined ? { minutes } : {}), ...(floor !== undefined ? { floor: Math.min(floor, sessions) } : {}) };
 		clearTimeout(timer);
 		timer = setTimeout(() => {
 			timer = undefined;
@@ -133,7 +139,7 @@
 					<Title size="sm">{p.name}</Title>
 					<span class="psub">{p.sub}</span>
 				</button>
-				<button type="button" class="ptarget" onclick={() => toggleOpen(p)} aria-expanded={expanded}>{p.cycle.target} a week ›</button>
+				<button type="button" class="ptarget" onclick={() => toggleOpen(p)} aria-expanded={expanded}>{p.target} a week ›</button>
 				<form method="POST" action="?/toggle" use:enhance>
 					<input type="hidden" name="practice" value={p.id} />
 					<input type="hidden" name="on" value={String(!p.on)} />
@@ -146,22 +152,30 @@
 						<input type="hidden" name="practice" value={p.id} />
 						<input type="hidden" name="sessions" value={draft.sessions} />
 						{#if draft.minutes !== undefined}<input type="hidden" name="minutes" value={draft.minutes} />{/if}
-						<span class="dialrow"><Caption tone="slate">Sessions a week</Caption><Stepper value={draft.sessions} label="sessions" onstep={(d) => dial(clamp(draft.sessions + d, GOAL_SESSIONS.min, GOAL_SESSIONS.max), draft.minutes)} /></span>
+						{#if draft.floor !== undefined}<input type="hidden" name="floor" value={draft.floor} />{/if}
+						<span class="dialrow"><Caption tone="slate">Sessions a week</Caption><Stepper value={draft.sessions} label="sessions" onstep={(d) => dial(clamp(draft.sessions + d, GOAL_SESSIONS.min, GOAL_SESSIONS.max), draft.minutes, draft.floor)} /></span>
 						{#if draft.minutes !== undefined}
 							<span class="dialrow"><Caption tone="slate">Minutes</Caption><Stepper value={draft.minutes} label="minutes" onstep={(d) => dial(draft.sessions, clamp(draft.minutes! + d * GOAL_MINUTES.step, GOAL_MINUTES.min, GOAL_MINUTES.max))} /></span>
 						{/if}
+						{#if draft.floor !== undefined}
+							<span class="dialrow"><Caption tone="slate">Of those, on the floor</Caption><Stepper value={draft.floor} label="sessions on the floor" onstep={(d) => dial(draft.sessions, undefined, clamp(draft.floor! + d, 0, draft.sessions))} /></span>
+						{/if}
 					</form>
-					<Note size="sm">{goalHint(p.programmeTarget, draft.sessions)}{p.on ? ` ${weekLine(p.done, p.cycle.target)}.` : ''}</Note>
+					{#if draft.floor !== undefined}
+						<Note size="sm" tone="ink">{splitLine(draft.sessions, draft.floor)}</Note>
+						{#if draft.sessions !== p.programmeTarget || p.on}<Note size="sm">{draft.sessions !== p.programmeTarget ? `${goalHint(p.programmeTarget, draft.sessions)} ` : ''}{p.on ? `${weekLine(p.done, p.target)}.` : ''}</Note>{/if}
+					{:else}
+						<Note size="sm">{goalHint(p.programmeTarget, draft.sessions)}{p.on ? ` ${weekLine(p.done, p.target)}.` : ''}</Note>
+					{/if}
 					{#if p.id === 'lift'}
 						<div class="liftrows">
-							<Row label="Programme" right="{programme.name} ›" onclick={() => (sheet = true)} />
+							<Row label="Gym programme" right="{programme.name} ›" onclick={() => (sheet = true)} />
 							<Row label="Rest between sets">
 								<form method="POST" action="?/rest" use:enhance bind:this={restForm}>
 									<input type="hidden" name="seconds" value={restShown} />
 									<Stepper value={restShown} unit="s" size="sm" label="rest" onstep={dialRest} />
 								</form>
 							</Row>
-							<Row label="No gym? A floor workout stands in and counts" right="always" />
 						</div>
 					{/if}
 				</div>
@@ -180,7 +194,7 @@
 </div>
 <div class="credit"><Note size="sm" tone="stone">Invicta, Orc, Back in Action and The Giant are workouts by <a href="https://darebee.com" target="_blank" rel="noopener">Darebee</a>, free at darebee.com.</Note></div>
 
-<Sheet open={sheet} title="Programme" onclose={() => (sheet = false)}>
+<Sheet open={sheet} title="Gym programme" onclose={() => (sheet = false)}>
 	<Note size="sm">One at a time. Switching keeps every set logged; the rule picks up where each exercise left off.</Note>
 	{#each DEFAULT_PROGRAMMES as p (p.id)}
 		{@const current = p.id === programme.id}

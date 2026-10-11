@@ -85,9 +85,16 @@ export function rateLabel(n: number): string {
 	return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
 
-/** "Stands in for Hinge & Haul · counts toward 3 lifts a week" — the floor is the lift's fallback, so the noun is the lift's */
-export const standInLine = (forTitle: string, target: number): string =>
-	`Stands in for ${forTitle} · counts toward ${target} ${disciplineNoun('lift', target)} a week`;
+/** "at the gym" · "on the floor" — where a strength session happens; nothing for the practices that have one way */
+export function placeLabel(d: Discipline): string {
+	return d === 'lift' ? 'at the gym' : d === 'bodyweight' ? 'on the floor' : '';
+}
+/** "All at the gym. A floor workout still counts — …" · "2 at the gym, 1 on the floor. …" · "All on the floor. …" — how strength's week splits */
+export function splitLine(sessions: number, floor: number): string {
+	if (floor <= 0) return 'All at the gym. A floor workout still counts — it is one tap away on Today.';
+	if (floor >= sessions) return 'All on the floor. A gym session still counts — it is one tap away on Today.';
+	return `${sessions - floor} at the gym, ${floor} on the floor. Either counts; Today deals whichever is behind.`;
+}
 
 /** "The programme says 3 a week — your goal is 4." · "The programme's cadence. Change it and Today follows your number." */
 export const goalHint = (programmeTarget: number, goal: number): string =>
@@ -95,11 +102,11 @@ export const goalHint = (programmeTarget: number, goal: number): string =>
 		? 'The programme’s cadence. Change it and Today follows your number.'
 		: `The programme says ${programmeTarget} a week — your goal is ${goal}.`;
 
-/** "lift" · "yoga" · "stretch" · "run" */
+/** "strength" · "yoga" · "stretch" · "run" */
 export function practiceLabel(p: PracticeId): string {
 	switch (p) {
 		case 'lift':
-			return 'lift';
+			return 'strength';
 		case 'yoga':
 			return 'yoga';
 		case 'mob':
@@ -109,10 +116,11 @@ export function practiceLabel(p: PracticeId): string {
 	}
 }
 
-/** "4 a week" · "3 a week · 35 min" */
-export const goalLabel = (g: Goal): string => `${g.sessions} a week${g.minutes !== undefined ? ` · ${g.minutes} min` : ''}`;
+/** "4 a week" · "3 a week · 35 min" · "3 a week · 1 on the floor" */
+export const goalLabel = (g: Goal): string =>
+	`${g.sessions} a week${g.minutes !== undefined ? ` · ${g.minutes} min` : ''}${g.floor ? ` · ${g.floor} on the floor` : ''}`;
 
-/** "switched to Open to Work · yoga, stretch, run on" · "run off" · "lift 4 a week · run 3 a week · 35 min" */
+/** "switched to Open to Work · yoga, stretch, run on" · "run off" · "strength 4 a week · 1 on the floor · run 3 a week · 35 min" */
 export function weekChangeLine(
 	c: { programme?: string; blocks: { block: PracticeId; on: boolean }[]; goals?: ({ practice: PracticeId } & Goal)[] },
 	programmeName: (id: string) => string
@@ -343,11 +351,9 @@ export const dayMarks = (did: Discipline[]): { letter: string; ink: DayInk }[] =
 export const cellLegend = (ds: Discipline[]): string =>
 	[...ds.map((d) => `${disciplineLetter(d)} ${d === 'bodyweight' ? 'floor' : disciplineLabel(d).toLowerCase()}`), 'today outlined'].join(' · ');
 
-/** "Due · Lift · 1 of 3 this week" · "Extra · Run · 3 of 3 this week" · "Floor · counts as the lift" — the card's caption */
-export function dealCaption(c: { due: boolean; standsInFor?: string }, practice: string, done: number, target: number): string {
-	if (c.standsInFor) return `${practice} · counts as the lift`;
-	return `${c.due ? 'Due' : 'Extra'} · ${practice} · ${weekLine(done, target)}`;
-}
+/** "Due · Strength · 1 of 3 this week" · "Extra · Run · 3 of 3 this week" — the card's caption: the week it pays, whichever way */
+export const dealCaption = (c: { due: boolean }, practice: string, done: number, target: number): string =>
+	`${c.due ? 'Due' : 'Extra'} · ${practice} · ${weekLine(done, target)}`;
 
 /** "6 of 9 this week — lift, run still owed." · "9 of 9 this week — all square." */
 export const paceLine = (done: number, asked: number, gaps: string[]): string =>

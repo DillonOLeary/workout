@@ -308,7 +308,7 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		schedule: 'Lift Mon / Wed / Fri',
 		rest: 90,
 		cooldown: COOLDOWN,
-		cycles: [{ id: 'lift', title: 'Lift', routines: ['A', 'B'], target: 3 }],
+		cycles: [{ id: 'lift', title: 'Strength', routines: ['A', 'B'], target: 3 }],
 		routineInfo: {
 			A: { title: 'Squat & Shove', discipline: 'lift', desc: 'Squat · push · pull · hinge · calves · core', warmup: WARMUP },
 			B: { title: 'Hinge & Haul', discipline: 'lift', desc: 'Hinge · press · row · lunge · calves · core', warmup: WARMUP }
@@ -343,7 +343,7 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 		rest: 60,
 		cooldown: HER_COOLDOWN,
 		cue: HER_CUE,
-		cycles: [{ id: 'lift', title: 'Lift', routines: ['1', '2'], target: 2 }],
+		cycles: [{ id: 'lift', title: 'Strength', routines: ['1', '2'], target: 2 }],
 		routineInfo: {
 			'1': { title: 'Get Low', discipline: 'lift', desc: 'Deep squat · hinge · push · pull · rear delt · core', warmup: HER_WARMUP },
 			'2': { title: 'Bridge Club', discipline: 'lift', desc: 'Lunge · curl · press · row · bridge · calves · core', warmup: HER_WARMUP }
@@ -421,7 +421,7 @@ export const BLOCKS: Block[] = [
 	}
 ];
 
-/** The lift's fallback, at target 0 — always one "Something else" away, each session counting as a lift: four Darebee cards and a band day, and any other card logged by its length. Never switched — it goes wherever the lift goes. */
+/** Strength's other half: four Darebee cards and a band day, pooled with the gym — a share of none until a goal gives it one, and still one tap away — and any other card logged by its length. Never switched: it goes wherever strength goes. */
 export const FLOOR: Routines = {
 	cycle: { id: 'floor', title: 'Floor', routines: ['invicta', 'back-in-action', 'giant', 'bands', 'orc'], target: 0, standsInFor: 'lift' },
 	routineInfo: {

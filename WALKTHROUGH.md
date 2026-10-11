@@ -183,13 +183,14 @@ yoga, the morning stretch, the run — each on or off, each at a cadence:
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week), `mob` "Stretch" (the morning stretch — 3) and `run` (the easy run
   — 3).
-- The **floor** (`FLOOR`) is the lift's fallback, not a practice: four
-  Darebee workouts and a band day in a cycle at target 0 with
-  `standsInFor: 'lift'`, and a class for any other Darebee card. It
-  is never switched and never owed on its own — Today deals it last, one
-  "Something else" away — and a floor session **counts as a lift**: the
-  lift's "2 of 3 this week" includes it (`countedBy` folds a cycle's stand-ins
-  into its count), while the lift's own A/B pointer stays put.
+- The **floor** (`FLOOR`) is strength's other half, not a practice of its
+  own: four Darebee workouts and a band day in a cycle with
+  `standsInFor: 'lift'`, and a class for any other Darebee card. The two
+  cycles **pool** — one weekly count between them, either's session paying it
+  (`countedBy`), each keeping its own pointer — and a strength goal says how
+  the week splits: so many sessions, so many of them on the floor. The share
+  is the cycle's target; a share of none is never dealt first, which is what
+  the floor is until you give it one. It is never switched on its own.
 - Every practice is **on by default** (`allPracticesOn()`); a switch is a
   `BlockToggled` event (the name and the `block` field are the stored
   vocabulary — the lift switches under the same name), and `practicesOn(events)`
@@ -384,8 +385,8 @@ else lives there:
   README names (owed · next · deal), read against this file's folds. Position
   is derived, never stored: do B twice and the pointer sits after B. Two
   different questions, named once: a cycle COUNTS sessions by discipline,
-  whatever plan offered them (`countedBy` — yoga is yoga, and a cycle that
-  stands in for another pays into its count), and TURNS only on its own
+  whatever plan offered them (`countedBy` — yoga is yoga, and cycles that
+  pool keep one count between them), and TURNS only on its own
   routines (`turnedBy` — a finished session of this plan's key)
 - `activeProgramme` → the last `ProgrammeSelected` wins; `practicesOn` → every
   practice until a `BlockToggled` says otherwise; `goals` → the last `GoalSet`
@@ -443,18 +444,19 @@ bands that cannot touch:
 4. **minutes** — shorter first, from `estimateMinutes(sessionSteps(…))`
 5. plan order
 
-No discipline is privileged: a lift you owe rises because it is owed. The
-floor (target 0) is always in the deck and never above anything owed — one
-"Something else" away, captioned *counts as the lift* — and because its
-sessions count toward the lift's target, doing one pays the lift's debt
-without moving the lift's A/B pointer.
+No discipline is privileged: a lift you owe rises because it is owed. Strength
+is a **pool** of two cycles — the gym and the floor — and only the one whose
+turn it is (`turnOf`) carries what the pool owes; the other is always in the
+deck and never above anything owed, and because both count toward one target,
+doing either pays the debt without moving the other's pointer.
 
 Every candidate carries its own `why` (`whyLine`), one mono line in the
 grammar Today already speaks, with a precedence: a re-entry warning first,
 then how long since ("First session", "3 days since Hinge & Haul"), then
 what the rule is about to move or where the week stands ("Chest Press comes
-back a size", "1 of 3 this week"). The floor's line is `standInLine`:
-"Stands in for Hinge & Haul · counts toward 3 lifts a week".
+back a size", "1 of 3 this week"). A circuit's line is the same grammar with
+its level first, and leaves the week to the caption above it: "Level II · 5
+rounds · 3 days since Hinge & Haul".
 
 ### The rule — progression.ts
 
@@ -509,7 +511,7 @@ screen shows — about a set, a load or a range (`setsLine` "35 lb · 12 · 9 ·
 "8 L · 8 R"; `doseLabel` "3 × 6–12 · per side"; `itemDose` "45 lb · 3 × 6–12",
 the line beside an exercise on Today's card; `loadHint`, the one line behind
 "why?" on the floor: "Set 1 goes up to 40 lb — sets 2–3 stay at 35."), about the
-week (`dealCaption` "Due · Lift · 1 of 3 this week", `standInLine`, `weekHead`
+week (`dealCaption` "Due · Strength · 1 of 3 this week", `splitLine`, `weekHead`
 "11 sessions a week · about 5 h", `goalHint`, `paceLine` "6 of 9 this week —
 lift, run still owed.", `weekChangeLine` for the Ledger's dividers), about a day
 (`disciplineLetter` L · Y · S · R · F and `cellLegend`), about when (`whenLabel`
@@ -1189,6 +1191,42 @@ things in the domain had to learn that.
   first. A station's count is something you *say*, so the reps tiles now show
   for any reps exercise, not only one the rule moves: 18 squats is a short
   round, and a short round holds the level.
+
+### Strength, split (2026-10-11)
+
+Four days after the Darebee cards went in, the floor had stopped being the
+thing you do when you can't get to the gym and become a thing you'd choose. A
+fallback was the wrong shape for that: target 0, dealt last, "stands in for
+the lift". The question was how to make it an equal without making the week
+ask for twice the strength work — two programmes with a target each would want
+six sessions on the same muscles.
+
+So the practice is **Strength** now (the id and the stream still say `lift`),
+and it has one more dial: of its sessions a week, how many are on the floor.
+`GoalSet` carries it as `floor`, the way the run's goal carries minutes — no
+new event, and an old goal reads as none on the floor, which is the week as it
+was. `composePlan` turns the split into the two cycles' targets, and three
+things in [week.ts](src/lib/domain/week.ts) learned that a target is a *share*:
+
+- **owed** counts the pool. `weekProgress` on either cycle answers the same
+  thing — strength's sessions against strength's target — because a floor
+  session and a gym session pay the same week.
+- **the turn** (`turnOf`) is whose share is furthest behind, and a level split
+  goes to the one done longer ago. Trailing seven days make that
+  self-correcting: the session that ages out of the window is the kind that
+  comes due.
+- **the deal** ranks only the turn as owed. The other half is still dealt and
+  still says *Due* — it would pay the same debt — but it never climbs over a
+  run you owe. Today puts it in a row of its own under the card, *On the
+  floor instead* or *At the gym instead*, so the swap is one tap either way.
+
+The words went with it: `standInLine` and "counts as the lift" are gone, and a
+floor card's line is the same grammar as any other.
+
+One thing the split does not fix, on purpose: a gym lift left fourteen days
+comes back a size, and at three a week with two on the floor each of A and B
+comes round about that often. The rule is honest about it — the load line
+says *Re-entry* — and the dial is yours.
 
 ## 5. Exercises
 

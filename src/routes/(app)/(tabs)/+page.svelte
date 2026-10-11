@@ -5,7 +5,7 @@
 	import { unsentFor } from '$lib/floor/entry-queue.svelte';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, levelLine, loadShort, setsLine, weekLine } from '$lib/domain/labels';
+	import { capitalise, clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, levelLine, levelName, loadShort, placeLabel, setsLine, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
 	import { classKeys, cycleDisciplines, disciplineOf, levelsOf, routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
@@ -35,15 +35,22 @@
 	const progressOf = (id: string) => progress.get(id) ?? { done: 0, target: 0 };
 	const captionOf = (c: typeof card) => {
 		const { done, target } = progressOf(c.cycle);
-		return dealCaption(c, cycleTitle(c.cycle), done, target);
+		return dealCaption(c, cycleTitle(c.week), done, target);
 	};
-	const subOf = (c: typeof card) => (c.standsInFor ? `${disciplineLabel(c.discipline)} · counts as the lift` : `${cycleTitle(c.cycle)} · ${weekLine(progressOf(c.cycle).done, progressOf(c.cycle).target)}`);
+	// the other way to pay the same week — strength at the gym or on the floor
+	const partnerOf = (c: typeof card) => deck.findIndex((x) => x.week === c.week && x.cycle !== c.cycle);
+	const subOf = (c: typeof card) => `${cycleTitle(c.week)}${partnerOf(c) >= 0 ? ` ${placeLabel(c.discipline)}` : ''} · ${weekLine(progressOf(c.cycle).done, progressOf(c.cycle).target)}`;
+	const levelOf = (c: typeof card) => {
+		const levels = levelsOf(plan, c.workout.routine);
+		return levels && c.workout.rounds ? ` · ${levelName(levels, c.workout.rounds)}` : '';
+	};
 	const weightFor = (ex: Exercise) => {
 		const s = suggest(historyFor(data.events, ex.name), ex, now);
 		return s.kind === 'load' ? s.weight : 0;
 	};
 	let items = $derived(card ? routineExercises(plan, card.workout).map((ex) => ({ name: ex.name, dose: itemDose(ex, weightFor(ex)) })) : []);
-	let others = $derived(deck.map((c, k) => ({ c, k })).filter((x) => x.k !== i));
+	let partner = $derived(card ? partnerOf(card) : -1);
+	let others = $derived(deck.map((c, k) => ({ c, k })).filter((x) => x.k !== i && x.k !== partner));
 
 	// the session in progress, as Today says it
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
@@ -241,6 +248,10 @@
 			</form>
 		</Card>
 		<div class="rows">
+			{#if partner >= 0}
+				{@const other = deck[partner]}
+				<Row label="{capitalise(placeLabel(other.discipline))} instead" sub="{other.title}{levelOf(other)}" right="~{other.minutes} min ›" onclick={() => { i = partner; deckOpen = false; }} />
+			{/if}
 			{#if others.length}
 				<Row label="Something else" right={deckOpen ? 'fewer ▴' : `${others.length} more ▾`} onclick={() => (deckOpen = !deckOpen)} expanded={deckOpen} />
 				{#if deckOpen}

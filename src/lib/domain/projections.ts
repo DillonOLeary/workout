@@ -1,7 +1,7 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
 import { fmtDate, sessionSummary, spanLabel } from './labels';
 import { isSet, type Measure } from './measure';
-import { PRACTICES, allPracticesOn, type Discipline, type Goal, type Goals, type PracticeId } from './plan';
+import { PRACTICES, allPracticesOn, goalOf, type Discipline, type Goal, type Goals, type PracticeId } from './plan';
 import type { History, HistoryEntry } from './progression';
 
 /** One row of a session: an item and its sets, each set the Measure the entry carried. */
@@ -164,7 +164,7 @@ export function practicesOn(events: LedgerEvent[]): PracticeId[] {
 export function goals(events: LedgerEvent[]): Goals {
 	const out: Goals = {};
 	for (const e of events)
-		if (e.type === 'GoalSet') out[e.data.practice] = { sessions: e.data.sessions, ...(e.data.minutes !== undefined ? { minutes: e.data.minutes } : {}) };
+		if (e.type === 'GoalSet') out[e.data.practice] = goalOf(e.data);
 	return out;
 }
 
@@ -197,7 +197,7 @@ export function weekChanges(events: LedgerEvent[]): WeekChange[] {
 		}
 		if (e.type === 'ProgrammeSelected') c.programme = e.data.programme;
 		else if (e.type === 'BlockToggled') c.blocks.push({ block: e.data.block, on: e.data.on });
-		else c.goals.push({ practice: e.data.practice, sessions: e.data.sessions, ...(e.data.minutes !== undefined ? { minutes: e.data.minutes } : {}) });
+		else c.goals.push({ practice: e.data.practice, ...goalOf(e.data) });
 	}
 	return out.sort((a, b) => b.at.localeCompare(a.at));
 }

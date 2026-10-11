@@ -103,6 +103,8 @@ function fullStream(): StoredEvent[] {
 	row('GoalSet', { practice: 'lift', sessions: 4, at: at(3) });
 	row('RestSet', { seconds: 120, at: at(3, 8) });
 	live(3, 'B', 'lift', [['KB Deadlift', 1, L(62, 12)], ['KB Deadlift', 2, L(62, 10)], ['KB Deadlift', 3, L(62, 5)], ['Shoulder Press', 1, L(35, 8)], ['Shoulder Press', 2, L(30, 12)], ['Shoulder Press', 3, L(30, 12)], ['Leg Curl', 1, L(60, 15)], ['Leg Curl', 2, L(60, 15)], ['Leg Curl', 3, L(60, 15)]]);
+	// strength split with the floor: four a week, one of them on the floor
+	row('GoalSet', { practice: 'lift', sessions: 4, floor: 1, at: at(2, 6) });
 	live(2, 'run', 'run', [['Easy run', 1, { of: 'duration', minutes: 40 }]], 'after');
 	live(1, 'S', 'mobility', [['Calf stretch', 1, H(45)], ['Calf stretch', 2, H(45)]]);
 	// today: a session in progress, two sets in
@@ -139,7 +141,7 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 		expect(programme.id).toBe('ab-fullbody-v1');
 	});
 
-	it('owed · deal · next · load · stand-in — the projections, as JSON', async () => {
+	it('owed · deal · next · level · load · split — the projections, as JSON', async () => {
 		const sessions = projectSessions(events);
 		const exercises = planExercises(plan).filter(progresses);
 		const out = {
