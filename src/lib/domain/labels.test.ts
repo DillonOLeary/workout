@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dayMarks, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
-	goalHint, goalLabel, levelLine, levelNote, loadHint, loadLabel, loadShort, placeLabel, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	goalHint, goalLabel, keptLine, levelLine, levelNote, loadHint, loadLabel, loadShort, placeLabel, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, splitLine, weekChangeLine, weekHead, weekLine
 } from './labels';
 import type { Measure } from './measure';
@@ -206,7 +206,7 @@ describe('the rule, explained', () => {
 
 describe('sessionNoun — what Finish finishes', () => {
 	it('is a workout for the lifts and the floor, a practice, a stretch, a run', () => {
-		expect((['lift', 'bodyweight', 'yoga', 'mobility', 'run'] as const).map(sessionNoun)).toEqual(['workout', 'workout', 'practice', 'stretch', 'run']);
+		expect((['lift', 'bodyweight', 'yoga', 'mobility', 'run', 'pull'] as const).map(sessionNoun)).toEqual(['workout', 'workout', 'practice', 'stretch', 'run', 'session']);
 	});
 });
 
@@ -221,11 +221,17 @@ describe('monthLine — a month of the Ledger, folded to one line', () => {
 
 describe('v3 — the cell, the card, the pace, the when', () => {
 	it('gives each discipline a letter and a legend', () => {
-		expect((['lift', 'yoga', 'mobility', 'run', 'bodyweight'] as const).map(disciplineLetter).join('')).toBe('LYSRF');
-		expect(cellLegend(['lift', 'yoga', 'mobility', 'run', 'bodyweight'])).toBe('L lift · Y yoga · S stretch · R run · F floor · today outlined');
+		expect((['lift', 'yoga', 'mobility', 'run', 'bodyweight', 'pull'] as const).map(disciplineLetter).join('')).toBe('LYSRFP');
+		expect(cellLegend(['lift', 'yoga', 'mobility', 'run', 'bodyweight', 'pull'])).toBe('L lift · Y yoga · S stretch · R run · F floor · P pull · today outlined');
 		expect(cellLegend(['lift'])).toBe('L lift · today outlined');
 		expect(dayMarks(['yoga', 'lift'])).toEqual([{ letter: 'Y', ink: 'stone' }, { letter: 'L', ink: 'volt' }]);
-		expect(dayMarks(['mobility', 'run', 'bodyweight']).map((m) => m.ink)).toEqual(['white', 'ink', 'hatch']);
+		expect(dayMarks(['mobility', 'run', 'bodyweight', 'pull']).map((m) => m.ink)).toEqual(['white', 'ink', 'hatch', 'dots']);
+	});
+	it('says how many weeks every target was kept, and when to grow the week', () => {
+		expect(keptLine(0, 4)).toBeNull();
+		expect(keptLine(1, 4)).toBe('Every target kept 1 week running — at 4, add one thing.');
+		expect(keptLine(3, 4)).toBe('Every target kept 3 weeks running — at 4, add one thing.');
+		expect(keptLine(4, 4)).toBe('Every target kept 4 weeks running — time to add one thing.');
 	});
 	it('captions the card by the week it pays', () => {
 		expect(dealCaption({ due: true }, 'Strength', 1, 3)).toBe('Due · Strength · 1 of 3 this week');

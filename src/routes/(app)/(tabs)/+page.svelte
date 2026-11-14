@@ -115,8 +115,8 @@
 	let afterEx = $derived(routineExercises(plan, { routine, ...(afterRounds !== undefined ? { rounds: afterRounds } : {}) }));
 	let isClass = $derived(classes.includes(routine));
 	let isRun = $derived(afterEx.some((e) => e.kind === 'run'));
-	// a lift or the floor is sets you change; yoga and the stretch go in as the plan wrote them; a run and a class are their length
-	let editable = $derived(['lift', 'bodyweight'].includes(disciplineOf(plan, routine) ?? ''));
+	// a lift, the floor or a pull is sets you change; yoga and the stretch go in as the plan wrote them; a run and a class are their length
+	let editable = $derived(!isClass && ['lift', 'bodyweight', 'pull'].includes(disciplineOf(plan, routine) ?? ''));
 	const days = Array.from({ length: 7 }, (_, d) => {
 		const n = new Date(now);
 		return { d, label: d === 0 ? 'Today' : d === 1 ? 'Yesterday' : new Date(n.getFullYear(), n.getMonth(), n.getDate() - d).toLocaleDateString('en-US', { weekday: 'long' }) };

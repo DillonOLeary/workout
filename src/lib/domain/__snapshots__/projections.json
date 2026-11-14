@@ -8,7 +8,8 @@
 			"lift": true,
 			"yoga": false,
 			"mob": true,
-			"run": true
+			"run": true,
+			"pull": false
 		},
 		"goals": {
 			"run": {
@@ -184,8 +185,8 @@
 			"discipline": "mobility",
 			"title": "Morning stretch",
 			"why": "1 day since Morning stretch · 2 of 3 this week",
-			"minutes": 7,
-			"score": 101000992,
+			"minutes": 5,
+			"score": 101000994,
 			"due": true,
 			"week": "mob",
 			"turn": true
@@ -229,6 +230,7 @@
 			"run"
 		]
 	},
+	"kept": 0,
 	"load": [
 		{
 			"exercise": "Goblet Squat",

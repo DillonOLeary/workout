@@ -1,6 +1,6 @@
-# The domain — six rules, and the boundary they read through
+# The domain — seven rules, and the boundary they read through
 
-Everything under `src/lib/domain/` is pure ([projections.ts](projections.ts) is the read model — sessions, entries, the switches, the calendar — and [week.ts](week.ts) the three rules over it): no I/O, `now` is always an argument, and
+Everything under `src/lib/domain/` is pure ([projections.ts](projections.ts) is the read model — sessions, entries, the switches, the calendar — and [week.ts](week.ts) the rules over it): no I/O, `now` is always an argument, and
 the only input is the event stream read through the upcaster. A screen never
 re-derives a rule; it calls the function named here. [WALKTHROUGH.md](../../../WALKTHROUGH.md)
 §2 is the long version; this page is the contract the v3 UI rebuild was held to.
@@ -72,6 +72,15 @@ the cycle furthest behind its own share this week — level, to the one done
 longer ago, then plan order — and a share of none never has it: at 0 on the
 floor the floor is a fallback one tap away, at all of them the gym is. The pool
 follows the lift's switch and is never switched itself.
+
+## kept — `weeksKept(events, plan, now)` in [week.ts](week.ts)
+
+How many weeks in a row every pool met its target: seven days at a time back
+from `now`, the same trailing week as **owed**, each held to **today's**
+composed plan — so a week that grows (a practice on, a goal up) counts again
+from the first week that kept it. The week in progress counts once it is kept
+and never breaks the run; a plan that asks nothing keeps nothing. At
+`GROW_AFTER_WEEKS` (4) the Plan says it is time to add one thing.
 
 ## The boundary
 

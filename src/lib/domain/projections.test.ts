@@ -4,7 +4,7 @@ import { countOf } from './measure';
 import type { Discipline, Exercise, Plan } from './plan';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, poolOf, queue, roundsFor, staleness, turnOf, weekProgress, weekTally } from './week';
+import { nextInCycle, poolOf, queue, roundsFor, staleness, turnOf, weekProgress, weeksKept, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -192,7 +192,7 @@ describe('cycles — where each one is turned to, and how far behind', () => {
 
 describe('the week — one programme, the blocks that are on, and when it changed', () => {
 	const at = (daysAgo: number) => new Date(NOW - daysAgo * DAY).toISOString();
-	it('lifts on the last programme chosen, and has every practice on until a switch says otherwise', () => {
+	it('lifts on the last programme chosen, and has every practice on — pull off — until a switch says otherwise', () => {
 		expect(activeProgramme([])).toBeNull();
 		expect(practicesOn([])).toEqual(['lift', 'yoga', 'mob', 'run']);
 		const ev: LedgerEvent[] = [
@@ -205,6 +205,7 @@ describe('the week — one programme, the blocks that are on, and when it change
 		expect(activeProgramme(ev)).toBe('her-12-v1');
 		expect(practicesOn(ev)).toEqual(['lift', 'yoga', 'mob']);
 		expect(practicesOn([{ type: 'BlockToggled', data: { block: 'lift', on: false, at: at(1) } }])).toEqual(['yoga', 'mob', 'run']);
+		expect(practicesOn([{ type: 'BlockToggled', data: { block: 'pull', on: true, at: at(1) } }])).toEqual(['lift', 'yoga', 'mob', 'run', 'pull']);
 	});
 	it('reads a stored plan choice as one change to the week, and lists changes newest first', () => {
 		const ev = [
@@ -298,6 +299,22 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(weekTally(busy, plan, NOW)).toEqual({ done: 3, asked: 9, gaps: ['stretch', 'run'] });
 		const paid = [...busy, ...did('f', 'bw1', 'bodyweight', 8)];
 		expect(weekTally(paid, plan, NOW).done).toBe(3); // eight days ago is last week
+	});
+	it('counts the weeks kept in a row at today’s targets — the week in progress adds once kept and never breaks the run', () => {
+		const small: Plan = { ...plan, cycles: [{ ...LIFT, target: 1 }, { ...RUN, target: 2 }, FLOOR] };
+		/** one lift and two runs in the seven days ending `back` weeks ago */
+		const week = (back: number, runs = 2): LedgerEvent[] => [
+			...did(`l${back}`, 'A', 'lift', back * 7 + 1),
+			...Array.from({ length: runs }, (_, k) => did(`r${back}-${k}`, 'run', 'run', back * 7 + 2 + k)).flat()
+		];
+		expect(weeksKept([], small, NOW)).toBe(0);
+		expect(weeksKept([...week(1), ...week(2)], small, NOW)).toBe(2); // this week not yet kept: it does not break the run
+		expect(weeksKept([...week(0), ...week(1), ...week(2)], small, NOW)).toBe(3);
+		expect(weeksKept([...week(0), ...week(1, 1), ...week(2)], small, NOW)).toBe(1); // one run short last week ends it
+		const floorPaid = [...did('f', 'bw1', 'bodyweight', 1), ...did('r1', 'run', 'run', 2), ...did('r2', 'run', 'run', 3)];
+		expect(weeksKept(floorPaid, small, NOW)).toBe(1); // the floor pays strength's week
+		expect(weeksKept(week(0), { ...small, cycles: [{ ...LIFT, target: 1 }, { ...RUN, target: 3 }, FLOOR] }, NOW)).toBe(0); // a week that grew counts again from here
+		expect(weeksKept(week(0), { ...plan, cycles: [{ ...LIFT, target: 0 }] }, NOW)).toBe(0); // nothing asked, nothing kept
 	});
 });
 

@@ -31,7 +31,7 @@ export function loadShort(weight: number, ex: Exercise): string {
 	return ex.progress.each ? `${weight} /hand` : `${weight} lb`;
 }
 
-/** "Lift" · "Yoga" · "Bodyweight" · "Stretch" · "Run" */
+/** "Lift" · "Yoga" · "Bodyweight" · "Stretch" · "Run" · "Pull" */
 export function disciplineLabel(d: Discipline): string {
 	switch (d) {
 		case 'lift':
@@ -44,10 +44,12 @@ export function disciplineLabel(d: Discipline): string {
 			return 'Stretch';
 		case 'run':
 			return 'Run';
+		case 'pull':
+			return 'Pull';
 	}
 }
 
-/** "workout" · "practice" · "stretch" · "run" — what Finish finishes */
+/** "workout" · "practice" · "stretch" · "run" · "session" — what Finish finishes */
 export function sessionNoun(d: Discipline): string {
 	switch (d) {
 		case 'lift':
@@ -59,10 +61,12 @@ export function sessionNoun(d: Discipline): string {
 			return 'stretch';
 		case 'run':
 			return 'run';
+		case 'pull':
+			return 'session';
 	}
 }
 
-/** "lifts" · "yoga" · "floor sessions" · "stretches" · "runs" — counted */
+/** "lifts" · "yoga" · "floor sessions" · "stretches" · "runs" · "pull sessions" — counted */
 export function disciplineNoun(d: Discipline, n: number): string {
 	const one = Math.round(n * 10) === 10;
 	switch (d) {
@@ -76,6 +80,8 @@ export function disciplineNoun(d: Discipline, n: number): string {
 			return one ? 'stretch' : 'stretches';
 		case 'run':
 			return one ? 'run' : 'runs';
+		case 'pull':
+			return one ? 'pull session' : 'pull sessions';
 	}
 }
 
@@ -102,7 +108,7 @@ export const goalHint = (programmeTarget: number, goal: number): string =>
 		? 'The programme’s cadence. Change it and Today follows your number.'
 		: `The programme says ${programmeTarget} a week — your goal is ${goal}.`;
 
-/** "strength" · "yoga" · "stretch" · "run" */
+/** "strength" · "yoga" · "stretch" · "run" · "pull" */
 export function practiceLabel(p: PracticeId): string {
 	switch (p) {
 		case 'lift':
@@ -113,6 +119,8 @@ export function practiceLabel(p: PracticeId): string {
 			return 'stretch';
 		case 'run':
 			return 'run';
+		case 'pull':
+			return 'pull';
 	}
 }
 
@@ -312,7 +320,7 @@ export function loadHint(s: Suggestion, ex: Exercise): string | null {
 	return null;
 }
 
-/** "L" · "Y" · "S" · "R" · "F" — one letter per discipline, for a day's cell */
+/** "L" · "Y" · "S" · "R" · "F" · "P" — one letter per discipline, for a day's cell */
 export function disciplineLetter(d: Discipline): string {
 	switch (d) {
 		case 'lift':
@@ -325,11 +333,13 @@ export function disciplineLetter(d: Discipline): string {
 			return 'R';
 		case 'bodyweight':
 			return 'F';
+		case 'pull':
+			return 'P';
 	}
 }
 
-/** The fill a discipline gives its day — volt lift · stone yoga · white stretch · ink run · hatched floor; the letter says it without the colour */
-export type DayInk = 'volt' | 'stone' | 'white' | 'ink' | 'hatch';
+/** The fill a discipline gives its day — volt lift · stone yoga · white stretch · ink run · hatched floor · dotted pull; the letter says it without the colour */
+export type DayInk = 'volt' | 'stone' | 'white' | 'ink' | 'hatch' | 'dots';
 export function disciplineInk(d: Discipline): DayInk {
 	switch (d) {
 		case 'lift':
@@ -342,12 +352,14 @@ export function disciplineInk(d: Discipline): DayInk {
 			return 'ink';
 		case 'bodyweight':
 			return 'hatch';
+		case 'pull':
+			return 'dots';
 	}
 }
 /** A day's sessions as the calendar marks them: each its letter on its ink, in the order they happened */
 export const dayMarks = (did: Discipline[]): { letter: string; ink: DayInk }[] => did.map((d) => ({ letter: disciplineLetter(d), ink: disciplineInk(d) }));
 
-/** "L lift · Y yoga · S stretch · R run · F floor · today outlined" — the cells' legend, for the disciplines shown */
+/** "L lift · Y yoga · S stretch · R run · F floor · P pull · today outlined" — the cells' legend, for the disciplines shown */
 export const cellLegend = (ds: Discipline[]): string =>
 	[...ds.map((d) => `${disciplineLetter(d)} ${d === 'bodyweight' ? 'floor' : disciplineLabel(d).toLowerCase()}`), 'today outlined'].join(' · ');
 
@@ -358,6 +370,12 @@ export const dealCaption = (c: { due: boolean }, practice: string, done: number,
 /** "6 of 9 this week — lift, run still owed." · "9 of 9 this week — all square." */
 export const paceLine = (done: number, asked: number, gaps: string[]): string =>
 	`${weekLine(done, asked)} — ${gaps.length ? `${gaps.join(', ')} still owed.` : 'all square.'}`;
+
+/** "Every target kept 2 weeks running — at 4, add one thing." · "… 4 weeks running — time to add one thing." · null before the first kept week */
+export const keptLine = (weeks: number, growAfter: number): string | null =>
+	weeks <= 0
+		? null
+		: `Every target kept ${weeks} ${weeks === 1 ? 'week' : 'weeks'} running — ${weeks >= growAfter ? 'time to add one thing.' : `at ${growAfter}, add one thing.`}`;
 
 /** "today" · "yesterday" · "6 days ago" · "Aug 23" past two weeks */
 export function whenLabel(iso: string, now: number): string {

@@ -4,10 +4,10 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Caption, Card, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import { passkey, passkeysLeft } from '$lib/passkey';
-	import { goalHint, splitLine, weekHead, weekLine } from '$lib/domain/labels';
-	import { GOAL_MINUTES, GOAL_SESSIONS, REST_SECONDS, restFor, routineTitle, type Cycle, type Plan, type PracticeId } from '$lib/domain/plan';
+	import { goalHint, keptLine, splitLine, weekHead, weekLine } from '$lib/domain/labels';
+	import { GOAL_MINUTES, GOAL_SESSIONS, GROW_AFTER_WEEKS, REST_SECONDS, restFor, routineTitle, type Cycle, type Plan, type PracticeId } from '$lib/domain/plan';
 	import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from '$lib/domain/plans';
-	import { weekProgress } from '$lib/domain/week';
+	import { weekProgress, weeksKept } from '$lib/domain/week';
 	import { estimateMinutes, sessionSteps } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
@@ -43,6 +43,8 @@
 	});
 	let weekSessions = $derived(plan.cycles.reduce((n, c) => n + c.target, 0));
 	let weekMinutes = $derived(practices.filter((p) => p.on).reduce((n, p) => n + p.weekMinutes, 0));
+	// the week as it stands, kept so many weeks running — the cue to grow it by one thing
+	let kept = $derived(keptLine(weeksKept(data.events, plan, now), GROW_AFTER_WEEKS));
 
 	// one practice open at a time; its goal is a draft the dial edits, posted once the tapping stops
 	let open = $state<PracticeId | null>(null);
@@ -126,7 +128,8 @@
 
 <Caption>The plan</Caption>
 <Title>{weekHead(weekSessions, weekMinutes)}</Title>
-<Note>Four practices. Each row: how often, and on or off. Today deals from what's on.</Note>
+<Note>Five practices. Each row: how often, and on or off. Today deals from what's on.</Note>
+{#if kept}<Note size="sm" tone="ink">{kept}</Note>{/if}
 
 {#if form?.message}<Note tone="ink"><span class="err">{form.message}</span></Note>{/if}
 

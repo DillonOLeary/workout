@@ -6,8 +6,8 @@ import { historyFor, projectSessions, sessionEntries, type SessionView } from '.
 import { estimateMinutes, sessionSteps } from './steps';
 
 /**
- * The week's rules over the read model: owed (`weekProgress`), next (`nextInCycle`), a circuit's level (`roundsFor`), a pool's turn (`turnOf`)
- * and the deal (`queue`). Pure folds; `now` is an argument. README.md is the contract.
+ * The week's rules over the read model: owed (`weekProgress`), next (`nextInCycle`), a circuit's level (`roundsFor`), a pool's turn (`turnOf`),
+ * the deal (`queue`) and the run of kept weeks (`weeksKept`). Pure folds; `now` is an argument. README.md is the contract.
  */
 
 const DAY = 86400000;
@@ -79,6 +79,24 @@ export function turnOf(events: LedgerEvent[], plan: Plan, cycle: Cycle, now: num
 		return { c, order, behind: c.target - own.filter((s) => inWeek(s, now)).length, last: last ? Date.parse(last.at) : -Infinity };
 	});
 	return ranked.sort((a, b) => b.behind - a.behind || a.last - b.last || a.order - b.order)[0].c;
+}
+
+const KEPT_LOOKBACK = 52; // weeks: a year of kept weeks is as far as anyone needs counted
+
+/**
+ * Weeks in a row every pool met its target — seven days at a time back from `now`, each held to TODAY's targets, so a week that grows
+ * starts its count again. The week in progress counts once it is kept and never breaks the run; a week that asks nothing keeps nothing.
+ */
+export function weeksKept(events: LedgerEvent[], plan: Plan, now: number): number {
+	if (!plan.cycles.some((c) => c.target > 0)) return 0;
+	const kept = (at: number) =>
+		plan.cycles.every((c) => {
+			const w = weekProgress(events, plan, c, at);
+			return w.target === 0 || w.done >= w.target;
+		});
+	let n = kept(now) ? 1 : 0;
+	for (let k = 1; k <= KEPT_LOOKBACK && kept(now - k * 7 * DAY); k++) n++;
+	return n;
 }
 
 /** Days since each cycle last turned — null when it never has. */

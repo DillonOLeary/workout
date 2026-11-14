@@ -18,10 +18,10 @@
 		{ key: '7', label: 'Step 1', text: '3–5 min easy — bike, row or a brisk walk', state: 'todo', prose: true }
 	]);
 	const week = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-	type Mark = { letter: string; ink: 'volt' | 'stone' | 'white' | 'ink' | 'hatch' };
-	const L: Mark = { letter: 'L', ink: 'volt' }, Y: Mark = { letter: 'Y', ink: 'stone' }, S: Mark = { letter: 'S', ink: 'white' }, R: Mark = { letter: 'R', ink: 'ink' }, F: Mark = { letter: 'F', ink: 'hatch' };
+	type Mark = { letter: string; ink: 'volt' | 'stone' | 'white' | 'ink' | 'hatch' | 'dots' };
+	const L: Mark = { letter: 'L', ink: 'volt' }, Y: Mark = { letter: 'Y', ink: 'stone' }, S: Mark = { letter: 'S', ink: 'white' }, R: Mark = { letter: 'R', ink: 'ink' }, F: Mark = { letter: 'F', ink: 'hatch' }, P: Mark = { letter: 'P', ink: 'dots' };
 	const stripMarks: Mark[][] = [[], [L], [], [Y, S], [F], [], [R]];
-	const monthMarks: Mark[][] = [[], [], [L], [S], [], [R], [F], [], [Y], [L, S], [L, R, S], [], [], []];
+	const monthMarks: Mark[][] = [[], [], [L], [S], [], [R], [F], [P], [Y], [L, S], [L, R, S], [], [S, P], []];
 </script>
 
 <div class="kit">

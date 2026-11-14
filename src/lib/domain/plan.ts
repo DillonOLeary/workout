@@ -1,8 +1,8 @@
 import { RACKS, type Rack } from './racks';
 
 /** What a routine IS. Required on every routine — never inferred. */
-export type Discipline = 'lift' | 'yoga' | 'bodyweight' | 'mobility' | 'run';
-export const DISCIPLINES: readonly Discipline[] = ['lift', 'yoga', 'bodyweight', 'mobility', 'run'];
+export type Discipline = 'lift' | 'yoga' | 'bodyweight' | 'mobility' | 'run' | 'pull';
+export const DISCIPLINES: readonly Discipline[] = ['lift', 'yoga', 'bodyweight', 'mobility', 'run', 'pull'];
 export const isDiscipline = (v: unknown): v is Discipline => DISCIPLINES.includes(v as Discipline);
 
 /** What the rule moves, per exercise: `kind` says which measure a set writes, `progress` what moves — size, time, count, variant, or none; legal pairings are enforced in parsePlan. */
@@ -173,12 +173,14 @@ export function planExercises(plan: Plan): Exercise[] {
 }
 
 /** The rows of the week: the lift (whatever programme it is) and the shared blocks. A closed union: a switch is an event, and the decider must know the practice exists. */
-export type PracticeId = 'lift' | 'yoga' | 'mob' | 'run';
-export const PRACTICES: readonly PracticeId[] = ['lift', 'yoga', 'mob', 'run'];
+export type PracticeId = 'lift' | 'yoga' | 'mob' | 'run' | 'pull';
+export const PRACTICES: readonly PracticeId[] = ['lift', 'yoga', 'mob', 'run', 'pull'];
 export const isPractice = (v: unknown): v is PracticeId => PRACTICES.includes(v as PracticeId);
-/** Every practice on — the week before a switch says otherwise. */
-export const allPracticesOn = (): Record<PracticeId, boolean> =>
-	Object.fromEntries(PRACTICES.map((p) => [p, true])) as Record<PracticeId, boolean>;
+/** Practices that came after people already had a week: off until switched on, so a new row never adds to a week nobody asked to grow. */
+export const OFF_AT_START: readonly PracticeId[] = ['pull'];
+/** The week before a switch says otherwise: every practice on but the ones that start off. */
+export const practicesAtStart = (): Record<PracticeId, boolean> =>
+	Object.fromEntries(PRACTICES.map((p) => [p, !OFF_AT_START.includes(p)])) as Record<PracticeId, boolean>;
 /** The practices that are shared blocks in code — every practice but the lift, which is the programme's. */
 export type BlockId = Exclude<PracticeId, 'lift'>;
 
@@ -191,6 +193,8 @@ export type Goals = Partial<Record<PracticeId, Goal>>;
 export const GOAL_SESSIONS = { min: 1, max: 7 } as const;
 /** Minutes a run goal may ask, and the step the dial moves in. */
 export const GOAL_MINUTES = { min: 10, max: 90, step: 5 } as const;
+/** Weeks in a row with every target kept before the week is ready for one thing more. */
+export const GROW_AFTER_WEEKS = 4;
 /** Seconds of rest between sets a person may set, and the step the dial moves in. */
 export const REST_SECONDS = { min: 30, max: 180, step: 15 } as const;
 

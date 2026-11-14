@@ -206,13 +206,16 @@ describe('decide — idempotent removes, selects, switches and goals', () => {
 		const off = decide({ type: 'TogglePractice', data: { practice: 'yoga', on: false, at: AT } }, initialState());
 		expect(off).toEqual([{ type: 'BlockToggled', data: { block: 'yoga', on: false, at: AT } }]);
 		const state = evolve(initialState(), off[0]);
-		expect(state.practices).toEqual({ lift: true, yoga: false, mob: true, run: true });
+		expect(state.practices).toEqual({ lift: true, yoga: false, mob: true, run: true, pull: false });
 		expect(decide({ type: 'TogglePractice', data: { practice: 'yoga', on: false, at: AT } }, state)).toEqual([]);
 		expect(decide({ type: 'TogglePractice', data: { practice: 'yoga', on: true, at: AT } }, state)).toHaveLength(1);
 		const liftOff = decide({ type: 'TogglePractice', data: { practice: 'lift', on: false, at: AT } }, initialState());
 		expect(liftOff).toEqual([{ type: 'BlockToggled', data: { block: 'lift', on: false, at: AT } }]);
 		expect(decide({ type: 'TogglePractice', data: { practice: 'lift', on: false, at: AT } }, evolve(initialState(), liftOff[0]))).toEqual([]);
 		expect(() => decide({ type: 'TogglePractice', data: { practice: 'bw' as never, on: false, at: AT } }, initialState())).toThrow(ValidationError);
+		// pull came after people had a week: it starts off, so switching it off records nothing and on records the switch
+		expect(decide({ type: 'TogglePractice', data: { practice: 'pull', on: false, at: AT } }, initialState())).toEqual([]);
+		expect(decide({ type: 'TogglePractice', data: { practice: 'pull', on: true, at: AT } }, initialState())).toEqual([{ type: 'BlockToggled', data: { block: 'pull', on: true, at: AT } }]);
 	});
 	it('removes a known session once, refuses an unknown one', () => {
 		expect(() =>

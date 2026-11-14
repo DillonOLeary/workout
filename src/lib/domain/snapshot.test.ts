@@ -5,7 +5,7 @@ import { composePlan, planExercises, progresses } from './plan';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from './plans';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, queue, roundsFor, staleness, weekProgress, weekTally } from './week';
+import { nextInCycle, queue, roundsFor, staleness, weekProgress, weeksKept, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 /**
@@ -141,7 +141,7 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 		expect(programme.id).toBe('ab-fullbody-v1');
 	});
 
-	it('owed · deal · next · level · load · split — the projections, as JSON', async () => {
+	it('owed · deal · next · level · load · split · kept — the projections, as JSON', async () => {
 		const sessions = projectSessions(events);
 		const exercises = planExercises(plan).filter(progresses);
 		const out = {
@@ -154,6 +154,7 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 			staleness: staleness(events, plan, NOW).map((s) => ({ ...s, daysSince: s.daysSince === null ? null : Math.round(s.daysSince * 100) / 100 })),
 			deal: queue(events, plan, NOW),
 			tally: weekTally(events, plan, NOW),
+			kept: weeksKept(events, plan, NOW),
 			load: exercises.map((ex) => ({ exercise: ex.name, suggestion: suggest(historyFor(events, ex.name, state.activeSession ?? undefined), ex, NOW) })),
 			sessions,
 			openSession: state.activeSession ? sessionEntries(events, state.activeSession) : [],

@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * One day. Each session is a mark — its letter on its fill, side by side when a day holds more than one: volt L lift · stone Y yoga ·
-	 * white S stretch · ink R run · hatched F floor, so the letter says what the colour does. Ash = nothing, dashed outline = today,
+	 * white S stretch · ink R run · hatched F floor · dotted P pull, so the letter says what the colour does. Ash = nothing, dashed outline = today,
 	 * transparent = still to come. `label` is what an empty day shows. The same cell in the week strip (`size` strip, 30px) and the month (34px).
 	 */
 	let {
@@ -12,7 +12,7 @@
 		size = 'month',
 		title
 	}: {
-		label: string; marks?: { letter: string; ink: 'volt' | 'stone' | 'white' | 'ink' | 'hatch' }[];
+		label: string; marks?: { letter: string; ink: 'volt' | 'stone' | 'white' | 'ink' | 'hatch' | 'dots' }[];
 		today?: boolean; future?: boolean; size?: 'strip' | 'month'; title?: string;
 	} = $props();
 </script>
@@ -36,6 +36,7 @@
 	.mark.white { background: var(--white); color: var(--ink); }
 	.mark.ink { background: var(--ink); color: var(--volt); }
 	.mark.hatch { background: repeating-linear-gradient(135deg, var(--volt) 0 3px, var(--white) 3px 6px); color: var(--ink); text-shadow: 0 0 2px var(--white), 0 0 2px var(--white), 0 0 3px var(--white); }
+	.mark.dots { background: radial-gradient(circle, var(--ink) 0.9px, transparent 1.3px) 0 0 / 5px 5px, var(--white); color: var(--ink); text-shadow: 0 0 2px var(--white), 0 0 2px var(--white), 0 0 3px var(--white); }
 	.cell.today { outline: 2px dashed var(--ink); outline-offset: 1px; }
 	.cell.future { background: transparent; }
 	.cell.long { font-size: 8px; letter-spacing: 0; }

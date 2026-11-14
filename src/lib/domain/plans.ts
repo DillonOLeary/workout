@@ -28,6 +28,8 @@ const WHY: Record<string, string> = {
 	'Hamstring stretch': 'The hinge and the run both load the hamstrings; the stretch keeps the bottom of the hinge honest.',
 	'Figure-4 stretch': 'The deep hip rotators tighten under running and sitting alike; this is the stretch that reaches them.',
 	'Doorway chest stretch': 'Pressing and a desk both round the shoulders forward; the doorway opens the chest so the pull has somewhere to go.',
+	'Strap hamstring stretch': 'Running tightens the hamstrings; on the back, with the spine supported, they lengthen without the low back taking over.',
+	'Standing forward fold': 'The whole back line at once, hanging — gravity does the pulling, so there is nothing to force.',
 	'Low Lunge': 'Hip flexors at length with the back knee down — the reach the run and the chair both take away.',
 	'Half Splits': 'Hamstrings at length from the kneel, one leg at a time.',
 	'Chair Pose': 'A squat you hold: quads and glutes under time, the strength pose of the hips routine.',
@@ -87,30 +89,36 @@ const RUN_WARMUP: PrepItem[] = [
 	{ name: 'A-skips', seconds: 30 }
 ];
 
-/** A stretch: a 45 s hold at a fixed length (lo === hi, progress none), one set per side with ten seconds between — or one set, both sides at once. */
-const HOLD45 = (name: string, note?: string, sides = true): Exercise => ({
+/** A stretch: a hold at a fixed length (lo === hi, progress none), one set per side with ten seconds between — or one set, both sides at once. */
+const HOLD = (name: string, seconds: number, note?: string, sides = true): Exercise => ({
 	name,
 	...why(name),
 	equip: 'Mat',
 	tag: 'Stretch',
 	kind: 'hold',
 	sets: sides ? 2 : 1,
-	lo: 45,
-	hi: 45,
+	lo: seconds,
+	hi: seconds,
 	progress: { of: 'none' },
 	...(sides ? { side: 'sets' as const } : {}),
 	rest: 10,
 	...(note ? { note } : {})
 });
 
+const GENTLE = 'A strong pull, never pain, and no bouncing.';
 /** The stretch catalogue: every stretch declared once, and referenced by name from the morning stretch and every cooldown. */
 export const STRETCHES: Record<string, Exercise> = {
-	'Calf stretch': HOLD45('Calf stretch', 'Back heel down, back knee straight, lean into the wall.'),
-	'Hip flexor stretch': HOLD45('Hip flexor stretch', 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
-	'Hamstring stretch': HOLD45('Hamstring stretch', 'Heel up on a step, hinge from the hips, back flat.'),
-	'Figure-4 stretch': HOLD45('Figure-4 stretch', 'On your back, one ankle over the other knee; pull that thigh in until the glute pulls.'),
-	'Doorway chest stretch': HOLD45('Doorway chest stretch', 'Forearms on the frame at shoulder height; step through until the chest opens.', false)
+	'Calf stretch': HOLD('Calf stretch', 45, 'Back heel down, back knee straight, lean into the wall.'),
+	'Hip flexor stretch': HOLD('Hip flexor stretch', 45, 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
+	'Hamstring stretch': HOLD('Hamstring stretch', 45, 'Heel up on a step, hinge from the hips, back flat.'),
+	'Figure-4 stretch': HOLD('Figure-4 stretch', 45, 'On your back, one ankle over the other knee; pull that thigh in until the glute pulls.'),
+	'Doorway chest stretch': HOLD('Doorway chest stretch', 45, 'Forearms on the frame at shoulder height; step through until the chest opens.', false),
+	'Strap hamstring stretch': HOLD('Strap hamstring stretch', 60, `On your back, a towel or strap round one foot; draw the straight leg toward you, the other long on the floor. ${GENTLE}`),
+	'Standing forward fold': HOLD('Standing forward fold', 60, `Feet hip-width, knees slightly bent; fold from the hips and let the head and arms hang. ${GENTLE}`, false),
+	'Half Splits': HOLD('Half Splits', 45, `Kneel, one leg straight out in front, toes up; hips back over the back knee, fold over the straight leg. ${GENTLE}`)
 };
+/** The morning stretch: hamstrings first, about five minutes — the strap, the fold, the half splits. */
+const MORNING: Exercise[] = ['Strap hamstring stretch', 'Standing forward fold', 'Half Splits'].map((n) => STRETCHES[n]);
 /** a stretch as a cooldown line: the catalogue's entry, held this long — it walks as holds and logs like one */
 const stretch = (name: string, seconds = 45): Exercise => {
 	const s = STRETCHES[name];
@@ -119,7 +127,8 @@ const stretch = (name: string, seconds = 45): Exercise => {
 };
 const COOLDOWN: PrepItem[] = [stretch('Calf stretch'), stretch('Hip flexor stretch'), stretch('Doorway chest stretch')];
 const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Hamstring stretch', 60), stretch('Doorway chest stretch', 60)];
-const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Calf stretch'), stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
+// the strap stretch first: after a run the hamstrings are warm, which is when it pays
+const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Strap hamstring stretch', 60), stretch('Calf stretch'), stretch('Hip flexor stretch')];
 const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
 const YOGA_REST = 20; // a breath or two between holds — the flow is its own warm-up
@@ -264,6 +273,8 @@ const INVICTA = [
 	station('Bridges', 'Floor', 'Hip ext.', 20, 'On the back, feet flat; drive the hips up and squeeze at the top.'),
 	station('V Hold', 'Floor', 'Core', 20, 'Sit back on the tailbone, legs raised, arms out to the sides; hold for a slow count of 20 and breathe.', 'hold')
 ];
+const TOWEL_CURLS = station('Towel Bicep Curls', 'A towel and a door', 'Pull', 20, 'A towel knotted round the handle of a closed, latched door; feet against the door, lean back on straight arms and curl yourself up. No towel? A sheet folded lengthways.');
+const BODY_ROWS = station('Body Rows', 'A broom and two chairs', 'Horiz. pull', 'max', 'Under a broom handle laid across two sturdy chairs, heels down, body straight; pull the chest to the pole. No chairs? Under a sturdy table. Stop at the last clean rep.');
 const ORC = [
 	station('Split Squats', 'Two chairs', 'Squat', 20, 'Rear foot up on a chair, 10 a leg; the front knee stays over the foot. Chairs against a wall, tested first.'),
 	station('Pike Shoulder Presses', 'A chair', 'Vert. push', 6, 'Feet up on a chair, hips high; lower the head toward the floor between the hands, elbows back, and press up.'),
@@ -271,10 +282,10 @@ const ORC = [
 	station('Wide Grip Push-ups', 'Floor', 'Horiz. push', 4, 'Hands wider than the shoulders — the chest takes more of it.'),
 	station('Close Grip Push-ups', 'Floor', 'Horiz. push', 4, 'Hands under the chest, elbows along the ribs — the arms take more of it.'),
 	station('Leg Hold', 'Two chairs', 'Core', 20, 'Sit between two chairs, hands on the seats, arms locked; lift the feet and hold, shoulders away from the ears.', 'hold'),
-	station('Towel Bicep Curls', 'A towel and a door', 'Pull', 20, 'A towel knotted round the handle of a closed, latched door; feet against the door, lean back on straight arms and curl yourself up. No towel? A sheet folded lengthways.')
+	TOWEL_CURLS
 ];
 const BACK_IN_ACTION = [
-	station('Body Rows', 'A broom and two chairs', 'Horiz. pull', 'max', 'Under a broom handle laid across two sturdy chairs, heels down, body straight; pull the chest to the pole. No chairs? Under a sturdy table. Stop at the last clean rep.'),
+	BODY_ROWS,
 	station('Twists', 'Standing', 'Spine', 10, 'Hands on the hips; turn the upper body side to side.'),
 	station('Chest Expansions', 'Standing', 'Chest', 10, 'Arms open wide, then cross in front of the chest.'),
 	station('Shoulder Stretch', 'Standing', 'Shoulders', 10, 'Hands on the hips, then both arms overhead, fingers laced, palms pushed up.'),
@@ -377,7 +388,8 @@ export const BLOCKS: Block[] = [
 		routineInfo: {
 			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'Hip flexors · hamstrings · glutes · a twist', warmup: [CAT_COW, { name: 'Downward Dog', seconds: 45 }, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
 			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
-			studio: { title: 'Yoga class', discipline: 'yoga', desc: 'A class at the studio — just the time' }
+			studio: { title: 'Yoga class', discipline: 'yoga', desc: 'Vinyasa, or any class at the studio — just the time' },
+			sculpt: { title: 'Sculpt class', discipline: 'yoga', desc: 'Yoga sculpt — the flow with light weights; just the time' }
 		},
 		routines: {
 			hips: [
@@ -406,10 +418,10 @@ export const BLOCKS: Block[] = [
 	{
 		id: 'mob',		cycle: { id: 'mob', title: 'Stretch', routines: ['S'], target: 3 },
 		routineInfo: {
-			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Calves · hips · hamstrings · glutes · chest', warmup: [], cooldown: [] }
+			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Hamstrings first · strap · fold · half splits', warmup: [], cooldown: [] }
 		},
 		routines: {
-			S: Object.values(STRETCHES)
+			S: MORNING
 		}
 	},
 	{
@@ -418,6 +430,17 @@ export const BLOCKS: Block[] = [
 			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN }
 		},
 		routines: { run: [EASY_RUN] }
+	},
+	{
+		id: 'pull',		cycle: { id: 'pull', title: 'Pull', routines: ['pull'], target: 1 },
+		routineInfo: {
+			pull: { title: 'Pull at home', discipline: 'pull', desc: 'Body rows · band row · towel curls · face pull', warmup: BW_WARMUP, cooldown: [stretch('Doorway chest stretch'), stretch('Strap hamstring stretch', 60)] },
+			climb: { title: 'Climbing', discipline: 'pull', desc: 'Bouldering, the wall or an intro class — just the time' },
+			aerial: { title: 'Aerial class', discipline: 'pull', desc: 'Silks, hoop or trapeze — just the time' }
+		},
+		routines: {
+			pull: [{ ...BODY_ROWS, rest: BW_REST }, BAND_ROW, { ...TOWEL_CURLS, rest: BW_REST }, { ...BAND_FACE_PULL, rest: BW_REST }]
+		}
 	}
 ];
 
