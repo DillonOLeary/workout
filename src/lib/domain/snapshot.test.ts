@@ -107,6 +107,9 @@ function fullStream(): StoredEvent[] {
 	row('GoalSet', { practice: 'lift', sessions: 4, floor: 1, at: at(2, 6) });
 	live(2, 'run', 'run', [['Easy run', 1, { of: 'duration', minutes: 40 }]], 'after');
 	live(1, 'S', 'mobility', [['Calf stretch', 1, H(45)], ['Calf stretch', 2, H(45)]]);
+	// yoga back on, and a class at the studio: a class pays the week and is dealt as its turn, the home flow behind it
+	row('BlockToggled', { block: 'yoga', on: true, at: at(1, 9) });
+	live(1, 'studio', 'yoga', [['Yoga class', 1, { of: 'duration', minutes: 60 }]], 'after', 18);
 	// today: a session in progress, two sets in
 	const open = id();
 	row('SessionStarted', { session: open, plan: 'ab-fullbody-v1', routine: 'A', discipline: 'lift', mode: 'live', at: at(0, 11) });

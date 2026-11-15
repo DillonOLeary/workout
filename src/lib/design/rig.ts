@@ -637,7 +637,7 @@ const LIB: [string, FigureDef[]][] = [
 			cue: 'on all fours: the spine rounds to the ceiling with the chin tucked, then dips with the chest forward and the eyes up',
 			k0: X(FOURS, { pelvis: 88, spine: -12, chest: -10, neck: -24, hip: two(Lg(88)) }),
 			k1: X(FOURS, { pelvis: 72, spine: 14, chest: 12, neck: 20, hip: two(Lg(72)) }) },
-		{ id: 'sunsal', name: 'Sun Salutation A', kind: 'rep', tempo: [3, 1, 3, 1], labels: ['Fold', 'Hang', 'Rise', 'Reach'], ecc: true,
+		{ id: 'sunsal', name: 'Sun Salutation A', aliases: ['Sun Salutation B'], kind: 'rep', tempo: [3, 1, 3, 1], labels: ['Fold', 'Hang', 'Rise', 'Reach'], ecc: true,
 			cue: 'reach up, fold forward, halfway lift, step back and through — one round is one rep, breathed',
 			k0: { pelvis: -6, spine: -6, chest: -6, neck: -8, hand: two(UP) },
 			k1: { pelvis: 100, spine: 8, chest: 6, neck: 16, hip: two(Lg(100)), knee: [6, 6], hand: two(H(0.22, -0.52, 0.06)) } },

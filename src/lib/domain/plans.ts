@@ -131,42 +131,32 @@ const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Ha
 const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Strap hamstring stretch', 60), stretch('Calf stretch'), stretch('Hip flexor stretch')];
 const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
-const YOGA_REST = 20; // a breath or two between holds — the flow is its own warm-up
-/** A yoga hold at a fixed length — one set, or one per side. */
-const pose = (name: string, tag: string, seconds: number, note: string, sides = false): Exercise => ({
+const BREATH = 6; // seconds a breath is counted as in a flow: a slow inhale and a slow exhale
+/** A pose in a flow: held for so many breaths, both sides back to back when `sides` — its note opens with the count, which the floor shows as the cue. */
+const pose = (name: string, tag: string, breaths: number, note: string, sides = false): Exercise => ({
 	name,
 	...why(name),
 	equip: 'Mat',
 	tag,
 	kind: 'hold',
 	sets: sides ? 2 : 1,
-	lo: seconds,
-	hi: seconds,
+	lo: breaths * BREATH,
+	hi: breaths * BREATH,
 	progress: { of: 'none' },
 	...(sides ? { side: 'sets' as const } : {}),
-	rest: YOGA_REST,
-	note
+	note: `${breaths} breaths${sides ? ' a side' : ''}. ${note}`
 });
-/** A loaded yoga hold that climbs by 5 s to `hi` — then harder, never longer. */
-const strengthPose = (name: string, tag: string, lo: number, hi: number, note: string, sides = false, sets = sides ? 2 : 1): Exercise => ({
-	name,
-	...why(name),
-	equip: 'Mat',
-	tag,
-	kind: 'hold',
-	sets,
-	lo,
-	hi,
-	progress: { of: 'time', inc: 5 },
-	...(sides ? { side: 'sets' as const } : {}),
-	rest: YOGA_REST,
-	note
-});
-const YOGA_CUE = 'Breathe out through the hard part — never hold your breath.';
-const CAT_COW: PrepItem = { name: 'Cat–Cow', seconds: 60 };
-const SUN_SALUTATION: PrepItem = { name: 'Sun Salutation A', reps: 3 };
-const SAVASANA: PrepItem[] = [{ name: 'Savasana', minutes: 2 }];
-const SUPINE_TWIST = pose('Supine Twist', 'Spine', 45, 'On your back, drop both knees to one side; the shoulders stay on the floor. Look the other way if the neck likes it.', true);
+const YOGA_CUE = 'One breath, one movement — the clock moves you on.';
+const FLOW_WARMUP: PrepItem[] = [
+	{ name: 'Cat–Cow', seconds: 60 },
+	{ name: 'Downward Dog', seconds: 5 * BREATH },
+	...Array.from({ length: 3 }, () => ({ name: 'Sun Salutation A', seconds: 60 })),
+	...Array.from({ length: 2 }, () => ({ name: 'Sun Salutation B', seconds: 90 }))
+];
+const SAVASANA: PrepItem[] = [{ name: 'Savasana', minutes: 3 }];
+const SUPINE_TWIST = pose('Supine Twist', 'Spine', 5, 'On your back, drop both knees to one side; the shoulders stay on the floor. Look the other way if the neck likes it.', true);
+const WARRIOR_II = pose('Warrior II', 'Lunge', 5, 'Front knee bent over the ankle, back leg straight, arms out in a T. Hips open to the side.', true);
+const CHAIR = pose('Chair Pose', 'Squat', 5, 'Sit back as if into a chair, arms up in line with the torso; weight in the heels.');
 const SIDE_PLANK: Exercise = {
 	name: 'Side Plank',
 	...why('Side Plank'),
@@ -384,33 +374,33 @@ export const DEFAULT_PROGRAMMES: Plan[] = [
 /** Shared cycles with their routines, on or off per person. */
 export const BLOCKS: Block[] = [
 	{
-		id: 'yoga',		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2 },
+		id: 'yoga',		cycle: { id: 'yoga', title: 'Yoga', routines: ['hips', 'spine'], target: 2, class: 'studio' },
 		routineInfo: {
-			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'Hip flexors · hamstrings · glutes · a twist', warmup: [CAT_COW, { name: 'Downward Dog', seconds: 45 }, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
-			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'Shoulders · thoracic spine · core · a twist', warmup: [CAT_COW, SUN_SALUTATION], cooldown: SAVASANA, cue: YOGA_CUE },
+			hips: { title: 'Hips & Hamstrings', discipline: 'yoga', desc: 'A flow · sun salutations · lunge · warrior · hips · a twist', flow: true, warmup: FLOW_WARMUP, cooldown: SAVASANA, cue: YOGA_CUE },
+			spine: { title: 'Shoulders & Spine', discipline: 'yoga', desc: 'A flow · sun salutations · warrior · shoulders · spine · a twist', flow: true, warmup: FLOW_WARMUP, cooldown: SAVASANA, cue: YOGA_CUE },
 			studio: { title: 'Yoga class', discipline: 'yoga', desc: 'Vinyasa, or any class at the studio — just the time' },
 			sculpt: { title: 'Sculpt class', discipline: 'yoga', desc: 'Yoga sculpt — the flow with light weights; just the time' }
 		},
 		routines: {
 			hips: [
-				pose('Low Lunge', 'Hip flexor', 45, 'Back knee down, front knee over the ankle; sink the hips forward, torso tall. Tuck the tailbone a little to feel the front of the back hip.', true),
-				pose('Half Splits', 'Hamstrings', 45, 'From the low lunge, hips back over the back knee; front leg straight. Toes up; fold forward with a flat back, hands on the floor or blocks.', true),
-				strengthPose('Chair Pose', 'Squat', 20, 45, 'Sit back as if into a chair, arms up in line with the torso. Knees over the ankles, weight in the heels; breathe.', false, 2),
-				strengthPose('Warrior II', 'Lunge', 30, 45, 'Front knee bent over the ankle, back leg straight, arms out in a T. Hips open to the side; the front thigh works toward level.', true),
-				pose('Pigeon', 'Hip', 60, 'Front shin across the mat, back leg long behind; sink the hips square. If the front knee complains, lie back and cross the ankle over the other knee instead.', true),
-				strengthPose('Bridge', 'Hip ext.', 20, 45, 'On your back, feet flat and close; lift the hips in line with the knees. Squeeze the glutes, ribs down; breathe.', false, 2),
-				pose('Seated Forward Fold', 'Hamstrings', 60, 'Legs long, fold forward from the hips, knees bent as much as you need. This is not a contest.'),
+				pose('Low Lunge', 'Hip flexor', 5, 'Back knee down, front knee over the ankle; sink the hips forward, torso tall, arms up.', true),
+				WARRIOR_II,
+				CHAIR,
+				pose('Half Splits', 'Hamstrings', 5, 'Hips back over the back knee, front leg straight, toes up; fold over it with a flat back.', true),
+				pose('Pigeon', 'Hip', 8, 'Front shin across the mat, back leg long; sink the hips square. Knee complains? Lie back and cross the ankle over the other knee.', true),
+				pose('Bridge', 'Hip ext.', 5, 'On your back, feet flat and close; lift the hips in line with the knees, glutes on, ribs down.'),
+				pose('Seated Forward Fold', 'Hamstrings', 8, 'Legs long, fold forward from the hips, knees bent as much as you need.'),
 				SUPINE_TWIST
 			],
 			spine: [
-				strengthPose('Downward Dog', 'Shoulders', 30, 60, 'Hips up and back, head between the arms, heels reaching for the floor. Bend the knees to keep the back long; hold it, don’t pass through it.'),
-				pose('Puppy Pose', 'Thoracic', 45, 'Hips over the knees, walk the hands forward and let the chest sink. Arms long, forehead down.'),
-				pose('Thread the Needle', 'Thoracic', 45, 'From all fours, thread one arm under until that shoulder rests on the mat. Hips stay over the knees.', true),
-				pose('Sphinx', 'Low back', 60, 'Face down, propped on the forearms, elbows under the shoulders. Let the low back relax; the forearms keep the bend gentle.'),
-				pose('Cow-Face Arms', 'Shoulders', 45, 'One hand down the back from above, the other up the back from below. Hands meet if they can — a strap or a towel bridges the gap.', true),
-				strengthPose('Forearm Plank', 'Core', 20, 60, 'Forearms down, elbows under the shoulders, one line from ear to heel. Ribs pulled down, glutes tight; breathe.'),
-				SIDE_PLANK,
-				pose('Child’s Pose, side reach', 'Lats', 45, 'Hips on the heels, both hands walked to one side of the mat. Feel the other side lengthen; breathe into it.', true),
+				WARRIOR_II,
+				CHAIR,
+				pose('Puppy Pose', 'Thoracic', 6, 'Hips over the knees, walk the hands forward and let the chest sink, forehead down.'),
+				pose('Thread the Needle', 'Thoracic', 5, 'From all fours, thread one arm under until that shoulder rests on the mat; hips over the knees.', true),
+				pose('Sphinx', 'Low back', 6, 'Face down, propped on the forearms, elbows under the shoulders; let the low back soften.'),
+				pose('Forearm Plank', 'Core', 5, 'Forearms down, one line from ear to heel, ribs pulled down; keep breathing.'),
+				pose('Cow-Face Arms', 'Shoulders', 5, 'One hand down the back from above, the other up from below; a strap or a towel bridges the gap.', true),
+				pose('Child’s Pose, side reach', 'Lats', 5, 'Hips on the heels, both hands walked to one side; breathe into the other.', true),
 				SUPINE_TWIST
 			]
 		}

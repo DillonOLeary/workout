@@ -7,7 +7,7 @@
 	import type { AfterEntry } from '$lib/domain/commands';
 	import { capitalise, clockLabel, dayMarks, groupLabel, dealCaption, disciplineLabel, itemDose, levelLine, levelName, loadShort, placeLabel, setsLine, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
-	import { classKeys, cycleDisciplines, disciplineOf, levelsOf, routineGroups, routineKeys, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { CLASS_MINUTES, classKeys, cycleDisciplines, disciplineOf, levelsOf, routineGroups, routineKeys, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
 	import { queue, roundsFor, weekProgress, weekTally } from '$lib/domain/week';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
@@ -137,7 +137,6 @@
 	let startSet = $state(false);
 	let len = $state(0);
 	let afterError = $state('');
-	const CLASS_MINUTES = 60;
 	function planned(ex: Exercise): AfterSet[] {
 		const s = suggest(historyFor(data.events, ex.name), ex, now);
 		return Array.from({ length: ex.sets }, (_, k) => {
@@ -244,15 +243,21 @@
 			<Caption>{captionOf(card)}</Caption>
 			<Title>{card.title}</Title>
 			<Note>{card.why}</Note>
-			<div class="items">
-				{#each items as it (it.name)}<div class="item"><span class="iname">{it.name}</span><span class="idose">{it.dose}</span></div>{/each}
-			</div>
-			<form method="POST" action="?/start" use:enhance>
-				<input type="hidden" name="routine" value={card.workout.routine} />
-				{#if card.workout.rounds !== undefined}<input type="hidden" name="rounds" value={card.workout.rounds} />{/if}
-				<input type="hidden" name="plan" value={plan.id} />
-				<Primary type="submit">Start <small>~{card.minutes} min</small></Primary>
-			</form>
+			{#if classes.includes(card.workout.routine)}
+				<!-- a class happens at the studio: the card's one job is to write it down after -->
+				<div class="gap"></div>
+				<Primary onclick={() => { what = card.workout.routine; openAfter(); }}>Log it <small>after class</small></Primary>
+			{:else}
+				<div class="items">
+					{#each items as it (it.name)}<div class="item"><span class="iname">{it.name}</span><span class="idose">{it.dose}</span></div>{/each}
+				</div>
+				<form method="POST" action="?/start" use:enhance>
+					<input type="hidden" name="routine" value={card.workout.routine} />
+					{#if card.workout.rounds !== undefined}<input type="hidden" name="rounds" value={card.workout.rounds} />{/if}
+					<input type="hidden" name="plan" value={plan.id} />
+					<Primary type="submit">Start <small>~{card.minutes} min</small></Primary>
+				</form>
+			{/if}
 		</Card>
 		<div class="rows">
 			{#if partner >= 0}
@@ -262,7 +267,7 @@
 			{#if others.length}
 				<Row label="Something else" right={deckOpen ? 'fewer ▴' : `${others.length} more ▾`} onclick={() => (deckOpen = !deckOpen)} expanded={deckOpen} />
 				{#if deckOpen}
-					{#each others as { c, k } (c.cycle)}
+					{#each others as { c, k } (`${c.cycle}:${c.workout.routine}`)}
 						<Row label={c.title} sub={subOf(c)} right="~{c.minutes} min ›" tone="now" onclick={() => { i = k; deckOpen = false; }} />
 					{/each}
 				{/if}

@@ -1936,9 +1936,48 @@
 		}
 	},
 	{
+		"type": "BlockToggled",
+		"data": {
+			"block": "yoga",
+			"on": true,
+			"at": "2026-09-21T09:00:00.000Z"
+		}
+	},
+	{
 		"type": "SessionStarted",
 		"data": {
 			"session": "s019",
+			"plan": "ab-fullbody-v1",
+			"routine": "studio",
+			"discipline": "yoga",
+			"mode": "after",
+			"at": "2026-09-21T18:00:00.000Z"
+		}
+	},
+	{
+		"type": "EntryLogged",
+		"data": {
+			"session": "s019",
+			"item": "Yoga class",
+			"index": 1,
+			"at": "2026-09-21T18:30:00.000Z",
+			"measure": {
+				"of": "duration",
+				"minutes": 60
+			}
+		}
+	},
+	{
+		"type": "SessionFinished",
+		"data": {
+			"session": "s019",
+			"at": "2026-09-21T18:54:00.000Z"
+		}
+	},
+	{
+		"type": "SessionStarted",
+		"data": {
+			"session": "s020",
 			"plan": "ab-fullbody-v1",
 			"routine": "A",
 			"discipline": "lift",
@@ -1949,7 +1988,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s019",
+			"session": "s020",
 			"item": "Warm-up",
 			"index": 1,
 			"at": "2026-09-22T11:06:00.000Z",
@@ -1961,7 +2000,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s019",
+			"session": "s020",
 			"item": "Goblet Squat",
 			"index": 1,
 			"at": "2026-09-22T11:18:00.000Z",
@@ -1975,7 +2014,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s019",
+			"session": "s020",
 			"item": "Goblet Squat",
 			"index": 2,
 			"at": "2026-09-22T11:24:00.000Z",

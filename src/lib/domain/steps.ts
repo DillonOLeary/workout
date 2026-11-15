@@ -4,6 +4,7 @@ import { isSet } from './measure';
 import {
 	cooldownFor,
 	exerciseNamed,
+	isFlow,
 	isStretchLine,
 	levelsOf,
 	partRestFor,
@@ -97,8 +98,8 @@ function prepSteps(plan: Plan, items: PrepItem[], section: string, item: string,
 
 const workSeconds = (ex: Exercise) => (ex.kind === 'hold' ? ex.hi : SET_SECONDS);
 
-/** Straight sets of one exercise; `between` is the clock before set 1, from the part before it. */
-function exerciseSteps(plan: Plan, ex: Exercise, between?: { after: string; seconds: number }): Step[] {
+/** Straight sets of one exercise; `between` is the clock before set 1, from the part before it; a flow rests nowhere. */
+function exerciseSteps(plan: Plan, ex: Exercise, between?: { after: string; seconds: number }, flow = false): Step[] {
 	if (ex.kind === 'run')
 		return [{
 			key: entryKey(ex.name, 1), kind: 'run', section: ex.name, item: ex.name, index: 1,
@@ -106,7 +107,7 @@ function exerciseSteps(plan: Plan, ex: Exercise, between?: { after: string; seco
 		}];
 	const out: Step[] = [];
 	for (let s = 1; s <= ex.sets; s++) {
-		const rest = s > 1 ? { after: entryKey(ex.name, s - 1), seconds: restFor(plan, ex) } : between;
+		const rest = flow ? undefined : s > 1 ? { after: entryKey(ex.name, s - 1), seconds: restFor(plan, ex) } : between;
 		out.push({
 			key: entryKey(ex.name, s), kind: 'set', section: ex.name, item: ex.name, index: s,
 			label: `${ex.kind === 'hold' ? 'HOLD' : 'SET'} ${s}${ex.side === 'sets' ? (s % 2 === 1 ? ' · L' : ' · R') : ''}`,
@@ -137,13 +138,14 @@ export function sessionSteps(plan: Plan | undefined, w: Workout, extra: string[]
 	const out: Step[] = prepSteps(plan, warmupFor(plan, w.routine), WARMUP_ITEM, WARMUP_ITEM, PREP_SECONDS);
 	const exercises = routineExercises(plan, w);
 	const rounds = roundsOf(plan, w);
-	const between = partRestFor(plan, w.routine);
+	const flow = isFlow(plan, w.routine);
+	const between = flow ? undefined : partRestFor(plan, w.routine);
 	if (rounds !== null) out.push(...circuitSteps(exercises, rounds, between));
 	else
 		exercises.forEach((ex, k) => {
 			const prev = exercises[k - 1];
 			const after = prev && prev.kind !== 'run' && between ? { after: entryKey(prev.name, prev.sets), seconds: between } : undefined;
-			out.push(...exerciseSteps(plan, ex, after));
+			out.push(...exerciseSteps(plan, ex, after, flow));
 		});
 	out.push(...prepSteps(plan, cooldownFor(plan, w.routine), COOLDOWN_ITEM, COOLDOWN_ITEM, COOLDOWN_SECONDS));
 	const have = new Set(out.map((s) => s.section));

@@ -1,6 +1,6 @@
 import type { LedgerEvent, Workout } from './events';
 import { disciplineLabel, levelLine, setsPhrase, weekLine } from './labels';
-import { cycleDisciplines, levelsOf, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
+import { CLASS_MINUTES, cycleDisciplines, levelsOf, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
 import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry, nextRounds, roundsDone, suggest } from './progression';
 import { historyFor, projectSessions, sessionEntries, type SessionView } from './projections';
 import { estimateMinutes, sessionSteps } from './steps';
@@ -108,7 +108,7 @@ export function staleness(events: LedgerEvent[], plan: Plan, now: number): { cyc
 	});
 }
 
-/** One offer for Today: a cycle's next routine, with its reason and its rank. */
+/** One offer for Today: a cycle's next routine — or the class it names — with its reason and its rank. */
 export type Candidate = {
 	/** the cycle that offers it */
 	cycle: string;
@@ -136,37 +136,40 @@ function staleTier(daysSince: number | null, target: number): number {
 }
 
 /**
- * One candidate per cycle, ranked: owed → shortfall → staleness → minutes → plan order.
+ * One candidate per cycle — two when it names a class — ranked: owed → shortfall → staleness → minutes → plan order.
  * In a pool only the turn carries what is owed; the other way to pay it is always dealt and never above anything owed.
+ * A cycle that names a class deals the class as its turn and its next routine behind it, the same way.
  */
 export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate[] {
 	const sessions = projectSessions(events);
 	type Scored = { c: Candidate; order: number };
 	const scored: Scored[] = [];
 	for (const [order, cycle] of plan.cycles.entries()) {
-		const routine = nextInCycle(events, plan, cycle);
-		// parsePlan: a cycle names only routines the plan has, and every routine has its info
-		const { discipline, title } = plan.routineInfo[routine];
 		const { done, target } = weekProgress(events, plan, cycle, now);
 		const shortfall = Math.max(0, target - done);
 		const lastIn = lastCounted(sessions, plan, cycle);
 		const stale = staleTier(lastIn ? (now - Date.parse(lastIn.at)) / DAY : null, target);
+		const pooled = turnOf(events, plan, cycle, now).id === cycle.id;
+		const deal = (routine: string, turn: boolean, minutes: number, rounds?: number) => {
+			// parsePlan: a cycle names only routines and a class the plan has, and every one has its info
+			const { discipline, title } = plan.routineInfo[routine];
+			const levels = levelsOf(plan, routine);
+			const why = whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, levels && rounds ? levelLine(levels, rounds) : undefined);
+			// bands that cannot touch: owed 1e8 > shortfall·1e6 > stale·1e3 + shorter (≤ 999,009)
+			const shorter = 999 - Math.min(999, minutes);
+			const score = (turn && target > 0 ? 1e8 : 0) + (turn ? shortfall : 0) * 1e6 + stale * 1e3 + shorter;
+			scored.push({
+				c: {
+					cycle: cycle.id, workout: rounds === undefined ? { routine } : { routine, rounds }, discipline, title, why,
+					minutes, score, due: shortfall > 0, week: poolRoot(plan, cycle).id, turn
+				},
+				order
+			});
+		};
+		if (cycle.class) deal(cycle.class, pooled, CLASS_MINUTES);
+		const routine = nextInCycle(events, plan, cycle);
 		const rounds = roundsFor(events, plan, routine);
-		const workout = rounds === undefined ? { routine } : { routine, rounds };
-		const minutes = estimateMinutes(sessionSteps(plan, workout));
-		const levels = levelsOf(plan, routine);
-		const why = whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, levels && rounds ? levelLine(levels, rounds) : undefined);
-		const turn = turnOf(events, plan, cycle, now).id === cycle.id;
-		// bands that cannot touch: owed 1e8 > shortfall·1e6 > stale·1e3 + shorter (≤ 999,009)
-		const shorter = 999 - Math.min(999, minutes);
-		const score = (turn && target > 0 ? 1e8 : 0) + (turn ? shortfall : 0) * 1e6 + stale * 1e3 + shorter;
-		scored.push({
-			c: {
-				cycle: cycle.id, workout, discipline, title, why,
-				minutes, score, due: shortfall > 0, week: poolRoot(plan, cycle).id, turn
-			},
-			order
-		});
+		deal(routine, pooled && !cycle.class, estimateMinutes(sessionSteps(plan, rounds === undefined ? { routine } : { routine, rounds })), rounds);
 	}
 	return scored.sort((a, b) => b.c.score - a.c.score || a.order - b.order).map((s) => s.c);
 }
@@ -201,7 +204,7 @@ function whyLine(
 	target: number,
 	level?: string
 ): string {
-	const exercises: Exercise[] = plan.routines[routine];
+	const exercises: Exercise[] = plan.routines[routine] ?? [];
 	const moved = exercises
 		.map((ex) => ({ ex, s: suggest(historyFor(events, ex.name), ex, now) }))
 		.find(({ s }) => s.kind === 'load' && (s.up || s.down));

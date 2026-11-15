@@ -293,6 +293,21 @@ describe('queue — one candidate per cycle, ranked', () => {
 		const elsewhere = did('o', 'X', 'mobility', 2, 'other');
 		expect(queue(elsewhere, plan, NOW).find((c) => c.cycle === 'mob')!.why).toBe('2 days since Stretch · 1 of 3 this week');
 	});
+	it('deals a cycle’s class as its turn and the next routine behind it, never above it', () => {
+		const yoga: Plan = {
+			...plan,
+			cycles: [{ id: 'yoga', title: 'Yoga', routines: ['Y'], target: 2, class: 'studio' }],
+			routineInfo: { ...plan.routineInfo, Y: { title: 'Home flow', discipline: 'yoga' }, studio: { title: 'Yoga class', discipline: 'yoga' } },
+			routines: { ...plan.routines, Y: [stretch] }
+		};
+		const q = queue([], yoga, NOW);
+		expect(q.map((c) => [c.workout.routine, c.turn, c.due, c.week])).toEqual([['studio', true, true, 'yoga'], ['Y', false, true, 'yoga']]);
+		expect(q[0]).toMatchObject({ title: 'Yoga class', minutes: 60, why: 'First session · 0 of 2 this week' });
+		const once = did('c', 'studio', 'yoga', 1);
+		expect(weekProgress(once, yoga, yoga.cycles[0], NOW)).toEqual({ done: 1, target: 2 });
+		expect(queue(once, yoga, NOW)[0]).toMatchObject({ workout: { routine: 'studio' }, why: '1 day since Yoga class · 1 of 2 this week' });
+		expect(nextInCycle(once, yoga, yoga.cycles[0])).toBe('Y'); // a class never turns the cycle
+	});
 	it('tallies the week: every session in seven days against what the on cycles ask, and who is behind', () => {
 		expect(weekTally([], plan, NOW)).toEqual({ done: 0, asked: 9, gaps: ['lift', 'stretch', 'run'] });
 		expect(weekTally(even, plan, NOW)).toEqual({ done: 6, asked: 9, gaps: ['lift', 'stretch', 'run'] });

@@ -15,6 +15,7 @@ import {
 	type Entry
 } from './steps';
 import type { Plan } from './plan';
+import { SHIPPED_PLANS } from './plans';
 
 const NOW = Date.parse('2026-08-25T18:00:00Z');
 const iso = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -238,6 +239,18 @@ describe('stepName — a step the way a sentence says it', () => {
 		expect(stepName(steps[3])).toBe('Goblet Squat · set 2');
 		expect(stepName(steps[5])).toBe('Plank · hold 1');
 		expect(stepName(sessionSteps(plan, RUN)[3])).toBe('the run');
+	});
+});
+
+describe('a flow — one clock, no rests', () => {
+	it('walks every pose of a shipped flow straight through, both sides back to back, with no clock between', () => {
+		const plan = SHIPPED_PLANS[0];
+		const steps = sessionSteps(plan, { routine: 'hips' });
+		expect(steps.filter((s) => s.kind === 'set' && s.rest)).toEqual([]);
+		expect(steps.every((s) => s.kind === 'set' || s.kind === 'timed')).toBe(true);
+		expect(steps.filter((s) => s.section === 'Low Lunge').map((s) => s.label)).toEqual(['HOLD 1 · L', 'HOLD 2 · R']);
+		expect(estimateMinutes(steps)).toBeGreaterThanOrEqual(15);
+		expect(estimateMinutes(steps)).toBeLessThanOrEqual(25);
 	});
 });
 

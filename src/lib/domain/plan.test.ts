@@ -153,6 +153,24 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(disciplineOf(SHIPPED_PLANS[0], 'sculpt')).toBe('yoga');
 		expect(['climb', 'aerial'].map((k) => disciplineOf(SHIPPED_PLANS[0], k))).toEqual(['pull', 'pull']);
 	});
+	it('lets a cycle name the class that mostly pays it — a class, never a routine or a stranger', () => {
+		const studio = { title: 'Yoga class', discipline: 'yoga' };
+		const info = { A: { title: 'A', discipline: 'yoga' }, studio };
+		const p = parsePlan(raw({ A: [stretch] }, info, [{ id: 'y', title: 'Y', routines: ['A'], target: 2, class: 'studio' }]));
+		expect(p.cycles[0].class).toBe('studio');
+		expect(() => parsePlan(raw({ A: [stretch] }, info, [{ id: 'y', title: 'Y', routines: ['A'], target: 2, class: 'A' }]))).toThrow(/class must name a class/);
+		expect(() => parsePlan(raw({ A: [stretch] }, info, [{ id: 'y', title: 'Y', routines: ['A'], target: 2, class: 'gym' }]))).toThrow(/class must name a class/);
+		expect(BLOCKS.find((b) => b.id === 'yoga')!.cycle.class).toBe('studio');
+	});
+	it('keeps a flow to holds and timed lines — one clock has to carry all of it', () => {
+		const flowInfo = (warmup: unknown[]) => ({ A: { title: 'Flow', discipline: 'yoga', flow: true, warmup } });
+		const cyc = [{ id: 'y', title: 'Y', routines: ['A'], target: 1 }];
+		expect(parsePlan(raw({ A: [stretch] }, flowInfo([{ name: 'Cat–Cow', seconds: 60 }]), cyc)).routineInfo.A.flow).toBe(true);
+		expect(() => parsePlan(raw({ A: [stretch] }, flowInfo(['Roll out the mat']), cyc))).toThrow(/is a flow/);
+		expect(() => parsePlan(raw({ A: [stretch] }, flowInfo([{ name: 'Sun Salutation A', reps: 3 }]), cyc))).toThrow(/is a flow/);
+		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'Flow', discipline: 'lift', flow: true } }, cyc))).toThrow(/is a flow/);
+		for (const r of ['hips', 'spine']) expect(SHIPPED_PLANS[0].routineInfo[r].flow).toBe(true);
+	});
 	it('groups every routine and class for a picker — the week’s practices first, classes first in each', () => {
 		const week = composePlan(DEFAULT_PROGRAMMES[0], BLOCKS, FLOOR, ['yoga', 'mob', 'run']);
 		const groups = routineGroups(week);

@@ -69,6 +69,8 @@ export type Routine = {
 	levels?: number[];
 	/** seconds between parts — the rounds of a circuit, the exercises otherwise; absent = no clock between them */
 	rest?: number;
+	/** a flow: one clock, each pose into the next — no rest anywhere, and the bell at a pose's end logs it and starts the next */
+	flow?: true;
 };
 
 /** Routines you work through, in order, at a cadence; position is never stored — it is the routine after the last one of this cycle you finished. */
@@ -81,6 +83,8 @@ export type Cycle = {
 	target: number;
 	/** it pools with that cycle: one weekly count between them, either's sessions paying it (the floor and the gym are strength) */
 	standsInFor?: string;
+	/** the class that mostly pays this week — dealt as the cycle's turn, its routines dealt behind it */
+	class?: string;
 };
 
 /** A plan: the cycles the week is made of, the routines they turn through, and the defaults. */
@@ -103,6 +107,8 @@ export type Plan = {
 	cue?: string;
 };
 
+/** Minutes a class is taken to last until you say otherwise. */
+export const CLASS_MINUTES = 60;
 /** Seconds between sets when nothing says otherwise — asked for via restFor, never written as `?? 60` elsewhere. */
 export const DEFAULT_REST = 60;
 
@@ -116,6 +122,8 @@ export const cueFor = (plan: Plan | undefined, routine: string): string | undefi
 export const restFor = (plan: Plan | undefined, ex: Exercise): number => ex.rest ?? plan?.rest ?? DEFAULT_REST;
 /** A circuit's rounds at each level, Level I first — undefined for straight sets. */
 export const levelsOf = (plan: Plan | undefined, routine: string): number[] | undefined => plan?.routineInfo[routine]?.levels;
+/** A flow runs on one clock: no rests, each pose into the next. */
+export const isFlow = (plan: Plan | undefined, routine: string): boolean => plan?.routineInfo[routine]?.flow === true;
 /** Seconds between a routine's parts — undefined when nothing times them. */
 export const partRestFor = (plan: Plan | undefined, routine: string): number | undefined => plan?.routineInfo[routine]?.rest;
 /** Sets for a reps count of "max" are as many as you can: the bumps stop here. */
@@ -393,6 +401,7 @@ function parseRoutineInfo(v: unknown, keys: string[]): Record<string, Routine> {
 		if (info.desc !== undefined && typeof info.desc !== 'string') throw new Error(`routineInfo "${r}" desc must be a string`);
 		if (info.cue !== undefined && typeof info.cue !== 'string') throw new Error(`routineInfo "${r}" cue must be a string`);
 		if (info.rest !== undefined && !positive(info.rest)) throw new Error(`routineInfo "${r}" rest must be a positive number of seconds`);
+		if (info.flow !== undefined && info.flow !== true) throw new Error(`routineInfo "${r}" flow is true or absent`);
 		const levels = info.levels;
 		if (
 			levels !== undefined &&
@@ -409,13 +418,14 @@ function parseRoutineInfo(v: unknown, keys: string[]): Record<string, Routine> {
 			...(cooldown ? { cooldown } : {}),
 			...(info.cue !== undefined ? { cue: info.cue as string } : {}),
 			...(levels !== undefined ? { levels: [...(levels as number[])] } : {}),
-			...(info.rest !== undefined ? { rest: info.rest as number } : {})
+			...(info.rest !== undefined ? { rest: info.rest as number } : {}),
+			...(info.flow ? { flow: true as const } : {})
 		};
 	}
 	return out;
 }
 
-function parseCycles(v: unknown, keys: string[]): Cycle[] {
+function parseCycles(v: unknown, keys: string[], classes: string[]): Cycle[] {
 	if (!Array.isArray(v) || !v.length) throw new Error('cycles must be a non-empty list');
 	const out: Cycle[] = [];
 	for (const c of v) {
@@ -427,12 +437,15 @@ function parseCycles(v: unknown, keys: string[]): Cycle[] {
 		for (const r of c.routines as string[]) if (!keys.includes(r)) throw new Error(`cycle "${c.id}" names a routine the plan doesn't have: "${r}"`);
 		if (!count(c.target)) throw new Error(`cycle "${c.id}" target must be a whole number of sessions a week`);
 		if (c.standsInFor !== undefined && typeof c.standsInFor !== 'string') throw new Error(`cycle "${c.id}" standsInFor must name a cycle`);
+		if (c.class !== undefined && (typeof c.class !== 'string' || keys.includes(c.class) || !classes.includes(c.class)))
+			throw new Error(`cycle "${c.id}" class must name a class the plan has — a routine named, never written`);
 		out.push({
 			id: c.id,
 			title: c.title,
 			routines: [...(c.routines as string[])],
 			target: c.target,
-			...(c.standsInFor !== undefined ? { standsInFor: c.standsInFor as string } : {})
+			...(c.standsInFor !== undefined ? { standsInFor: c.standsInFor as string } : {}),
+			...(c.class !== undefined ? { class: c.class as string } : {})
 		});
 	}
 	for (const c of out)
@@ -456,7 +469,7 @@ export function parsePlan(raw: unknown): Plan {
 	if (!isObj(p.routines) || !Object.keys(p.routines).length) throw new Error('routines must be a non-empty object');
 	const keys = Object.keys(p.routines);
 	const routineInfo = parseRoutineInfo(p.routineInfo, keys);
-	const cycles = parseCycles(p.cycles, keys);
+	const cycles = parseCycles(p.cycles, keys, Object.keys(routineInfo).filter((r) => !keys.includes(r)));
 	const routines: Record<string, Exercise[]> = {};
 	for (const [r, list] of Object.entries(p.routines)) {
 		if (!Array.isArray(list) || !list.length) throw new Error(`routine "${r}" needs a non-empty exercise list`);
@@ -469,6 +482,9 @@ export function parsePlan(raw: unknown): Plan {
 		if (discipline !== 'run' && runs) throw new Error(`routine "${r}" has a run in it but is not a run`);
 		if (routineInfo[r].levels && routines[r].some((ex) => ex.kind === 'run' || ex.side === 'sets'))
 			throw new Error(`routine "${r}" is a circuit: each exercise goes once a round, so no run and no side "sets"`);
+		const prep = [...(routineInfo[r].warmup ?? []), ...(routineInfo[r].cooldown ?? [])];
+		if (routineInfo[r].flow && (routines[r].some((ex) => ex.kind !== 'hold') || prep.some((it) => typeof it === 'string' || 'reps' in it)))
+			throw new Error(`routine "${r}" is a flow: one clock carries it, so every exercise is a hold and every warm-up or cooldown line is timed`);
 	}
 	return {
 		id: p.id,

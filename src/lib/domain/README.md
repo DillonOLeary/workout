@@ -27,8 +27,10 @@ cycle last counted a session (never done counts as four); then **minutes**,
 shorter first; then plan order. Today shows the first, "Something else" lists the
 rest. No discipline is privileged — a lift rises because it is owed. In a pool
 only the **turn** carries what is owed; the other way to pay the same week is
-dealt too, still marked due, and never above anything owed. Each candidate
-carries its one-line reason (`whyLine`), the week it pays (`week`) and whether it
+dealt too, still marked due, and never above anything owed. A cycle that names
+a **class** (`class` on the cycle — yoga's is the studio) deals it the same way:
+the class is the turn, the cycle's next routine is dealt behind it, and a class
+never turns the cycle. Each candidate carries its one-line reason (`whyLine`), the week it pays (`week`) and whether it
 is its pool's turn.
 
 ## next — `nextInCycle(events, plan, cycle)` in [week.ts](week.ts)

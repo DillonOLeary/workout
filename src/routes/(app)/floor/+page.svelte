@@ -12,7 +12,7 @@
 	import { COOLDOWN_ITEM, WARMUP_ITEM } from '$lib/domain/events';
 	import { disciplineLabel, durationLabel, firstSentence, itemDose, levelNote, loadHint, loadShort, plannedValue, receiptLine, sessionNoun, setValue, setsLine } from '$lib/domain/labels';
 	import { countOf, isSet, loadOf, measureFor, type Measure } from '$lib/domain/measure';
-	import { cueFor, levelsOf, progresses, routineTitle, type Exercise } from '$lib/domain/plan';
+	import { cueFor, isFlow, levelsOf, progresses, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
 	import { anySetEarned, bumpCount, bumpLoad, nextSet, roundsDone, suggest, type Suggestion } from '$lib/domain/progression';
 	import { loggedOutside, restUntil, roundsOf, routineExercises, runStart, sessionProgress, sessionSections, sessionSteps, skipSpan, stepName, type Section, type Step } from '$lib/domain/steps';
@@ -29,6 +29,8 @@
 	const workout = session.workout;
 	const title = routineTitle(plan, workout.routine) ?? disciplineLabel(session.discipline);
 	const noun = sessionNoun(session.discipline);
+	// a flow is one clock: each pose's bell logs it and starts the next, and the button only starts, pauses and goes on
+	const flow = isFlow(plan, workout.routine);
 	const queue = new EntryQueue(session.id);
 	$effect(() => () => queue.dispose());
 
@@ -91,10 +93,32 @@
 	let last = $derived(ex ? lastEntryFor(data.events, ex.name, session.id) : null);
 
 	const clock = new CountdownClock((done) => {
+		const m: Measure = done.kind === 'hold' ? measureFor(done.ex, { load: 0, count: done.target, target: done.target }) : { of: 'step' };
+		if (flow) return flowOn(m);
 		ringBell();
 		live = 'Done';
-		enqueue(done.kind === 'hold' ? measureFor(done.ex, { load: 0, count: done.target, target: done.target }) : { of: 'step' });
+		enqueue(m);
 	});
+	/** the flow's bell: this pose goes in, the next open one starts at once; the last one rings */
+	function flowOn(m: Measure) {
+		const s = st;
+		if (!s) return;
+		push('log', s, m);
+		const k = steps.findIndex((x, j) => j > stepI && !progress.done.has(x.key) && !skipped.has(x.key));
+		if (k < 0) {
+			ringBell();
+			live = 'Done';
+			return;
+		}
+		goTo(k);
+		startHere();
+	}
+	/** start the clock on the step on screen: a timed line by its seconds, a hold by the seconds dialled */
+	function startHere() {
+		const s = steps[stepI];
+		if (s?.kind === 'timed') clock.start({ kind: 'timed', target: s.seconds });
+		else if (s?.kind === 'set' && s.ex.kind === 'hold') clock.start({ kind: 'hold', target: reps, ex: s.ex });
+	}
 	let restEnd = $derived(st?.kind === 'set' && !stepDone && !stepSkipped ? restUntil(st, entries) : null);
 	let restLeft = $derived(restEnd !== null ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0);
 	let resting = $derived(restEnd !== null && restLeft > 0 && !clock.active);
@@ -269,6 +293,13 @@
 		if (editing) return saveFix();
 		if (allDone) return void finishNow();
 		if (stepDone || stepSkipped) return goTo(progress.current);
+		if (flow) {
+			if (clock.active) {
+				clock.cancel();
+				live = 'Paused';
+			} else if (debounced()) startHere();
+			return;
+		}
 		if (st.kind === 'prep') return enqueue({ of: 'step' });
 		if (st.kind === 'timed') return startOrDone({ kind: 'timed', target: st.seconds });
 		if (st.kind === 'run') return enqueue({ of: 'duration', minutes: Math.max(1, Math.round(runElapsed / 60000)) });
@@ -372,11 +403,12 @@
 		if (st.kind === 'run') return { value: mmss(runElapsed), note: `Run · of ${st.minutes} min`, frac: Math.max(0, 1 - runElapsed / (st.minutes * 60000)) };
 		return null;
 	});
-	let readyLine = $derived(stepSkipped ? 'Skipped — nothing goes in the ledger for it.' : peeking && !stepDone ? 'Log it here, or head back — the order waits.' : progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
+	let readyLine = $derived(flow && !stepSkipped && !peeking ? 'One clock: each pose moves on by itself. Pause any time.' : stepSkipped ? 'Skipped — nothing goes in the ledger for it.' : peeking && !stepDone ? 'Log it here, or head back — the order waits.' : progress.sets === 0 && progress.current === stepI ? 'Set up, then log the first set.' : 'Ready when you are.');
 	let primaryLabel = $derived.by(() => {
 		if (editing) return `Save ${editStep?.kind === 'set' && editStep.ex.kind === 'hold' ? 'hold' : 'set'} ${editStep?.index ?? ''}`;
 		if (!st) return `Finish ${noun}`;
 		if (stepDone || stepSkipped) return !nowStep ? `Finish ${noun}` : nowStep.section === st.section ? 'Next' : `Next: ${nowStep.section}`;
+		if (flow) return clock.active ? 'Pause' : entries.length ? 'Go on' : 'Start the flow';
 		if (st.kind === 'prep') return 'Done';
 		if (st.kind === 'timed') return clock.active ? 'Done early' : `Start ${durationLabel(st.seconds)}`;
 		if (st.kind === 'run') return 'Stop here';

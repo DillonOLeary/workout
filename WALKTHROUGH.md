@@ -475,6 +475,16 @@ back a size", "1 of 3 this week"). A circuit's line is the same grammar with
 its level first, and leaves the week to the caption above it: "Level II · 5
 rounds · 3 days since Hinge & Haul".
 
+**The class first.** Yoga for this person happens at a studio, and a home
+routine on Today's card when yoga was due said otherwise. So a cycle can name
+the class that mostly pays it (`class: 'studio'` on yoga's), and the deal
+treats it the way a pool treats its turn: the class is dealt as the turn,
+carrying what is owed, and the cycle's next routine is dealt behind it — due,
+in "Something else", never above anything owed. Nothing new was needed to
+count it: a class was already stamped with its discipline and counted by it.
+On Today a class's card has no list and no Start — a class happens somewhere
+else — only *Log it*, which opens Log-after on that class.
+
 ### Kept — when the week grows
 
 A plan that starts small says when to grow it: keep the floor four weeks
@@ -1192,6 +1202,24 @@ shows (`firstSentence`) — is how to do it: the yoga notes opened with
 anatomy ("The front of the hip, shortened all day by a chair…"), a few
 opened with setup only ("Soft knees, set once."), two carried a starting
 load that stops being true the day it climbs ("35 is the whole load").
+
+### Yoga as a flow (2026-11-15)
+
+The two home yoga routines were held poses walked like gym sets: a tap to
+start each hold, a tap's worth of bell, and a 20-second rest between a pose's
+left and right side — Shoulders & Spine even sat out 90 seconds after the side
+plank, which had no rest of its own and took the programme's. It was nothing
+like a class. Now they are **flows** (`flow: true` on the routine): Cat–Cow,
+three Sun Salutation A, two B, a standing series, the floor, three minutes of
+savasana, every pose counted in breaths (`BREATH`, six seconds) and both sides
+back to back. Three pieces make it one clock. `parsePlan` keeps a flow to holds
+and timed lines, because nothing in it may wait for a tap. `sessionSteps` gives
+a flow no rests at all. And on the floor the countdown's bell, in a flow, logs
+the pose and starts the next open one at once (`flowOn`); the one button reads
+*Start the flow*, *Pause*, *Go on*, and only the last pose rings. Each pose is
+still a hold in the ledger, so the receipt reads like any other session. The
+poses no longer progress — a flow's dose is the breaths — and Sun Salutation B
+is drawn by A's figure for now.
 
 ### Darebee on the floor: circuits, levels and max (2026-10-07)
 
