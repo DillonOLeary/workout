@@ -59,7 +59,7 @@
 	// the card says how big, not what is in it: the floor walks the list
 	let selMeta = $derived.by(() => {
 		if (!sel || !selWorkout) return '';
-		if (selIsClass) return plan.routineInfo[sel]?.desc ?? '';
+		if (selIsClass) return `Class · ~${CLASS_MINUTES} min`;
 		const n = routineExercises(plan, selWorkout).length;
 		const levels = levelsOf(plan, sel);
 		const mins = cand?.minutes ?? estimateMinutes(sessionSteps(plan, selWorkout));
@@ -69,6 +69,8 @@
 	let opened = $state<string[]>([]);
 	let showOff = $state(false);
 	const toggleGroup = (d: string) => (opened = opened.includes(d) ? opened.filter((x) => x !== d) : [...opened, d]);
+	// the card's second line: why the deal offers it, else what the routine is — two lines' room, whichever it is
+	let selWhy = $derived(cand?.why ?? (sel ? (plan.routineInfo[sel]?.desc ?? '') : ''));
 	function pick(r: string) {
 		picked = r;
 		window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -249,11 +251,12 @@
 		<Row label="Logged · {justLogged.title}" sub={justLogged.summary} right={armed === justLogged.id ? 'Undo? ›' : 'Undo ›'} onclick={() => removeTap(justLogged.id)} />
 	{/if}
 	{#if sel && selWorkout}
+		<!-- every line has a fixed room, so tapping between routines never moves the list under the card -->
 		<Card>
-			<Caption>{selCaption}</Caption>
-			<Title>{routineTitle(plan, sel) ?? sel}</Title>
-			<Note>{selMeta}</Note>
-			{#if cand?.why}<Note size="sm">{cand.why}</Note>{/if}
+			<div class="one"><Caption>{selCaption}</Caption></div>
+			<div class="one"><Title>{routineTitle(plan, sel) ?? sel}</Title></div>
+			<div class="one"><Note>{selMeta}</Note></div>
+			<div class="two"><Note size="sm">{selWhy}</Note></div>
 			<div class="gap"></div>
 			{#if selIsClass}
 				<!-- a class happens somewhere else: the card's one job is to write it down after -->
@@ -391,6 +394,10 @@
 	.gap { height: 4px; }
 	.rows { display: flex; flex-direction: column; }
 	.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+	.one :global(.caption), .one :global(.title), .one :global(.note) { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	/* two lines of the 12px note at its 1.5 line-height, filled or not */
+	.two { min-height: 36px; }
+	.two :global(.note) { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 	.acts { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; align-items: start; }
 	.week { display: flex; flex-direction: column; margin-top: 6px; }
 	.prac { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--paper-2); }

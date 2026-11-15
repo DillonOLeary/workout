@@ -493,7 +493,10 @@ every routine. Logging after was what got used most, and it was the hardest
 thing to reach. Now the two pickers are one. The card is the routine picked —
 the deal's first until you tap another — and says how big, not what is in it
 ("~41 min · 7 exercises"; the floor walks the list), with two ways: **Start**
-and **Log it**. Under it, the week by practice (`dealByGroup` in week.ts): one
+and **Log it**. Every line of the card has a fixed room — the caption, title and
+size one line each, the reason two — so tapping between routines never moves
+the list under it; a class's size line is "Class · ~60 min" like any other,
+its description in the reason's room. Under it, the week by practice (`dealByGroup` in week.ts): one
 row per week paid — the gym and the floor are one Strength row — headed by
 the deal's best candidate for it, in the deal's order, the rest of its
 routines and classes one tap further as chips; what is switched off folds
