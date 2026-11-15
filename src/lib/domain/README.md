@@ -24,8 +24,9 @@ One candidate per cycle of the composed plan, ranked by a single number whose
 bands cannot touch: **owed** (a target above zero) beats everything; then the
 **shortfall** under that target; then **staleness** in whole cadences since the
 cycle last counted a session (never done counts as four); then **minutes**,
-shorter first; then plan order. Today shows the first, "Something else" lists the
-rest. No discipline is privileged — a lift rises because it is owed. In a pool
+shorter first; then plan order. Today shows the first on its card and every practice
+under it (`dealByGroup`: one row per week paid, headed by its best candidate, in this
+order). No discipline is privileged — a lift rises because it is owed. In a pool
 only the **turn** carries what is owed; the other way to pay the same week is
 dealt too, still marked due, and never above anything owed. A cycle that names
 a **class** (`class` on the cycle — yoga's is the studio) deals it the same way:

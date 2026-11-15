@@ -5,11 +5,11 @@
 	import { unsentFor } from '$lib/floor/entry-queue.svelte';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { capitalise, clockLabel, dayMarks, groupLabel, dealCaption, disciplineLabel, itemDose, levelLine, levelName, loadShort, placeLabel, setsLine, weekLine } from '$lib/domain/labels';
+	import { clockLabel, dayMarks, groupLabel, dealCaption, disciplineLabel, levelLine, levelName, loadShort, setsLine, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
-	import { CLASS_MINUTES, classKeys, cycleDisciplines, disciplineOf, levelsOf, routineGroups, routineKeys, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
+	import { CLASS_MINUTES, classKeys, cycleDisciplines, disciplineOf, levelsOf, routineKeys, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
-	import { queue, roundsFor, weekProgress, weekTally } from '$lib/domain/week';
+	import { dealByGroup, queue, roundsFor, weekProgress, weekTally } from '$lib/domain/week';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
 	import { estimateMinutes, loggedOutside, positionLabel, routineExercises, sessionProgress, sessionSteps, stepName } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
@@ -24,33 +24,55 @@
 	// an empty cell shows its weekday's initial — the first letter of "Sun, Aug 23"
 	const cellLabel = (c: DayCell) => c.label[0];
 
-	// the deal: one candidate per cycle, the first on the card, the rest one "Something else" away
+	// the deal by practice: one card for the routine picked — the deal's first until you pick — and every practice under it, to start or to log
 	let deck = $derived(queue(data.events, plan, now));
-	let i = $state(0);
-	let card = $derived(deck[Math.min(i, Math.max(0, deck.length - 1))]);
-	let deckOpen = $state(false);
+	let rows = $derived(dealByGroup(deck, plan));
+	let classes = $derived(classKeys(plan));
+	let picked = $state<string | null>(null);
+	let sel = $derived(picked ?? deck[0]?.workout.routine ?? null);
+	let cand = $derived(sel ? deck.find((c) => c.workout.routine === sel) : undefined);
 	const cycleTitle = (id: string) => plan.cycles.find((c) => c.id === id)?.title ?? id;
-	// owed, once per cycle: the card's caption and every "Something else" line read the same numbers
+	// owed, once per cycle: the card's caption and every row read the same numbers
 	let progress = $derived(new Map(plan.cycles.map((c) => [c.id, weekProgress(data.events, plan, c, now)])));
 	const progressOf = (id: string) => progress.get(id) ?? { done: 0, target: 0 };
-	const captionOf = (c: typeof card) => {
-		const { done, target } = progressOf(c.cycle);
-		return dealCaption(c, cycleTitle(c.week), done, target);
+	/** the cycle a discipline's sessions count toward — its pool's root — or none while its practice is off */
+	const weekOf = (d: Discipline | undefined) => {
+		const own = plan.cycles.find((x) => !!d && cycleDisciplines(plan, x).includes(d));
+		return own?.standsInFor ? plan.cycles.find((x) => x.id === own.standsInFor) : own;
 	};
-	// the other way to pay the same week — strength at the gym or on the floor
-	const partnerOf = (c: typeof card) => deck.findIndex((x) => x.week === c.week && x.cycle !== c.cycle);
-	const subOf = (c: typeof card) => `${cycleTitle(c.week)}${partnerOf(c) >= 0 ? ` ${placeLabel(c.discipline)}` : ''} · ${weekLine(progressOf(c.cycle).done, progressOf(c.cycle).target)}`;
-	const levelOf = (c: typeof card) => {
-		const levels = levelsOf(plan, c.workout.routine);
-		return levels && c.workout.rounds ? ` · ${levelName(levels, c.workout.rounds)}` : '';
+	const weekText = (d: Discipline | undefined) => {
+		const w = weekOf(d);
+		if (!w) return 'switched off';
+		const { done, target } = progressOf(w.id);
+		return target > 0 && done >= target ? `${weekLine(done, target)} ✓` : weekLine(done, target);
 	};
-	const weightFor = (ex: Exercise) => {
-		const s = suggest(historyFor(data.events, ex.name), ex, now);
-		return s.kind === 'load' ? s.weight : 0;
-	};
-	let items = $derived(card ? routineExercises(plan, card.workout).map((ex) => ({ name: ex.name, dose: itemDose(ex, weightFor(ex)) })) : []);
-	let partner = $derived(card ? partnerOf(card) : -1);
-	let others = $derived(deck.map((c, k) => ({ c, k })).filter((x) => x.k !== i && x.k !== partner));
+	let selRounds = $derived(sel ? (cand?.workout.rounds ?? roundsFor(data.events, plan, sel)) : undefined);
+	let selWorkout = $derived(sel ? { routine: sel, ...(selRounds !== undefined ? { rounds: selRounds } : {}) } : null);
+	let selIsClass = $derived(!!sel && classes.includes(sel));
+	let selCaption = $derived.by(() => {
+		if (!sel) return '';
+		if (cand) return dealCaption(cand, cycleTitle(cand.week), progressOf(cand.cycle).done, progressOf(cand.cycle).target);
+		const d = disciplineOf(plan, sel);
+		const w = weekOf(d);
+		return `${w ? w.title : d ? groupLabel(d) : ''} · ${weekText(d)}`;
+	});
+	// the card says how big, not what is in it: the floor walks the list
+	let selMeta = $derived.by(() => {
+		if (!sel || !selWorkout) return '';
+		if (selIsClass) return plan.routineInfo[sel]?.desc ?? '';
+		const n = routineExercises(plan, selWorkout).length;
+		const levels = levelsOf(plan, sel);
+		const mins = cand?.minutes ?? estimateMinutes(sessionSteps(plan, selWorkout));
+		return [levels && selRounds ? levelName(levels, selRounds) : null, `~${mins} min`, `${n} ${n === 1 ? 'exercise' : 'exercises'}`].filter(Boolean).join(' · ');
+	});
+	// a group shows its head; the rest of its routines one tap away
+	let opened = $state<string[]>([]);
+	let showOff = $state(false);
+	const toggleGroup = (d: string) => (opened = opened.includes(d) ? opened.filter((x) => x !== d) : [...opened, d]);
+	function pick(r: string) {
+		picked = r;
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
 
 	// the session in progress, as Today says it
 	let floorPlan = $derived(session ? (data.plans.find((p) => p.id === session.plan) ?? plan) : plan);
@@ -105,23 +127,13 @@
 
 	// Log a session I already did: what, when, how long — and for a lift or the floor every set, from the plan, changed here
 	let after = $state(false);
-	let what = $state<string | null>(null);
 	let whenIdx = $state(0);
 	let keys = $derived(routineKeys(plan));
-	let classes = $derived(classKeys(plan));
-	let routine = $derived(what ?? card?.workout.routine ?? keys[0]);
+	let routine = $derived(sel ?? keys[0]);
 	let afterRounds = $derived(roundsFor(data.events, plan, routine));
 	let afterTitle = $derived(routineTitle(plan, routine) ?? routine);
 	let afterEx = $derived(routineExercises(plan, { routine, ...(afterRounds !== undefined ? { rounds: afterRounds } : {}) }));
 	let isClass = $derived(classes.includes(routine));
-	// What, grouped by the practice it pays: the week's first, each with its count; what is switched off folds under one row
-	let groups = $derived(routineGroups(plan));
-	let showOff = $state(false);
-	/** the cycle a discipline's sessions count toward — its pool's root — or none while its practice is off */
-	const weekOf = (d: Discipline | undefined) => {
-		const own = plan.cycles.find((x) => !!d && cycleDisciplines(plan, x).includes(d));
-		return own?.standsInFor ? plan.cycles.find((x) => x.id === own.standsInFor) : own;
-	};
 	let isRun = $derived(afterEx.some((e) => e.kind === 'run'));
 	// a lift or the floor is sets you change; yoga and the stretch go in as the plan wrote them; a run and a class are their length
 	let editable = $derived(!isClass && ['lift', 'bodyweight'].includes(disciplineOf(plan, routine) ?? ''));
@@ -146,7 +158,6 @@
 		});
 	}
 	function choose(r: string) {
-		what = r;
 		openEx = null;
 		const rounds = roundsFor(data.events, plan, r);
 		const w = { routine: r, ...(rounds !== undefined ? { rounds } : {}) };
@@ -163,7 +174,6 @@
 		startSet = false;
 		whenIdx = 0;
 		afterError = '';
-		showOff = !groups.some((g) => g.on && g.keys.includes(routine));
 		choose(routine);
 		after = true;
 	}
@@ -238,42 +248,28 @@
 	{#if justLogged}
 		<Row label="Logged · {justLogged.title}" sub={justLogged.summary} right={armed === justLogged.id ? 'Undo? ›' : 'Undo ›'} onclick={() => removeTap(justLogged.id)} />
 	{/if}
-	{#if card}
+	{#if sel && selWorkout}
 		<Card>
-			<Caption>{captionOf(card)}</Caption>
-			<Title>{card.title}</Title>
-			<Note>{card.why}</Note>
-			{#if classes.includes(card.workout.routine)}
-				<!-- a class happens at the studio: the card's one job is to write it down after -->
-				<div class="gap"></div>
-				<Primary onclick={() => { what = card.workout.routine; openAfter(); }}>Log it <small>after class</small></Primary>
+			<Caption>{selCaption}</Caption>
+			<Title>{routineTitle(plan, sel) ?? sel}</Title>
+			<Note>{selMeta}</Note>
+			{#if cand?.why}<Note size="sm">{cand.why}</Note>{/if}
+			<div class="gap"></div>
+			{#if selIsClass}
+				<!-- a class happens somewhere else: the card's one job is to write it down after -->
+				<Primary onclick={openAfter}>Log it <small>after class</small></Primary>
 			{:else}
-				<div class="items">
-					{#each items as it (it.name)}<div class="item"><span class="iname">{it.name}</span><span class="idose">{it.dose}</span></div>{/each}
+				<div class="acts">
+					<form method="POST" action="?/start" use:enhance>
+						<input type="hidden" name="routine" value={sel} />
+						{#if selRounds !== undefined}<input type="hidden" name="rounds" value={selRounds} />{/if}
+						<input type="hidden" name="plan" value={plan.id} />
+						<Primary type="submit">Start</Primary>
+					</form>
+					<Primary tone="white" onclick={openAfter}>Log it</Primary>
 				</div>
-				<form method="POST" action="?/start" use:enhance>
-					<input type="hidden" name="routine" value={card.workout.routine} />
-					{#if card.workout.rounds !== undefined}<input type="hidden" name="rounds" value={card.workout.rounds} />{/if}
-					<input type="hidden" name="plan" value={plan.id} />
-					<Primary type="submit">Start <small>~{card.minutes} min</small></Primary>
-				</form>
 			{/if}
 		</Card>
-		<div class="rows">
-			{#if partner >= 0}
-				{@const other = deck[partner]}
-				<Row label="{capitalise(placeLabel(other.discipline))} instead" sub="{other.title}{levelOf(other)}" right="~{other.minutes} min ›" onclick={() => { i = partner; deckOpen = false; }} />
-			{/if}
-			{#if others.length}
-				<Row label="Something else" right={deckOpen ? 'fewer ▴' : `${others.length} more ▾`} onclick={() => (deckOpen = !deckOpen)} expanded={deckOpen} />
-				{#if deckOpen}
-					{#each others as { c, k } (`${c.cycle}:${c.workout.routine}`)}
-						<Row label={c.title} sub={subOf(c)} right="~{c.minutes} min ›" tone="now" onclick={() => { i = k; deckOpen = false; }} />
-					{/each}
-				{/if}
-			{/if}
-			<Row label="Log a session I already did" right="›" onclick={openAfter} />
-		</div>
 	{:else}
 		<Card>
 			<Caption>Nothing on</Caption>
@@ -281,32 +277,43 @@
 			<Note>Switch a practice on in Plan and Today deals it.</Note>
 		</Card>
 	{/if}
+	<div class="week">
+		<Caption>The week · tap to start or log</Caption>
+		{#each rows.filter((g) => g.on) as g (g.week)}{@render practice(g)}{/each}
+		{#if rows.some((g) => !g.on)}
+			<Row label="Switched off in Plan" right={showOff ? 'fewer ▴' : `${rows.filter((g) => !g.on).reduce((n, g) => n + g.keys.length, 0)} more ▾`} onclick={() => (showOff = !showOff)} expanded={showOff} />
+			{#if showOff}{#each rows.filter((g) => !g.on) as g (g.week)}{@render practice(g)}{/each}{/if}
+		{/if}
+	</div>
 {/if}
 
 <form method="POST" action="?/remove" use:enhance bind:this={removeForm} hidden>
 	<input type="hidden" name="session" value={session?.id ?? justLogged?.id ?? ''} />
 </form>
 
-<!-- one practice's group in Log-after's What -->
-{#snippet group(g: (typeof groups)[number])}
-	{@const w = weekOf(g.discipline)}
-	<div class="group">
-		<div class="ghead"><span class="gname">{groupLabel(g.discipline)}</span><span class="gweek">{w ? weekLine(progressOf(w.id).done, progressOf(w.id).target) : 'switched off'}</span></div>
-		<div class="chips">
+<!-- one practice of the week: its head routine to tap, the rest of its routines one tap further -->
+{#snippet practice(g: (typeof rows)[number])}
+	{@const head = g.head?.workout.routine ?? g.keys[0]}
+	{@const open = opened.includes(g.week) || !g.on}
+	<div class="prac" class:on={!!sel && g.keys.includes(sel)}>
+		<button type="button" class="pmain" onclick={() => pick(head)}>
+			<span class="pname">{g.on ? cycleTitle(g.week) : groupLabel(g.disciplines[0])}</span>
+			<span class="psub">{routineTitle(plan, head)} · {weekText(g.disciplines[0])}</span>
+		</button>
+		{#if g.keys.length > 1 && g.on}
+			<button type="button" class="pmore" aria-expanded={open} onclick={() => toggleGroup(g.week)}>{open ? 'less ▴' : `+${g.keys.length - 1} ▾`}</button>
+		{/if}
+	</div>
+	{#if open && g.keys.length > 1}
+		<div class="chips pchips">
 			{#each g.keys as k (k)}
-				<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)}</button>
+				<button type="button" class="chip" class:on={sel === k} aria-pressed={sel === k} onclick={() => pick(k)}>{routineTitle(plan, k)}</button>
 			{/each}
 		</div>
-	</div>
+	{/if}
 {/snippet}
 
-<Sheet open={after} title="Log a session I already did" onclose={() => (after = false)}>
-	<Caption>What</Caption>
-	{#each groups.filter((g) => g.on) as g (g.discipline)}{@render group(g)}{/each}
-	{#if groups.some((g) => !g.on)}
-		<Row label="Switched off in Plan" right={showOff ? 'fewer ▴' : `${groups.filter((g) => !g.on).reduce((n, g) => n + g.keys.length, 0)} more ▾`} onclick={() => (showOff = !showOff)} expanded={showOff} />
-		{#if showOff}{#each groups.filter((g) => !g.on) as g (g.discipline)}{@render group(g)}{/each}{/if}
-	{/if}
+<Sheet open={after} title="Log {afterTitle}" onclose={() => (after = false)}>
 	<Caption>When</Caption>
 	<div class="chips">
 		{#each days as d (d.d)}
@@ -382,17 +389,24 @@
 	.strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 	.err { color: var(--signal); font-weight: 700; }
 	.gap { height: 4px; }
-	.items { display: flex; flex-direction: column; margin-top: 6px; margin-bottom: 10px; }
-	.item { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-top: 1px solid var(--paper-2); padding: 7px 0; font-size: 14px; }
-	.iname { font-weight: 700; }
-	.idose { font-family: var(--font-mono); font-size: 12px; color: var(--stone); white-space: nowrap; }
 	.rows { display: flex; flex-direction: column; }
 	.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-	.group { display: flex; flex-direction: column; gap: 6px; }
-	.group + .group { margin-top: 4px; }
-	.ghead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-	.gname { font-family: var(--font-body); font-size: 15px; font-weight: 700; color: var(--ink); }
-	.gweek { font-family: var(--font-mono); font-size: 11px; color: var(--slate); white-space: nowrap; }
+	.acts { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; align-items: start; }
+	.week { display: flex; flex-direction: column; margin-top: 6px; }
+	.prac { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--paper-2); }
+	.prac.on { box-shadow: inset 3px 0 0 var(--volt-deep); }
+	.pmain {
+		flex: 1; min-width: 0; min-height: 56px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px;
+		padding: 8px 0 8px 10px; background: none; border: 0; text-align: left; cursor: pointer; touch-action: manipulation;
+	}
+	.pmain:hover { background: var(--volt-light); }
+	.pname { font-family: var(--font-body); font-size: 16px; font-weight: 700; color: var(--ink); }
+	.psub { font-family: var(--font-mono); font-size: 12px; color: var(--slate); overflow-wrap: anywhere; }
+	.pmore {
+		flex: none; align-self: center; min-height: 36px; padding: 0 12px; border: 1.5px solid var(--paper-3); border-radius: var(--radius-pill);
+		background: var(--white); font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--slate); cursor: pointer; touch-action: manipulation;
+	}
+	.pchips { padding: 8px 0 12px 10px; border-bottom: 1px solid var(--paper-2); }
 	.chip {
 		min-height: 44px; padding: 0 16px; border-radius: var(--radius-pill); border: var(--border-w) solid var(--paper-3); background: var(--white);
 		font-family: var(--font-body); font-weight: 700; font-size: 14px; color: var(--slate); cursor: pointer; touch-action: manipulation;

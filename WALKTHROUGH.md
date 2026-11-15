@@ -450,7 +450,7 @@ SQL) are for queries across many streams, which this app has none of.
 
 `queue(events, plan, now)` in [week.ts](src/lib/domain/week.ts) is the one piece of genuinely new logic: ONE
 candidate per cycle of the composed plan, ranked, and Today shows the
-first; "Something else" lists the rest. The ranking is a single number with
+first on its card and every practice in a list under it (below). The ranking is a single number with
 bands that cannot touch:
 
 1. **owed** — the cycle's target is above zero
@@ -480,10 +480,26 @@ routine on Today's card when yoga was due said otherwise. So a cycle can name
 the class that mostly pays it (`class: 'studio'` on yoga's), and the deal
 treats it the way a pool treats its turn: the class is dealt as the turn,
 carrying what is owed, and the cycle's next routine is dealt behind it — due,
-in "Something else", never above anything owed. Nothing new was needed to
+one tap away, never above anything owed. Nothing new was needed to
 count it: a class was already stamped with its discipline and counted by it.
-On Today a class's card has no list and no Start — a class happens somewhere
-else — only *Log it*, which opens Log-after on that class.
+On Today a class's card has no Start — a class happens somewhere else — only
+*Log it*, which opens Log-after on that class.
+
+**One list to start or to log (2026-11-15).** Today used to put everything
+into the deal's first card — its title, its reason, every exercise and its
+dose, Start — and everything else behind "Something else · 5 more ▾", with
+"Log a session I already did" as a separate sheet that had its own picker of
+every routine. Logging after was what got used most, and it was the hardest
+thing to reach. Now the two pickers are one. The card is the routine picked —
+the deal's first until you tap another — and says how big, not what is in it
+("~41 min · 7 exercises"; the floor walks the list), with two ways: **Start**
+and **Log it**. Under it, the week by practice (`dealByGroup` in week.ts): one
+row per week paid — the gym and the floor are one Strength row — headed by
+the deal's best candidate for it, in the deal's order, the rest of its
+routines and classes one tap further as chips; what is switched off folds
+last. Tapping anything puts it on the card. The Log-after sheet lost its
+**What**: the page is the picker, and the sheet is only when, how long and the
+sets.
 
 ### The rule — progression.ts
 
@@ -722,7 +738,7 @@ src/routes/
 └─ (app)/                          layout GROUP — every page inside requires the cookie
    ├─ +layout.server.ts            ONE load for all pages: programmes composed with this person's practices, goals and rest, plus the stream
    ├─ (tabs)/                      nested group — the locked frame with the tab bar at its foot, three tabs
-   │  ├─ +page.svelte              Today — the week strip, the deal on one card, Something else, Log a session I already did (a sheet)  (/)
+   │  ├─ +page.svelte              Today — the week strip, the picked routine on one card (Start · Log it), the week by practice, Log it (a sheet)  (/)
    │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/finish (FinishSession, from Today) · ?/logAfter (LogAfter)
    │  ├─ ledger/                    Ledger — five weeks of cells, the pace, every session by month; the latest one fixable  (/ledger)
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
@@ -1126,13 +1142,10 @@ letters, each session its own mark on a split day; an empty day is ash so a
 white stretch day stands apart from it.
 
 Log-after grew from "written with the plan's sets" to a sheet you fill in.
-Its **What** was once one wall of chips — every routine and class of every
-practice, on or off, in no order a person would recognise. It is grouped now
-(`routineGroups` in [plan.ts](src/lib/domain/plan.ts), `groupLabel` for the
-heading): one group per practice the week has on, in the week's order, each
-heading carrying its count ("Yoga · 0 of 2 this week"), the classes first
-because a class is what you most often log after; everything switched off
-folds under one row, and opens below it. A **When** day, a **Started** time on the quarter hour (it follows the
+Its **What** was once one wall of chips, then grouped by practice
+(`routineGroups` in [plan.ts](src/lib/domain/plan.ts)), and since 2026-11-15
+it is gone: Today's own list picks the routine (§2, *One list to start or to
+log*), and the sheet opens on it. A **When** day, a **Started** time on the quarter hour (it follows the
 routine's length until you touch it) and a **Length**; the summary and *Log
 it* are pinned in the sheet's `foot`. A lift or a floor routine lists every
 exercise with a "did it" `Switch` and opens to its sets — reps, load, `+ set`,

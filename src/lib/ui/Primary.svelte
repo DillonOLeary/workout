@@ -3,7 +3,7 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	/**
-	 * Volt slab, ≥64px, one per screen. `ink` only for Finish — the irreversible write.
+	 * Volt slab, ≥64px, one per screen. `ink` only for Finish — the irreversible write; `white` the quieter second way beside the volt one.
 	 * `size` lg is the floor's 76px; md the card's 64px. A `type="submit"` inside a form posts it.
 	 */
 	let {
@@ -11,7 +11,7 @@
 		size = 'md',
 		children,
 		...rest
-	}: HTMLButtonAttributes & { tone?: 'volt' | 'ink'; size?: 'md' | 'lg'; children: Snippet } = $props();
+	}: HTMLButtonAttributes & { tone?: 'volt' | 'ink' | 'white'; size?: 'md' | 'lg'; children: Snippet } = $props();
 </script>
 
 <button class="primary {tone} {size}" {...rest}>{@render children()}</button>
@@ -31,6 +31,8 @@
 	.primary.volt { background: var(--volt); color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
 	.primary.lg.volt { box-shadow: 0 6px 0 var(--ink); }
 	.primary.volt:hover:not(:disabled) { background: var(--volt-deep); }
+	.primary.white { background: var(--white); color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
+	.primary.white:hover:not(:disabled) { background: var(--volt-light); }
 	.primary.ink { background: var(--ink); color: var(--volt); box-shadow: 0 5px 0 var(--slate); }
 	.primary.lg.ink { box-shadow: 0 6px 0 var(--slate); }
 	.primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }

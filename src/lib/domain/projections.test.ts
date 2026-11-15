@@ -4,7 +4,7 @@ import { countOf } from './measure';
 import type { Discipline, Exercise, Plan } from './plan';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, poolOf, queue, roundsFor, staleness, turnOf, weekProgress, weekTally } from './week';
+import { dealByGroup, nextInCycle, poolOf, queue, roundsFor, staleness, turnOf, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 const DAY = 86400000;
@@ -306,6 +306,18 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(weekProgress(once, yoga, yoga.cycles[0], NOW)).toEqual({ done: 1, target: 2 });
 		expect(queue(once, yoga, NOW)[0]).toMatchObject({ workout: { routine: 'studio' }, why: '1 day since Yoga class · 1 of 2 this week' });
 		expect(nextInCycle(once, yoga, yoga.cycles[0])).toBe('Y'); // a class never turns the cycle
+	});
+	it('lays the deal out by practice — the gym and the floor one row, headed by the best candidate, in the deal’s order, what is off last', () => {
+		const week = { ...plan, cycles: plan.cycles.filter((c) => c.id !== 'mob') };
+		const deck = queue(even, week, NOW);
+		const rows = dealByGroup(deck, week);
+		// one row per week paid, each headed by the first candidate the deal has for it, in the deal's own order
+		const firsts = deck.filter((c, k) => deck.findIndex((x) => x.week === c.week) === k);
+		expect(rows.filter((r) => r.on).map((r) => [r.week, r.head!.workout.routine])).toEqual(firsts.map((c) => [c.week, c.workout.routine]));
+		const strength = rows.find((r) => r.week === 'lift')!;
+		expect([strength.disciplines, strength.keys]).toEqual([['lift', 'bodyweight'], ['A', 'B', 'bw1']]);
+		expect(rows.at(-1)).toMatchObject({ week: 'mobility', on: false });
+		expect(rows.at(-1)!.head).toBeUndefined();
 	});
 	it('tallies the week: every session in seven days against what the on cycles ask, and who is behind', () => {
 		expect(weekTally([], plan, NOW)).toEqual({ done: 0, asked: 9, gaps: ['lift', 'stretch', 'run'] });

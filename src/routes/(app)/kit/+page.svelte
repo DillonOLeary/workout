@@ -38,7 +38,7 @@
 		<Card tone="signal" pad={false}><Row label="A row inside a signal card" right="›" /></Card>
 	</section>
 
-	<section><Caption>Primary</Caption><Primary>Start <small>~48 min</small></Primary><Primary size="lg">Log set 2</Primary><Primary tone="ink" size="lg">Finish · write it to the ledger</Primary><Primary disabled>Saving…</Primary></section>
+	<section><Caption>Primary</Caption><Primary>Start <small>~48 min</small></Primary><Primary size="lg">Log set 2</Primary><Primary tone="ink" size="lg">Finish · write it to the ledger</Primary><Primary disabled>Saving…</Primary><Primary tone="white">Log it</Primary></section>
 
 	<section><Caption>Row</Caption>
 		<div class="col">

@@ -1,6 +1,6 @@
 import type { LedgerEvent, Workout } from './events';
 import { disciplineLabel, levelLine, setsPhrase, weekLine } from './labels';
-import { CLASS_MINUTES, cycleDisciplines, levelsOf, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
+import { CLASS_MINUTES, cycleDisciplines, levelsOf, routineGroups, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
 import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry, nextRounds, roundsDone, suggest } from './progression';
 import { historyFor, projectSessions, sessionEntries, type SessionView } from './projections';
 import { estimateMinutes, sessionSteps } from './steps';
@@ -154,6 +154,41 @@ export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate
 		deal(routine, pooled && !cycle.class, estimateMinutes(sessionSteps(plan, rounds === undefined ? { routine } : { routine, rounds })), rounds);
 	}
 	return scored.sort((a, b) => b.c.score - a.c.score || a.order - b.order).map((s) => s.c);
+}
+
+/** One row of the week by practice: the routines that pay one week, headed by the best-ranked of them the deal offers. */
+export type PracticeRow = {
+	/** the week it pays — its pool's root cycle — or, switched off, the discipline it would */
+	week: string;
+	/** its disciplines, the first naming it while it is off */
+	disciplines: Discipline[];
+	head?: Candidate;
+	keys: string[];
+	on: boolean;
+};
+
+/**
+ * The deal by practice, for one list of everything you can do or log: the routine groups (`routineGroups`) that pay one week merged into
+ * one row — the gym and the floor are strength — headed by its best-ranked candidate, the rows in the deal's order; what is switched off after.
+ */
+export function dealByGroup(deck: Candidate[], plan: Plan): PracticeRow[] {
+	const rows: (PracticeRow & { rank: number })[] = [];
+	for (const g of routineGroups(plan)) {
+		const own = plan.cycles.find((c) => cycleDisciplines(plan, c).includes(g.discipline));
+		const week = own ? poolRoot(plan, own).id : g.discipline;
+		let row = rows.find((r) => r.week === week);
+		if (!row) rows.push((row = { week, disciplines: [], keys: [], on: g.on, rank: Infinity }));
+		row.disciplines.push(g.discipline);
+		row.keys.push(...g.keys);
+	}
+	for (const row of rows) {
+		// a merged row reads routines first — the gym's, then the floor's — and its classes after
+		if (row.disciplines.length > 1) row.keys = [...row.keys.filter((k) => plan.routines[k]), ...row.keys.filter((k) => !plan.routines[k])];
+		const at = deck.findIndex((c) => row.keys.includes(c.workout.routine));
+		if (at >= 0) row.head = deck[at];
+		row.rank = row.on ? (at >= 0 ? at : deck.length) : Infinity;
+	}
+	return rows.sort((a, b) => a.rank - b.rank).map(({ rank: _, ...r }) => r);
 }
 
 /** The week so far: every session in the trailing seven days against everything the on cycles ask, and which of them are behind. */
