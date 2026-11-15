@@ -30,7 +30,6 @@
 	let classes = $derived(classKeys(plan));
 	let picked = $state<string | null>(null);
 	let sel = $derived(picked ?? deck[0]?.workout.routine ?? null);
-	let cand = $derived(sel ? deck.find((c) => c.workout.routine === sel) : undefined);
 	const cycleTitle = (id: string) => plan.cycles.find((c) => c.id === id)?.title ?? id;
 	// owed, once per cycle: the card's caption and every row read the same numbers
 	let progress = $derived(new Map(plan.cycles.map((c) => [c.id, weekProgress(data.events, plan, c, now)])));
@@ -46,34 +45,44 @@
 		const { done, target } = progressOf(w.id);
 		return target > 0 && done >= target ? `${weekLine(done, target)} ✓` : weekLine(done, target);
 	};
-	let selRounds = $derived(sel ? (cand?.workout.rounds ?? roundsFor(data.events, plan, sel)) : undefined);
-	let selWorkout = $derived(sel ? { routine: sel, ...(selRounds !== undefined ? { rounds: selRounds } : {}) } : null);
-	let selIsClass = $derived(!!sel && classes.includes(sel));
-	let selCaption = $derived.by(() => {
-		if (!sel) return '';
-		if (cand) return dealCaption(cand, cycleTitle(cand.week), progressOf(cand.cycle).done, progressOf(cand.cycle).target);
-		const d = disciplineOf(plan, sel);
+	// what the card says for any routine you could pick: every one is laid out in the card at once and only the picked one shows,
+	// so the card is as tall as its tallest at this width — nothing cut, nothing moving
+	const roundsOf = (k: string) => deck.find((c) => c.workout.routine === k)?.workout.rounds ?? roundsFor(data.events, plan, k);
+	const workoutOf = (k: string) => {
+		const rounds = roundsOf(k);
+		return { routine: k, ...(rounds !== undefined ? { rounds } : {}) };
+	};
+	const captionFor = (k: string) => {
+		const c = deck.find((x) => x.workout.routine === k);
+		if (c) return dealCaption(c, cycleTitle(c.week), progressOf(c.cycle).done, progressOf(c.cycle).target);
+		const d = disciplineOf(plan, k);
 		const w = weekOf(d);
 		return `${w ? w.title : d ? groupLabel(d) : ''} · ${weekText(d)}`;
-	});
+	};
 	// the card says how big, not what is in it: the floor walks the list
-	let selMeta = $derived.by(() => {
-		if (!sel || !selWorkout) return '';
-		if (selIsClass) return `Class · ~${CLASS_MINUTES} min`;
-		const n = routineExercises(plan, selWorkout).length;
-		const levels = levelsOf(plan, sel);
-		const mins = cand?.minutes ?? estimateMinutes(sessionSteps(plan, selWorkout));
-		return [levels && selRounds ? levelName(levels, selRounds) : null, `~${mins} min`, `${n} ${n === 1 ? 'exercise' : 'exercises'}`].filter(Boolean).join(' · ');
-	});
+	const metaFor = (k: string) => {
+		if (classes.includes(k)) return `Class · ~${CLASS_MINUTES} min`;
+		const w = workoutOf(k);
+		const n = routineExercises(plan, w).length;
+		const levels = levelsOf(plan, k);
+		const mins = deck.find((c) => c.workout.routine === k)?.minutes ?? estimateMinutes(sessionSteps(plan, w));
+		return [levels && w.rounds ? levelName(levels, w.rounds) : null, `~${mins} min`, `${n} ${n === 1 ? 'exercise' : 'exercises'}`].filter(Boolean).join(' · ');
+	};
+	// why the deal offers it, else what the routine is
+	const whyFor = (k: string) => deck.find((c) => c.workout.routine === k)?.why ?? plan.routineInfo[k]?.desc ?? '';
+	let pickable = $derived(rows.flatMap((r) => r.keys));
+	let selRounds = $derived(sel ? roundsOf(sel) : undefined);
+	let selWorkout = $derived(sel ? workoutOf(sel) : null);
+	let selIsClass = $derived(!!sel && classes.includes(sel));
 	// a group shows its head; the rest of its routines one tap away
 	let opened = $state<string[]>([]);
 	let showOff = $state(false);
 	const toggleGroup = (d: string) => (opened = opened.includes(d) ? opened.filter((x) => x !== d) : [...opened, d]);
-	// the card's second line: why the deal offers it, else what the routine is — two lines' room, whichever it is
-	let selWhy = $derived(cand?.why ?? (sel ? (plan.routineInfo[sel]?.desc ?? '') : ''));
+	// the tabs scroll their own pane, not the window: bring the page's head into view and the card is under it
+	let headEl = $state<HTMLElement>();
 	function pick(r: string) {
 		picked = r;
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		headEl?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 	}
 
 	// the session in progress, as Today says it
@@ -224,7 +233,7 @@
 	const today = `${new Date(now).toLocaleDateString('en-US', { weekday: 'short' })} ${new Date(now).getDate()}`;
 </script>
 
-<div class="head">
+<div class="head" bind:this={headEl}>
 	<Caption>Today · {today}</Caption>
 	<Note size="sm" onclick={() => goto('/ledger')}>{weekLine(tally.done, tally.asked)} ›</Note>
 </div>
@@ -251,12 +260,17 @@
 		<Row label="Logged · {justLogged.title}" sub={justLogged.summary} right={armed === justLogged.id ? 'Undo? ›' : 'Undo ›'} onclick={() => removeTap(justLogged.id)} />
 	{/if}
 	{#if sel && selWorkout}
-		<!-- every line has a fixed room, so tapping between routines never moves the list under the card -->
 		<Card>
-			<div class="one"><Caption>{selCaption}</Caption></div>
-			<div class="one"><Title>{routineTitle(plan, sel) ?? sel}</Title></div>
-			<div class="one"><Note>{selMeta}</Note></div>
-			<div class="two"><Note size="sm">{selWhy}</Note></div>
+			<div class="stack">
+				{#each pickable as k (k)}
+					<div class="layer" class:shown={k === sel} aria-hidden={k !== sel}>
+						<Caption>{captionFor(k)}</Caption>
+						<Title>{routineTitle(plan, k) ?? k}</Title>
+						<Note>{metaFor(k)}</Note>
+						<Note size="sm">{whyFor(k)}</Note>
+					</div>
+				{/each}
+			</div>
 			<div class="gap"></div>
 			{#if selIsClass}
 				<!-- a class happens somewhere else: the card's one job is to write it down after -->
@@ -394,11 +408,11 @@
 	.gap { height: 4px; }
 	.rows { display: flex; flex-direction: column; }
 	.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-	.one :global(.caption), .one :global(.title), .one :global(.note) { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	/* two lines of the 12px note at its 1.5 line-height, filled or not */
-	.two { min-height: 36px; }
-	.two :global(.note) { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-	.acts { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; align-items: start; }
+	.stack { display: grid; }
+	.layer { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 6px; visibility: hidden; }
+	.layer.shown { visibility: visible; }
+	.acts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+	.acts > :global(.primary) { padding: 0 20px; white-space: nowrap; }
 	.week { display: flex; flex-direction: column; margin-top: 6px; }
 	.prac { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid var(--paper-2); }
 	.prac.on { box-shadow: inset 3px 0 0 var(--volt-deep); }

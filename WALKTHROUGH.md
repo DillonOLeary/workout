@@ -493,10 +493,15 @@ every routine. Logging after was what got used most, and it was the hardest
 thing to reach. Now the two pickers are one. The card is the routine picked —
 the deal's first until you tap another — and says how big, not what is in it
 ("~41 min · 7 exercises"; the floor walks the list), with two ways: **Start**
-and **Log it**. Every line of the card has a fixed room — the caption, title and
-size one line each, the reason two — so tapping between routines never moves
-the list under it; a class's size line is "Class · ~60 min" like any other,
-its description in the reason's room. Under it, the week by practice (`dealByGroup` in week.ts): one
+and **Log it**. The card's words for every routine you could pick are laid out
+in it at once, stacked in one grid cell, and only the picked one shows: the
+card is as tall as the tallest at that width, so tapping between routines
+never moves the list under it, and nothing is cut — a long title wraps and
+the others get the white space (a first try cut lines to one with "…"; on a
+320 px phone that cut "Hips & Hamstrings"). A class's size line is "Class ·
+~60 min" like any other. One scar: the tabs scroll their own pane, never the
+window, so bringing the card back into view after a pick is the page head's
+`scrollIntoView`, not `window.scrollTo` — which did nothing. Under it, the week by practice (`dealByGroup` in week.ts): one
 row per week paid — the gym and the floor are one Strength row — headed by
 the deal's best candidate for it, in the deal's order, the rest of its
 routines and classes one tap further as chips; what is switched off folds
