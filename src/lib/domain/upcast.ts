@@ -13,9 +13,9 @@ import { PRACTICES, isPractice, type Discipline, type PracticeId } from './plan'
  *   RunRemoved 2 · SessionStruck 7 · PlanSelected 40 · PreferencesSet 7 · BlockToggled bw 7 · SessionStarted 140, of which 121 carry no
  *   discipline and 66 no mode · EntryLogged 654, 77 carrying plan/day and 4 at load 0 · EntryCorrected 8 · SessionRemoved 38 · GoalSet 0.
  *   Every case below is still backed by rows; none is at zero. These counts are this file's contract — the rebuild leaves it alone.
- * NOT YET COUNTED — added 2026-11-15: the Pull practice lived in the app from 2026-11-14 to 2026-11-15, and its owner switched it on
- *   in production on 2026-11-14, so BlockToggled pull rows exist; GoalSet pull and SessionStarted with discipline 'pull' may. Query 7
- *   in forensics.sql counts all three. Put the dated counts here once it has run.
+ * Counted 2026-11-15 06:23 UTC (query 7, from a full export of emt_messages, 1978 rows): BlockToggled pull 1 · GoalSet pull 0 ·
+ *   SessionStarted with discipline 'pull' 0. Pull was still live when that ran, so the two cases at zero stay until a count taken
+ *   after it left production also says zero — then delete them and their tests.
  * Delete a case only when its count is zero — and count again first.
  */
 
