@@ -1127,7 +1127,13 @@ letters, each session its own mark on a split day; an empty day is ash so a
 white stretch day stands apart from it.
 
 Log-after grew from "written with the plan's sets" to a sheet you fill in.
-A **When** day, a **Started** time on the quarter hour (it follows the
+Its **What** was once one wall of chips — every routine and class of every
+practice, on or off, in no order a person would recognise. It is grouped now
+(`routineGroups` in [plan.ts](src/lib/domain/plan.ts), `groupLabel` for the
+heading): one group per practice the week has on, in the week's order, each
+heading carrying its count ("Yoga · 0 of 2 this week"), the classes first
+because a class is what you most often log after; everything switched off
+folds under one row, and opens below it. A **When** day, a **Started** time on the quarter hour (it follows the
 routine's length until you touch it) and a **Length**; the summary and *Log
 it* are pinned in the sheet's `foot`. A lift or a floor routine lists every
 exercise with a "did it" `Switch` and opens to its sets — reps, load, `+ set`,

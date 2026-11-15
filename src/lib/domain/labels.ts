@@ -91,6 +91,11 @@ export function rateLabel(n: number): string {
 	return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
 
+/** "Strength · gym" · "Strength · floor" · "Yoga" · "Stretch" · "Run" · "Pull" — a group of routines in a picker, named by the practice it pays */
+export function groupLabel(d: Discipline): string {
+	return d === 'lift' ? 'Strength · gym' : d === 'bodyweight' ? 'Strength · floor' : disciplineLabel(d);
+}
+
 /** "at the gym" · "on the floor" — where a strength session happens; nothing for the practices that have one way */
 export function placeLabel(d: Discipline): string {
 	return d === 'lift' ? 'at the gym' : d === 'bodyweight' ? 'on the floor' : '';

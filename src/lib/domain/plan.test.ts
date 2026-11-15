@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR, SHIPPED_PLANS } from './plans';
 import {
 	classKeys,
+	routineGroups,
+	routineKeys,
 	composePlan,
 	cooldownFor,
 	cueFor,
@@ -150,6 +152,14 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(disciplineOf(SHIPPED_PLANS[0], 'studio')).toBe('yoga');
 		expect(disciplineOf(SHIPPED_PLANS[0], 'sculpt')).toBe('yoga');
 		expect(['climb', 'aerial'].map((k) => disciplineOf(SHIPPED_PLANS[0], k))).toEqual(['pull', 'pull']);
+	});
+	it('groups every routine and class for a picker — the week’s practices first, classes first in each', () => {
+		const week = composePlan(DEFAULT_PROGRAMMES[0], BLOCKS, FLOOR, ['yoga', 'mob', 'run']);
+		const groups = routineGroups(week);
+		expect(groups.map((g) => [g.discipline, g.on])).toEqual([['yoga', true], ['mobility', true], ['run', true], ['lift', false], ['bodyweight', false], ['pull', false]]);
+		expect(groups[0].keys).toEqual(['studio', 'sculpt', 'hips', 'spine']);
+		expect(groups.find((g) => g.discipline === 'pull')!.keys).toEqual(['climb', 'aerial', 'pull']);
+		expect(groups.flatMap((g) => g.keys).sort()).toEqual([...new Set([...classKeys(week), ...routineKeys(week)])].sort());
 	});
 });
 

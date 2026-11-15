@@ -156,6 +156,17 @@ export function routineKeys(plan: Plan): string[] {
 }
 /** The classes the plan names — a yoga class at a studio: no steps, never on a cycle, counted by its discipline. */
 export const classKeys = (plan: Plan): string[] => Object.keys(plan.routineInfo).filter((r) => !plan.routines[r]);
+/**
+ * Every routine and class grouped by what it is, for a picker: the disciplines the week's cycles turn through first, in cycle order (`on`),
+ * then the rest; within a group its classes first, then its routines in cycle order.
+ */
+export function routineGroups(plan: Plan): { discipline: Discipline; keys: string[]; on: boolean }[] {
+	const on = disciplinesOf(plan);
+	const keys = [...classKeys(plan), ...routineKeys(plan)];
+	return [...on, ...DISCIPLINES.filter((d) => !on.includes(d))]
+		.map((d) => ({ discipline: d, keys: keys.filter((k) => disciplineOf(plan, k) === d), on: on.includes(d) }))
+		.filter((g) => g.keys.length);
+}
 /** An exercise by name, from any routine of the plan — how a one-off stretch finds its shape. */
 export const exerciseNamed = (plan: Plan | undefined, name: string): Exercise | undefined =>
 	plan && Object.values(plan.routines).flat().find((ex) => ex.name === name);

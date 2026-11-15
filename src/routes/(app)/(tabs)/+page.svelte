@@ -5,9 +5,9 @@
 	import { unsentFor } from '$lib/floor/entry-queue.svelte';
 	import { Caption, Card, Cell, Note, Primary, Row, Sheet, Stepper, Switch, Title } from '$lib/ui';
 	import type { AfterEntry } from '$lib/domain/commands';
-	import { capitalise, clockLabel, dayMarks, dealCaption, disciplineLabel, itemDose, levelLine, levelName, loadShort, placeLabel, setsLine, weekLine } from '$lib/domain/labels';
+	import { capitalise, clockLabel, dayMarks, groupLabel, dealCaption, disciplineLabel, itemDose, levelLine, levelName, loadShort, placeLabel, setsLine, weekLine } from '$lib/domain/labels';
 	import { measureFor } from '$lib/domain/measure';
-	import { classKeys, cycleDisciplines, disciplineOf, levelsOf, routineKeys, routineTitle, type Exercise } from '$lib/domain/plan';
+	import { classKeys, cycleDisciplines, disciplineOf, levelsOf, routineGroups, routineKeys, routineTitle, type Discipline, type Exercise } from '$lib/domain/plan';
 	import { historyFor, projectSessions, sessionEntries, sessionSummaryOf, weekStrip, type DayCell } from '$lib/domain/projections';
 	import { queue, roundsFor, weekProgress, weekTally } from '$lib/domain/week';
 	import { bumpCount, bumpLoad, suggest } from '$lib/domain/progression';
@@ -114,6 +114,14 @@
 	let afterTitle = $derived(routineTitle(plan, routine) ?? routine);
 	let afterEx = $derived(routineExercises(plan, { routine, ...(afterRounds !== undefined ? { rounds: afterRounds } : {}) }));
 	let isClass = $derived(classes.includes(routine));
+	// What, grouped by the practice it pays: the week's first, each with its count; what is switched off folds under one row
+	let groups = $derived(routineGroups(plan));
+	let showOff = $state(false);
+	/** the cycle a discipline's sessions count toward — its pool's root — or none while its practice is off */
+	const weekOf = (d: Discipline | undefined) => {
+		const own = plan.cycles.find((x) => !!d && cycleDisciplines(plan, x).includes(d));
+		return own?.standsInFor ? plan.cycles.find((x) => x.id === own.standsInFor) : own;
+	};
 	let isRun = $derived(afterEx.some((e) => e.kind === 'run'));
 	// a lift, the floor or a pull is sets you change; yoga and the stretch go in as the plan wrote them; a run and a class are their length
 	let editable = $derived(!isClass && ['lift', 'bodyweight', 'pull'].includes(disciplineOf(plan, routine) ?? ''));
@@ -156,6 +164,7 @@
 		startSet = false;
 		whenIdx = 0;
 		afterError = '';
+		showOff = !groups.some((g) => g.on && g.keys.includes(routine));
 		choose(routine);
 		after = true;
 	}
@@ -191,9 +200,7 @@
 	let didCount = $derived(afterEx.filter((ex) => afterSets[ex.name]?.did && afterSets[ex.name].sets.length).length);
 	// a class counts toward the cycle of its discipline — Yoga, whichever of its routines it isn't
 	let countsToward = $derived.by(() => {
-		const d = disciplineOf(plan, routine);
-		const own = plan.cycles.find((x) => !!d && cycleDisciplines(plan, x).includes(d));
-		const c = own?.standsInFor ? plan.cycles.find((x) => x.id === own.standsInFor) : own;
+		const c = weekOf(disciplineOf(plan, routine));
 		return c ? ` Counts toward ${c.title} · ${weekLine(progressOf(c.id).done, progressOf(c.id).target)}.` : '';
 	});
 	let afterSummary = $derived.by(() => {
@@ -275,16 +282,26 @@
 	<input type="hidden" name="session" value={session?.id ?? justLogged?.id ?? ''} />
 </form>
 
+<!-- one practice's group in Log-after's What -->
+{#snippet group(g: (typeof groups)[number])}
+	{@const w = weekOf(g.discipline)}
+	<div class="group">
+		<div class="ghead"><span class="gname">{groupLabel(g.discipline)}</span><span class="gweek">{w ? weekLine(progressOf(w.id).done, progressOf(w.id).target) : 'switched off'}</span></div>
+		<div class="chips">
+			{#each g.keys as k (k)}
+				<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)}</button>
+			{/each}
+		</div>
+	</div>
+{/snippet}
+
 <Sheet open={after} title="Log a session I already did" onclose={() => (after = false)}>
 	<Caption>What</Caption>
-	<div class="chips">
-		{#each keys as k (k)}
-			<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)}</button>
-		{/each}
-		{#each classes as k (k)}
-			<button type="button" class="chip" class:on={routine === k} aria-pressed={routine === k} onclick={() => choose(k)}>{routineTitle(plan, k)}</button>
-		{/each}
-	</div>
+	{#each groups.filter((g) => g.on) as g (g.discipline)}{@render group(g)}{/each}
+	{#if groups.some((g) => !g.on)}
+		<Row label="Switched off in Plan" right={showOff ? 'fewer ▴' : `${groups.filter((g) => !g.on).reduce((n, g) => n + g.keys.length, 0)} more ▾`} onclick={() => (showOff = !showOff)} expanded={showOff} />
+		{#if showOff}{#each groups.filter((g) => !g.on) as g (g.discipline)}{@render group(g)}{/each}{/if}
+	{/if}
 	<Caption>When</Caption>
 	<div class="chips">
 		{#each days as d (d.d)}
@@ -366,6 +383,11 @@
 	.idose { font-family: var(--font-mono); font-size: 12px; color: var(--stone); white-space: nowrap; }
 	.rows { display: flex; flex-direction: column; }
 	.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+	.group { display: flex; flex-direction: column; gap: 6px; }
+	.group + .group { margin-top: 4px; }
+	.ghead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+	.gname { font-family: var(--font-body); font-size: 15px; font-weight: 700; color: var(--ink); }
+	.gweek { font-family: var(--font-mono); font-size: 11px; color: var(--slate); white-space: nowrap; }
 	.chip {
 		min-height: 44px; padding: 0 16px; border-radius: var(--radius-pill); border: var(--border-w) solid var(--paper-3); background: var(--white);
 		font-family: var(--font-body); font-weight: 700; font-size: 14px; color: var(--slate); cursor: pointer; touch-action: manipulation;

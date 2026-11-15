@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dayMarks, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
 	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
-	goalHint, goalLabel, keptLine, levelLine, levelNote, loadHint, loadLabel, loadShort, placeLabel, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	goalHint, goalLabel, groupLabel, keptLine, levelLine, levelNote, loadHint, loadLabel, loadShort, placeLabel, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, splitLine, weekChangeLine, weekHead, weekLine
 } from './labels';
 import type { Measure } from './measure';
@@ -226,6 +226,9 @@ describe('v3 — the cell, the card, the pace, the when', () => {
 		expect(cellLegend(['lift'])).toBe('L lift · today outlined');
 		expect(dayMarks(['yoga', 'lift'])).toEqual([{ letter: 'Y', ink: 'stone' }, { letter: 'L', ink: 'volt' }]);
 		expect(dayMarks(['mobility', 'run', 'bodyweight', 'pull']).map((m) => m.ink)).toEqual(['white', 'ink', 'hatch', 'dots']);
+	});
+	it('names a picker’s groups by the practice they pay', () => {
+		expect((['lift', 'bodyweight', 'yoga', 'mobility', 'run', 'pull'] as const).map(groupLabel)).toEqual(['Strength · gym', 'Strength · floor', 'Yoga', 'Stretch', 'Run', 'Pull']);
 	});
 	it('says how many weeks every target was kept, and when to grow the week', () => {
 		expect(keptLine(0, 4)).toBeNull();
