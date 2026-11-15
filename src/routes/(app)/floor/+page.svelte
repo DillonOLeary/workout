@@ -15,7 +15,7 @@
 	import { cueFor, levelsOf, progresses, routineTitle, type Exercise } from '$lib/domain/plan';
 	import { historyFor, lastEntryFor, sessionEntries } from '$lib/domain/projections';
 	import { anySetEarned, bumpCount, bumpLoad, nextSet, roundsDone, suggest, type Suggestion } from '$lib/domain/progression';
-	import { loggedOutside, restUntil, roundsOf, routineExercises, runStart, sessionProgress, sessionSections, sessionSteps, stepName, type Section, type Step } from '$lib/domain/steps';
+	import { loggedOutside, restUntil, roundsOf, routineExercises, runStart, sessionProgress, sessionSections, sessionSteps, skipSpan, stepName, type Section, type Step } from '$lib/domain/steps';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -185,17 +185,15 @@
 		skipList = [...new Set(keys)];
 		saveSkips(session.id, skipList);
 	}
-	// skip = what's left of this part from the step you're on; undo = that step and the rest of its part, back in the order
+	// skip = what's left of this exercise in this part, from the step you're on; undo = the same span, back in the order
 	function skipFrom(i: number) {
-		const s = steps[i];
-		if (!s || clock.active) return;
-		setSkips([...skipList, ...steps.filter((x, k) => k >= i && x.section === s.section && !progress.done.has(x.key)).map((x) => x.key)]);
+		if (!steps[i] || clock.active) return;
+		setSkips([...skipList, ...skipSpan(steps, i, progress.done)]);
 		live = 'Skipped';
 	}
 	function unskipFrom(i: number) {
-		const s = steps[i];
-		if (!s) return;
-		const back = new Set(steps.filter((x, k) => k >= i && x.section === s.section).map((x) => x.key));
+		if (!steps[i]) return;
+		const back = new Set(skipSpan(steps, i));
 		setSkips(skipList.filter((k) => !back.has(k)));
 		if (i !== stepI) goTo(i, true);
 	}

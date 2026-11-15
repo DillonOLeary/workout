@@ -240,6 +240,16 @@ export function stepName(s: Step): string {
 /** A circuit's rounds, from its steps; 0 for straight sets. */
 export const roundCount = (steps: Step[]): number => steps.reduce((n, s) => (s.kind === 'set' && s.round ? Math.max(n, s.round) : n), 0);
 
+/**
+ * What a skip from step `i` covers: the rest of that item within its part — on set 1 the whole exercise, a warm-up's remaining lines,
+ * and in a circuit's round only that exercise, never the ones after it. Steps already done stay; undo passes no `done` and takes the span back.
+ */
+export function skipSpan(steps: Step[], i: number, done: ReadonlySet<string> = new Set()): string[] {
+	const s = steps[i];
+	if (!s) return [];
+	return steps.filter((x, k) => k >= i && x.section === s.section && x.item === s.item && !done.has(x.key)).map((x) => x.key);
+}
+
 /** "Set 4/20" · "Hold 3/9" · "Round 2/5" · "Warm-up 2/3" · "Run" · "Done" — sets count across the session, a round of a circuit, a prep step within its section. */
 export function positionLabel(i: number, steps: Step[]): string {
 	const s = steps[i];

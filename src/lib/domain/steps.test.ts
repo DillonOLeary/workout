@@ -10,6 +10,7 @@ import {
 	sessionProgress,
 	sessionSections,
 	sessionSteps,
+	skipSpan,
 	stepName,
 	type Entry
 } from './steps';
@@ -270,6 +271,14 @@ describe('a circuit — every exercise once a round, the rest between rounds', (
 		expect(restUntil(steps[1], held)).toBeNull();
 		expect(restUntil(steps[2], held)).toBe(NOW - 5000 + 120000);
 		expect(steps.map((s) => s.estimate)).toEqual([45, 20, 165, 20, 165, 20]);
+	});
+	it('skips one exercise of a round and leaves the rest of the round — straight sets skip what is left of the exercise', () => {
+		const round = sessionSteps(card, { routine: 'circuit', rounds: 3 });
+		expect(skipSpan(round, 2)).toEqual([entryKey('Squats', 2)]);
+		const straight = sessionSteps(card, { routine: 'classic' });
+		expect(skipSpan(straight, 0)).toEqual([1, 2, 3].map((n) => entryKey('Lunges', n)));
+		expect(skipSpan(straight, 1, new Set([entryKey('Lunges', 3)]))).toEqual([entryKey('Lunges', 2)]);
+		expect(skipSpan(straight, 99)).toEqual([]);
 	});
 	it('says where you are by the round', () => {
 		const steps = sessionSteps(card, { routine: 'circuit', rounds: 5 });

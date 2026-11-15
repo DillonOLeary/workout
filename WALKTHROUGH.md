@@ -1156,9 +1156,12 @@ view, so hold 6 of 6 is never under the fold.
 
 **Skip** is a pill on the current row, the way `fix` is a pill on a done one
 (the kit's `SetRow` has one `pill: 'fix' | 'skip' | 'undo'` and one
-`onpill`). It skips what is left of that part from the step you are on —
-on set 1 the whole exercise, on set 3 the last set — and the rows go struck
-through with `undo`. Nothing is written: a skip is not something you did,
+`onpill`). It skips what is left of that exercise in that part from the step
+you are on (`skipSpan` in [steps.ts](src/lib/domain/steps.ts)) — on set 1 the
+whole exercise, on set 3 the last set, in a circuit's round that one station
+and not the ones after it — and the rows go struck through with `undo`. (It
+once took the rest of the *part*, which in a circuit is the whole round: skip
+the push-ups in Round 2 and the superman and the bridges went with them.) Nothing is written: a skip is not something you did,
 so it is not an event. `sessionProgress` and `sessionSections` take the
 skipped keys and walk past them, the primary reads `Next: …` as it does after
 a logged set, and when everything left is logged or skipped the floor is
