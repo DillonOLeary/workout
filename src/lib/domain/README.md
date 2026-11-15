@@ -1,4 +1,4 @@
-# The domain — seven rules, and the boundary they read through
+# The domain — six rules, and the boundary they read through
 
 Everything under `src/lib/domain/` is pure ([projections.ts](projections.ts) is the read model — sessions, entries, the switches, the calendar — and [week.ts](week.ts) the rules over it): no I/O, `now` is always an argument, and
 the only input is the event stream read through the upcaster. A screen never
@@ -55,7 +55,8 @@ level first in its line.
 ## load — `suggest(history, exercise, now)` in [progression.ts](progression.ts)
 
 Set by set. For a loaded lift (`progress.of === 'size'`): a set that hit the top
-of the range last time takes the next real rack size (`racks.ts`) this time; a set
+of the range last time takes the next real rack size (`racks.ts`) this time, and a
+set below it keeps its weight and is offered one rep more, up to the top; a set
 that missed the bottom twice inside a fortnight at the same load backs off one
 size (`adjust`); more than fourteen days away brings every set back one size,
 floored at the programme's start (`reentry`). Holds climb by their `inc` when the
@@ -74,15 +75,6 @@ the cycle furthest behind its own share this week — level, to the one done
 longer ago, then plan order — and a share of none never has it: at 0 on the
 floor the floor is a fallback one tap away, at all of them the gym is. The pool
 follows the lift's switch and is never switched itself.
-
-## kept — `weeksKept(events, plan, now)` in [week.ts](week.ts)
-
-How many weeks in a row every pool met its target: seven days at a time back
-from `now`, the same trailing week as **owed**, each held to **today's**
-composed plan — so a week that grows (a practice on, a goal up) counts again
-from the first week that kept it. The week in progress counts once it is kept
-and never breaks the run; a plan that asks nothing keeps nothing. At
-`GROW_AFTER_WEEKS` (4) the Plan says it is time to add one thing.
 
 ## The boundary
 

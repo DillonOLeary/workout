@@ -80,8 +80,8 @@ describe('suggest — each set climbs on its own', () => {
 		const s = loaded(goblet, h);
 		expect(s.sets).toEqual([
 			{ weight: 40, reason: 'increase', reps: 6, missed: false },
-			{ weight: 35, reason: 'hold', reps: 9, missed: false },
-			{ weight: 35, reason: 'hold', reps: 5, missed: true }
+			{ weight: 35, reason: 'hold', reps: 10, missed: false },
+			{ weight: 35, reason: 'hold', reps: 6, missed: true }
 		]);
 		expect(s.reason).toBe('increase');
 		expect(s.up).toBe(true);
@@ -94,10 +94,17 @@ describe('suggest — each set climbs on its own', () => {
 	it('steps a machine by inc where there is no rack', () => {
 		expect(weights(press, one(2, load(45, 12), load(45, 12), load(45, 10)))).toEqual([50, 50, 45]);
 	});
-	it('prefills a plain hold with last time’s reps', () => {
+	it('asks a weight that holds for one rep more than last time, up to the top of the range', () => {
 		const s = loaded(goblet, one(2, load(35, 10), load(35, 9), load(35, 8)));
 		expect(s.reason).toBe('hold');
-		expect(s.sets.map((x) => x.reps)).toEqual([10, 9, 8]);
+		expect(s.sets.map((x) => x.reps)).toEqual([11, 10, 9]);
+		// the stall it ends: 35 × 10 logged as offered, session after session, never reached 12 — now each session asks for the next rep
+		let h = one(2, load(35, 10), load(35, 10), load(35, 10));
+		for (const at of [11, 12]) {
+			expect(loaded(goblet, h).sets.map((x) => x.reps)).toEqual([at, at, at]);
+			h = one(2, load(35, at), load(35, at), load(35, at));
+		}
+		expect(weights(goblet, h)).toEqual([40, 40, 40]);
 	});
 	it('lets a missing set follow the one before it', () => {
 		expect(reasons(goblet, one(2, load(35, 12)))).toEqual(['increase', 'increase', 'increase']);
@@ -113,7 +120,7 @@ describe('suggest — each set climbs on its own', () => {
 describe('suggest — misses', () => {
 	it('warns after one miss and holds', () => {
 		const s = loaded(goblet, one(2, load(35, 8), load(35, 8), load(35, 5)));
-		expect(s.sets[2]).toEqual({ weight: 35, reason: 'hold', reps: 5, missed: true });
+		expect(s.sets[2]).toEqual({ weight: 35, reason: 'hold', reps: 6, missed: true });
 		expect(s.down).toBe(false);
 	});
 	it('backs the set off one size after two misses at one weight within the window', () => {
@@ -280,7 +287,7 @@ describe('nextSet — what the tiles show inside a session', () => {
 	const s = suggest(one(3, load(35, 12), load(35, 9), load(35, 5)), goblet, NOW); // [40, 35, 35]
 	it('follows the suggestion for THIS set when the last set followed it too', () => {
 		expect(nextSet(s, goblet, [], 0)).toEqual({ weight: 40, count: 6 });
-		expect(nextSet(s, goblet, [{ index: 1, measure: load(40, 6) }], 1)).toEqual({ weight: 35, count: 9 });
+		expect(nextSet(s, goblet, [{ index: 1, measure: load(40, 6) }], 1)).toEqual({ weight: 35, count: 10 });
 	});
 	it('sticks with an override for the rest of the exercise', () => {
 		const prior = [{ index: 1, measure: load(45, 5) }];

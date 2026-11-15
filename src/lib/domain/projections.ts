@@ -1,7 +1,7 @@
 import { entryKey, workoutOf, type EntryLogged, type LedgerEvent, type Workout } from './events';
 import { fmtDate, sessionSummary, spanLabel } from './labels';
 import { isSet, type Measure } from './measure';
-import { PRACTICES, practicesAtStart, goalOf, type Discipline, type Goal, type Goals, type PracticeId } from './plan';
+import { PRACTICES, allPracticesOn, goalOf, type Discipline, type Goal, type Goals, type PracticeId } from './plan';
 import type { History, HistoryEntry } from './progression';
 
 /** One row of a session: an item and its sets, each set the Measure the entry carried. */
@@ -155,7 +155,7 @@ export function activeProgramme(events: LedgerEvent[]): string | null {
 
 /** Which practices of the week are on: everything, until a switch says otherwise. */
 export function practicesOn(events: LedgerEvent[]): PracticeId[] {
-	const on = practicesAtStart();
+	const on = allPracticesOn();
 	for (const e of events) if (e.type === 'BlockToggled') on[e.data.block] = e.data.on;
 	return PRACTICES.filter((p) => on[p]);
 }

@@ -356,7 +356,8 @@
 		if (ex.kind === 'load') {
 			const s = suggestionFor(ex);
 			const was = last ? loadOf(last.sets[0]) : null;
-			const move = was === null ? 'first time' : weight > was ? `up from ${was}` : weight < was ? `down from ${was}` : 'same as last time';
+			// a weight that holds moves at the top of the range: say how many reps that is
+			const move = was === null ? 'first time' : weight > was ? `up from ${was}` : weight < was ? `down from ${was}` : `same as last time · ${ex.hi} moves it up`;
 			return `${loadShort(weight, ex)} · ${move}${s.kind === 'load' && s.reason !== 'start' ? ' · why?' : ''}`;
 		}
 		if (ex.kind === 'hold') return `${reps}s · hold`;

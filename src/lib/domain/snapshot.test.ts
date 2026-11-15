@@ -5,7 +5,7 @@ import { composePlan, planExercises, progresses } from './plan';
 import { BLOCKS, DEFAULT_PROGRAMMES, FLOOR } from './plans';
 import { suggest } from './progression';
 import { activeProgramme, goals, historyFor, monthGrid, practicesOn, projectSessions, restSeconds, sessionEntries, weekChanges, weekStrip } from './projections';
-import { nextInCycle, queue, roundsFor, staleness, weekProgress, weeksKept, weekTally } from './week';
+import { nextInCycle, queue, roundsFor, staleness, weekProgress, weekTally } from './week';
 import { upcastAll } from './upcast';
 
 /**
@@ -107,6 +107,10 @@ function fullStream(): StoredEvent[] {
 	row('GoalSet', { practice: 'lift', sessions: 4, floor: 1, at: at(2, 6) });
 	live(2, 'run', 'run', [['Easy run', 1, { of: 'duration', minutes: 40 }]], 'after');
 	live(1, 'S', 'mobility', [['Calf stretch', 1, H(45)], ['Calf stretch', 2, H(45)]]);
+	// Pull, the practice that lived a day: its switch and goal read as nothing, a climb stamped 'pull' reads as strength on the floor
+	row('BlockToggled', { block: 'pull', on: true, at: at(1, 8) });
+	row('GoalSet', { practice: 'pull', sessions: 1, at: at(1, 8) });
+	live(1, 'climb', 'pull', [['Climbing', 1, { of: 'duration', minutes: 90 }]], 'after', 15);
 	// yoga back on, and a class at the studio: a class pays the week and is dealt as its turn, the home flow behind it
 	row('BlockToggled', { block: 'yoga', on: true, at: at(1, 9) });
 	live(1, 'studio', 'yoga', [['Yoga class', 1, { of: 'duration', minutes: 60 }]], 'after', 18);
@@ -144,7 +148,7 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 		expect(programme.id).toBe('ab-fullbody-v1');
 	});
 
-	it('owed · deal · next · level · load · split · kept — the projections, as JSON', async () => {
+	it('owed · deal · next · level · load · split — the projections, as JSON', async () => {
 		const sessions = projectSessions(events);
 		const exercises = planExercises(plan).filter(progresses);
 		const out = {
@@ -157,7 +161,6 @@ describe('the freeze — the whole stream through every rule, at one moment', ()
 			staleness: staleness(events, plan, NOW).map((s) => ({ ...s, daysSince: s.daysSince === null ? null : Math.round(s.daysSince * 100) / 100 })),
 			deal: queue(events, plan, NOW),
 			tally: weekTally(events, plan, NOW),
-			kept: weeksKept(events, plan, NOW),
 			load: exercises.map((ex) => ({ exercise: ex.name, suggestion: suggest(historyFor(events, ex.name, state.activeSession ?? undefined), ex, NOW) })),
 			sessions,
 			openSession: state.activeSession ? sessionEntries(events, state.activeSession) : [],

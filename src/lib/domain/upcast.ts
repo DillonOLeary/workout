@@ -13,6 +13,9 @@ import { PRACTICES, isPractice, type Discipline, type PracticeId } from './plan'
  *   RunRemoved 2 · SessionStruck 7 · PlanSelected 40 · PreferencesSet 7 · BlockToggled bw 7 · SessionStarted 140, of which 121 carry no
  *   discipline and 66 no mode · EntryLogged 654, 77 carrying plan/day and 4 at load 0 · EntryCorrected 8 · SessionRemoved 38 · GoalSet 0.
  *   Every case below is still backed by rows; none is at zero. These counts are this file's contract — the rebuild leaves it alone.
+ * NOT YET COUNTED — added 2026-11-15: the Pull practice lived in the app from 2026-11-14 to 2026-11-15, and its owner switched it on
+ *   in production on 2026-11-14, so BlockToggled pull rows exist; GoalSet pull and SessionStarted with discipline 'pull' may. Query 7
+ *   in forensics.sql counts all three. Put the dated counts here once it has run.
  * Delete a case only when its count is zero — and count again first.
  */
 
@@ -36,7 +39,7 @@ type SessionStartedV1 = {
 	type: 'SessionStarted';
 	data: {
 		session: string; plan: string; at: string;
-		day?: string; kind?: 'lift' | 'run'; routine?: string; mode?: 'live' | 'after'; discipline?: Discipline; rounds?: number;
+		day?: string; kind?: 'lift' | 'run'; routine?: string; mode?: 'live' | 'after'; discipline?: Discipline | 'pull'; rounds?: number;
 	};
 };
 /** EntryLogged as first written: carrying plan/day nobody read. */
@@ -48,7 +51,7 @@ type EntryLoggedV1 = {
 type SessionFinishedV1 = { type: 'SessionFinished'; data: { session: string; at: string } };
 /** A plan chosen, until the week became a programme plus blocks (2026-09-14). */
 type PlanSelectedV1 = { type: 'PlanSelected'; data: { plan: string; at: string } };
-/** A block switched — including `bw`, the no-gym block, until the floor became the lift's fallback (2026-09-21). */
+/** A block switched — including `bw`, the no-gym block, until the floor became the lift's fallback (2026-09-21), and `pull` (2026-11-14 → 15). */
 type BlockToggledV1 = { type: 'BlockToggled'; data: { block: string; on: boolean; at: string } };
 
 /** A retired run's session id: its `at` timestamp was always its identity. */
@@ -85,8 +88,9 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			// a run was spelled day: 'run', then kind: 'run'; now it is the routine called 'run'
 			const isRun = d.kind === 'run' || d.day === 'run';
 			const routine = isRun ? 'run' : (d.routine ?? d.day ?? '');
+			// 'pull' was a discipline for one day (2026-11-14 → 15): climbing, aerial and pulls at home, strength by another name
 			const discipline: Discipline =
-				d.discipline ?? (isRun ? 'run' : (DISCIPLINE_BEFORE_2026_09_14[d.plan]?.[routine] ?? 'lift'));
+				d.discipline === 'pull' ? 'bodyweight' : (d.discipline ?? (isRun ? 'run' : (DISCIPLINE_BEFORE_2026_09_14[d.plan]?.[routine] ?? 'lift')));
 			const rounds = Number.isInteger(d.rounds) && d.rounds! > 0 ? { rounds: d.rounds } : {};
 			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', discipline, routine, ...rounds } }];
 		}
@@ -104,11 +108,13 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 		case 'EntryCorrected':
 		case 'SessionRemoved':
 		case 'ProgrammeSelected':
-		case 'GoalSet':
 		case 'RestSet':
 			return [e as LedgerEvent];
+		case 'GoalSet':
+			// a goal for a practice the week no longer has (Pull, 2026-11-14 → 15) asks nothing
+			return isPractice((e as { data: { practice: string } }).data.practice) ? [e as LedgerEvent] : [];
 		case 'BlockToggled': {
-			// the no-gym block is gone: the floor is the lift's fallback now, dealt whether or not a switch once said so
+			// the no-gym block is gone (the floor is the lift's fallback now), and so is Pull (strength by another name): their switches say nothing
 			const d = (e as BlockToggledV1).data;
 			return isPractice(d.block) ? [{ type: 'BlockToggled', data: { block: d.block, on: d.on, at: d.at } }] : [];
 		}

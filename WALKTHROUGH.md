@@ -78,7 +78,7 @@ which job a file has tells you what belongs in it — and what doesn't:
 | **read boundary** | [upcast.ts](src/lib/domain/upcast.ts) | translate stored rows into today's vocabulary | the only place shape inference lives; an unknown name throws |
 | **rules** | [decider.ts](src/lib/domain/decider.ts) | accept or refuse a command | state holds only what a rule needs; validates shape, never meaning |
 | **read model** | [projections.ts](src/lib/domain/projections.ts) | what happened — per session, per exercise, per day — and what the week is set to | pure folds over events; removal applied once; `now` is an argument |
-| **the week** | [week.ts](src/lib/domain/week.ts) | the rules over the read model: owed, next, the deal, the weeks kept | one function per rule, named in [domain/README.md](src/lib/domain/README.md) |
+| **the week** | [week.ts](src/lib/domain/week.ts) | the rules over the read model: owed, next, the deal | one function per rule, named in [domain/README.md](src/lib/domain/README.md) |
 | **policy** | [progression.ts](src/lib/domain/progression.ts) | what every set should be next time | a function of (history, exercise, now) — knows nothing about events |
 | **words** | [labels.ts](src/lib/domain/labels.ts) | every phrase about a set, a load, a range, a week | one implementation per phrase, tested as strings |
 | **reference** | [plans.ts](src/lib/domain/plans.ts), [racks.ts](src/lib/domain/racks.ts), [steps.ts](src/lib/domain/steps.ts) | the shipped programmes and blocks, the ladders, the walk | parsed at *its* boundary too — a programme row is data from outside, like an event row |
@@ -126,7 +126,7 @@ bodyweight": a convention is exactly what a union exists to remove.
 | `SessionFinished` | the workout ended |
 | `SessionRemoved` | the event-sourced delete — a fact about a fact |
 | `ProgrammeSelected` | you switched the lifting to another programme — the blocks stay as they were |
-| `BlockToggled` | you switched a block of the week (yoga · stretch · run · pull · no gym) on or off — a fact with a date, so the Ledger can say when the week changed |
+| `BlockToggled` | you switched a block of the week (yoga · stretch · run · no gym) on or off — a fact with a date, so the Ledger can say when the week changed |
 | `GoalSet` | what you asked a practice for — sessions a week, the run's minutes — over the programme's own cadence |
 | `RestSet` | the rest between sets, in seconds: a programme constant until the Plan made it a person's setting (2026-09-22) |
 
@@ -162,15 +162,15 @@ nothing else writes: every tap in the app maps to exactly one of them. The
 discipline rides IN on `StartSession` and `LogAfter`: the form action reads
 it off `wholePlan(programme)` — every routine, whether or not its practice is
 on — so the decider never needs the plan. `PracticeId` is a closed union
-(`'lift' | 'yoga' | 'mob' | 'run' | 'pull'`) for the same reason `Measure` is: a
+(`'lift' | 'yoga' | 'mob' | 'run'`) for the same reason `Measure` is: a
 switch or a goal that names no practice must be refusable, and a closed
 union is what lets the decider refuse it.
 
 ### The week: one programme, the practices that are on, and the floor
 
 A plan is a handful of **cycles** over a set of **routines** — but a plan is
-not the unit a person chooses. The week is five **practices** — the lift,
-yoga, the morning stretch, the run, a pull — each on or off, each at a cadence:
+not the unit a person chooses. The week is four **practices** — the lift,
+yoga, the morning stretch, the run — each on or off, each at a cadence:
 
 - The lift is a **programme**: a lift-only `Plan`, shipped as code.
   Two ship in `DEFAULT_PROGRAMMES` ([plans.ts](src/lib/domain/plans.ts)):
@@ -179,36 +179,36 @@ yoga, the morning stretch, the run, a pull — each on or off, each at a cadence
   Low" and 2 "Bridge Club", cycle `lift` at 2 a week, 60 s rest, a breathing
   cue). Choosing one is a `ProgrammeSelected` event; the last one wins
   (`activeProgramme`).
-- The other four are **blocks**: shared cycles with their routines, in code
+- The other three are **blocks**: shared cycles with their routines, in code
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week, and two classes: a yoga class and a sculpt class), `mob` "Stretch"
-  (the morning stretch — 3), `run` (the easy run — 3) and `pull` (Pull at
-  home — 1, and two classes: climbing and aerial).
+  (the morning stretch — 3) and `run` (the easy run — 3).
 - The morning stretch is **hamstrings first**, about five minutes: the strap
   stretch on the back (60 s a side), a standing forward fold (60 s), half
   splits (45 s a side), every note saying the same thing — a strong pull,
   never pain, no bouncing. Running tightens the hamstrings, so the run's
   cooldown opens with the strap stretch too, while they are warm. It is a
   routine short enough to keep on a bad week; the dial takes it to 7.
-- `pull` came from a plan written for one person — two runs, classes, a
-  pulling session a week (climbing, aerial or pulls at home) and a stretch
-  every morning — and it is its own discipline (`pull`, P, a dotted cell),
-  so a climbing session pays the pull week and nothing else. Pull at home is
-  the pulls the stage can draw — body rows under a broom, a band row, towel
-  curls on a door, the face pull — and not the pull-up: the stage is a fixed
-  two-metre frame on a floor every figure stands on (`rig.test.ts` checks the
-  contact shadow), so a figure hanging from a bar has nowhere to be drawn.
+- A fifth practice, **Pull**, lived for a day (2026-11-14 → 15): climbing,
+  aerial and pulls at home, with a discipline and a calendar fill of its own.
+  It was taken out when the week was weighed against what is actually
+  trained — the gym's rows and pulldowns already pull — and what it named
+  became classes that pay strength (below). Its rows stay in the stream and
+  the upcaster reads them: a switch or a goal as nothing, a session as the
+  floor's. The other lesson it left: the stage is a fixed two-metre frame on a
+  floor every figure stands on (`rig.test.ts` checks the contact shadow), so a
+  figure hanging from a pull-up bar has nowhere to be drawn.
 - The **floor** (`FLOOR`) is strength's other half, not a practice of its
   own: four Darebee workouts and a band day in a cycle with
-  `standsInFor: 'lift'`, and a class for any other Darebee card. The two
+  `standsInFor: 'lift'`, and the classes that pay strength somewhere else:
+  any other Darebee card, a **Strength class** (ClassPass, a gym class —
+  stamped `lift`), climbing and an aerial class (stamped `bodyweight`). The two
   cycles **pool** — one weekly count between them, either's session paying it
   (`countedBy`), each keeping its own pointer — and a strength goal says how
   the week splits: so many sessions, so many of them on the floor. The share
   is the cycle's target; a share of none is never dealt first, which is what
   the floor is until you give it one. It is never switched on its own.
-- Every practice is **on by default** but the ones in `OFF_AT_START`
-  (`practicesAtStart()`): `pull` arrived after people already had a week,
-  and a new row must not add a session to a week nobody asked to grow. A switch is a
+- Every practice is **on by default** (`allPracticesOn()`); a switch is a
   `BlockToggled` event (the name and the `block` field are the stored
   vocabulary — the lift switches under the same name), and `practicesOn(events)`
   folds them. A **goal** is a `GoalSet` event — sessions a week, and for the
@@ -337,7 +337,7 @@ records nothing; `TogglePractice` refuses a practice the week has not got
 minutes for anything but the run, and records nothing when the goal is the
 one already set; `SetRest` refuses a rest off its dial (`REST_SECONDS`: 30–180
 in 15 s steps) and records nothing when it is the one already set; `StartSession` and `LogAfter` refuse a discipline that is
-not one of the six.
+not one of the five.
 
 Notice also what's *not* here: `crypto.randomUUID()` and `new Date()` live in
 the form actions and are passed **into** commands, so the decider is
@@ -397,7 +397,7 @@ else lives there:
 - `historyFor` → the seam between the read model and the rule: one exercise's
   sets per session, newest first, the session in progress left out — exactly
   what `suggest` reads. `lastEntryFor` is the same seam for one set
-- `nextInCycle` / `weekProgress` / `staleness` / `queue` / `weekTally` / `weeksKept` live in
+- `nextInCycle` / `weekProgress` / `staleness` / `queue` / `weekTally` live in
   [week.ts](src/lib/domain/week.ts) since v3 — the three rules the domain
   README names (owed · next · deal), read against this file's folds. Position
   is derived, never stored: do B twice and the pointer sits after B. Two
@@ -406,7 +406,7 @@ else lives there:
   pool keep one count between them), and TURNS only on its own
   routines (`turnedBy` — a finished session of this plan's key)
 - `activeProgramme` → the last `ProgrammeSelected` wins; `practicesOn` → every
-  practice (but `OFF_AT_START`) until a `BlockToggled` says otherwise; `goals` → the last `GoalSet`
+  practice until a `BlockToggled` says otherwise; `goals` → the last `GoalSet`
   per practice; `restSeconds` → the last `RestSet`, or nothing; `weekChanges` → the first three, grouped by the moment they
   happened (a stored plan choice comes back as several events with one
   `at`), newest first, for the dividers between sessions in How it's going
@@ -416,7 +416,7 @@ else lives there:
   week was quiet"; a month says whether that is the habit. `dayMarks` in
   labels.ts turns `did` into what the kit's `Cell` draws: one mark per
   session, its letter (`disciplineLetter`) on its fill (`disciplineInk` —
-  volt lift, stone yoga, white stretch, ink run, hatched floor, dotted pull), side by side
+  volt lift, stone yoga, white stretch, ink run, hatched floor), side by side
 - `weekStrip` → the trailing seven days as the same cells, today last — the
   strip under Today's title, and the door to the month
 - `weekTally` (in week.ts) → this week in one line's worth of numbers: every
@@ -485,20 +485,6 @@ count it: a class was already stamped with its discipline and counted by it.
 On Today a class's card has no list and no Start — a class happens somewhere
 else — only *Log it*, which opens Log-after on that class.
 
-### Kept — when the week grows
-
-A plan that starts small says when to grow it: keep the floor four weeks
-straight, then add one thing. `weeksKept(events, plan, now)` in
-[week.ts](src/lib/domain/week.ts) counts that run — seven days at a time back
-from `now`, a week kept when every pool met its target — and the Plan says it
-under its title ("Every target kept 2 weeks running — at 4, add one thing.";
-`GROW_AFTER_WEEKS` is the 4). Two choices make it honest. Every past week is
-held to **today's** targets, so the moment you add a thing — a practice
-switched on, a dial turned up — the old weeks stop qualifying and the count
-starts again from the week that kept the bigger floor; nothing is stored, and
-nothing needs resetting. And the week in progress only ever adds: on a
-Tuesday it is not yet kept, and that must not read as a broken run.
-
 ### The rule — progression.ts
 
 [src/lib/domain/progression.ts](src/lib/domain/progression.ts) is **policy,
@@ -509,7 +495,10 @@ writes:
 
 - `size` — SET BY SET, "dynamic double progression": each set's suggestion
   comes from the same set last time (top of the range → *that* set takes the
-  next size up), with two ways down — the same set missed twice inside a
+  next size up; below it, the same weight and **one more rep** pre-filled —
+  until 2026-11-15 it pre-filled last time's count, and a lifter who logged
+  what was offered could sit at the same weight × 10 for months, the rule
+  never seeing the 12 that moves it; the floor now says "12 moves it up"), with two ways down — the same set missed twice inside a
   fortnight backs off one size (`adjust`, and two misses are evidence, so
   this can go below the plan's `start`), and more than `REENTRY_DAYS` (14)
   away brings every set back one size (`reentry`, floored at `start` and
@@ -555,7 +544,7 @@ the line beside an exercise on Today's card; `loadHint`, the one line behind
 week (`dealCaption` "Due · Strength · 1 of 3 this week", `splitLine`, `weekHead`
 "11 sessions a week · about 5 h", `goalHint`, `paceLine` "6 of 9 this week —
 lift, run still owed.", `weekChangeLine` for the Ledger's dividers), about a day
-(`disciplineLetter` L · Y · S · R · F · P and `cellLegend`, `keptLine` "Every target kept 2 weeks running — at 4, add one thing."), about when (`whenLabel`
+(`disciplineLetter` L · Y · S · R · F and `cellLegend`), about when (`whenLabel`
 "yesterday", "6 days ago") and about a folded session (`sessionSummary` "20 sets
 · 48 min", `monthLine`) — written once and tested as strings. The per-hand and
 per-side questions must be answered identically on the plan screen, the gym
@@ -657,10 +646,10 @@ A programme row is data from outside, exactly like an event row — so
 `parsePlan` is its read boundary, and it runs on *read* as well as on the
 composed plans the tests round-trip. It keeps a **class** — a routine
 the plan names in `routineInfo` but never writes in `routines` (`studio`,
-"Yoga class", and `sculpt`, "Sculpt class", in the yoga block; `climb` and
-`aerial` in the pull block): no steps, never on a cycle, so it is never
-dealt and never turns the yoga's A/B, but its discipline is stamped like any
-routine's and it counts toward Yoga — or Pull. Log-after takes a class as its
+"Yoga class", and `sculpt`, "Sculpt class", in the yoga block; `strength`,
+`climb` and `aerial` on the floor): no steps, never on a cycle, so it is never
+walked and never turns the yoga's A/B, but its discipline is stamped like any
+routine's and it counts toward Yoga — or Strength. Log-after takes a class as its
 length alone, whatever its discipline: a climbing session has no sets to change. `classKeys` lists them; Log-after offers
 them, and their one entry is a duration. It refuses more than bad types:
 anything the fields can't say about each other — a range upside down (`lo >
@@ -689,7 +678,7 @@ per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/sn
 builds a full stream in every stored shape the upcaster reads, folds it through
 every rule at one fixed `now`, and compares the JSON to the committed
 `__snapshots__/` — the domain's contract for the v3 UI rebuild, written down as
-seven rules in [src/lib/domain/README.md](src/lib/domain/README.md). The layers: `decider.test.ts` (the write-side rules — including that a
+six rules in [src/lib/domain/README.md](src/lib/domain/README.md). The layers: `decider.test.ts` (the write-side rules — including that a
 correction on anything but the latest session fails, that one changing a
 set's variant fails, that a removal on an older one does not, that a
 practice the week has not got is refused and a switch to where it already is
@@ -737,7 +726,7 @@ src/routes/
    │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/finish (FinishSession, from Today) · ?/logAfter (LogAfter)
    │  ├─ ledger/                    Ledger — five weeks of cells, the pace, every session by month; the latest one fixable  (/ledger)
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
-   │  └─ plan/                      Plan — five practices: switch · goal · rest; the weeks kept; the programme (a sheet); how loads move; Sign-in (a sheet: passkeys, sign out)  (/plan)
+   │  └─ plan/                      Plan — four practices: switch · goal · rest; the programme (a sheet); how loads move; Sign-in (a sheet: passkeys, sign out)  (/plan)
    │                                 ?/toggle (TogglePractice) · ?/goal (SetGoal) · ?/rest (SetRest) · ?/select (SelectProgramme) · ?/removePasskey (not an event)
    │                                 a dial posts 700 ms after the last tap — or at once when its panel folds or the page leaves, so a tap is never lost
    ├─ floor/                        gym floor — covers the tabs  (/floor)
@@ -1320,8 +1309,9 @@ says *Re-entry* — and the dial is yours.
    from one — and try adding a "skip the rest" gesture without adding a
    step. (Skipping a *set* is already there; see §4, *Notes from the
    floor*.)
-3. **A sixth practice.** `pull` was the fifth — read its commit. Add `'swim'` to `PracticeId` and let the compiler
-   walk you: `OFF_AT_START`, `practiceLabel`, `WEEK_OF_PLAN` (what did
+3. **A fifth practice.** Pull was one for a day — read its two commits, the one that added it and the one that took it out
+   again, before you add `'swim'` to `PracticeId` and let the compiler
+   walk you: `allPracticesOn`, `practiceLabel`, `WEEK_OF_PLAN` (what did
    choosing an old plan mean for it?), a `Discipline` if it needs one —
    `disciplineLabel`, `disciplineLetter` and `disciplineInk` for the cells — and the block
    itself in `BLOCKS`. Nothing in a screen should need to change. Then switch it off

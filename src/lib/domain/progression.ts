@@ -63,7 +63,7 @@ export type Reason = 'start' | 'increase' | 'hold' | 'adjust' | 'reentry';
 export type LoadSet = {
 	weight: number;
 	reason: Reason;
-	/** the count to preload: the bottom of the range after a move, else last time's */
+	/** the count to preload: the bottom of the range after a move, else one more than last time's, up to the top — a weight that holds asks for a rep */
 	reps: number;
 	/** last time this set fell below the range */
 	missed: boolean;
@@ -167,7 +167,7 @@ function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 		if (count >= ex.hi) {
 			sets.push({ weight: increasedWeight(weight, ex), reason: 'increase', reps: ex.lo, missed: false });
 		} else if (count >= ex.lo) {
-			sets.push({ weight, reason: 'hold', reps: count, missed: false });
+			sets.push({ weight, reason: 'hold', reps: Math.min(ex.hi, count + 1), missed: false });
 		} else {
 			const p = prev?.sets[k];
 			const twice =
@@ -180,7 +180,7 @@ function suggestLoad(history: History, ex: Loaded, now: number): Suggestion {
 			if (twice && down < weight) {
 				sets.push({ weight: down, reason: 'adjust', reps: ex.lo, missed: false });
 			} else {
-				sets.push({ weight, reason: 'hold', reps: count, missed: true });
+				sets.push({ weight, reason: 'hold', reps: Math.min(ex.hi, count + 1), missed: true });
 			}
 		}
 	}

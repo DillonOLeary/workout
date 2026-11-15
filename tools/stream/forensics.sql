@@ -86,3 +86,14 @@ select coalesce(message_data->>'plan','<none>') as plan,
 from emt_messages
 where message_type = 'SessionStarted'
 group by 1, 2, 3, 4 order by 1, 2, 3;
+
+-- 7. The rows the retired Pull practice left (it shipped 2026-11-14 and was taken out 2026-11-15): its switches, its goals,
+--    and the sessions stamped with its discipline. upcast.ts reads all three; a case leaves only when its count here is zero.
+select message_type,
+       coalesce(message_data->>'block', message_data->>'practice', message_data->>'discipline') as said,
+       count(*)
+from emt_messages
+where (message_type = 'BlockToggled' and message_data->>'block' = 'pull')
+   or (message_type = 'GoalSet' and message_data->>'practice' = 'pull')
+   or (message_type = 'SessionStarted' and message_data->>'discipline' = 'pull')
+group by 1, 2 order by 1;

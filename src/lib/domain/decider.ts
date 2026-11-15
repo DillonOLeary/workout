@@ -2,7 +2,7 @@ import { IllegalStateError, ValidationError } from '@event-driven-io/emmett';
 import type { LedgerCommand } from './commands';
 import { entryKey, workoutOf, type LedgerEvent, type StoredEvent } from './events';
 import { normaliseMeasure, validateMeasure, type Measure } from './measure';
-import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, REST_SECONDS, practicesAtStart, goalOf, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
+import { GOAL_MINUTES, GOAL_SESSIONS, PRACTICES, REST_SECONDS, allPracticesOn, goalOf, isDiscipline, isPractice, type Goal, type Goals, type PracticeId } from './plan';
 import { upcast } from './upcast';
 
 /** What the rules need and nothing a screen does — rebuilt from events on every command, never stored. */
@@ -28,7 +28,7 @@ export type LedgerState = {
 export const initialState = (): LedgerState => ({
 	activeSession: null,
 	activeProgramme: null,
-	practices: practicesAtStart(),
+	practices: allPracticesOn(),
 	goals: {},
 	rest: null,
 	started: [],

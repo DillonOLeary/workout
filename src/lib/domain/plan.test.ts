@@ -36,7 +36,7 @@ describe('parsePlan — the plan’s read boundary', () => {
 	});
 	it('ships lift-only programmes: the floor and the blocks are the only other cycles', () => {
 		for (const p of DEFAULT_PROGRAMMES) expect(p.cycles.map((c) => c.id)).toEqual(['lift']);
-		expect(BLOCKS.map((b) => b.id)).toEqual(['yoga', 'mob', 'run', 'pull']);
+		expect(BLOCKS.map((b) => b.id)).toEqual(['yoga', 'mob', 'run']);
 		expect(FLOOR.cycle).toMatchObject({ id: 'floor', target: 0, standsInFor: 'lift' });
 		expect(FLOOR.cycle.routines.every((r) => FLOOR.routineInfo[r].discipline === 'bodyweight')).toBe(true);
 	});
@@ -147,11 +147,11 @@ describe('parsePlan — the plan’s read boundary', () => {
 		expect(classKeys(p)).toEqual(['studio']);
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio: { title: 'Class' } }, [{ id: 'c', title: 'C', routines: ['A'], target: 1 }]))).toThrow(/routineInfo "studio" needs a discipline/);
 		expect(() => parsePlan(raw({ A: [goblet] }, { A: { title: 'A', discipline: 'lift' }, studio }, [{ id: 'c', title: 'C', routines: ['studio'], target: 1 }]))).toThrow('cycle "c" names a routine the plan doesn\'t have: "studio"');
-		for (const plan of SHIPPED_PLANS) expect(classKeys(plan)).toEqual(['darebee', 'studio', 'sculpt', 'climb', 'aerial']);
+		for (const plan of SHIPPED_PLANS) expect(classKeys(plan)).toEqual(['darebee', 'strength', 'climb', 'aerial', 'studio', 'sculpt']);
 		expect(routineTitle(SHIPPED_PLANS[0], 'studio')).toBe('Yoga class');
 		expect(disciplineOf(SHIPPED_PLANS[0], 'studio')).toBe('yoga');
 		expect(disciplineOf(SHIPPED_PLANS[0], 'sculpt')).toBe('yoga');
-		expect(['climb', 'aerial'].map((k) => disciplineOf(SHIPPED_PLANS[0], k))).toEqual(['pull', 'pull']);
+		expect(['strength', 'climb', 'aerial'].map((k) => disciplineOf(SHIPPED_PLANS[0], k))).toEqual(['lift', 'bodyweight', 'bodyweight']); // strength done elsewhere
 	});
 	it('lets a cycle name the class that mostly pays it — a class, never a routine or a stranger', () => {
 		const studio = { title: 'Yoga class', discipline: 'yoga' };
@@ -174,9 +174,10 @@ describe('parsePlan — the plan’s read boundary', () => {
 	it('groups every routine and class for a picker — the week’s practices first, classes first in each', () => {
 		const week = composePlan(DEFAULT_PROGRAMMES[0], BLOCKS, FLOOR, ['yoga', 'mob', 'run']);
 		const groups = routineGroups(week);
-		expect(groups.map((g) => [g.discipline, g.on])).toEqual([['yoga', true], ['mobility', true], ['run', true], ['lift', false], ['bodyweight', false], ['pull', false]]);
+		expect(groups.map((g) => [g.discipline, g.on])).toEqual([['yoga', true], ['mobility', true], ['run', true], ['lift', false], ['bodyweight', false]]);
 		expect(groups[0].keys).toEqual(['studio', 'sculpt', 'hips', 'spine']);
-		expect(groups.find((g) => g.discipline === 'pull')!.keys).toEqual(['climb', 'aerial', 'pull']);
+		expect(groups.find((g) => g.discipline === 'bodyweight')!.keys).toEqual(['darebee', 'climb', 'aerial', 'invicta', 'back-in-action', 'giant', 'bands', 'orc']);
+		expect(groups.find((g) => g.discipline === 'lift')!.keys).toEqual(['strength', 'A', 'B']);
 		expect(groups.flatMap((g) => g.keys).sort()).toEqual([...new Set([...classKeys(week), ...routineKeys(week)])].sort());
 	});
 });

@@ -420,21 +420,10 @@ export const BLOCKS: Block[] = [
 			run: { title: 'Easy run', discipline: 'run', desc: 'Drills · 30 easy · a walk down', warmup: RUN_WARMUP, cooldown: RUN_COOLDOWN }
 		},
 		routines: { run: [EASY_RUN] }
-	},
-	{
-		id: 'pull',		cycle: { id: 'pull', title: 'Pull', routines: ['pull'], target: 1 },
-		routineInfo: {
-			pull: { title: 'Pull at home', discipline: 'pull', desc: 'Body rows · band row · towel curls · face pull', warmup: BW_WARMUP, cooldown: [stretch('Doorway chest stretch'), stretch('Strap hamstring stretch', 60)] },
-			climb: { title: 'Climbing', discipline: 'pull', desc: 'Bouldering, the wall or an intro class — just the time' },
-			aerial: { title: 'Aerial class', discipline: 'pull', desc: 'Silks, hoop or trapeze — just the time' }
-		},
-		routines: {
-			pull: [{ ...BODY_ROWS, rest: BW_REST }, BAND_ROW, { ...TOWEL_CURLS, rest: BW_REST }, { ...BAND_FACE_PULL, rest: BW_REST }]
-		}
 	}
 ];
 
-/** Strength's other half: four Darebee cards and a band day, pooled with the gym — a share of none until a goal gives it one, and still one tap away — and any other card logged by its length. Never switched: it goes wherever strength goes. */
+/** Strength's other half: four Darebee cards and a band day, pooled with the gym — a share of none until a goal gives it one, and still one tap away — and the classes that pay strength elsewhere, logged by their length. Never switched: it goes wherever strength goes. */
 export const FLOOR: Routines = {
 	cycle: { id: 'floor', title: 'Floor', routines: ['invicta', 'back-in-action', 'giant', 'bands', 'orc'], target: 0, standsInFor: 'lift' },
 	routineInfo: {
@@ -443,7 +432,11 @@ export const FLOOR: Routines = {
 		giant: { title: 'The Giant', discipline: 'bodyweight', desc: 'Lunges · squats · push-ups · plank · reverse angels · leg raises', rest: CARD_REST, warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
 		bands: { title: 'Band & Hinge', discipline: 'bodyweight', desc: 'Band row · face pull · single-leg hinge · bridge · hollow', warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
 		orc: { title: 'Orc', discipline: 'bodyweight', desc: 'Split squats · pike presses · three push-ups · leg hold · towel curls', levels: [3, 5, 7], rest: CARD_REST, warmup: BW_WARMUP, cooldown: BW_COOLDOWN },
-		darebee: { title: 'Darebee workout', discipline: 'bodyweight', desc: 'Any other card from darebee.com, logged by its length' }
+		darebee: { title: 'Darebee workout', discipline: 'bodyweight', desc: 'Any other card from darebee.com, logged by its length' },
+		// strength done somewhere else: logged by its length, and it pays strength's week like any session
+		strength: { title: 'Strength class', discipline: 'lift', desc: 'A strength class — ClassPass, a gym class — just the time' },
+		climb: { title: 'Climbing', discipline: 'bodyweight', desc: 'Bouldering, the wall or an intro class — just the time' },
+		aerial: { title: 'Aerial class', discipline: 'bodyweight', desc: 'Silks, hoop or trapeze — just the time' }
 	},
 	routines: {
 		invicta: INVICTA,
