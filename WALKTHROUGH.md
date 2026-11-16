@@ -170,7 +170,7 @@ union is what lets the decider refuse it.
 
 A plan is a handful of **cycles** over a set of **routines** — but a plan is
 not the unit a person chooses. The week is four **practices** — the lift,
-yoga, the morning stretch, the run — each on or off, each at a cadence:
+yoga, the daily stretch, the run — each on or off, each at a cadence:
 
 - The lift is a **programme**: a lift-only `Plan`, shipped as code.
   Two ship in `DEFAULT_PROGRAMMES` ([plans.ts](src/lib/domain/plans.ts)):
@@ -182,13 +182,23 @@ yoga, the morning stretch, the run — each on or off, each at a cadence:
 - The other three are **blocks**: shared cycles with their routines, in code
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week, and two classes: a yoga class and a sculpt class), `mob` "Stretch"
-  (the morning stretch — 3) and `run` (the easy run — 3).
-- The morning stretch is **hamstrings first**, about five minutes: the strap
-  stretch on the back (60 s a side), a standing forward fold (60 s), half
-  splits (45 s a side), every note saying the same thing — a strong pull,
-  never pain, no bouncing. Running tightens the hamstrings, so the run's
-  cooldown opens with the strap stretch too, while they are warm. It is a
-  routine short enough to keep on a bad week; the dial takes it to 7.
+  (the daily stretch, three routines in turn — 3) and `run` (the easy run — 3).
+- The stretch is **three short routines in turn**, about five minutes each,
+  each opening with the strap hamstring stretch: *Hamstrings* (the strap, a
+  standing forward fold, half splits), *Hips & Back* (hip flexor, figure-4,
+  cat–cow) and *Chest & Upper Back* (doorway chest, thread the needle, a side
+  reach) — every note saying a strong pull, never pain, no bouncing. The
+  evidence chose the shape (checked 2026-11-16): flexibility gains level off
+  near four minutes a session and ten a week per area, three sessions a week
+  do about what daily ones do, and splitting a day's stretching into bouts
+  adds nothing — so a turn spreads the time across the body instead of
+  adding it, and one short session a day, morning or night, is about the
+  habit, not the dose. Stretching does not change posture; strengthening
+  does, which is the rows' job. The hamstring day keeps the key `S` every
+  earlier stretch session was stamped with, so the old ones still count and
+  the turn starts after them; titles are looked up live, so those old
+  sessions now read "Hamstrings". Running tightens the hamstrings, so the
+  run's cooldown opens with the strap stretch too, while they are warm.
 - A fifth practice, **Pull**, lived for a day (2026-11-14 → 15): climbing,
   aerial and pulls at home, with a discipline and a calendar fill of its own.
   It was taken out when the week was weighed against what is actually
@@ -600,7 +610,7 @@ them to one quiet line ("+ 6 prep steps"), and the progression rule never
 sees them. A cooldown *stretch* is the exception: it is not prose but an
 entry from the **stretch catalogue** (`STRETCHES` in
 [plans.ts](src/lib/domain/plans.ts) — each stretch declared once, with its
-note and its `why`, and referenced by name from the morning stretch and every
+note and its `why`, and referenced by name from the daily stretch and every
 cooldown as `stretch('Calf stretch', 60)`), so it walks as holds in its own
 section, logs as holds, lands in the receipt and the Ledger with its figure,
 and never earns an arrow (a fixed hold has no top to reach). Before the

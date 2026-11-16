@@ -106,7 +106,7 @@ const HOLD = (name: string, seconds: number, note?: string, sides = true): Exerc
 });
 
 const GENTLE = 'A strong pull, never pain, and no bouncing.';
-/** The stretch catalogue: every stretch declared once, and referenced by name from the morning stretch and every cooldown. */
+/** The stretch catalogue: every stretch declared once, and referenced by name from the daily stretch and every cooldown. */
 export const STRETCHES: Record<string, Exercise> = {
 	'Calf stretch': HOLD('Calf stretch', 45, 'Back heel down, back knee straight, lean into the wall.'),
 	'Hip flexor stretch': HOLD('Hip flexor stretch', 45, 'Back knee down, tuck the tailbone, lean until the front of the hip pulls.'),
@@ -115,10 +115,11 @@ export const STRETCHES: Record<string, Exercise> = {
 	'Doorway chest stretch': HOLD('Doorway chest stretch', 45, 'Forearms on the frame at shoulder height; step through until the chest opens.', false),
 	'Strap hamstring stretch': HOLD('Strap hamstring stretch', 60, `On your back, a towel or strap round one foot; draw the straight leg toward you, the other long on the floor. ${GENTLE}`),
 	'Standing forward fold': HOLD('Standing forward fold', 60, `Feet hip-width, knees slightly bent; fold from the hips and let the head and arms hang. ${GENTLE}`, false),
-	'Half Splits': HOLD('Half Splits', 45, `Kneel, one leg straight out in front, toes up; hips back over the back knee, fold over the straight leg. ${GENTLE}`)
+	'Half Splits': HOLD('Half Splits', 45, `Kneel, one leg straight out in front, toes up; hips back over the back knee, fold over the straight leg. ${GENTLE}`),
+	'Cat–Cow': HOLD('Cat–Cow', 30, 'On all fours: round the back up as you breathe out, let it dip as you breathe in, slowly, for the whole half minute.', false),
+	'Thread the Needle': HOLD('Thread the Needle', 45, `From all fours, thread one arm under until that shoulder rests on the mat; hips stay over the knees. ${GENTLE}`),
+	'Child’s Pose, side reach': HOLD('Child’s Pose, side reach', 45, `Hips on the heels, both hands walked to one side of the mat; breathe into the side that lengthens. ${GENTLE}`)
 };
-/** The morning stretch: hamstrings first, about five minutes — the strap, the fold, the half splits. */
-const MORNING: Exercise[] = ['Strap hamstring stretch', 'Standing forward fold', 'Half Splits'].map((n) => STRETCHES[n]);
 /** a stretch as a cooldown line: the catalogue's entry, held this long — it walks as holds and logs like one */
 const stretch = (name: string, seconds = 45): Exercise => {
 	const s = STRETCHES[name];
@@ -128,6 +129,11 @@ const stretch = (name: string, seconds = 45): Exercise => {
 const COOLDOWN: PrepItem[] = [stretch('Calf stretch'), stretch('Hip flexor stretch'), stretch('Doorway chest stretch')];
 const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Hamstring stretch', 60), stretch('Doorway chest stretch', 60)];
 // the strap stretch first: after a run the hamstrings are warm, which is when it pays
+// The daily stretch, three ways in turn: every one opens with the strap stretch, and each is about five minutes —
+// flexibility gains level off near four minutes a session and ten a week per area, so the turn spreads the time instead of adding it
+const STRETCH_HAMSTRINGS: Exercise[] = [stretch('Strap hamstring stretch', 60), stretch('Standing forward fold', 60), stretch('Half Splits')];
+const STRETCH_HIPS: Exercise[] = [stretch('Strap hamstring stretch'), stretch('Hip flexor stretch'), stretch('Figure-4 stretch'), stretch('Cat–Cow', 30)];
+const STRETCH_CHEST: Exercise[] = [stretch('Strap hamstring stretch'), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach')];
 const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Strap hamstring stretch', 60), stretch('Calf stretch'), stretch('Hip flexor stretch')];
 const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
@@ -406,12 +412,17 @@ export const BLOCKS: Block[] = [
 		}
 	},
 	{
-		id: 'mob',		cycle: { id: 'mob', title: 'Stretch', routines: ['S'], target: 3 },
+		// `S` stays the hamstring day's key: it is what every stretch session before the turn was stamped with
+		id: 'mob',		cycle: { id: 'mob', title: 'Stretch', routines: ['S', 'hipsback', 'chest'], target: 3 },
 		routineInfo: {
-			S: { title: 'Morning stretch', discipline: 'mobility', desc: 'Hamstrings first · strap · fold · half splits', warmup: [], cooldown: [] }
+			S: { title: 'Hamstrings', discipline: 'mobility', desc: 'Strap · standing fold · half splits', warmup: [], cooldown: [] },
+			hipsback: { title: 'Hips & Back', discipline: 'mobility', desc: 'Strap · hip flexor · figure-4 · cat–cow', warmup: [], cooldown: [] },
+			chest: { title: 'Chest & Upper Back', discipline: 'mobility', desc: 'Strap · doorway chest · thread the needle · side reach', warmup: [], cooldown: [] }
 		},
 		routines: {
-			S: MORNING
+			S: STRETCH_HAMSTRINGS,
+			hipsback: STRETCH_HIPS,
+			chest: STRETCH_CHEST
 		}
 	},
 	{

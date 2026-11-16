@@ -78,7 +78,9 @@
 				"id": "mob",
 				"title": "Stretch",
 				"routines": [
-					"S"
+					"S",
+					"hipsback",
+					"chest"
 				],
 				"target": 3
 			},
@@ -134,7 +136,7 @@
 		},
 		{
 			"cycle": "mob",
-			"routine": "S"
+			"routine": "hipsback"
 		},
 		{
 			"cycle": "run",
@@ -189,13 +191,13 @@
 		{
 			"cycle": "mob",
 			"workout": {
-				"routine": "S"
+				"routine": "hipsback"
 			},
 			"discipline": "mobility",
-			"title": "Morning stretch",
-			"why": "1 day since Morning stretch · 2 of 3 this week",
-			"minutes": 5,
-			"score": 101000994,
+			"title": "Hips & Back",
+			"why": "1 day since Hamstrings · 2 of 3 this week",
+			"minutes": 6,
+			"score": 101000993,
 			"due": true,
 			"week": "mob",
 			"turn": true
