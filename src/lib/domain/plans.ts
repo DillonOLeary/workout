@@ -32,8 +32,8 @@ const WHY: Record<string, string> = {
 	'Standing quad stretch': 'The front of the thigh, which the run shortens and the hip flexor stretch only half reaches.',
 	'Bent-knee calf stretch': 'With the knee bent the stretch moves to the soleus, the low calf a run loads most.',
 	'90/90 hip stretch': 'The hip turning both ways at once — out on the front leg, in on the back — the range cross-legged sitting and lotus are made of.',
-	'Diamond': 'The butterfly with the feet slid out: less inner thigh, more of the low back and the outer hip as you round over.',
-	'Butterfly': 'The inner thighs and the hips opening outward — the shape behind wide folds and cross-legged sitting.',
+	'Diamond': 'Soles together with the feet slid well out: the low back and the outer hip as you round over, the inner thigh only a little.',
+	'Frog': 'The inner thighs right up to the groin, the hips opening wide — the range wide-legged poses ask for, deeper than the butterfly.',
 	'Neck stretch': 'The back of the neck, which a screen keeps short; the hands only add their weight.',
 	'Low Lunge': 'Hip flexors at length with the back knee down — the reach the run and the chair both take away.',
 	'Half Splits': 'Hamstrings at length from the kneel, one leg at a time.',
@@ -124,9 +124,9 @@ export const STRETCHES: Record<string, Exercise> = {
 	'Standing quad stretch': HOLD('Standing quad stretch', 45, `A hand on the wall; draw one heel to your seat, knees side by side, hips pressed forward. ${GENTLE}`),
 	'Bent-knee calf stretch': HOLD('Bent-knee calf stretch', 45, `Hands on the wall, a short step apart, both heels down; bend the back knee and sink until the low calf pulls. ${GENTLE}`),
 	'90/90 hip stretch': HOLD('90/90 hip stretch', 45, `Seated, front shin across your body, back shin out to the side behind, both knees bent to 90; sit tall, then lean over the front shin. Change sides for the second hold. ${GENTLE}`),
-	'Diamond': HOLD('Diamond', 45, `From the butterfly, slide the feet well out in front, soles still together; let the back round and the head hang over the feet. ${GENTLE}`, false),
+	'Diamond': HOLD('Diamond', 45, `Seated, soles together, then slide the feet well out in front; let the back round and the head hang over the feet. ${GENTLE}`, false),
 	'Pigeon': HOLD('Pigeon', 60, `Front shin across the mat, back leg long behind; square the hips and sink, a cushion under the front hip if it lifts. Knee complains? Lie back into the figure-4 instead. ${GENTLE}`),
-	'Butterfly': HOLD('Butterfly', 60, `Seated, soles together, knees falling out; hold the feet and lean forward from the hips, back long. ${GENTLE}`, false),
+	'Frog': HOLD('Frog', 60, `On the forearms, knees wide and in line with the hips, shins out to the sides; ease the hips back toward the heels. Pad the knees. ${GENTLE}`, false),
 	'Neck stretch': HOLD('Neck stretch', 30, 'Sitting tall, hands on the back of the head; let the chin drop toward the chest and the hands add only their weight. Never pull.', false)
 };
 /** a stretch as a cooldown line: the catalogue's entry, held this long — it walks as holds and logs like one */
@@ -145,7 +145,7 @@ const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Ha
 // pigeon and the 90/90 sit in different routines, so the hip's rotation is stretched every day; the bent-knee calf lives in the run's
 // cooldown, where the calves are warm, which pays for pigeon's minutes here
 const STRETCH_LEGS: Exercise[] = [stretch('Strap hamstring stretch', 90), stretch('Hip flexor stretch', 90), stretch('Pigeon', 60), stretch('Standing quad stretch'), stretch('Calf stretch')];
-const STRETCH_UPPER: Exercise[] = [stretch('Standing forward fold', 60), stretch('90/90 hip stretch', 90), stretch('Butterfly', 45), stretch('Diamond', 45), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach'), stretch('Neck stretch', 30)];
+const STRETCH_UPPER: Exercise[] = [stretch('Standing forward fold', 60), stretch('90/90 hip stretch', 90), stretch('Diamond', 45), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach'), stretch('Frog', 60), stretch('Neck stretch', 30)];
 const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Strap hamstring stretch', 60), stretch('Calf stretch'), stretch('Bent-knee calf stretch'), stretch('Hip flexor stretch')];
 const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
@@ -428,7 +428,7 @@ export const BLOCKS: Block[] = [
 		id: 'mob',		cycle: { id: 'mob', title: 'Stretch', routines: ['S', 'chest'], target: 3 },
 		routineInfo: {
 			S: { title: 'Legs & Hips', discipline: 'mobility', desc: 'Strap hamstring · hip flexor · pigeon · quad · calf', warmup: [], cooldown: [] },
-			chest: { title: 'Back, Chest & Hips', discipline: 'mobility', desc: 'Standing fold · 90/90 hip · butterfly into diamond · chest · upper back · side · neck', warmup: [], cooldown: [] }
+			chest: { title: 'Back, Chest & Hips', discipline: 'mobility', desc: 'Standing fold · 90/90 hip · diamond · chest · upper back · side · frog · neck', warmup: [], cooldown: [] }
 		},
 		routines: {
 			S: STRETCH_LEGS,
