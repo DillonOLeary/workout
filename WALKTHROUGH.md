@@ -188,9 +188,12 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
 - The stretch is **two routines in turn**, one a day, ~10–11 min each, the
   goals held longest — strap hamstring, hip flexor and 90/90 at 90 s a side,
   the rest 45:
-  *Legs & Hips* (strap hamstring, hip flexor, quad, calf straight and bent)
-  and *Back, Chest & Hips* (standing fold, 90/90 hip, butterfly, doorway chest,
-  thread the needle, a side reach, the neck) — between them every major group
+  *Legs & Hips* (strap hamstring, hip flexor, pigeon, quad, calf) and *Back,
+  Chest & Hips* (standing fold, 90/90 hip, butterfly into diamond, doorway
+  chest, thread the needle, a side reach, the neck); the bent-knee calf is in
+  the run's cooldown, where the calves are warm, which paid for pigeon. Pigeon
+  and the 90/90 sit in different routines so the hip's rotation is stretched
+  every day — between them every major group
   the ACSM names, the butterfly the one yoga asked for, and the 90/90 —
   the hip turning both ways — the stepping stone toward lotus. Every note says a
   strong pull, never pain, no bouncing. The neck stretch is the forward bow:
