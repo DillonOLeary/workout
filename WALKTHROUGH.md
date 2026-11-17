@@ -183,22 +183,24 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week, and two classes: a yoga class and a sculpt class), `mob` "Stretch"
   (the daily stretch, three routines in turn — 3) and `run` (the easy run — 3).
-- The stretch is **three short routines in turn**, about five minutes each,
-  each opening with the strap hamstring stretch: *Hamstrings* (the strap, a
-  standing forward fold, half splits), *Hips & Back* (hip flexor, figure-4,
-  cat–cow) and *Chest & Upper Back* (doorway chest, thread the needle, a side
-  reach) — every note saying a strong pull, never pain, no bouncing. The
-  evidence chose the shape (checked 2026-11-16): flexibility gains level off
-  near four minutes a session and ten a week per area, three sessions a week
-  do about what daily ones do, and splitting a day's stretching into bouts
-  adds nothing — so a turn spreads the time across the body instead of
-  adding it, and one short session a day, morning or night, is about the
-  habit, not the dose. Stretching does not change posture; strengthening
-  does, which is the rows' job. The hamstring day keeps the key `S` every
-  earlier stretch session was stamped with, so the old ones still count and
-  the turn starts after them; titles are looked up live, so those old
-  sessions now read "Hamstrings". Running tightens the hamstrings, so the
-  run's cooldown opens with the strap stretch too, while they are warm.
+- The stretch is **two routines in turn**, one a day, every hold 60 s:
+  *Legs & Hips* (strap hamstring, hip flexor, figure-4, calf; ~8 min) and
+  *Back & Chest* (standing fold, doorway chest, thread the needle, a side
+  reach; ~6.5 min) — every note saying a strong pull, never pain, no
+  bouncing. The evidence chose the shape (read 2026-11-17): range of motion
+  follows the minutes a muscle is stretched a week — about five before it
+  shows (Thomas 2018), about ten before it levels off (Ingram 2024) — while
+  hold length, intensity and how the minutes are split barely matter; static
+  holds beat dynamic ones for lasting range; and strength training through a
+  full range does about as much as stretching (Afonso 2021), so the RDL and
+  the deep squat count. Two routines at 60 s give each area 3.5 min a week
+  from the stretch alone, the runs' cooldown adding hamstrings, calves and hip
+  flexors; a three-way turn, tried for a day, gave hips and chest under two.
+  Stretching does not change posture; strengthening does, which is the rows'
+  job. `S` keeps the key every earlier stretch session was stamped with —
+  Legs & Hips is nearest what those held — so they still count and the turn
+  starts after them. Running tightens the hamstrings, so the run's cooldown
+  opens with the strap stretch too, while they are warm.
 - A fifth practice, **Pull**, lived for a day (2026-11-14 → 15): climbing,
   aerial and pulls at home, with a discipline and a calendar fill of its own.
   It was taken out when the week was weighed against what is actually

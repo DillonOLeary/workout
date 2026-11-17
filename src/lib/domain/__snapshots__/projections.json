@@ -79,7 +79,6 @@
 				"title": "Stretch",
 				"routines": [
 					"S",
-					"hipsback",
 					"chest"
 				],
 				"target": 3
@@ -136,7 +135,7 @@
 		},
 		{
 			"cycle": "mob",
-			"routine": "hipsback"
+			"routine": "chest"
 		},
 		{
 			"cycle": "run",
@@ -191,11 +190,11 @@
 		{
 			"cycle": "mob",
 			"workout": {
-				"routine": "hipsback"
+				"routine": "chest"
 			},
 			"discipline": "mobility",
-			"title": "Hips & Back",
-			"why": "1 day since Hamstrings · 2 of 3 this week",
+			"title": "Back & Chest",
+			"why": "1 day since Legs & Hips · 2 of 3 this week",
 			"minutes": 6,
 			"score": 101000993,
 			"due": true,
