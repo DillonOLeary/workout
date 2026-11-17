@@ -183,19 +183,23 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week, and two classes: a yoga class and a sculpt class), `mob` "Stretch"
   (the daily stretch, three routines in turn — 3) and `run` (the easy run — 3).
-- The stretch is **two routines in turn**, one a day, every hold 60 s:
-  *Legs & Hips* (strap hamstring, hip flexor, figure-4, calf; ~8 min) and
-  *Back & Chest* (standing fold, doorway chest, thread the needle, a side
-  reach; ~6.5 min) — every note saying a strong pull, never pain, no
-  bouncing. The evidence chose the shape (read 2026-11-17): range of motion
+- The stretch is **two routines in turn**, one a day, ~8–9 min each:
+  *Legs & Hips* (strap hamstring, hip flexor, quad, calf straight and bent)
+  and *Back, Chest & Hips* (standing fold, figure-4, butterfly, doorway chest,
+  thread the needle, a side reach, the neck) — between them every major group
+  the ACSM names, and the butterfly the one yoga asked for. Every note says a
+  strong pull, never pain, no bouncing. The neck stretch is the forward bow:
+  the rig turns a head only in the sagittal plane, so a side tilt has no pose. The evidence chose the shape (read 2026-11-17): range of motion
   follows the minutes a muscle is stretched a week — about five before it
   shows (Thomas 2018), about ten before it levels off (Ingram 2024) — while
   hold length, intensity and how the minutes are split barely matter; static
   holds beat dynamic ones for lasting range; and strength training through a
   full range does about as much as stretching (Afonso 2021), so the RDL and
-  the deep squat count. Two routines at 60 s give each area 3.5 min a week
-  from the stretch alone, the runs' cooldown adding hamstrings, calves and hip
-  flexors; a three-way turn, tried for a day, gave hips and chest under two.
+  the deep squat count. At 45 s a side, every other day, each area gets
+  ~2.6 min a week from the stretch alone — the runs' cooldown adds
+  hamstrings, calves and hip flexors, and doing both routines in a day takes
+  any area past five; a three-way turn, tried for a day, gave hips and chest
+  under two.
   Stretching does not change posture; strengthening does, which is the rows'
   job. `S` keeps the key every earlier stretch session was stamped with —
   Legs & Hips is nearest what those held — so they still count and the turn
