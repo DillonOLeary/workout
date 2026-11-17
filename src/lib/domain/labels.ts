@@ -62,23 +62,6 @@ export function sessionNoun(d: Discipline): string {
 	}
 }
 
-/** "lifts" · "yoga" · "floor sessions" · "stretches" · "runs" — counted */
-export function disciplineNoun(d: Discipline, n: number): string {
-	const one = Math.round(n * 10) === 10;
-	switch (d) {
-		case 'lift':
-			return one ? 'lift' : 'lifts';
-		case 'yoga':
-			return 'yoga';
-		case 'bodyweight':
-			return one ? 'floor session' : 'floor sessions';
-		case 'mobility':
-			return one ? 'stretch' : 'stretches';
-		case 'run':
-			return one ? 'run' : 'runs';
-	}
-}
-
 /** "2.3" · "3" · "68" — one decimal unless whole */
 export function rateLabel(n: number): string {
 	const r = Math.round(n * 10) / 10;
@@ -90,10 +73,6 @@ export function groupLabel(d: Discipline): string {
 	return d === 'lift' ? 'Strength · gym' : d === 'bodyweight' ? 'Strength · floor' : disciplineLabel(d);
 }
 
-/** "at the gym" · "on the floor" — where a strength session happens; nothing for the practices that have one way */
-export function placeLabel(d: Discipline): string {
-	return d === 'lift' ? 'at the gym' : d === 'bodyweight' ? 'on the floor' : '';
-}
 /** "All at the gym. A floor workout still counts — …" · "2 at the gym, 1 on the floor. …" · "All on the floor. …" — how strength's week splits */
 export function splitLine(sessions: number, floor: number): string {
 	if (floor <= 0) return 'All at the gym. A floor workout still counts — it is one tap away on Today.';

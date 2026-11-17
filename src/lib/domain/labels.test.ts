@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	cellLegend, dayMarks, dealCaption, disciplineLetter, itemDose, paceLine, whenLabel,
-	ceilingHint, clockLabel, disciplineLabel, disciplineNoun, doseLabel, durationLabel, fmtDate, fmtShort,
-	goalHint, goalLabel, groupLabel, levelLine, levelNote, loadHint, loadLabel, loadShort, placeLabel, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
+	ceilingHint, clockLabel, disciplineLabel, doseLabel, durationLabel, fmtDate, fmtShort,
+	goalHint, goalLabel, groupLabel, levelLine, levelNote, loadHint, loadLabel, loadShort, plannedValue, practiceLabel, prepLabel, rateLabel, monthLine, receiptLine, sessionNoun,
 	setValue, setsLine, sessionSummary, spanLabel, splitLine, weekChangeLine, weekHead, weekLine
 } from './labels';
 import type { Measure } from './measure';
@@ -46,18 +46,12 @@ describe('one number', () => {
 });
 
 describe('disciplines, in words', () => {
-	it('names each one for a chip and counts it in a sentence', () => {
+	it('names each one for a chip', () => {
 		expect(disciplineLabel('lift')).toBe('Lift');
 		expect(disciplineLabel('mobility')).toBe('Stretch');
-		expect(disciplineNoun('lift', 1)).toBe('lift');
-		expect(disciplineNoun('lift', 1.3)).toBe('lifts');
-		expect(disciplineNoun('yoga', 2)).toBe('yoga');
-		expect(disciplineNoun('run', 1.04)).toBe('run');
-		expect(disciplineNoun('bodyweight', 3)).toBe('floor sessions');
 	});
 	it('says the week, the cadence and how strength splits', () => {
 		expect(weekLine(1, 3)).toBe('1 of 3 this week');
-		expect(['lift', 'bodyweight', 'run'].map((d) => placeLabel(d as never))).toEqual(['at the gym', 'on the floor', '']);
 		expect(splitLine(3, 0)).toBe('All at the gym. A floor workout still counts — it is one tap away on Today.');
 		expect(splitLine(3, 1)).toBe('2 at the gym, 1 on the floor. Either counts; Today deals whichever is behind.');
 		expect(splitLine(3, 3)).toBe('All on the floor. A gym session still counts — it is one tap away on Today.');

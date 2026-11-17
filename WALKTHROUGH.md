@@ -256,7 +256,7 @@ because a goal is an event the Ledger can say when the week changed. What
 the user says is all on The Week: which practices are on, their goals, and
 which programme. Two earlier menus — *What I'm after* (intents that weighted a
 discipline up) and *What I've got* (gear that ruled one out) — are gone: an
-intent's only real effect was a tie-break "Something else" already gives you,
+intent's only real effect was a tie-break the list under Today's card already gives you,
 and "not at a gym" is a fact about today, not the week, so the floor is one
 tap away on Today instead of a fifth block with a switch. Their events
 (`PreferencesSet`, and `BlockToggled` for the retired `bw` block) still sit
@@ -415,7 +415,7 @@ else lives there:
   sets per session, newest first, the session in progress left out — exactly
   what `suggest` reads. `lastEntryFor` is the same seam for one set
 - `nextInCycle` / `weekProgress` / `staleness` / `queue` / `weekTally` live in
-  [week.ts](src/lib/domain/week.ts) since v3 — the three rules the domain
+  [week.ts](src/lib/domain/week.ts) since v3 — the rules the domain
   README names (owed · next · deal), read against this file's folds. Position
   is derived, never stored: do B twice and the pointer sits after B. Two
   different questions, named once: a cycle COUNTS sessions by discipline,
@@ -715,7 +715,7 @@ because the measure says what it was: a retired "Weighted Plank" is still
 
 ### Tests — the domain is pure, so test it like arithmetic
 
-`pnpm test` runs vitest over `src/**/*.test.ts` — eleven suites, 182 tests, one
+`pnpm test` runs vitest over `src/**/*.test.ts` — fourteen suites, about 240 tests, one
 per layer, and one freeze over all of them: [snapshot.test.ts](src/lib/domain/snapshot.test.ts)
 builds a full stream in every stored shape the upcaster reads, folds it through
 every rule at one fixed `now`, and compares the JSON to the committed
