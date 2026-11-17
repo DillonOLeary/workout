@@ -1,8 +1,8 @@
 {
 	"now": "2026-09-22T12:00:00.000Z",
 	"state": {
-		"activeSession": "s021",
-		"latestSession": "s021",
+		"activeSession": "s020",
+		"latestSession": "s020",
 		"activeProgramme": "ab-fullbody-v1",
 		"practices": {
 			"lift": true,
@@ -96,12 +96,12 @@
 	"owed": [
 		{
 			"cycle": "lift",
-			"done": 4,
+			"done": 3,
 			"target": 4
 		},
 		{
 			"cycle": "floor",
-			"done": 4,
+			"done": 3,
 			"target": 4
 		},
 		{
@@ -167,11 +167,11 @@
 	"staleness": [
 		{
 			"cycle": "lift",
-			"daysSince": 0.88
+			"daysSince": 3.21
 		},
 		{
 			"cycle": "floor",
-			"daysSince": 0.88
+			"daysSince": 3.21
 		},
 		{
 			"cycle": "yoga",
@@ -187,6 +187,20 @@
 		}
 	],
 	"deal": [
+		{
+			"cycle": "lift",
+			"workout": {
+				"routine": "A"
+			},
+			"discipline": "lift",
+			"title": "Squat & Shove",
+			"why": "3 days since Hinge & Haul",
+			"minutes": 48,
+			"score": 101001951,
+			"due": true,
+			"week": "lift",
+			"turn": true
+		},
 		{
 			"cycle": "mob",
 			"workout": {
@@ -230,18 +244,19 @@
 			"turn": true
 		},
 		{
-			"cycle": "lift",
+			"cycle": "floor",
 			"workout": {
-				"routine": "A"
+				"routine": "back-in-action",
+				"rounds": 3
 			},
-			"discipline": "lift",
-			"title": "Squat & Shove",
-			"why": "Climbing today",
-			"minutes": 48,
-			"score": 100000951,
-			"due": false,
+			"discipline": "bodyweight",
+			"title": "Back in Action",
+			"why": "Level I · 3 rounds · 3 days since Hinge & Haul",
+			"minutes": 26,
+			"score": 1973,
+			"due": true,
 			"week": "lift",
-			"turn": true
+			"turn": false
 		},
 		{
 			"cycle": "yoga",
@@ -256,27 +271,13 @@
 			"due": true,
 			"week": "yoga",
 			"turn": false
-		},
-		{
-			"cycle": "floor",
-			"workout": {
-				"routine": "back-in-action",
-				"rounds": 3
-			},
-			"discipline": "bodyweight",
-			"title": "Back in Action",
-			"why": "Level I · 3 rounds · Climbing today",
-			"minutes": 26,
-			"score": 973,
-			"due": false,
-			"week": "lift",
-			"turn": false
 		}
 	],
 	"tally": {
-		"done": 8,
+		"done": 7,
 		"asked": 11,
 		"gaps": [
+			"strength",
 			"yoga",
 			"stretch",
 			"run"
@@ -820,7 +821,7 @@
 	],
 	"sessions": [
 		{
-			"id": "s021",
+			"id": "s020",
 			"workout": {
 				"routine": "A"
 			},
@@ -857,7 +858,7 @@
 			"entries": 3
 		},
 		{
-			"id": "s020",
+			"id": "s019",
 			"workout": {
 				"routine": "studio"
 			},
@@ -879,30 +880,6 @@
 			"prep": 0,
 			"entries": 1,
 			"finishedAt": "2026-09-21T18:54:00.000Z"
-		},
-		{
-			"id": "s019",
-			"workout": {
-				"routine": "climb"
-			},
-			"discipline": "bodyweight",
-			"plan": "ab-fullbody-v1",
-			"at": "2026-09-21T15:00:00.000Z",
-			"dateLabel": "Mon, Sep 21",
-			"finished": true,
-			"mode": "after",
-			"rows": [],
-			"minutes": 90,
-			"durations": [
-				{
-					"item": "Climbing",
-					"index": 1,
-					"minutes": 90
-				}
-			],
-			"prep": 0,
-			"entries": 1,
-			"finishedAt": "2026-09-21T15:54:00.000Z"
 		},
 		{
 			"id": "s018",
@@ -2124,7 +2101,7 @@
 	],
 	"openSession": [
 		{
-			"session": "s021",
+			"session": "s020",
 			"item": "Warm-up",
 			"index": 1,
 			"at": "2026-09-22T11:06:00.000Z",
@@ -2133,7 +2110,7 @@
 			}
 		},
 		{
-			"session": "s021",
+			"session": "s020",
 			"item": "Goblet Squat",
 			"index": 1,
 			"at": "2026-09-22T11:18:00.000Z",
@@ -2144,7 +2121,7 @@
 			}
 		},
 		{
-			"session": "s021",
+			"session": "s020",
 			"item": "Goblet Squat",
 			"index": 2,
 			"at": "2026-09-22T11:24:00.000Z",
@@ -2342,7 +2319,6 @@
 			"label": "Mon, Sep 21",
 			"did": [
 				"mobility",
-				"bodyweight",
 				"yoga"
 			],
 			"today": false,
@@ -2625,7 +2601,6 @@
 					"label": "Mon, Sep 21",
 					"did": [
 						"mobility",
-						"bodyweight",
 						"yoga"
 					],
 					"today": false,

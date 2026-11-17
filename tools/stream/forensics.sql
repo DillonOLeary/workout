@@ -88,7 +88,8 @@ where message_type = 'SessionStarted'
 group by 1, 2, 3, 4 order by 1, 2, 3;
 
 -- 7. The rows the retired Pull practice left (it shipped 2026-11-14 and was taken out 2026-11-15): its switches, its goals,
---    and the sessions stamped with its discipline. upcast.ts reads all three; a case leaves only when its count here is zero.
+--    and the sessions stamped with its discipline. Goals and sessions counted zero on 2026-11-17 and their cases left upcast.ts;
+--    a row of either here now means a reader is missing.
 select message_type,
        coalesce(message_data->>'block', message_data->>'practice', message_data->>'discipline') as said,
        count(*)

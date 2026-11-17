@@ -55,12 +55,8 @@ describe('the read boundary — old rows read back in the current vocabulary', (
 	it('reads the retired settings as nothing: the no-gym switch, and a preferences snapshot', () => {
 		expect(upcast(row('BlockToggled', { block: 'bw', on: false, at: AT }))).toEqual([]);
 		expect(upcast(row('BlockToggled', { block: 'bw', on: true, at: AT }))).toEqual([]);
-		// Pull, one day in the app (2026-11-14 → 15): its switch and its goal ask nothing, its sessions are strength
+		// Pull, one day in the app (2026-11-14 → 15): its one stored switch asks nothing
 		expect(upcast(row('BlockToggled', { block: 'pull', on: true, at: AT }))).toEqual([]);
-		expect(upcast(row('GoalSet', { practice: 'pull', sessions: 1, at: AT }))).toEqual([]);
-		expect(upcast(row('GoalSet', { practice: 'run', sessions: 2, at: AT }))).toHaveLength(1);
-		const [climb] = upcast(row('SessionStarted', { session: 'c', plan: 'ab-fullbody-v1', routine: 'climb', discipline: 'pull', mode: 'after', at: AT }));
-		expect(climb.type === 'SessionStarted' && climb.data.discipline).toBe('bodyweight');
 		expect(upcast(row('PreferencesSet', { at: AT, intents: ['move-better'], equipment: ['mat'] }))).toEqual([]);
 		expect(upcast(row('PreferencesSet', { at: AT, intents: ['show-up-more'], equipment: [] }))).toEqual([]);
 	});

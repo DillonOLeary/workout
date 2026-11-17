@@ -1944,45 +1944,6 @@
 		}
 	},
 	{
-		"type": "GoalSet",
-		"data": {
-			"practice": "pull",
-			"sessions": 1,
-			"at": "2026-09-21T08:00:00.000Z"
-		}
-	},
-	{
-		"type": "SessionStarted",
-		"data": {
-			"session": "s019",
-			"plan": "ab-fullbody-v1",
-			"routine": "climb",
-			"discipline": "pull",
-			"mode": "after",
-			"at": "2026-09-21T15:00:00.000Z"
-		}
-	},
-	{
-		"type": "EntryLogged",
-		"data": {
-			"session": "s019",
-			"item": "Climbing",
-			"index": 1,
-			"at": "2026-09-21T15:30:00.000Z",
-			"measure": {
-				"of": "duration",
-				"minutes": 90
-			}
-		}
-	},
-	{
-		"type": "SessionFinished",
-		"data": {
-			"session": "s019",
-			"at": "2026-09-21T15:54:00.000Z"
-		}
-	},
-	{
 		"type": "BlockToggled",
 		"data": {
 			"block": "yoga",
@@ -1993,7 +1954,7 @@
 	{
 		"type": "SessionStarted",
 		"data": {
-			"session": "s020",
+			"session": "s019",
 			"plan": "ab-fullbody-v1",
 			"routine": "studio",
 			"discipline": "yoga",
@@ -2004,7 +1965,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s020",
+			"session": "s019",
 			"item": "Yoga class",
 			"index": 1,
 			"at": "2026-09-21T18:30:00.000Z",
@@ -2017,14 +1978,14 @@
 	{
 		"type": "SessionFinished",
 		"data": {
-			"session": "s020",
+			"session": "s019",
 			"at": "2026-09-21T18:54:00.000Z"
 		}
 	},
 	{
 		"type": "SessionStarted",
 		"data": {
-			"session": "s021",
+			"session": "s020",
 			"plan": "ab-fullbody-v1",
 			"routine": "A",
 			"discipline": "lift",
@@ -2035,7 +1996,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s021",
+			"session": "s020",
 			"item": "Warm-up",
 			"index": 1,
 			"at": "2026-09-22T11:06:00.000Z",
@@ -2047,7 +2008,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s021",
+			"session": "s020",
 			"item": "Goblet Squat",
 			"index": 1,
 			"at": "2026-09-22T11:18:00.000Z",
@@ -2061,7 +2022,7 @@
 	{
 		"type": "EntryLogged",
 		"data": {
-			"session": "s021",
+			"session": "s020",
 			"item": "Goblet Squat",
 			"index": 2,
 			"at": "2026-09-22T11:24:00.000Z",

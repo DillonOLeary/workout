@@ -107,10 +107,8 @@ function fullStream(): StoredEvent[] {
 	row('GoalSet', { practice: 'lift', sessions: 4, floor: 1, at: at(2, 6) });
 	live(2, 'run', 'run', [['Easy run', 1, { of: 'duration', minutes: 40 }]], 'after');
 	live(1, 'S', 'mobility', [['Calf stretch', 1, H(45)], ['Calf stretch', 2, H(45)]]);
-	// Pull, the practice that lived a day: its switch and goal read as nothing, a climb stamped 'pull' reads as strength on the floor
+	// Pull, the practice that lived a day: its one stored switch reads as nothing
 	row('BlockToggled', { block: 'pull', on: true, at: at(1, 8) });
-	row('GoalSet', { practice: 'pull', sessions: 1, at: at(1, 8) });
-	live(1, 'climb', 'pull', [['Climbing', 1, { of: 'duration', minutes: 90 }]], 'after', 15);
 	// yoga back on, and a class at the studio: a class pays the week and is dealt as its turn, the home flow behind it
 	row('BlockToggled', { block: 'yoga', on: true, at: at(1, 9) });
 	live(1, 'studio', 'yoga', [['Yoga class', 1, { of: 'duration', minutes: 60 }]], 'after', 18);

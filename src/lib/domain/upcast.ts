@@ -14,8 +14,8 @@ import { PRACTICES, isPractice, type Discipline, type PracticeId } from './plan'
  *   discipline and 66 no mode · EntryLogged 654, 77 carrying plan/day and 4 at load 0 · EntryCorrected 8 · SessionRemoved 38 · GoalSet 0.
  *   Every case below is still backed by rows; none is at zero. These counts are this file's contract — the rebuild leaves it alone.
  * Counted 2026-11-15 06:23 UTC (query 7, from a full export of emt_messages, 1978 rows): BlockToggled pull 1 · GoalSet pull 0 ·
- *   SessionStarted with discipline 'pull' 0. Pull was still live when that ran, so the two cases at zero stay until a count taken
- *   after it left production also says zero — then delete them and their tests.
+ *   SessionStarted with discipline 'pull' 0. Counted again 2026-11-17, after Pull left production: the same — so the goal and
+ *   session cases are gone, and the one pull switch reads as nothing through the retired-block case.
  * Delete a case only when its count is zero — and count again first.
  */
 
@@ -39,7 +39,7 @@ type SessionStartedV1 = {
 	type: 'SessionStarted';
 	data: {
 		session: string; plan: string; at: string;
-		day?: string; kind?: 'lift' | 'run'; routine?: string; mode?: 'live' | 'after'; discipline?: Discipline | 'pull'; rounds?: number;
+		day?: string; kind?: 'lift' | 'run'; routine?: string; mode?: 'live' | 'after'; discipline?: Discipline; rounds?: number;
 	};
 };
 /** EntryLogged as first written: carrying plan/day nobody read. */
@@ -88,9 +88,8 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 			// a run was spelled day: 'run', then kind: 'run'; now it is the routine called 'run'
 			const isRun = d.kind === 'run' || d.day === 'run';
 			const routine = isRun ? 'run' : (d.routine ?? d.day ?? '');
-			// 'pull' was a discipline for one day (2026-11-14 → 15): climbing, aerial and pulls at home, strength by another name
 			const discipline: Discipline =
-				d.discipline === 'pull' ? 'bodyweight' : (d.discipline ?? (isRun ? 'run' : (DISCIPLINE_BEFORE_2026_09_14[d.plan]?.[routine] ?? 'lift')));
+				d.discipline ?? (isRun ? 'run' : (DISCIPLINE_BEFORE_2026_09_14[d.plan]?.[routine] ?? 'lift'));
 			const rounds = Number.isInteger(d.rounds) && d.rounds! > 0 ? { rounds: d.rounds } : {};
 			return [{ type: 'SessionStarted', data: { session: d.session, plan: d.plan, at: d.at, mode: d.mode ?? 'live', discipline, routine, ...rounds } }];
 		}
@@ -108,11 +107,9 @@ export function upcast(e: StoredEvent): LedgerEvent[] {
 		case 'EntryCorrected':
 		case 'SessionRemoved':
 		case 'ProgrammeSelected':
+		case 'GoalSet':
 		case 'RestSet':
 			return [e as LedgerEvent];
-		case 'GoalSet':
-			// a goal for a practice the week no longer has (Pull, 2026-11-14 → 15) asks nothing
-			return isPractice((e as { data: { practice: string } }).data.practice) ? [e as LedgerEvent] : [];
 		case 'BlockToggled': {
 			// the no-gym block is gone (the floor is the lift's fallback now), and so is Pull (strength by another name): their switches say nothing
 			const d = (e as BlockToggledV1).data;

@@ -210,9 +210,9 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
   aerial and pulls at home, with a discipline and a calendar fill of its own.
   It was taken out when the week was weighed against what is actually
   trained — the gym's rows and pulldowns already pull — and what it named
-  became classes that pay strength (below). Its rows stay in the stream and
-  the upcaster reads them: a switch or a goal as nothing, a session as the
-  floor's. The other lesson it left: the stage is a fixed two-metre frame on a
+  became classes that pay strength (below). Its one stored row, a switch, stays
+  in the stream and reads as nothing; the goal and session cases written for
+  it left the upcaster when a count after its removal said zero (2026-11-17). The other lesson it left: the stage is a fixed two-metre frame on a
   floor every figure stands on (`rig.test.ts` checks the contact shadow), so a
   figure hanging from a pull-up bar has nowhere to be drawn.
 - The **floor** (`FLOOR`) is strength's other half, not a practice of its
