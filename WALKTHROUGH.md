@@ -767,7 +767,7 @@ src/routes/
 └─ (app)/                          layout GROUP — every page inside requires the cookie
    ├─ +layout.server.ts            ONE load for all pages: programmes composed with this person's practices, goals and rest, plus the stream
    ├─ (tabs)/                      nested group — the locked frame with the tab bar at its foot, three tabs
-   │  ├─ +page.svelte              Today — the week strip, the picked routine on one card (Start · Log it), the week by practice, Log it (a sheet)  (/)
+   │  ├─ +page.svelte              Today — the week strip, the picked routine on one card (Start · Log it), the week by practice; Log it is lib/today/LogAfter.svelte  (/)
    │  ├─ +page.server.ts             ?/start (StartSession → /floor) · ?/remove (RemoveSession: Undo, or Bin) · ?/finish (FinishSession, from Today) · ?/logAfter (LogAfter)
    │  ├─ ledger/                    Ledger — five weeks of cells, the pace, every session by month; the latest one fixable  (/ledger)
    │  │                              ?/remove (RemoveSession) · ?/correct (one CorrectEntry per changed set)
