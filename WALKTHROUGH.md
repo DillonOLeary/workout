@@ -185,7 +185,9 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
   (`BLOCKS`), never stored — `yoga` (Hips & Hamstrings, Shoulders & Spine — 2
   a week, and two classes: a yoga class and a sculpt class), `mob` "Stretch"
   (the daily stretch, three routines in turn — 3) and `run` (the easy run — 3).
-- The stretch is **two routines in turn**, one a day, ~8–9 min each:
+- The stretch is **two routines in turn**, one a day, ~10–11 min each, the
+  goals held longest — strap hamstring, hip flexor and 90/90 at 90 s a side,
+  the rest 45:
   *Legs & Hips* (strap hamstring, hip flexor, quad, calf straight and bent)
   and *Back, Chest & Hips* (standing fold, 90/90 hip, butterfly, doorway chest,
   thread the needle, a side reach, the neck) — between them every major group
@@ -198,8 +200,9 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
   hold length, intensity and how the minutes are split barely matter; static
   holds beat dynamic ones for lasting range; and strength training through a
   full range does about as much as stretching (Afonso 2021), so the RDL and
-  the deep squat count. At 45 s a side, every other day, each area gets
-  ~2.6 min a week from the stretch alone — the runs' cooldown adds
+  the deep squat count. At 90 s a side every other day the goals get ~5 min
+  a week, the 45 s rest ~2.6 — the longer holds work because they add minutes,
+  not because a hold is long (30 s does what 60 s does, Bandy 1997) — the runs' cooldown adds
   hamstrings, calves and hip flexors, and doing both routines in a day takes
   any area past five; a three-way turn, tried for a day, gave hips and chest
   under two.

@@ -137,9 +137,10 @@ const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Ha
 // the strap stretch first: after a run the hamstrings are warm, which is when it pays
 // The daily stretch, two ways in turn, every major group between them (neck, chest and shoulders, trunk, hips, both sides of the
 // thigh, calves). Range of motion follows the minutes a muscle is stretched a week — about five before it shows, about ten before it
-// levels off — so 45 s a side every other day is ~2.6 min a week each; both routines in a day, or the runs' cooldown, take it past five
-const STRETCH_LEGS: Exercise[] = [stretch('Strap hamstring stretch', 60), stretch('Hip flexor stretch'), stretch('Standing quad stretch'), stretch('Calf stretch'), stretch('Bent-knee calf stretch')];
-const STRETCH_UPPER: Exercise[] = [stretch('Standing forward fold', 60), stretch('90/90 hip stretch'), stretch('Butterfly', 60), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach'), stretch('Neck stretch', 30)];
+// levels off — and not the length of one hold. So the goals (hamstrings, hip flexors, the hip's rotation) hold 90 s a side, ~5 min a
+// week every other day, and the rest 45 s, ~2.6 min; both routines in a day, or the runs' cooldown, add to either
+const STRETCH_LEGS: Exercise[] = [stretch('Strap hamstring stretch', 90), stretch('Hip flexor stretch', 90), stretch('Standing quad stretch'), stretch('Calf stretch'), stretch('Bent-knee calf stretch')];
+const STRETCH_UPPER: Exercise[] = [stretch('Standing forward fold', 60), stretch('90/90 hip stretch', 90), stretch('Butterfly', 60), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach'), stretch('Neck stretch', 30)];
 const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Strap hamstring stretch', 60), stretch('Calf stretch'), stretch('Hip flexor stretch')];
 const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
