@@ -525,7 +525,10 @@ the deal's best candidate for it, in the deal's order, the rest of its
 routines and classes one tap further as chips; what is switched off folds
 last. Tapping anything puts it on the card. The Log-after sheet lost its
 **What**: the page is the picker, and the sheet is only when, how long and the
-sets.
+sets — its own component since 2026-11-17 ([today/LogAfter.svelte](src/lib/today/LogAfter.svelte)),
+opened with `start()` on the pick, because Today had grown to hold the card,
+the list and the whole form at once. It is not in the kit: the kit is props
+only, and this is domain through and through.
 
 ### The rule — progression.ts
 
