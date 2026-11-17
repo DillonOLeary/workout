@@ -185,9 +185,10 @@ yoga, the daily stretch, the run — each on or off, each at a cadence:
   (the daily stretch, three routines in turn — 3) and `run` (the easy run — 3).
 - The stretch is **two routines in turn**, one a day, ~8–9 min each:
   *Legs & Hips* (strap hamstring, hip flexor, quad, calf straight and bent)
-  and *Back, Chest & Hips* (standing fold, figure-4, butterfly, doorway chest,
+  and *Back, Chest & Hips* (standing fold, 90/90 hip, butterfly, doorway chest,
   thread the needle, a side reach, the neck) — between them every major group
-  the ACSM names, and the butterfly the one yoga asked for. Every note says a
+  the ACSM names, the butterfly the one yoga asked for, and the 90/90 —
+  the hip turning both ways — the stepping stone toward lotus. Every note says a
   strong pull, never pain, no bouncing. The neck stretch is the forward bow:
   the rig turns a head only in the sagittal plane, so a side tilt has no pose. The evidence chose the shape (read 2026-11-17): range of motion
   follows the minutes a muscle is stretched a week — about five before it

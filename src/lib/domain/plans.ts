@@ -32,6 +32,7 @@ const WHY: Record<string, string> = {
 	'Standing forward fold': 'The whole back line at once, hanging — gravity does the pulling, so there is nothing to force.',
 	'Standing quad stretch': 'The front of the thigh, which the run shortens and the hip flexor stretch only half reaches.',
 	'Bent-knee calf stretch': 'With the knee bent the stretch moves to the soleus, the low calf a run loads most.',
+	'90/90 hip stretch': 'The hip turning both ways at once — out on the front leg, in on the back — the range cross-legged sitting and lotus are made of.',
 	'Butterfly': 'The inner thighs and the hips opening outward — the shape behind wide folds and cross-legged sitting.',
 	'Neck stretch': 'The back of the neck, which a screen keeps short; the hands only add their weight.',
 	'Low Lunge': 'Hip flexors at length with the back knee down — the reach the run and the chair both take away.',
@@ -123,6 +124,7 @@ export const STRETCHES: Record<string, Exercise> = {
 	'Child’s Pose, side reach': HOLD('Child’s Pose, side reach', 45, `Hips on the heels, both hands walked to one side of the mat; breathe into the side that lengthens. ${GENTLE}`),
 	'Standing quad stretch': HOLD('Standing quad stretch', 45, `A hand on the wall; draw one heel to your seat, knees side by side, hips pressed forward. ${GENTLE}`),
 	'Bent-knee calf stretch': HOLD('Bent-knee calf stretch', 45, `Hands on the wall, a short step apart, both heels down; bend the back knee and sink until the low calf pulls. ${GENTLE}`),
+	'90/90 hip stretch': HOLD('90/90 hip stretch', 45, `Seated, front shin across your body, back shin out to the side behind, both knees bent to 90; sit tall, then lean over the front shin. Change sides for the second hold. ${GENTLE}`),
 	'Butterfly': HOLD('Butterfly', 60, `Seated, soles together, knees falling out; hold the feet and lean forward from the hips, back long. ${GENTLE}`, false),
 	'Neck stretch': HOLD('Neck stretch', 30, 'Sitting tall, hands on the back of the head; let the chin drop toward the chest and the hands add only their weight. Never pull.', false)
 };
@@ -139,7 +141,7 @@ const HER_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch', 60), stretch('Ha
 // thigh, calves). Range of motion follows the minutes a muscle is stretched a week — about five before it shows, about ten before it
 // levels off — so 45 s a side every other day is ~2.6 min a week each; both routines in a day, or the runs' cooldown, take it past five
 const STRETCH_LEGS: Exercise[] = [stretch('Strap hamstring stretch', 60), stretch('Hip flexor stretch'), stretch('Standing quad stretch'), stretch('Calf stretch'), stretch('Bent-knee calf stretch')];
-const STRETCH_UPPER: Exercise[] = [stretch('Standing forward fold', 60), stretch('Figure-4 stretch'), stretch('Butterfly', 60), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach'), stretch('Neck stretch', 30)];
+const STRETCH_UPPER: Exercise[] = [stretch('Standing forward fold', 60), stretch('90/90 hip stretch'), stretch('Butterfly', 60), stretch('Doorway chest stretch'), stretch('Thread the Needle'), stretch('Child’s Pose, side reach'), stretch('Neck stretch', 30)];
 const RUN_COOLDOWN: PrepItem[] = [{ name: 'Walk', minutes: 3 }, stretch('Strap hamstring stretch', 60), stretch('Calf stretch'), stretch('Hip flexor stretch')];
 const BW_COOLDOWN: PrepItem[] = [stretch('Hip flexor stretch'), stretch('Hamstring stretch')];
 
@@ -422,7 +424,7 @@ export const BLOCKS: Block[] = [
 		id: 'mob',		cycle: { id: 'mob', title: 'Stretch', routines: ['S', 'chest'], target: 3 },
 		routineInfo: {
 			S: { title: 'Legs & Hips', discipline: 'mobility', desc: 'Strap hamstring · hip flexor · quad · calf, straight and bent', warmup: [], cooldown: [] },
-			chest: { title: 'Back, Chest & Hips', discipline: 'mobility', desc: 'Standing fold · figure-4 · butterfly · chest · upper back · side · neck', warmup: [], cooldown: [] }
+			chest: { title: 'Back, Chest & Hips', discipline: 'mobility', desc: 'Standing fold · 90/90 hip · butterfly · chest · upper back · side · neck', warmup: [], cooldown: [] }
 		},
 		routines: {
 			S: STRETCH_LEGS,
