@@ -487,8 +487,9 @@ doing either pays the debt without moving the other's pointer.
 Every candidate carries its own `why` (`whyLine`), one mono line in the
 grammar Today already speaks, with a precedence: a re-entry warning first,
 then how long since ("First session", "3 days since Hinge & Haul"), then
-what the rule is about to move or where the week stands ("Chest Press comes
-back a size", "1 of 3 this week"). A circuit's line is the same grammar with
+what the rule is about to move ("Chest Press comes back a size"). Where the
+week stands is the caption's job ("Due · Strength · 1 of 3 this week"), and
+since 2026-11-17 never this line's too: Today's card showed the count twice. A circuit's line is the same grammar with
 its level first, and leaves the week to the caption above it: "Level II · 5
 rounds · 3 days since Hinge & Haul".
 

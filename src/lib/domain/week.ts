@@ -1,5 +1,5 @@
 import type { LedgerEvent, Workout } from './events';
-import { disciplineLabel, levelLine, setsPhrase, weekLine } from './labels';
+import { disciplineLabel, levelLine, setsPhrase } from './labels';
 import { CLASS_MINUTES, cycleDisciplines, levelsOf, routineGroups, routineTitle, type Cycle, type Discipline, type Exercise, type Plan } from './plan';
 import { REENTRY_DAYS, REENTRY_WARN_DAYS, daysUntilReentry, nextRounds, roundsDone, suggest } from './progression';
 import { historyFor, projectSessions, sessionEntries, type SessionView } from './projections';
@@ -136,7 +136,7 @@ export function queue(events: LedgerEvent[], plan: Plan, now: number): Candidate
 			// parsePlan: a cycle names only routines and a class the plan has, and every one has its info
 			const { discipline, title } = plan.routineInfo[routine];
 			const levels = levelsOf(plan, routine);
-			const why = whyLine(events, sessions, plan, cycle, routine, lastIn, now, done, target, levels && rounds ? levelLine(levels, rounds) : undefined);
+			const why = whyLine(events, sessions, plan, cycle, routine, lastIn, now, levels && rounds ? levelLine(levels, rounds) : undefined);
 			// bands that cannot touch: owed 1e8 > shortfall·1e6 > stale·1e3 + shorter (≤ 999,009)
 			const shorter = 999 - Math.min(999, minutes);
 			const score = (turn && target > 0 ? 1e8 : 0) + (turn ? shortfall : 0) * 1e6 + stale * 1e3 + shorter;
@@ -208,7 +208,7 @@ export function weekTally(events: LedgerEvent[], plan: Plan, now: number): { don
 	return { done, asked, gaps };
 }
 
-/** The mono line under a candidate: re-entry warning, days since the cycle last turned, then what the rule moves next — or where the week stands. A circuit says its `level` first, and leaves the week to the caption. */
+/** The mono line under a candidate: re-entry warning, a circuit's `level`, days since the cycle last turned, then what the rule moves next. Where the week stands is the caption's, never this line's. */
 function whyLine(
 	events: LedgerEvent[],
 	sessions: SessionView[],
@@ -217,8 +217,6 @@ function whyLine(
 	routine: string,
 	lastIn: SessionView | undefined,
 	now: number,
-	done: number,
-	target: number,
 	level?: string
 ): string {
 	const exercises: Exercise[] = plan.routines[routine] ?? [];
@@ -246,6 +244,5 @@ function whyLine(
 		const lastAge = Math.floor((now - Date.parse(lastIn.at)) / DAY);
 		sinceLine = lastAge === 0 ? `${title} today` : `${lastAge} ${lastAge === 1 ? 'day' : 'days'} since ${title}`;
 	}
-	const week = target > 0 ? weekLine(done, target) : cycle.title;
-	return [warn, level, sinceLine, movedLine ?? (level ? null : week)].filter(Boolean).join(' · ');
+	return [warn, level, sinceLine, movedLine].filter(Boolean).join(' · ');
 }

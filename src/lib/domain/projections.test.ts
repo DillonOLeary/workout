@@ -245,9 +245,9 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(q.map((c) => c.cycle)).toEqual(['mob', 'lift', 'run', 'floor']);
 		expect(q.map((c) => c.workout.routine)).toEqual(['S', 'A', 'run', 'bw1']);
 		expect(q.map((c) => c.discipline)).toEqual(['mobility', 'lift', 'run', 'bodyweight']);
-		expect(q[1]).toMatchObject({ title: 'Squat & Shove', why: 'First session · 0 of 3 this week', due: true });
+		expect(q[1]).toMatchObject({ title: 'Squat & Shove', why: 'First session', due: true });
 		expect(q[1]).toMatchObject({ week: 'lift', turn: true });
-		expect(q[3]).toMatchObject({ title: 'Push & Squat', why: 'First session · 0 of 3 this week', due: true, week: 'lift', turn: false });
+		expect(q[3]).toMatchObject({ title: 'Push & Squat', why: 'First session', due: true, week: 'lift', turn: false });
 		expect(q[0]).toMatchObject({ week: 'mob', turn: true });
 		expect(q.every((c) => c.why.length > 0 && c.minutes > 0)).toBe(true);
 	});
@@ -266,7 +266,7 @@ describe('queue — one candidate per cycle, ranked', () => {
 		expect(q[3]).toMatchObject({ due: false, week: 'lift', turn: false });
 		const paid = [...ledger('Goblet Squat', [{ daysAgo: 6, sets: [[35, 10]] }]), ...did('f1', 'bw1', 'bodyweight', 1), ...did('f2', 'bw1', 'bodyweight', 3)];
 		const lift = queue(paid, plan, NOW).find((c) => c.cycle === 'lift')!;
-		expect(lift).toMatchObject({ workout: { routine: 'B' }, due: false, why: '1 day since Push & Squat · 3 of 3 this week' });
+		expect(lift).toMatchObject({ workout: { routine: 'B' }, due: false, why: '1 day since Push & Squat' });
 		expect(queue(paid, plan, NOW).map((c) => c.cycle)).toEqual(['mob', 'run', 'lift', 'floor']);
 	});
 	it('says what the rule is about to move, in the grammar Today already speaks', () => {
@@ -286,11 +286,11 @@ describe('queue — one candidate per cycle, ranked', () => {
 			...ledger('Chest Press', [{ daysAgo: 12, sets: [[45, 10], [45, 10], [45, 10]], day: 'B', session: 'b' }]),
 			...ledger('Goblet Squat', [{ daysAgo: 1, sets: [[35, 10], [35, 10], [35, 10]], session: 'a' }])
 		];
-		expect(queue(warn, plan, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Re-entry haircut in 2 days · 1 day since Squat & Shove · 1 of 3 this week');
+		expect(queue(warn, plan, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Re-entry haircut in 2 days · 1 day since Squat & Shove');
 		const today = ledger('Goblet Squat', [{ daysAgo: 0, sets: [[35, 10]] }]);
-		expect(queue(today, plan, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Squat & Shove today · 1 of 3 this week');
+		expect(queue(today, plan, NOW).find((c) => c.cycle === 'lift')!.why).toBe('Squat & Shove today');
 		const elsewhere = did('o', 'X', 'mobility', 2, 'other');
-		expect(queue(elsewhere, plan, NOW).find((c) => c.cycle === 'mob')!.why).toBe('2 days since Stretch · 1 of 3 this week');
+		expect(queue(elsewhere, plan, NOW).find((c) => c.cycle === 'mob')!.why).toBe('2 days since Stretch');
 	});
 	it('deals a cycle’s class as its turn and the next routine behind it, never above it', () => {
 		const yoga: Plan = {
@@ -301,10 +301,10 @@ describe('queue — one candidate per cycle, ranked', () => {
 		};
 		const q = queue([], yoga, NOW);
 		expect(q.map((c) => [c.workout.routine, c.turn, c.due, c.week])).toEqual([['studio', true, true, 'yoga'], ['Y', false, true, 'yoga']]);
-		expect(q[0]).toMatchObject({ title: 'Yoga class', minutes: 60, why: 'First session · 0 of 2 this week' });
+		expect(q[0]).toMatchObject({ title: 'Yoga class', minutes: 60, why: 'First session' });
 		const once = did('c', 'studio', 'yoga', 1);
 		expect(weekProgress(once, yoga, yoga.cycles[0], NOW)).toEqual({ done: 1, target: 2 });
-		expect(queue(once, yoga, NOW)[0]).toMatchObject({ workout: { routine: 'studio' }, why: '1 day since Yoga class · 1 of 2 this week' });
+		expect(queue(once, yoga, NOW)[0]).toMatchObject({ workout: { routine: 'studio' }, why: '1 day since Yoga class' });
 		expect(nextInCycle(once, yoga, yoga.cycles[0])).toBe('Y'); // a class never turns the cycle
 	});
 	it('lays the deal out by practice — the gym and the floor one row, headed by the best candidate, in the deal’s order, what is off last', () => {
@@ -490,7 +490,7 @@ describe('the split — strength at the gym and on the floor, one week between t
 	it('ranks only the turn as owed; the other way to pay the week is dealt last, still due', () => {
 		const q = queue(gym('g1', 1), two, NOW);
 		expect(q.map((c) => c.cycle)).toEqual(['mob', 'run', 'floor', 'lift']);
-		expect(q[2]).toMatchObject({ title: 'Push & Squat', due: true, week: 'lift', turn: true, why: '1 day since Squat & Shove · 1 of 3 this week' });
+		expect(q[2]).toMatchObject({ title: 'Push & Squat', due: true, week: 'lift', turn: true, why: '1 day since Squat & Shove' });
 		expect(q[3]).toMatchObject({ due: true, week: 'lift', turn: false });
 		expect(queue([], split(0, 3), NOW).map((c) => c.cycle).slice(-1)).toEqual(['lift']);
 	});
