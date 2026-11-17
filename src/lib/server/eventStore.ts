@@ -4,7 +4,7 @@ import {
 	type PostgresEventStore
 } from '@event-driven-io/emmett-postgresql';
 import { dev } from '$app/environment';
-import { currentConnectionString } from './db';
+import { PG_LIMITS, currentConnectionString } from './db';
 
 const g = globalThis as typeof globalThis & { __ledgerEventStore?: PostgresEventStore };
 
@@ -18,7 +18,7 @@ export async function withEventStore<T>(
 		return fn(store);
 	}
 	const cs = currentConnectionString();
-	const client = new pg.Client({ connectionString: cs });
+	const client = new pg.Client({ connectionString: cs, ...PG_LIMITS });
 	await client.connect();
 	const store = getPostgreSQLEventStore(cs, {
 		schema: { autoMigration: 'None' },

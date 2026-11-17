@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { tryCommand } from '$lib/server/ledger';
+import type { LedgerCommand } from '$lib/domain/commands';
 import { requireUid } from '$lib/server/auth';
 import { parseMeasure } from '$lib/domain/measure';
 import type { Actions } from './$types';
@@ -31,15 +32,16 @@ export const actions: Actions = {
 			return fail(400, { message: 'Malformed corrections.' });
 		}
 		if (!Array.isArray(list) || !list.length) return fail(400, { message: 'Nothing changed.' });
+		// every fix in one append: a refused one keeps the rest from landing half-saved
+		const at = new Date().toISOString();
+		const fixes: LedgerCommand[] = [];
 		for (const c of list as { item?: unknown; index?: unknown; measure?: unknown }[]) {
 			const measure = parseMeasure(c?.measure);
 			if (!measure || typeof c.item !== 'string' || typeof c.index !== 'number')
 				return fail(400, { message: 'Malformed correction.' });
-			const err = await tryCommand(uid, {
-				type: 'CorrectEntry',
-				data: { session, item: c.item, index: c.index, at: new Date().toISOString(), measure }
-			});
-			if (err) return fail(400, { message: err });
+			fixes.push({ type: 'CorrectEntry', data: { session, item: c.item, index: c.index, at, measure } });
 		}
+		const err = await tryCommand(uid, fixes);
+		if (err) return fail(400, { message: err });
 	}
 };

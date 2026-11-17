@@ -37,7 +37,9 @@ pnpm add @event-driven-io/emmett @event-driven-io/emmett-postgresql pg
 Secrets live in `.env.local` (git-ignored), read at runtime via
 `$env/dynamic/private`:
 
-- `DB` — your Neon connection string
+- `DB` — a **local** Postgres in dev (`postgres://…@localhost:5432/ledger_dev`);
+  production's Neon string lives only in the Cloudflare dashboard. Never point
+  dev at Neon: the app migrates whatever `DB` names, and writes to it
 - `LEDGER_PEPPER` — HMAC secret that signs the stay-signed-in cookie and the
   passkey ceremony's cookie ([src/lib/server/auth.ts](src/lib/server/auth.ts)).
   Until 2026-10-04 it also turned phone numbers into account ids; those ids are
@@ -54,7 +56,7 @@ One wrinkle: `adapter-cloudflare` emulates the Worker bindings from
 `process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` — a
 variable Vite never sets from `.env.local`. [vite.config.ts](vite.config.ts)
 bridges that by copying `DB` into it at startup, so local "Hyperdrive" is
-just Neon, `DB` stays the one secret, and the Hyperdrive branch of
+just your local Postgres, `DB` stays the one secret, and the Hyperdrive branch of
 [hooks.server.ts](src/hooks.server.ts) runs in dev exactly as in prod.
 
 Two more folders sit beside `src/`: [tools/glyphs](tools/glyphs) snapshots the
@@ -354,11 +356,22 @@ records nothing; `TogglePractice` refuses a practice the week has not got
 minutes for anything but the run, and records nothing when the goal is the
 one already set; `SetRest` refuses a rest off its dial (`REST_SECONDS`: 30–180
 in 15 s steps) and records nothing when it is the one already set; `StartSession` and `LogAfter` refuse a discipline that is
-not one of the five.
+not one of the five; and a weighted set at 0 is refused, because the
+upcaster reads a load of 0 as the bodyweight reps the first rows wrote that
+way — a 0 written today would come back as something else and could not be
+corrected (`decreasedWeight` stops at one inc, so the − tile never gets there).
 
 Notice also what's *not* here: `crypto.randomUUID()` and `new Date()` live in
 the form actions and are passed **into** commands, so the decider is
-deterministic and trivially testable. And the decider validates **shape,
+deterministic and trivially testable. One id is made earlier still: Log it's
+session id is made when its sheet opens and posted with the form, so a double
+tap or a resend over a slow link is the same session — and `LogAfter`'s
+refusal of an id it has seen, which a fresh id per request could never
+trigger, finally does its job. The action checks it is a UUID, rebuilds every
+entry with `parseMeasure` like the floor and the Ledger do, and stamps both
+times as ISO inside the fortnight the sheet can reach. A Ledger "Save 3 fixes"
+is one call too: `tryCommand` takes a list, Emmett decides each on the state
+the one before left, and they land in one append or not at all. And the decider validates **shape,
 never meaning**: it doesn't know the plan, so it cannot say whether "Goblet
 Squat #4" is a set the routine asked for. The plan says what an entry means;
 the decider says whether it can be recorded.
@@ -388,7 +401,12 @@ render.
 
 The store itself ([src/lib/server/eventStore.ts](src/lib/server/eventStore.ts))
 migrates the schema only in dev (`autoMigration: 'None'` in prod) — a new
-database gets its tables by running the app once locally. Go look — this is
+local database gets its tables by running the app once. Production's tables
+change only by hand, with `pnpm db:migrate`
+([tools/stream/migrate.mjs](tools/stream/migrate.mjs)): it refuses a Neon `DB`
+without `--neon`, and the order is a Neon branch first, the app checked on it,
+then main. Until 2026-11-17 the only route the tour gave was running dev against
+Neon, which CLAUDE.md forbids. Go look — this is
 your data now: [forensics.sql](tools/stream/forensics.sql) has the queries,
 starting with every stream and its event counts.
 

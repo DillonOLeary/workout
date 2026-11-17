@@ -98,12 +98,12 @@ export async function finishRegistration(url: URL, uid: string, response: Regist
 export const beginAuthentication = (url: URL): Promise<PublicKeyCredentialRequestOptionsJSON> =>
 	generateAuthenticationOptions({ rpID: rp(url).rpID, userVerification: 'required' });
 
-/** Whose ledger a signed challenge opens; or why not, with `unknown` when the passkey is on no ledger, so the phone can forget it. */
-export async function finishAuthentication(url: URL, response: AuthenticationResponseJSON, challenge: string): Promise<{ uid: string } | { message: string; unknown?: string }> {
+/** Whose ledger a signed challenge opens; or why not. */
+export async function finishAuthentication(url: URL, response: AuthenticationResponseJSON, challenge: string): Promise<{ uid: string } | { message: string }> {
 	const { rpID, origin } = rp(url);
 	return run(async (sql) => {
 		const [row] = await sql<Row>('select * from ledger_passkeys where id = $1', [response.id]);
-		if (!row) return { message: 'That passkey isn’t on a ledger any more.', unknown: response.id };
+		if (!row) return { message: 'That passkey isn’t on a ledger any more.' };
 		let v;
 		try {
 			v = await verifyAuthenticationResponse({

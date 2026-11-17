@@ -21,9 +21,9 @@ export function increasedWeight(weight: number, ex: Loaded): number {
 	return ex.progress.rack ? nextRung(weight, ex.progress.rack) : weight + ex.progress.inc;
 }
 
-/** One size down: the previous rung, or −inc off a rack. Never negative. */
+/** One size down: the previous rung, or −inc off a rack, never below one inc — a weighted set at 0 would read back as bodyweight reps. */
 export function decreasedWeight(weight: number, ex: Loaded): number {
-	return ex.progress.rack ? prevRung(weight, ex.progress.rack) : Math.max(0, weight - ex.progress.inc);
+	return ex.progress.rack ? prevRung(weight, ex.progress.rack) : Math.max(ex.progress.inc, weight - ex.progress.inc);
 }
 
 /** The ± tile on a load: one size along the exercise's own ladder. */

@@ -264,11 +264,12 @@ describe('a set against its range', () => {
 });
 
 describe('the ± tiles are the rule’s own one-size step', () => {
-	it('walks the rack, or the machine’s inc, never below zero', () => {
+	it('walks the rack, or the machine’s inc, never below one inc — a weighted set at 0 would read back as reps', () => {
 		expect(bumpLoad(goblet, 35, 1)).toBe(40);
 		expect(bumpLoad(goblet, 35, -1)).toBe(30);
 		expect(bumpLoad(press, 45, 1)).toBe(50);
-		expect(bumpLoad(press, 0, -1)).toBe(0);
+		expect(bumpLoad(press, 10, -1)).toBe(5);
+		expect(bumpLoad(press, 5, -1)).toBe(5);
 	});
 	it('moves a hold by its inc inside the range, a count by one inside the bounds, a run by five minutes', () => {
 		expect(bumpCount(plank, 10, 1)).toBe(15);

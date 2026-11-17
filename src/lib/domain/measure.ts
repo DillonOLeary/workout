@@ -78,8 +78,9 @@ const isInt = (n: unknown): n is number => Number.isInteger(n);
 export function validateMeasure(m: Measure): void {
 	switch (m.of) {
 		case 'load':
-			if (!Number.isFinite(m.load) || m.load < 0 || m.load > 2000)
-				throw new ValidationError('Weight is out of range.');
+			// zero is refused, not just odd: the upcaster reads a load of 0 as the bodyweight reps the first rows wrote that way
+			if (!Number.isFinite(m.load) || m.load <= 0 || m.load > 2000)
+				throw new ValidationError('A weighted set needs a weight — a bodyweight set is counted in reps.');
 			if (!isInt(m.reps) || m.reps < 1 || m.reps > 100) throw new ValidationError('Reps are out of range.');
 			return;
 		case 'reps':

@@ -11,8 +11,7 @@ async function post(body: object): Promise<Record<string, unknown>> {
 	const res = await fetch('/passkey', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
-		// the phone holds a passkey this site no longer knows: ask it to forget, so the prompt stops offering it
-		if (typeof data.unknown === 'string') void signal({ signalName: 'unknownCredential', rpID: location.hostname, credentialID: data.unknown });
+		// a passkey the server can't find is never signalled as unknown: an empty or wrong database would make every phone delete a working one
 		throw new Refused(typeof data.message === 'string' ? data.message : `Something went wrong (${res.status}). Try again.`);
 	}
 	return data;

@@ -17,7 +17,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && vitest run && node tools/glyphs/bake.mjs --check",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"db:migrate": "node --env-file-if-exists=.env.local tools/stream/migrate.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.2.9",

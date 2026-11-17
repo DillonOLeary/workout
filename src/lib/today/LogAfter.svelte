@@ -39,6 +39,9 @@
 	let startSet = $state(false);
 	let len = $state(0);
 	let afterError = $state('');
+	// the session's id is made when the sheet opens, not when it posts: a second tap or a resend over a slow link is the same session, and the decider refuses it
+	let sessionId = $state('');
+	let saving = $state(false);
 	function planned(ex: Exercise): AfterSet[] {
 		const s = suggest(historyFor(events, ex.name), ex, now);
 		return Array.from({ length: ex.sets }, (_, k) => {
@@ -62,6 +65,8 @@
 	}
 	/** Open the sheet on the routine, as the plan would have it, today, ended about now. */
 	export function start() {
+		sessionId = crypto.randomUUID();
+		saving = false;
 		startSet = false;
 		whenIdx = 0;
 		afterError = '';
@@ -165,14 +170,15 @@
 	{#snippet foot()}
 		<Note size="sm">{afterSummary}</Note>
 		{#if afterError}<Note size="sm"><span class="err">{afterError}</span></Note>{/if}
-		<form method="POST" action="?/logAfter" use:enhance={() => async ({ result, update }) => { afterError = result.type === 'failure' ? String(result.data?.message ?? 'That didn’t save.') : ''; await update(); }}>
+		<form method="POST" action="?/logAfter" use:enhance={() => { saving = true; return async ({ result, update }) => { afterError = result.type === 'failure' ? String(result.data?.message ?? 'That didn’t save.') : ''; saving = false; await update(); }; }}>
+			<input type="hidden" name="session" value={sessionId} />
 			<input type="hidden" name="plan" value={plan.id} />
 			<input type="hidden" name="routine" value={routine} />
 			{#if afterRounds !== undefined}<input type="hidden" name="rounds" value={afterRounds} />{/if}
 			<input type="hidden" name="startAt" value={startAt.toISOString()} />
 			<input type="hidden" name="at" value={endAt.toISOString()} />
 			<input type="hidden" name="entries" value={JSON.stringify(entries)} />
-			<Primary type="submit" disabled={!entries.length}>Log it</Primary>
+			<Primary type="submit" disabled={!entries.length || saving}>{saving ? 'Saving…' : 'Log it'}</Primary>
 		</form>
 	{/snippet}
 </Sheet>

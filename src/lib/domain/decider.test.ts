@@ -65,10 +65,11 @@ describe('decide — the measure validates on its own branch', () => {
 		expect(() => decide(log({ of: 'reps', reps: 0 }), open())).toThrow(ValidationError);
 		expect(decide(log({ of: 'reps', reps: 8 }), open())).toHaveLength(1);
 	});
-	it('bounds weight 0–2000', () => {
+	it('bounds weight above 0 to 2000 — a load of 0 is what the first rows wrote for bodyweight, and the upcaster reads it as reps', () => {
 		expect(() => decide(set(-1), open())).toThrow(ValidationError);
+		expect(() => decide(set(0), open())).toThrow(/needs a weight/);
 		expect(() => decide(set(2001), open())).toThrow(ValidationError);
-		expect(decide(set(0), open())).toHaveLength(1);
+		expect(decide(set(2.5), open())).toHaveLength(1);
 	});
 	it('bounds holds 1–600 and their targets', () => {
 		expect(() => decide(log({ of: 'hold', seconds: 601 }), open())).toThrow(ValidationError);
